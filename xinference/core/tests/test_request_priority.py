@@ -119,11 +119,12 @@ async def test_waiting_requests_run_by_priority_then_arrival(method, capacity):
 
 
 @pytest.mark.asyncio
-async def test_queued_abort_never_reaches_engine():
+@pytest.mark.parametrize("backend_result", ["DONE", "NO_OP", "NOT_FOUND"])
+async def test_queued_abort_never_reaches_engine(backend_result):
     actor, model = _actor()
     started = []
     unblock = asyncio.Event()
-    model.abort_request = AsyncMock(return_value="DONE")
+    model.abort_request = AsyncMock(return_value=backend_result)
 
     async def infer(prompt, config):
         started.append(config["request_id"])
@@ -139,13 +140,44 @@ async def test_queued_abort_never_reaches_engine():
     )
     next_request = asyncio.create_task(actor.generate("hello", {"request_id": "next"}))
     await _wait_for(lambda: len(actor._request_priority_scheduler._waiting) == 2)
-    await actor.abort_request("cancel", block_duration=0)
+    assert await actor.abort_request("cancel", block_duration=0) == "DONE"
     with pytest.raises(asyncio.CancelledError):
         await cancelled
     unblock.set()
     await asyncio.gather(busy, next_request)
     assert started == ["busy", "next"]
     assert actor._serve_count == 0
+
+
+@pytest.mark.asyncio
+async def test_abort_acknowledges_actor_task_after_engine_cleanup():
+    actor, model = _actor()
+    started, cleaned = asyncio.Event(), asyncio.Event()
+
+    async def infer(prompt, config):
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cleaned.set()
+
+    async def abort(request_id):
+        await asyncio.wait_for(cleaned.wait(), 3)
+        return "NOT_FOUND"
+
+    model.generate = infer
+    model.abort_request = AsyncMock(side_effect=abort)
+    task = asyncio.create_task(actor.generate("hello", {"request_id": "active"}))
+    try:
+        await asyncio.wait_for(started.wait(), 3)
+        assert await actor.abort_request("active", block_duration=0) == "DONE"
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert await actor.abort_request("unknown", block_duration=0) == "NOT_FOUND"
+        assert actor._serve_count == 0
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
 
 
 @pytest.mark.asyncio

@@ -53,6 +53,22 @@ async def test_invalid_priority_returns_a_client_error(endpoint, priority):
     assert caught.value.detail[0]["loc"] == ("priority",)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["chat", "completion"])
+async def test_missing_model_returns_a_validation_error(endpoint):
+    api = object.__new__(restful_api.RESTfulAPI)
+    request = SimpleNamespace(
+        json=AsyncMock(return_value={"prompt": "hello", "messages": []})
+    )
+    handler = (
+        api.create_chat_completion if endpoint == "chat" else api.create_completion
+    )
+    with pytest.raises(HTTPException) as caught:
+        await handler(request)
+    assert caught.value.status_code == 422
+    assert any(error["loc"] == ("model",) for error in caught.value.detail)
+
+
 @pytest.mark.parametrize(
     "engine", ["vLLM", "SGLang", "Transformers", "MLX", "llama.cpp", "TRT-LLM"]
 )

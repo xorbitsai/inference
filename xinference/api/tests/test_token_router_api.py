@@ -1,3 +1,5 @@
+# CI: linux
+
 import asyncio
 import hashlib
 import json
@@ -579,31 +581,29 @@ async def test_tokenizer_asset_registry_operations_are_serialized(tmp_path) -> N
 
 @pytest.mark.asyncio
 async def test_tokenizer_asset_registry_keeps_event_loop_responsive(tmp_path) -> None:
-    started = threading.Event()
+    loop = asyncio.get_running_loop()
+    started = asyncio.Event()
     release = threading.Event()
+    finished = threading.Event()
     supervisor = make_supervisor(tmp_path)
     registry = supervisor._tokenizer_asset_registry
     original_list_assets = registry.list_assets
 
     def list_assets():
-        started.set()
-        release.wait(timeout=1)
+        loop.call_soon_threadsafe(started.set)
+        release.wait(timeout=5)
+        finished.set()
         return original_list_assets()
 
     registry.list_assets = list_assets
-    safety_timer = threading.Timer(0.5, release.set)
-    safety_timer.start()
-    loop = asyncio.get_running_loop()
-    started_at = loop.time()
     task = asyncio.create_task(supervisor.get_tokenizer_asset(ASSET_ID))
     try:
-        await asyncio.sleep(0.02)
-        elapsed = loop.time() - started_at
-        assert started.is_set()
-        assert elapsed < 0.25
+        await asyncio.wait_for(started.wait(), timeout=5)
+        # The event loop must resume while the registry thread is still blocked.
+        assert not finished.is_set()
+        assert not task.done()
     finally:
         release.set()
-        safety_timer.cancel()
         await task
 
 

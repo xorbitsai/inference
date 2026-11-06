@@ -1740,7 +1740,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             result = await self._model.abort_request(request_id)
             if (
                 result is not None
-                and (not cancelled or result != AbortRequestMessage.NO_OP.name)
+                and (
+                    not cancelled
+                    or result
+                    not in (
+                        AbortRequestMessage.NO_OP.name,
+                        AbortRequestMessage.NOT_FOUND.name,
+                    )
+                )
                 and (
                     result != AbortRequestMessage.NO_OP.name
                     or generation_result == AbortRequestMessage.NO_OP.name
