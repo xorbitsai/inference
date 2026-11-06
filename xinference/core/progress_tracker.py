@@ -346,6 +346,11 @@ class Progressor:
     async def finish_launch(self, success: bool) -> None:
         """Finish only this launch generation; late stage reports are ignored."""
         if self.request_id and self.generation:
+            kwargs: Dict[str, Any] = (
+                {"generation": self.generation, "finished": True}
+                if not self._legacy_launch_tracker
+                else {}
+            )
             await actor_call(
                 self.progress_tracker_ref,
                 "set_progress",
@@ -355,11 +360,7 @@ class Progressor:
                     "stage": "completed" if success else "failed",
                     "updated_at": time.time(),
                 },
-                **(
-                    {"generation": self.generation, "finished": True}
-                    if not self._legacy_launch_tracker
-                    else {}
-                ),
+                **kwargs,
                 _rpc_operation_request_id=self.request_id,
                 _rpc_parent_metadata=self._rpc_metadata,
             )
