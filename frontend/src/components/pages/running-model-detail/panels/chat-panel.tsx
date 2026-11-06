@@ -46,7 +46,7 @@ import type { FileUploadValue } from '@/types/common';
 import { useI18n } from '@/contexts/i18n-context';
 
 import type { ChatMessage, ChatSettings } from '../types';
-import { transformFileInfoForResult } from '../utils';
+import { isTokenRouterModel, transformFileInfoForResult } from '../utils';
 import { ReasoningEffortInput, supportedChatSettings, supportsEffort } from './chat-reasoning';
 
 const fileDataUrlCache = new WeakMap<File, string>();
@@ -178,9 +178,10 @@ const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
 interface ChatPanelProps {
   model: RunningModelDetail;
   modelUid: string;
+  runtimeContextLength?: number | null;
 }
 
-export function ChatPanel({ model, modelUid }: ChatPanelProps) {
+export function ChatPanel({ model, modelUid, runtimeContextLength }: ChatPanelProps) {
   const { t } = useI18n();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [form] = useForm();
@@ -491,7 +492,10 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
                 type="number"
                 aria-label={t('runningModels.detail.maxTokensLabel')}
                 min={0}
-                max={model.context_length || undefined}
+                max={
+                  (isTokenRouterModel(model) ? model.context_length : runtimeContextLength) ||
+                  undefined
+                }
               />
             </FormField>
             {!!effortCapability?.values.length && (

@@ -154,6 +154,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
             self.stop()
             raise
 
+    def get_runtime_context_length(self) -> Optional[int]:
+        from ..context_length import normalize_runtime_positive_int
+
+        adapter_limit = super().get_runtime_context_length()
+        engine_limit = normalize_runtime_positive_int(
+            getattr(getattr(self._engine, "args", None), "max_seq_len", None)
+        )
+        limits = [limit for limit in (adapter_limit, engine_limit) if limit is not None]
+        return min(limits) if limits else None
+
     def _apply_draft_model(self, config: dict) -> None:
         """Consume common launch options before calling TRT's Python API."""
         draft = config.pop("draft_model_path", None)

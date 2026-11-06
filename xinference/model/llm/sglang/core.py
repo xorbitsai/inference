@@ -1112,6 +1112,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             raise RuntimeError("SGLang PD decode aborted")
         return reason is not None and str(reason).lower() != "none"
 
+    def get_runtime_context_length(self) -> Optional[int]:
+        import requests
+
+        from ..context_length import normalize_runtime_positive_int
+
+        if self._engine is None:
+            return None
+        with requests.get(
+            self._engine.url + "/get_model_info",
+            headers=self._engine_headers(),
+            timeout=2,
+        ) as response:
+            response.raise_for_status()
+            return normalize_runtime_positive_int(response.json().get("context_length"))
+
     def _engine_headers(self) -> dict:
         api_key = getattr(self, "_model_config", {}).get("api_key")
         return {"Authorization": f"Bearer {api_key}"} if api_key else {}

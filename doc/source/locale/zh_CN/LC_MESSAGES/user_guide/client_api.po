@@ -384,3 +384,38 @@ msgstr ""
 
 msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
 msgstr "Xinference 现在会为所有引擎检查客户端传入的 ``request_id``，包括未提供 ``priority`` 的请求。同一副本上的活动请求必须使用唯一 ID。中止请求后，该 ID 默认封禁 30 秒；重试时请使用新 ID，或通过中止请求中的 ``block_duration`` 配置封禁时间。"
+
+#: user_guide/client_api.rst:10
+msgid "Loaded context length"
+msgstr "已加载模型的上下文长度"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent"
+" call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` "
+"endpoint. ``runtime_context_length`` is the loaded adapter's total input-"
+"plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each"
+" ``replica_uid`` and its limit. The model-wide value is the minimum only "
+"when every active replica reports a value. Queries follow the serving "
+"generation after reload; the model details panel fetches this information on"
+" entry and after a reload."
+msgstr ""
+"``client.get_model_runtime_info(model_uid)`` 及其异步版本调用 Xinference 专用接口 ``GET "
+"/v1/models/{model_uid}/runtime``。``runtime_context_length`` 表示已加载适配器的输入与输出 "
+"token 总上限，未知时为 ``null``。``replicas`` 列出各个 ``replica_uid`` "
+"及其上限。只有所有活动副本均返回数值时，模型级上限才取其中最小值。重载后查询会跟随当前服务中的实例；模型详情面板在打开页面和重载完成后查询一次。"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"The registered ``context_length`` and OpenAI/Anthropic model, generation, "
+"and streaming response formats remain unchanged. vLLM, Transformers, MLX, "
+"and TRT-LLM report their adapter limit; SGLang queries its runtime. "
+"llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's "
+"``/props`` endpoint, rather than dividing the launch-time total capacity. "
+"Older runtimes without a query interface report ``null``. The limit does not"
+" guarantee available memory."
+msgstr ""
+"注册信息中的 ``context_length`` 以及 OpenAI/Anthropic "
+"的模型、生成和流式响应格式保持不变。vLLM、Transformers、MLX 和 TRT-LLM 返回适配器上限；SGLang "
+"查询其运行时。llama.cpp 从已加载服务的 ``/props`` 接口读取实际生效的每槽位 "
+"``n_ctx``，而不是用启动时的总容量除以槽位数。不提供查询接口的旧版运行时返回 ``null``。该上限不保证请求所需的内存始终可用。"
