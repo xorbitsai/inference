@@ -28,7 +28,7 @@ class _Model(LLM):
     def match_json(cls, *args):
         return True
 
-    def get_request_priority_capacity(self):
+    def get_request_priority_capacity(self, generate_config=None):
         return self.capacity
 
 
@@ -514,3 +514,75 @@ async def test_engines_without_a_fallback_queue_keep_engine_metadata(native, fal
     model.generate = infer
     await actor.generate("hello", {"priority": -5})
     assert "_request_priority_scheduler" not in actor.__dict__
+
+
+@pytest.mark.asyncio
+async def test_serial_and_batch_waiters_share_capacity_and_cancel_safely():
+    scheduler = PriorityScheduler(4)
+    await scheduler.acquire(0, 1)
+    low = asyncio.create_task(scheduler.acquire(10, 1))
+    high = asyncio.create_task(scheduler.acquire(-10, 1))
+    await _wait_for(lambda: len(scheduler._waiting) == 2)
+    # A blocked serial path must not prevent otherwise eligible batch work.
+    for _ in range(3):
+        await asyncio.wait_for(scheduler.acquire(0, 4), 1)
+    extra_batch = asyncio.create_task(scheduler.acquire(0, 4))
+    await _wait_for(lambda: len(scheduler._waiting) == 3)
+    assert scheduler._available == 0
+    scheduler.release(1)
+    high.cancel()  # Return both path and total capacity after reservation.
+    with pytest.raises(asyncio.CancelledError):
+        await high
+    await asyncio.wait_for(extra_batch, 1)
+    assert not low.done()
+    scheduler.release(4)
+    await asyncio.wait_for(low, 1)
+    scheduler.release(1)
+    for _ in range(3):
+        scheduler.release(4)
+    assert scheduler._available == 4
+
+
+@pytest.mark.asyncio
+async def test_close_rejects_waiters_in_each_execution_path():
+    scheduler = PriorityScheduler(4)
+    await scheduler.acquire(0, 1)
+    for _ in range(3):
+        await scheduler.acquire(0, 4)
+    waiters = [asyncio.create_task(scheduler.acquire(0, path)) for path in (1, 4)]
+    await _wait_for(lambda: len(scheduler._waiting) == 2)
+    scheduler.close()
+    for waiter in waiters:
+        with pytest.raises(RuntimeError, match="stopping"):
+            await waiter
+    scheduler.release(1)
+    for _ in range(3):
+        scheduler.release(4)
+
+
+@pytest.mark.asyncio
+async def test_admitted_sync_call_keeps_rpc_context_and_stops_its_executor():
+    from unittest.mock import Mock
+
+    from ..rpc_context import get_current_rpc_metadata
+
+    actor, model = _actor()
+    observed = []
+
+    def infer(prompt, config):
+        metadata = get_current_rpc_metadata()
+        observed.append(metadata.correlation_id if metadata else None)
+        return {"choices": []}
+
+    model.generate = infer
+    model.stop = Mock()
+    metadata = {
+        RPC_METADATA_KEY: RpcMetadata(correlation_id="sync-request").to_payload()
+    }
+    await actor.generate("hello", {}, **metadata)
+    executor = actor._request_priority_executor
+    assert observed == ["sync-request"]
+    await actor.stop()
+    model.stop.assert_called_once()
+    with pytest.raises(RuntimeError, match="shutdown"):
+        executor.submit(lambda: None)

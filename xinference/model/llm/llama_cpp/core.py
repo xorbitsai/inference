@@ -217,7 +217,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
 
-    def get_request_priority_capacity(self) -> int:
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
         return self._request_priority_capacity
 
     def __init__(
@@ -508,9 +510,12 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     )
 
             self._llm = Server(params)
-            self._request_priority_capacity = max(1, params.n_parallel)
+            callback_workers = max(10, n_threads)
+            self._request_priority_capacity = max(
+                1, min(params.n_parallel, callback_workers)
+            )
             self._executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=max(10, n_threads)
+                max_workers=callback_workers
             )
         except AssertionError:
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")

@@ -59,8 +59,10 @@ class LLM(abc.ABC):
     # whether the engine can load a GGUF quantization uploaded as split files
     support_split_gguf = True
 
-    def get_request_priority_capacity(self) -> int:
-        """Maximum requests admitted to engines without native priority queues."""
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        """Total admission capacity, or a request's execution-path limit."""
         return 1
 
     def __init__(

@@ -894,10 +894,23 @@ class _CachedTextVisionModel:
 
 
 class MLXModel(LLM, ChatModelMixin):
-    def get_request_priority_capacity(self) -> int:
-        if getattr(self, "_batch_model", None) is not None:
-            return self._model_config.get("batch_size", 4)
-        return 1
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        if getattr(self, "_batch_model", None) is None:
+            return 1
+        if generate_config is not None:
+            _, config = self._prepare_chat_controls(generate_config)
+            if (
+                config.get("response_format")
+                or is_forced_tool_choice(config)
+                or config.get("_mlx_thinking_budget") is not None
+                or config.get("_mlx_cache_boundaries")
+                # Chat resolves these checkpoints after rendering the prompt.
+                or config.get("_anthropic_cache_control")
+            ):
+                return 1
+        return self._model_config.get("batch_size", 4)
 
     supports_cache_salt = True
     supports_tool_controls = True

@@ -22,7 +22,9 @@ import threading
 import time
 import types
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
+from contextvars import copy_context
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -287,6 +289,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         scheduler = self.__dict__.get("_request_priority_scheduler")
         if scheduler is not None:
             scheduler.close()
+        ModelActor._shutdown_request_priority_executor(self)
         await ModelActor._drain_realtime(self)
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
@@ -990,11 +993,17 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     exc_info=True,
                 )
 
+    def _shutdown_request_priority_executor(self):
+        executor = self.__dict__.pop("_request_priority_executor", None)
+        if executor is not None:
+            executor.shutdown(wait=False)
+
     async def stop(self):
         self._model_state = "stopping"
         scheduler = self.__dict__.get("_request_priority_scheduler")
         if scheduler is not None:
             scheduler.close()
+        ModelActor._shutdown_request_priority_executor(self)
         # WorkerActor calls stop() before destroy_actor(), so teardown alone is
         # too late to protect resources released by the model's stop()/close().
         await ModelActor._drain_realtime(self)
@@ -1347,6 +1356,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         from ..request_priority import PriorityScheduler
 
         priority = kwargs.pop("_request_priority", None)
+        capacity = kwargs.pop("_request_priority_capacity", None)
         request_id = kwargs.pop("_priority_request_id", None) or kwargs.get(
             "request_id"
         )
@@ -1359,7 +1369,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             scheduler = self._request_priority_scheduler = PriorityScheduler(
                 self._model.get_request_priority_capacity()
             )
-        await scheduler.acquire(priority)
+        await scheduler.acquire(priority, capacity)
         transferred = False
         try:
             self._require_ready()
@@ -1367,7 +1377,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 output_type, fn, *args, _priority_managed=True, **kwargs
             )
             if inspect.isgenerator(result) or inspect.isasyncgen(result):
-                stream = self._priority_stream(result, scheduler, request_id)
+                stream = self._priority_stream(result, scheduler, request_id, capacity)
                 # Enter the finally block before handing ownership to xoscar,
                 # including streams closed before their first client read.
                 await stream.__anext__()
@@ -1376,9 +1386,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return result
         finally:
             if not transferred:
-                scheduler.release()
+                scheduler.release(capacity)
 
-    async def _priority_stream(self, iterator, scheduler, request_id):
+    async def _priority_stream(self, iterator, scheduler, request_id, capacity=None):
         exhausted = object()
         completed = False
         try:
@@ -1411,7 +1421,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                             asyncio.create_task(asyncio.to_thread(iterator.close))
                         )
                 finally:
-                    scheduler.release()
+                    scheduler.release(capacity)
 
     async def _call_wrapper_inner(
         self, output_type: str, fn: Callable, *args, **kwargs
@@ -1429,10 +1439,21 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             if not wait_for_sync_on_cancel:
                 return await asyncio.to_thread(fn, *args, **kwargs)
 
-            # World generation runs a synchronous subprocess adapter.  Keep the
-            # actor task (and therefore its request-limit slot) alive until the
-            # worker thread has observed cancellation and reaped that process.
-            thread_task = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
+            if priority_managed:
+                executor = self.__dict__.get("_request_priority_executor")
+                if executor is None:
+                    executor = self._request_priority_executor = ThreadPoolExecutor(
+                        max_workers=self._model.get_request_priority_capacity()
+                    )
+                # Admitted calls must not wait in a smaller shared executor's
+                # FIFO before reaching the engine's own execution capacity.
+                call = functools.partial(copy_context().run, fn, *args, **kwargs)
+                thread_task = asyncio.get_running_loop().run_in_executor(executor, call)
+            else:
+                # Keep subprocess work owned until cancellation has reaped it.
+                thread_task = asyncio.create_task(
+                    asyncio.to_thread(fn, *args, **kwargs)
+                )
             return await _await_owned_task(thread_task)
 
         if (
@@ -1564,6 +1585,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         else:
             kwargs["generate_config"] = config
         kwargs["_request_priority"] = priority
+        kwargs["_request_priority_capacity"] = (
+            self._model.get_request_priority_capacity(config)
+        )
         kwargs["_priority_request_id"] = str(
             kwargs.get("request_id") or config.get("request_id") or uuid.uuid4().hex
         )

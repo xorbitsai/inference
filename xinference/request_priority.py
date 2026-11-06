@@ -4,7 +4,7 @@
 import asyncio
 import heapq
 import itertools
-from typing import Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 INVALID_PRIORITY = "priority must be an integer"
 MIN_REQUEST_PRIORITY = -10000
@@ -48,22 +48,27 @@ def to_trt_request_priority(priority: int) -> float:
 
 
 class PriorityScheduler:
-    """Bound active requests and admit waiters by priority, then arrival order."""
+    """Bound active work and admit eligible waiters by priority, then arrival."""
 
     def __init__(self, capacity: int):
         if isinstance(capacity, bool) or not isinstance(capacity, int) or capacity < 1:
             raise ValueError("Priority scheduler capacity must be a positive integer")
         self._available = capacity
+        self._capacity = capacity
+        self._active: Dict[int, int] = {}
         self._sequence = itertools.count()
-        self._waiting: List[Tuple[int, int, asyncio.Future]] = []
+        self._waiting: List[Tuple[int, int, asyncio.Future, int]] = []
         self._closed = False
 
-    async def acquire(self, priority: int) -> None:
+    async def acquire(self, priority: int, capacity: Optional[int] = None) -> None:
         validate_request_priority(priority)
+        capacity = self._capacity if capacity is None else capacity
+        if type(capacity) is not int or not 1 <= capacity <= self._capacity:
+            raise ValueError("Request capacity must be within the scheduler capacity")
         if self._closed:
             raise RuntimeError("Model is stopping")
         future = asyncio.get_running_loop().create_future()
-        entry = (priority, next(self._sequence), future)
+        entry = (priority, next(self._sequence), future, capacity)
         heapq.heappush(self._waiting, entry)
         self._wake()
         try:
@@ -71,7 +76,7 @@ class PriorityScheduler:
         except BaseException:
             if future.done() and not future.cancelled() and future.exception() is None:
                 # A slot was reserved before this waiter observed cancellation.
-                self.release()
+                self.release(capacity)
             else:
                 future.cancel()
                 # Cancellation must reclaim queue storage even while every
@@ -82,20 +87,32 @@ class PriorityScheduler:
                 self._wake()
             raise
 
-    def release(self) -> None:
+    def release(self, capacity: Optional[int] = None) -> None:
+        capacity = self._capacity if capacity is None else capacity
+        self._active[capacity] -= 1
         self._available += 1
         self._wake()
 
     def _wake(self) -> None:
+        blocked = []
         while self._available and self._waiting and not self._closed:
-            _, _, future = heapq.heappop(self._waiting)
+            entry = heapq.heappop(self._waiting)
+            _, _, future, capacity = entry
             if not future.done():
+                if self._active.get(capacity, 0) >= capacity:
+                    # MLX's serial fallback and batch paths share the total
+                    # capacity, but only one fallback may enter native work.
+                    blocked.append(entry)
+                    continue
+                self._active[capacity] = self._active.get(capacity, 0) + 1
                 self._available -= 1
                 future.set_result(None)
+        for entry in blocked:
+            heapq.heappush(self._waiting, entry)
 
     def close(self) -> None:
         self._closed = True
         while self._waiting:
-            _, _, future = heapq.heappop(self._waiting)
+            _, _, future, _ = heapq.heappop(self._waiting)
             if not future.done():
                 future.set_exception(RuntimeError("Model is stopping"))

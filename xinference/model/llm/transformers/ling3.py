@@ -111,6 +111,7 @@ class Ling3PytorchChatModel(PytorchDirectChatMixin, PytorchChatModel):
                     raise errors[0]
             finally:
                 cancelled.set()
+                thread.join()
 
         return iterate(), inputs.input_ids.shape[-1]
 

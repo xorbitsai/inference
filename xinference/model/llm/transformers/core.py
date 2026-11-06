@@ -763,7 +763,9 @@ class PytorchModel(LLM):
     def get_max_num_seqs(self) -> int:
         return self._pytorch_model_config.get("max_num_seqs")  # type: ignore
 
-    def get_request_priority_capacity(self) -> int:
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
         return (
             self.get_max_num_seqs()
             if getattr(self, "_batch_scheduler", None) is not None
