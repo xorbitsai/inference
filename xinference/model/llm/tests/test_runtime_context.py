@@ -36,23 +36,91 @@ def test_vllm_resolved_engine_length_changes_after_reload():
     assert model.get_runtime_context_length() == 4096
 
 
-def test_sglang_reads_loaded_runtime_and_keeps_engine_auth(monkeypatch):
+@pytest.fixture
+def sglang_runtime(monkeypatch):
     model = SGLANGChatModel.__new__(SGLANGChatModel)
     model._engine = SimpleNamespace(url="http://127.0.0.1:1234")
     model._model_config = {"api_key": "test", "context_length": 131072}
+    model.model_family = SimpleNamespace(context_length=262144)
     response = MagicMock()
     response.__enter__.return_value = response
-    response.json.return_value = {"context_length": 8192}
+    # ModelList/ModelCard returned by SGLang 0.5.21's /v1/models:
+    # sgl-project/sglang@e00930c5489053f26d86b179cee0d087f846acbb
+    response.json.return_value = {
+        "object": "list",
+        "data": [
+            {
+                "id": "served-model-alias",
+                "object": "model",
+                "created": 0,
+                "owned_by": "sglang",
+                "root": "served-model-alias",
+                "parent": None,
+                "max_model_len": 8192,
+            }
+        ],
+    }
     get = MagicMock(return_value=response)
     monkeypatch.setattr("requests.get", get)
+    return model, response, get
+
+
+def test_sglang_reads_loaded_runtime_and_keeps_engine_auth(sglang_runtime):
+    model, _, get = sglang_runtime
     assert model.get_runtime_context_length() == 8192
     get.assert_called_once_with(
-        "http://127.0.0.1:1234/get_model_info",
+        "http://127.0.0.1:1234/v1/models",
         headers={"Authorization": "Bearer test"},
         timeout=2,
     )
-    response.json.return_value = {"model_path": "/old/runtime"}
+
+
+def test_sglang_ignores_lora_cards(sglang_runtime):
+    model, response, _ = sglang_runtime
+    response.json.return_value["data"].insert(
+        0,
+        {
+            "id": "lora-adapter",
+            "object": "model",
+            "created": 0,
+            "owned_by": "sglang",
+            "root": "/models/lora-adapter",
+            "parent": "served-model-alias",
+            "max_model_len": None,
+        },
+    )
+    assert model.get_runtime_context_length() == 8192
+
+
+def test_sglang_reads_updated_limit_after_reload(sglang_runtime):
+    model, response, _ = sglang_runtime
+    assert model.get_runtime_context_length() == 8192
+    response.json.return_value["data"][0]["max_model_len"] = 4096
+    assert model.get_runtime_context_length() == 4096
+
+
+@pytest.mark.parametrize("value", [None, True, 0, -1, "8192"])
+def test_sglang_unknown_runtime_does_not_use_launch_or_registry_limit(
+    sglang_runtime, value
+):
+    model, response, _ = sglang_runtime
+    response.json.return_value["data"][0]["max_model_len"] = value
     assert model.get_runtime_context_length() is None
+
+
+def test_sglang_missing_model_card_does_not_use_launch_or_registry_limit(
+    sglang_runtime,
+):
+    model, response, _ = sglang_runtime
+    response.json.return_value["data"] = []
+    assert model.get_runtime_context_length() is None
+
+
+def test_sglang_not_loaded_does_not_query_runtime(sglang_runtime):
+    model, _, get = sglang_runtime
+    model._engine = None
+    assert model.get_runtime_context_length() is None
+    get.assert_not_called()
 
 
 @pytest.mark.parametrize(

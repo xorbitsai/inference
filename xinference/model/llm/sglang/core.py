@@ -1120,12 +1120,17 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if self._engine is None:
             return None
         with requests.get(
-            self._engine.url + "/get_model_info",
+            self._engine.url + "/v1/models",
             headers=self._engine_headers(),
             timeout=2,
         ) as response:
             response.raise_for_status()
-            return normalize_runtime_positive_int(response.json().get("context_length"))
+            # The base ModelCard exposes model_config.context_len. LoRA cards
+            # have a parent and do not report their own context capacity.
+            for card in response.json().get("data", []):
+                if card.get("parent") is None:
+                    return normalize_runtime_positive_int(card.get("max_model_len"))
+            return None
 
     def _engine_headers(self) -> dict:
         api_key = getattr(self, "_model_config", {}).get("api_key")
