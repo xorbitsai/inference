@@ -174,7 +174,7 @@ class Audio8TTSModel:
     @staticmethod
     def _encode_audio(response_format: str, sample_rate: int, audio) -> bytes:
         fmt = response_format.lower()
-        if fmt not in {"mp3", "wav", "flac", "pcm"}:
+        if fmt not in {"mp3", "wav", "flac", "ogg", "pcm"}:
             from .utils import audio_to_bytes
 
             return audio_to_bytes(response_format, sample_rate, audio)
@@ -186,6 +186,8 @@ class Audio8TTSModel:
         options = {"format": fmt.upper()}
         if fmt == "pcm":
             options.update(format="RAW", subtype="PCM_16", endian="LITTLE")
+        elif fmt == "ogg":
+            options["subtype"] = "VORBIS"
         with io.BytesIO() as output:
             soundfile.write(
                 output, audio.detach().float().cpu().numpy().T, sample_rate, **options

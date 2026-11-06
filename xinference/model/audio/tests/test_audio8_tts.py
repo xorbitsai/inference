@@ -407,7 +407,7 @@ def test_reference_cleanup_on_error(loaded_model):
 
 
 @pytest.mark.parametrize("model_class", [Audio8TTSModel, SGLangOmniAudio8TTSModel])
-@pytest.mark.parametrize("response_format", [None, "wav", "flac", "pcm"])
+@pytest.mark.parametrize("response_format", [None, "wav", "flac", "ogg", "pcm"])
 def test_speech_really_encodes_without_torchcodec(
     monkeypatch, tmp_path, model_class, response_format
 ):
@@ -439,10 +439,15 @@ def test_speech_really_encodes_without_torchcodec(
         assert audio.channels == 1
         if response_format is None:
             assert audio.format == "MP3"
+        elif response_format == "ogg":
+            assert audio.format == "OGG"
+            assert audio.subtype == "VORBIS"
         decoded = audio.read(dtype="float32")
     assert len(decoded) >= len(samples)
     assert np.sqrt(np.mean(decoded**2)) > 0.01
-    if response_format is not None:
+    if response_format == "ogg":
+        assert np.corrcoef(decoded[: len(samples)], samples.numpy())[0, 1] > 0.99
+    elif response_format is not None:
         np.testing.assert_allclose(decoded, samples.numpy(), atol=1 / 32768)
     generate.assert_called_once()
 
