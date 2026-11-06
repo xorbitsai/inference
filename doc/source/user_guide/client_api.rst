@@ -124,6 +124,8 @@ Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_co
 
 Xinference retains at most 4096 routing keys per model in a least-recently-used table shared across credentials. High key churn from one credential can evict another credential's affinity; this affects replica preference only.
 
+With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by the number of data-parallel ranks served by the replica as an advisory capacity. External load balancing serves one rank; hybrid load balancing counts local ranks. Invalid capacity values disable this engine-specific probe. Below this capacity, requests keep affinity and can batch. If all replicas are busy, Xinference keeps the preferred replica and its normal queueing and admission behavior. This probe counts requests, so requests with ``n > 1`` may consume more sequence slots than counted. Moving to another replica may incur prefix recomputation or KV transfer; the policy does not estimate these costs or reserve capacity.
+
 OpenAI Client Tool Calls
 ========================
 
