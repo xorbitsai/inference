@@ -6133,17 +6133,27 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.error(
                 f"Failed to finalize launch of model {model_uid}", exc_info=True
             )
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
 
-    async def _clean_up_failed_launch(self, model_uid: str, model_ref=None):
+    async def _clean_up_failed_launch(
+        self,
+        model_uid: str,
+        model_ref=None,
+        progressor: Optional["Progressor"] = None,
+    ):
         """Roll back the state registered by ``launch_builtin_model`` when the
         launch fails after registration (e.g. an engine that loads
         asynchronously crashes at init and the error only surfaces in
         ``wait_for_load``). Without this, the stale ``_model_uid_to_model``
         entry makes relaunching the same model_uid fail on the registration
         assert until the whole service is restarted."""
-        await WorkerActor._finish_launch_progress(self, model_uid, False)
+        # Only finish the generation captured by the failing launch. Recovery
+        # may already have registered a new progressor for the same UID.
+        if progressor is not None:
+            await WorkerActor._finish_launch_progress(
+                self, model_uid, False, progressor
+            )
         try:
             fence = getattr(self, "_control_fence", None)
             if fence is None:
@@ -6178,7 +6188,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await model_ref.wait_for_load()
         except Exception:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
         try:
             await self._update_model_state(model_uid, "ready")
