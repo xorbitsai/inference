@@ -95,7 +95,15 @@ async def _await_owned_task(task: asyncio.Future):
             except BaseException:
                 break
         try:
-            task.result()
+            result = task.result()
+            # A cancelled call can still return a primed native stream. Close
+            # it while its admission slot is owned, off the event-loop thread.
+            if inspect.isgenerator(result):
+                await _await_owned_task(
+                    asyncio.create_task(asyncio.to_thread(result.close))
+                )
+            elif inspect.isasyncgen(result):
+                await _await_owned_task(asyncio.create_task(result.aclose()))
         except BaseException:
             pass  # Consume native errors without replacing client cancellation.
         raise
@@ -1371,12 +1379,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 scheduler.release()
 
     async def _priority_stream(self, iterator, scheduler, request_id):
-        def advance():
-            try:
-                return True, next(iterator)
-            except StopIteration:
-                return False, None
-
+        exhausted = object()
         completed = False
         try:
             yield None  # Ownership handshake, consumed by _call_wrapper.
@@ -1385,10 +1388,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     yield item
             else:
                 while True:
-                    present, item = await _await_owned_task(
-                        asyncio.create_task(asyncio.to_thread(advance))
+                    item = await _await_owned_task(
+                        asyncio.create_task(
+                            asyncio.to_thread(next, iterator, exhausted)
+                        )
                     )
-                    if not present:
+                    if item is exhausted:
                         break
                     yield item
             completed = True
@@ -1396,12 +1401,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             try:
                 abort = getattr(self._model, "abort_request", None)
                 if not completed and abort is not None:
-                    if inspect.iscoroutinefunction(abort):
-                        await _await_owned_task(asyncio.create_task(abort(request_id)))
-                    else:
-                        await _await_owned_task(
-                            asyncio.create_task(asyncio.to_thread(abort, request_id))
-                        )
+                    await _await_owned_task(asyncio.create_task(abort(request_id)))
             finally:
                 try:
                     if inspect.isasyncgen(iterator):
@@ -1571,7 +1571,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @request_limit
     @xo.generator
-    @log_async(logger=logger)
+    @log_async(logger=logger, wrap_result=False)
     async def generate(self, prompt: str, *args, **kwargs):
         self._require_ready()
         self._validate_cache_salt(args, kwargs)
@@ -1613,7 +1613,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     @request_limit
     @xo.generator
-    @log_async(logger=logger)
+    @log_async(logger=logger, wrap_result=False)
     async def chat(self, messages: List[Dict], *args, **kwargs):
         self._require_ready()
         self._validate_cache_salt(args, kwargs)

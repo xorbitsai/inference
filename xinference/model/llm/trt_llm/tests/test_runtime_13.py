@@ -25,8 +25,10 @@ checkpoint = test_xavier.checkpoint
 @pytest.mark.parametrize("coordinator", [False, True])
 @pytest.mark.parametrize("cancel_fails_first", [False, True])
 async def test_modern_source_release_waits_for_native_transfer_ownership(
-    coordinator, cancel_fails_first
+    coordinator, cancel_fails_first, monkeypatch
 ):
+    backoff = Mock()
+    monkeypatch.setattr("xinference.model.llm.trt_llm.native.time.sleep", backoff)
     source = SimpleNamespace(
         py_client_id=17,
         py_kv_transfer_timed_out=False,
@@ -92,8 +94,10 @@ async def test_modern_source_release_waits_for_native_transfer_ownership(
     unpin.assert_called_once_with(123)
     assert native._cancelled[123] is source
     native.release(123)
+    backoff.reset_mock()
     getattr(owner, name)(1)
     assert polls[-1] == 0  # Retained native sender futures must not block the queue.
+    backoff.assert_called_once_with(0.001)
     native.engine_stopped()
     assert getattr(owner, name) is reap and not native._cancelled
 

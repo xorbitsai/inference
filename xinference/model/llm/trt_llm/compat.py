@@ -32,7 +32,7 @@ def validate_runtime_version(config: dict, installed_version: str) -> None:
     )
     if (
         private_transport
-        and installed_version != TRT_PRIVATE_VERSION
+        and parsed.base_version != TRT_PRIVATE_VERSION
         and not SpecifierSet(TRT_NEW_PD_RANGE).contains(parsed, prereleases=True)
     ):
         raise ValueError(
@@ -160,5 +160,4 @@ def prepare_runtime(config: dict, *, engine_version: str = TRT_PRIVATE_VERSION) 
         initialize_worker()
     connector = config.get("kv_connector_config") or {}
     if connector.get("connector_module") == "xinference.model.llm.trt_llm.connector":
-        validate_runtime_version(config, engine_version)
         initialize_pd_connector()

@@ -69,6 +69,7 @@ from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
+from .._compat import ValidationError
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
     XINFERENCE_AUTH_DB_PATH,
@@ -228,6 +229,16 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
     "user-agent",
     "x-request-id",
 }
+
+
+def _parse_llm_request(schema, raw_body: dict):
+    # Resolve/validate the raw salt after authorization, allowing provider overrides.
+    try:
+        return schema.parse_obj(
+            {key: value for key, value in raw_body.items() if key != "cache_salt"}
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
 
 class _SSERequestAbortController:
@@ -2703,15 +2714,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
-        # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        from .._compat import ValidationError
-
-        try:
-            body = CreateCompletionRequest.parse_obj(
-                {key: value for key, value in raw_body.items() if key != "cache_salt"}
-            )
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        body = _parse_llm_request(CreateCompletionRequest, raw_body)
         exclude = {
             "prompt",
             "model",
@@ -2761,9 +2764,6 @@ class RESTfulAPI(CancelMixin):
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
-            model_call_kwargs["request_id"] = request_id
-        elif await model.is_transformers_batching_enabled():
-            model_call_kwargs["request_id"] = request_id
 
         if body.stream:
             abort_controller = _SSERequestAbortController(
@@ -5116,15 +5116,7 @@ class RESTfulAPI(CancelMixin):
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
-        # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        from .._compat import ValidationError
-
-        try:
-            body = CreateChatCompletion.parse_obj(
-                {key: value for key, value in raw_body.items() if key != "cache_salt"}
-            )
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        body = _parse_llm_request(CreateChatCompletion, raw_body)
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
             "prompt",
@@ -5270,9 +5262,6 @@ class RESTfulAPI(CancelMixin):
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
-            model_call_kwargs["request_id"] = request_id
-        elif await model.is_transformers_batching_enabled():
-            model_call_kwargs["request_id"] = request_id
 
         try:
             description_options = (

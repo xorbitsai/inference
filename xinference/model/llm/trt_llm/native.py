@@ -78,6 +78,11 @@ class NativeSourceReleaser:
         self._restore = original
 
         def poll(at_least=0):
+            if (self._pending or self._cancelled) and at_least:
+                # Cancelled native sender pointers must remain alive until
+                # shutdown. Match the legacy nonblocking poll's backoff.
+                time.sleep(0.001)
+                at_least = 0
             with self._lock:
                 sources = {}
                 for ticket in self._pending:

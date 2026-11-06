@@ -82,7 +82,6 @@ logger = logging.getLogger(__name__)
 class SGLANGModelConfig(TypedDict, total=False):
     enable_priority_scheduling: bool
     schedule_low_priority_values_first: bool
-    default_priority_value: int
     page_size: int
     mamba_scheduler_strategy: str
     mamba_track_interval: int

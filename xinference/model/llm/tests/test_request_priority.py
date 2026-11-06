@@ -20,6 +20,25 @@ def test_transformers_capacity_tracks_actual_batching(capacity):
     assert model.get_request_priority_capacity() == capacity
 
 
+def test_transformers_multimodal_capacity_without_batch_scheduler():
+    from ..transformers.multimodal.core import PytorchMultiModalModel
+
+    class VisionModel(PytorchMultiModalModel):
+        def decide_device(self):
+            pass
+
+        def load_processor(self):
+            pass
+
+        def load_multimodal_model(self):
+            pass
+
+    model = object.__new__(VisionModel)
+    model._pytorch_model_config = {"max_num_seqs": 16}
+    assert not hasattr(model, "_batch_scheduler")
+    assert model.get_request_priority_capacity() == 1
+
+
 @pytest.mark.parametrize("vision", [False, True])
 def test_mlx_capacity_tracks_batching_and_serial_vision(vision):
     from ..mlx.core import MLXChatModel, MLXVisionModel

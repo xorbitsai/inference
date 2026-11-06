@@ -4,6 +4,7 @@
 
 import asyncio
 import threading
+from concurrent.futures import Future
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -12,6 +13,7 @@ import pytest
 from ...model.llm.core import LLM
 from ...request_priority import PriorityScheduler
 from ..model import ModelActor
+from ..rpc_context import RPC_METADATA_KEY, RpcMetadata
 
 
 class _Model(LLM):
@@ -65,6 +67,21 @@ async def test_cancel_after_slot_reservation_does_not_leak_capacity():
     with pytest.raises(asyncio.CancelledError):
         await waiter
     await asyncio.wait_for(scheduler.acquire(0), 1)
+    scheduler.release()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_waiters_reclaim_storage_while_capacity_is_occupied():
+    scheduler = PriorityScheduler(1)
+    await scheduler.acquire(0)
+    for _ in range(3):
+        waiters = [asyncio.create_task(scheduler.acquire(i)) for i in range(100)]
+        await _wait_for(lambda: len(scheduler._waiting) == 100)
+        for waiter in waiters:
+            waiter.cancel()
+        await asyncio.gather(*waiters, return_exceptions=True)
+        assert scheduler._waiting == []
+        assert scheduler._available == 0
     scheduler.release()
 
 
@@ -183,12 +200,25 @@ async def test_abort_acknowledges_actor_task_after_engine_cleanup():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("consume_first", [False, True])
 @pytest.mark.parametrize("sync", [False, True])
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("correlated", [False, True])
 async def test_stream_owns_slot_until_close_and_releases_unread_streams(
-    consume_first, sync
+    consume_first, sync, method, correlated
 ):
     actor, model = _actor()
     closed = threading.Event()
     started = []
+    owned_streams = []
+    priority_stream = actor._priority_stream
+
+    def retain_stream(*args):
+        result = priority_stream(*args)
+        # Hold a reference so GC cannot make a broken wrapper appear to close
+        # the owned stream successfully.
+        owned_streams.append(result)
+        return result
+
+    actor._priority_stream = retain_stream
 
     async def async_chunks():
         try:
@@ -212,23 +242,34 @@ async def test_stream_owns_slot_until_close_and_releases_unread_streams(
             else {"choices": []}
         )
 
-    model.generate = infer
+    setattr(model, method, infer)
     model.abort_request = AsyncMock(return_value="DONE")
-    stream = await actor.generate("stream", {"stream": True})
+    handler = getattr(actor, method)
+    metadata = (
+        {RPC_METADATA_KEY: RpcMetadata(correlation_id="rest-correlation").to_payload()}
+        if correlated
+        else {}
+    )
+    stream = await handler("stream", {"stream": True}, **metadata)
     stream._actor_ref = actor
     if consume_first:
         await stream.__anext__()
-    waiting = asyncio.create_task(actor.generate("next", {"priority": -5}))
-    await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
-    assert started == ["stream"]
-    await _close(stream)
-    await waiting
-    assert started == ["stream", "next"]
-    if consume_first:
-        assert closed.is_set()
-    model.abort_request.assert_awaited_once()
-    await actor.decrease_serve_count()
-    assert actor._serve_count == 0
+    waiting = asyncio.create_task(handler("next", {"priority": -5}))
+    try:
+        await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+        assert started == ["stream"]
+        await _close(stream)
+        model.abort_request.assert_awaited_once()
+        await waiting
+        assert started == ["stream", "next"]
+        if consume_first:
+            assert closed.is_set()
+        await actor.decrease_serve_count()
+        assert actor._serve_count == 0
+    finally:
+        for owned in owned_streams:
+            await owned.aclose()
+        await waiting
 
 
 @pytest.mark.asyncio
@@ -259,6 +300,75 @@ async def test_cancelled_sync_call_retains_slot_until_native_thread_finishes():
         await busy
     await waiting
     assert started == ["busy", "next"]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_native_stream_creation_drains_off_loop_before_admission():
+    from ...model.llm.llama_cpp.core import _owned_native_stream
+
+    actor, model = _actor()
+    creating = threading.Event()
+    return_stream = threading.Event()
+    closing = threading.Event()
+    release_native = threading.Event()
+    native = Future()
+    started = []
+    close_threads = []
+
+    def finish_native():
+        # Also unblock a regressed event-loop-thread close so the test fails
+        # rather than deadlocking the entire test process.
+        release_native.wait(3)
+        native.set_result(None)
+
+    worker = threading.Thread(target=finish_native)
+    worker.start()
+
+    def chunks():
+        try:
+            yield None
+        finally:
+            close_threads.append(threading.get_ident())
+            closing.set()
+
+    def infer(prompt, config):
+        started.append(prompt)
+        if prompt != "busy":
+            return {"choices": []}
+        creating.set()
+        assert return_stream.wait(3)
+        iterator = chunks()
+        next(iterator)
+        return _owned_native_stream(iterator, native)
+
+    model.generate = infer
+    busy = asyncio.create_task(actor.generate("busy", {"stream": True}))
+    waiting = None
+    try:
+        await _wait_for(creating.is_set)
+        busy.cancel()
+        return_stream.set()
+        # This await also proves generator cleanup did not block the event loop.
+        await _wait_for(closing.is_set)
+        waiting = asyncio.create_task(actor.generate("next", {}))
+        await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+        assert not busy.done()
+        assert started == ["busy"]
+        assert len(close_threads) == 1
+        assert close_threads[0] != threading.get_ident()
+        release_native.set()
+        with pytest.raises(asyncio.CancelledError):
+            await busy
+        await waiting
+        assert started == ["busy", "next"]
+        assert actor._serve_count == 0
+    finally:
+        return_stream.set()
+        release_native.set()
+        await asyncio.gather(
+            busy, *([waiting] if waiting else []), return_exceptions=True
+        )
+        await asyncio.to_thread(worker.join)
 
 
 @pytest.mark.asyncio
@@ -313,6 +423,35 @@ async def test_priority_queue_does_not_bypass_request_limits():
         await actor.generate("next", {"priority": -10})
     release.set()
     await task
+
+
+@pytest.mark.asyncio
+async def test_waiting_requests_count_toward_limits_until_cancelled():
+    actor, model = _actor(request_limits=2)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def infer(prompt, config):
+        if prompt == "busy":
+            entered.set()
+            await release.wait()
+        return {"choices": []}
+
+    model.generate = infer
+    busy = asyncio.create_task(actor.generate("busy", {}))
+    await entered.wait()
+    low = asyncio.create_task(actor.generate("low", {"priority": 100}))
+    await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+    with pytest.raises(RuntimeError, match="Rate limit reached"):
+        await actor.generate("high", {"priority": -100})
+    low.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await low
+    high = asyncio.create_task(actor.generate("high", {"priority": -100}))
+    await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+    release.set()
+    await asyncio.gather(busy, high)
+    assert actor._serve_count == 0
 
 
 @pytest.mark.asyncio

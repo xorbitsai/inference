@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 # CI: linux
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -134,3 +135,50 @@ def test_priority_configuration_errors_are_bad_requests(message, sanitize):
         restful_api.RESTfulAPI.handle_request_limit_error(error, sanitize=sanitize)
     assert caught.value.status_code == 400
     assert caught.value.detail == message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["chat", "completion"])
+@pytest.mark.parametrize("message", PRIORITY_ERROR_MESSAGES)
+async def test_streaming_priority_configuration_errors_use_sse(
+    monkeypatch, endpoint, message
+):
+    model = SimpleNamespace(
+        uid=b"priority-model-0",
+        chat=AsyncMock(side_effect=ValueError(message)),
+        generate=AsyncMock(side_effect=ValueError(message)),
+        is_vllm_backend=AsyncMock(return_value=False),
+        abort_request=AsyncMock(),
+    )
+    supervisor = SimpleNamespace(
+        get_model=AsyncMock(return_value=model),
+        describe_model=AsyncMock(return_value={"model_family": "test-family"}),
+    )
+    api = object.__new__(restful_api.RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._set_trace_model = api._set_trace_model_type = MagicMock()
+    api._check_model_access = MagicMock()
+    api._report_error_event = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = SimpleNamespace(
+        json=AsyncMock(
+            return_value=dict(
+                model="priority-model",
+                messages=[{"role": "user", "content": "hello"}],
+                prompt="hello",
+                stream=True,
+                priority=-10,
+            )
+        ),
+        headers={},
+        state=SimpleNamespace(),
+    )
+    handler = (
+        api.create_chat_completion if endpoint == "chat" else api.create_completion
+    )
+    response = await handler(request)
+    assert response.status_code == 200
+    chunks = [chunk async for chunk in response.body_iterator]
+    assert len(chunks) == 1
+    assert json.loads(chunks[0]["data"]) == {"error": message}

@@ -63,7 +63,8 @@ class PriorityScheduler:
         if self._closed:
             raise RuntimeError("Model is stopping")
         future = asyncio.get_running_loop().create_future()
-        heapq.heappush(self._waiting, (priority, next(self._sequence), future))
+        entry = (priority, next(self._sequence), future)
+        heapq.heappush(self._waiting, entry)
         self._wake()
         try:
             await future
@@ -73,6 +74,11 @@ class PriorityScheduler:
                 self.release()
             else:
                 future.cancel()
+                # Cancellation must reclaim queue storage even while every
+                # active slot remains occupied.
+                if entry in self._waiting:
+                    self._waiting.remove(entry)
+                    heapq.heapify(self._waiting)
                 self._wake()
             raise
 

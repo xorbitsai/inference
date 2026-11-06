@@ -348,20 +348,20 @@ msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch
 msgstr "vLLM 和 SGLang 使用原生优先级调度。启动模型时启用优先级调度：vLLM（0.6.3 或更新版本）设置 ``scheduling_policy=\"priority\"``；支持优先级调度的 SGLang 版本设置 ``enable_priority_scheduling=True``。Xinference 会根据 SGLang 配置的排序方向转换优先级，因此无论 ``schedule_low_priority_values_first`` 如何设置，Xinference API 都是数值越小，优先级越高。"
 
 #: source/user_guide/client_api.rst:515
-msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests."
-msgstr "其他引擎在请求提交给引擎前，使用每个副本独立的优先级队列。活动请求数量不超过引擎配置的批处理或并行容量；串行路径一次执行一个请求。等待请求按优先级执行，同优先级按到达顺序执行。此队列不会抢占正在执行的请求。"
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "其他引擎在请求提交给引擎前，使用每个副本独立的优先级队列。活动请求数量不超过引擎配置的批处理或并行容量；串行路径一次执行一个请求。等待请求按优先级执行，同优先级按到达顺序执行。此队列不会抢占正在执行的请求。 非批处理的 Transformers 模型现在一次只运行一个请求，即使省略 priority 也是如此。等待中的请求计入 ``request_limits``；达到限制后，后续请求即使优先级更高也会被拒绝。"
 
 #: source/user_guide/client_api.rst:517
 msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
 msgstr "使用 Xinference Python 客户端时，向 ``model.chat()`` 或 ``model.generate()`` 传入 ``generate_config={\"priority\": -10}``。使用 OpenAI Python 客户端时，通过 ``extra_body`` 传入："
 
 #: source/user_guide/client_api.rst:532
-msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise the request fails with HTTP 400. After streaming starts, errors are reported in the SSE stream."
-msgstr "无效的优先级类型返回 HTTP 422；字符串、布尔值和小数不会转换成整数。vLLM 和 SGLang 使用非零优先级时必须启用原生优先级调度，否则请求返回 HTTP 400。流式响应开始后，错误通过 SSE 流返回。 超出 ``[-10000, 10000]`` 的值也返回 HTTP 422；具有原生优先级接口的 TRT-LLM 版本同样要求启用原生优先级调度。"
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "无效优先级类型或超出 ``[-10000, 10000]`` 的值返回 HTTP 422；字符串、布尔值和小数不会转换为整数。vLLM、SGLang 以及提供原生优先级 API 的 TRT-LLM 版本必须启用原生优先级调度才能使用非零优先级，否则非流式请求返回 HTTP 400。流式请求在发送 HTTP 200 后才检查引擎配置和版本，因此这些错误通过 SSE 流报告。"
 
 #: source/user_guide/client_api.rst:515
-msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
-msgstr "具有原生 ``priority`` 参数的 TRT-LLM 版本在普通副本和 P/D 副本上都使用原生调度。Xinference 默认将 ``scheduler_config.waiting_queue_policy`` 设为 ``\"priority\"``，并线性转换整数范围：``-10000`` 对应 ``1.0``，``0`` 对应 ``0.5``，``10000`` 对应 ``0.0``。包括 1.2.1 在内的旧版本会对显式传入的 ``priority`` 返回 HTTP 400，即使值为 ``0``。省略该字段可继续使用旧版本；TRT-LLM 不使用公共队列作为回退。"
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "具有原生 ``priority`` 参数的 TRT-LLM 版本在普通副本和 P/D 副本上都使用原生调度。Xinference 默认将 ``scheduler_config.waiting_queue_policy`` 设为 ``\"priority\"``，并线性转换整数范围：``-10000`` 对应 ``1.0``，``0`` 对应 ``0.5``，``10000`` 对应 ``0.0``。包括 1.2.1 在内的旧版本会对显式传入的 ``priority`` 返回 HTTP 400（非流式请求），即使值为 ``0``。省略该字段可继续使用旧版本；TRT-LLM 不使用公共队列作为回退。"
 
 #: ../../source/user_guide/client_api.rst:114
 msgid ""

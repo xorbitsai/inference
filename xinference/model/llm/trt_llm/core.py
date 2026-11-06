@@ -42,7 +42,6 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._requests: Dict[str, Any] = {}
         self._cache_enabled = False
         self._pd = None
-        self.supports_native_request_priority = False
 
     @classmethod
     def check_lib(cls):

@@ -40,7 +40,14 @@ def test_outside_compatibility_range_is_rejected(version):
     ],
 )
 def test_private_transports_accept_legacy_and_new_adapters(config):
-    for version in ("1.2.1", "1.3.0rc24", "1.3.0rc29", "1.3.0"):
+    for version in (
+        "1.2.1",
+        "1.2.1+cu130",
+        "1.2.1.post1",
+        "1.3.0rc24",
+        "1.3.0rc29",
+        "1.3.0",
+    ):
         validate_runtime_version(config, version)
     for version in ("1.2.2", "1.3.0rc23"):
         with pytest.raises(ValueError, match="Xavier shared caching and P/D require"):

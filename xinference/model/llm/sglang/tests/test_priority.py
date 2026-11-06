@@ -49,6 +49,7 @@ async def test_priority_is_top_level_http_metadata(
         if stream:
             await anext(result)
     payload = session.post.call_args.kwargs["json"]
+    # The unified request default is 0, overriding SGLang’s native default.
     expected = priority or 0
     assert payload["priority"] == (expected if lower_first else -expected)
     assert "priority" not in payload["sampling_params"]

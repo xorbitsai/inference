@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+# CI: linux
+
 import sys
 import threading
 import time
@@ -222,14 +224,16 @@ def test_continuous_batching(setup):
     thread4.join()
 
     # test abort request for non-stream
+    # Aborted IDs are blocked for 30 seconds. Use a new ID for this independent
+    # case instead of racing that cancellation tombstone.
     thread1 = InferenceThread(
         "请写一篇两百字左右的短文，介绍猫和狗的区别。",
-        {"request_id": "aaabbb", "max_tokens": 512},
+        {"request_id": "aaabbb-nonstream", "max_tokens": 512},
         client,
         model,
     )
     thread2 = AbortThread(
-        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
+        client, model_uid_res, "aaabbb-nonstream", AbortRequestMessage.DONE.name, 0.01
     )
     thread1.start()
     thread2.start()
