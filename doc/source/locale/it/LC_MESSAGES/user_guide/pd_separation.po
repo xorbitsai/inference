@@ -19,6 +19,10 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+#: source/user_guide/pd_separation.rst:231
+msgid "The 1.3 P/D adapters are experimental and have not been GPU-validated. Native NIXL requires the same TensorRT-LLM runtime version on both roles. Versions exposing native request priority pass it to both prefill and decode; 1.2.1 rejects an explicitly supplied ``priority``, including ``0``. See :doc:`client_api` for the priority scale and errors."
+msgstr "Gli adattatori P/D 1.3 sono sperimentali e non validati su GPU. NIXL nativo richiede la stessa versione del runtime TensorRT-LLM nei due ruoli. Le versioni con priorità nativa la trasmettono a prefill e decode; 1.2.1 rifiuta ``priority`` esplicito, incluso ``0``. Vedere :doc:`client_api` per scala ed errori."
+
 #: source/user_guide/pd_separation.rst:4
 msgid "PD separation"
 msgstr ""
@@ -705,26 +709,9 @@ msgstr "P/D tra motori"
 msgid "TRT-LLM"
 msgstr "TRT-LLM"
 
-#: ../../source/user_guide/pd_separation.rst:227
-msgid ""
-"Use the same ``replica_config`` with ``model_engine=\"TRT-LLM\"``, "
-"``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, "
-"``model_format=\"pytorch\"`` and ``quantization=\"none\"`` through the "
-"Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM"
-" ``1.2.1``, BF16 dense Qwen3 weights and KV, one worker and one GPU per "
-"replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain "
-"disabled. Native NIXL with different engines, quantization, multimodal "
-"input, LoRA, speculative decoding and ``cache_salt`` are unsupported."
-msgstr ""
-"Usare lo stesso ``replica_config`` con ``model_engine=\"TRT-LLM\"``, "
-"``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, "
-"``model_format=\"pytorch\"`` e ``quantization=\"none\"`` tramite client "
-"Python, API REST o CLI. Entrambi i ruoli richiedono Linux/CUDA, TensorRT-LLM"
-" ``1.2.1``, pesi Qwen3 densi e KV BF16, un worker e una GPU per replica "
-"(TP=PP=CP=1). Prefill a blocchi e pianificazione sovrapposta devono restare "
-"disattivati. NIXL nativo con motori diversi, quantizzazione, input "
-"multimodali, LoRA, decodifica speculativa e ``cache_salt`` non sono "
-"supportati."
+#: source/user_guide/pd_separation.rst:229
+msgid "Use the same ``replica_config`` with ``model_engine=\"TRT-LLM\"``, ``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, ``model_format=\"pytorch\"`` and ``quantization=\"none\"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1`` or ``>=1.3.0rc24,<1.4``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Native NIXL with different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported."
+msgstr "Usare lo stesso ``replica_config`` con ``model_engine=\"TRT-LLM\"``, ``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, ``model_format=\"pytorch\"`` e ``quantization=\"none\"`` tramite client Python, API REST o CLI. Entrambi i ruoli richiedono Linux/CUDA, TensorRT-LLM ``1.2.1`` o ``>=1.3.0rc24,<1.4``, pesi Qwen3 densi e KV BF16, un worker e una GPU per replica (TP=PP=CP=1). Prefill a blocchi e pianificazione sovrapposta devono restare disattivati. NIXL nativo con motori diversi, quantizzazione, input multimodali, LoRA, decodifica speculativa e ``cache_salt`` non sono supportati."
 
 #: ../../source/user_guide/pd_separation.rst:243
 msgid ""
@@ -870,21 +857,9 @@ msgstr ""
 "Entrambi i motori decode importano il prefisso e ricalcolano l’ultimo token "
 "del prompt."
 
-#: ../../user_guide/pd_separation.rst:456
-msgid ""
-"Swap the two roles for MLX prefill. Start workers with LAN-reachable "
-"addresses and ensure both workers and the supervisor can reach each other's "
-"actor ports. Specify the same ``download_hub`` explicitly. The Python and "
-"RPC dependency requirements and MLX-prefill memory budget above also apply. "
-"TRT-LLM requires ``1.2.1`` with one CUDA GPU; MLX requires Apple silicon and"
-" ``mlx-lm>=0.31.2``."
-msgstr ""
-"Scambiare i ruoli per prefill MLX. Avviare i worker con indirizzi "
-"raggiungibili sulla LAN e assicurarsi che entrambi i worker e il supervisor "
-"possano accedere alle rispettive porte actor. Specificare esplicitamente lo "
-"stesso ``download_hub``. Valgono anche i requisiti Python e delle dipendenze"
-" RPC e il budget di memoria di prefill MLX sopra indicati. TRT-LLM richiede "
-"``1.2.1`` con una GPU CUDA; MLX richiede Apple silicon e ``mlx-lm>=0.31.2``."
+#: source/user_guide/pd_separation.rst:469
+msgid "Swap the two roles for MLX prefill. Start workers with LAN-reachable addresses and ensure both workers and the supervisor can reach each other's actor ports. Specify the same ``download_hub`` explicitly. The Python and RPC dependency requirements and MLX-prefill memory budget above also apply. TRT-LLM requires ``1.2.1`` or ``>=1.3.0rc24,<1.4`` (experimental) with one CUDA GPU; MLX requires Apple silicon and ``mlx-lm>=0.31.2``."
+msgstr "Scambiare i ruoli per prefill MLX. Avviare i worker con indirizzi raggiungibili sulla LAN e assicurarsi che entrambi i worker e il supervisor possano accedere alle rispettive porte actor. Specificare esplicitamente lo stesso ``download_hub``. Valgono anche i requisiti Python e delle dipendenze RPC e il budget di memoria di prefill MLX sopra indicati. TRT-LLM richiede ``1.2.1`` o ``>=1.3.0rc24,<1.4`` (sperimentale) con una GPU CUDA; MLX richiede Apple silicon e ``mlx-lm>=0.31.2``."
 
 #: ../../user_guide/pd_separation.rst:458
 msgid ""
@@ -966,21 +941,9 @@ msgstr ""
 msgid "TRT-LLM with vLLM or SGLang in either prefill/decode direction."
 msgstr "TRT-LLM con vLLM o SGLang in entrambe le direzioni prefill/decode."
 
-#: ../../source/user_guide/pd_separation.rst:346
-msgid ""
-"Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse "
-"directions. All replicas use identical BF16 dense Qwen3 checkpoints, "
-"tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM "
-"requires version ``1.2.1``; vLLM and SGLang requirements match the cross-"
-"engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX "
-"cross-engine P/D <trt-mlx-pd>` below."
-msgstr ""
-"Xavier supporta prefill TRT-LLM con decode vLLM o SGLang e le direzioni "
-"inverse. Tutte le repliche usano checkpoint Qwen3 densi BF16 identici, gli "
-"stessi file del tokenizer e limiti di contesto, con una GPU CUDA per "
-"replica. TRT-LLM richiede la versione ``1.2.1``; i requisiti vLLM e SGLang "
-"corrispondono alla sezione precedente. Per distribuzioni CUDA/Metal vedere "
-":ref:`P/D tra motori NVIDIA e MLX <trt-mlx-pd>` sotto."
+#: source/user_guide/pd_separation.rst:348
+msgid "Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1`` or ``>=1.3.0rc24,<1.4`` (experimental); vLLM and SGLang requirements match the cross-engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX cross-engine P/D <trt-mlx-pd>` below."
+msgstr "Xavier supporta prefill TRT-LLM con decode vLLM o SGLang e le direzioni inverse. Tutte le repliche usano checkpoint Qwen3 densi BF16 identici, gli stessi file del tokenizer e limiti di contesto, con una GPU CUDA per replica. TRT-LLM richiede la versione ``1.2.1`` o ``>=1.3.0rc24,<1.4`` (sperimentale); i requisiti vLLM e SGLang corrispondono alla sezione precedente. Per distribuzioni CUDA/Metal vedere :ref:`P/D tra motori NVIDIA e MLX <trt-mlx-pd>` sotto."
 
 #: ../../source/user_guide/pd_separation.rst:387
 msgid "vLLM/SGLang with MLX in either prefill/decode direction."

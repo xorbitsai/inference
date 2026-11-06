@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from .....model.utils import select_device
@@ -127,6 +126,4 @@ class Gemma3ChatModel(PytorchMultiModalModel):
         gen_kwargs["max_new_tokens"] = self._cap_context_max_new_tokens(
             len(inputs["input_ids"][0]), gen_kwargs["max_new_tokens"]
         )
-        t = Thread(target=self._model.generate, kwargs=gen_kwargs)
-        t.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(gen_kwargs), len(inputs.input_ids[0])

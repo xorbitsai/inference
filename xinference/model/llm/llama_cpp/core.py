@@ -39,6 +39,28 @@ from ..utils import ChatModelMixin, normalize_response_format
 logger = logging.getLogger(__name__)
 
 
+def _owned_native_stream(
+    iterator: Iterator, task: concurrent.futures.Future
+) -> Iterator:
+    """Retain a native slot until its callback worker has actually finished."""
+
+    def owned():
+        try:
+            yield None  # Establish cleanup even before the first client read.
+            yield from iterator
+        finally:
+            try:
+                close = getattr(iterator, "close", None)
+                if close is not None:
+                    close()
+            finally:
+                task.result()
+
+    result = owned()
+    next(result)
+    return result
+
+
 def _schema_to_grammar(schema: Dict[str, Any]) -> Optional[str]:
     try:
         import xllamacpp
@@ -194,6 +216,11 @@ def _annotate_stop_sequence(
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        return self._request_priority_capacity
 
     def __init__(
         self,
@@ -483,8 +510,12 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     )
 
             self._llm = Server(params)
+            callback_workers = max(10, n_threads)
+            self._request_priority_capacity = max(
+                1, min(params.n_parallel, callback_workers)
+            )
             self._executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=max(10, n_threads)
+                max_workers=callback_workers
             )
         except AssertionError:
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
@@ -536,7 +567,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             q.put(_Done)
 
         assert self._executor
-        self._executor.submit(_handle_completion)
+        native_task = self._executor.submit(_handle_completion)
 
         if stream:
             matched_stop_sequence = None
@@ -552,9 +583,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         )
                     yield r
 
-            return _to_iterator()
+            return _owned_native_stream(_to_iterator(), native_task)
         else:
             r = q.get()
+            native_task.result()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
             if isinstance(r, dict):
@@ -680,7 +712,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             q.put(_Done)
 
         assert self._executor
-        self._executor.submit(_handle_chat_completion)
+        native_task = self._executor.submit(_handle_chat_completion)
 
         if stream:
             matched_stop_sequence = None
@@ -712,11 +744,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         )
                     yield r
 
-            return self._to_chat_completion_chunks(
-                _to_iterator(), self.reasoning_parser
+            return _owned_native_stream(
+                self._to_chat_completion_chunks(_to_iterator(), self.reasoning_parser),
+                native_task,
             )
         else:
             r = q.get()
+            native_task.result()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
             if isinstance(r, dict):

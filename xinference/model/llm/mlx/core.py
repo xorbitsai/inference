@@ -91,6 +91,23 @@ _mlx_executor_lock = threading.Lock()
 _DEFAULT_MLX_PROMPT_CACHE_SIZE = 2
 
 
+async def _await_mlx_cleanup(task: asyncio.Future) -> None:
+    """Retain native ownership if cancellation arrives during cleanup itself."""
+    try:
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if not task.cancelled():
+            task.exception()
+        raise
+
+
 def _ensure_mlx_vlm_thread_local_stream() -> Any:
     """Use an MLX generation stream that is safe across worker threads."""
     import mlx.core as mx
@@ -589,33 +606,36 @@ class MLXBatchModel:
             insert_options["external_cache"] = external_cache
         if cache_salt is not None:
             insert_options["cache_salt"] = cache_salt
-        inserted_uid, cached_prompt_tokens, cache_boundary = self._insert_request(
-            *insert_args, **insert_options
-        )
-        if cache_salt is not None:
-            gen_dict.setdefault("cache_salts", {})[inserted_uid] = cache_salt
-        remote_cached_tokens = external_cache[1] if external_cache is not None else 0
-        if (
-            getattr(self, "_xavier", None) is not None
-            and remote_cached_tokens < input_echo_len - 1
-        ):
-            gen_dict["xavier_prompts"][inserted_uid] = (
-                prompt_tokens,
-                remote_cached_tokens,
-            )
-        if cache_boundary is not None:
-            gen_dict["cache_boundaries"][inserted_uid] = cache_boundary
-
-        logger.debug(
-            "Inserted request %s into batch (temp=%s, top_p=%s, top_k=%s)",
-            inserted_uid,
-            temperature,
-            top_p,
-            top_k,
-        )
-
-        # Add to active requests set
+        # Acquire before native insertion: cancellation while waiting must not
+        # leave an unregistered native UID outside the cleanup owner.
         async with MLXBatchModel._get_lock():
+            inserted_uid, cached_prompt_tokens, cache_boundary = self._insert_request(
+                *insert_args, **insert_options
+            )
+            if cache_salt is not None:
+                gen_dict.setdefault("cache_salts", {})[inserted_uid] = cache_salt
+            remote_cached_tokens = (
+                external_cache[1] if external_cache is not None else 0
+            )
+            if (
+                getattr(self, "_xavier", None) is not None
+                and remote_cached_tokens < input_echo_len - 1
+            ):
+                gen_dict["xavier_prompts"][inserted_uid] = (
+                    prompt_tokens,
+                    remote_cached_tokens,
+                )
+            if cache_boundary is not None:
+                gen_dict["cache_boundaries"][inserted_uid] = cache_boundary
+
+            logger.debug(
+                "Inserted request %s into batch (temp=%s, top_p=%s, top_k=%s)",
+                inserted_uid,
+                temperature,
+                top_p,
+                top_k,
+            )
+
             gen_dict["active"].add(inserted_uid)
             gen_dict["queues"][inserted_uid] = queue
 
@@ -743,28 +763,30 @@ class MLXBatchModel:
             }
             yield completion_chunk
         finally:
-            # Clean up queue using the correct uid
-            async with MLXBatchModel._get_lock():
-                if not removed and (
-                    not finished or getattr(self, "_xavier", None) is not None
-                ):
-                    batch_generator.remove([inserted_uid])
-                if inserted_uid in gen_dict["queues"]:
-                    del gen_dict["queues"][inserted_uid]
-                    logger.debug(f"Cleaned up queue for uid {inserted_uid}")
-                # Also clean up any pending results
-                if inserted_uid in gen_dict["pending"]:
-                    del gen_dict["pending"][inserted_uid]
-                # And remove from active set (in case it's still there)
-                if inserted_uid in gen_dict["active"]:
-                    gen_dict["active"].remove(inserted_uid)
-                gen_dict["cache_boundaries"].pop(inserted_uid, None)
-                gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
+
+            async def cleanup():
+                # Clean up queue using the correct uid.
+                async with MLXBatchModel._get_lock():
+                    if not removed and (
+                        not finished or getattr(self, "_xavier", None) is not None
+                    ):
+                        batch_generator.remove([inserted_uid])
+                    if inserted_uid in gen_dict["queues"]:
+                        del gen_dict["queues"][inserted_uid]
+                        logger.debug(f"Cleaned up queue for uid {inserted_uid}")
+                    if inserted_uid in gen_dict["pending"]:
+                        del gen_dict["pending"][inserted_uid]
+                    if inserted_uid in gen_dict["active"]:
+                        gen_dict["active"].remove(inserted_uid)
+                    gen_dict["cache_boundaries"].pop(inserted_uid, None)
+                    gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
+                    if getattr(self, "_xavier", None) is not None:
+                        gen_dict["xavier_prompts"].pop(inserted_uid, None)
                 if getattr(self, "_xavier", None) is not None:
-                    gen_dict["xavier_prompts"].pop(inserted_uid, None)
-            if getattr(self, "_xavier", None) is not None:
-                write = gen_dict["xavier_writes"].pop(inserted_uid, None)
-                await self._xavier.flush([write] if write is not None else [])
+                    write = gen_dict["xavier_writes"].pop(inserted_uid, None)
+                    await self._xavier.flush([write] if write is not None else [])
+
+            await _await_mlx_cleanup(asyncio.create_task(cleanup()))
 
     async def generate(
         self,
@@ -894,6 +916,34 @@ class _CachedTextVisionModel:
 
 
 class MLXModel(LLM, ChatModelMixin):
+    _cancel_async_request_on_abort = True
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        if getattr(self, "_batch_model", None) is None:
+            return 1
+        if generate_config is not None:
+            config = generate_config
+            try:
+                context = (
+                    self._get_chat_template_kwargs_from_generate_config(config) or {}
+                )
+            except TypeError:
+                # Completions ignore chat-only options; defer their validation to chat.
+                return 1
+            if (
+                normalize_response_format(config.get("response_format"))
+                or is_forced_tool_choice(config)
+                or config.get("_mlx_thinking_budget") is not None
+                or context.get("thinking_budget") is not None
+                or config.get("_mlx_cache_boundaries")
+                # Chat resolves these checkpoints after rendering the prompt.
+                or config.get("_anthropic_cache_control")
+            ):
+                return 1
+        return self._model_config.get("batch_size", 4)
+
     supports_cache_salt = True
     supports_tool_controls = True
     _rank_to_addresses: Optional[Dict[int, str]]
@@ -2082,7 +2132,9 @@ class MLXModel(LLM, ChatModelMixin):
             finally:
                 try:
                     # Queued behind an in-flight decode even when the caller cancels.
-                    await asyncio.shield(loop.run_in_executor(executor, iterator.close))
+                    await _await_mlx_cleanup(
+                        loop.run_in_executor(executor, iterator.close)
+                    )
                 finally:
                     with _mlx_executor_lock:
                         self._fallback_active = False

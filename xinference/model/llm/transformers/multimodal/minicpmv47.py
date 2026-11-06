@@ -140,8 +140,6 @@ class MiniCPMV47Model(MiniCPMV46Model):
     def build_streaming_iter(
         self, messages: List[Dict], generate_config: Dict
     ) -> Tuple[Iterator, int]:
-        from threading import Thread
-
         from transformers import TextIteratorStreamer
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
@@ -155,22 +153,6 @@ class MiniCPMV47Model(MiniCPMV46Model):
         streamer = TextIteratorStreamer(
             self._tokenizer, timeout=60.0, skip_prompt=True, skip_special_tokens=True
         )
-        errors: List[Exception] = []
-
-        def generate():
-            try:
-                self._model.generate(**inputs, **config, streamer=streamer)
-            except Exception as exc:
-                errors.append(exc)
-                streamer.end()
-
-        thread = Thread(target=generate, daemon=True)
-        thread.start()
-
-        def iterate():
-            yield from streamer
-            thread.join()
-            if errors:
-                raise errors[0]
-
-        return iterate(), len(inputs.input_ids[0])
+        return self._start_streaming_thread(
+            {**inputs, **config, "streamer": streamer}
+        ), len(inputs.input_ids[0])

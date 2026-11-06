@@ -241,8 +241,6 @@ class MiniCPMV46Model(PytorchMultiModalModel):
         messages: List[Dict],
         generate_config: Dict,
     ) -> Tuple[Iterator, int]:
-        from threading import Thread
-
         from transformers import TextIteratorStreamer
 
         streamer = TextIteratorStreamer(
@@ -265,16 +263,9 @@ class MiniCPMV46Model(PytorchMultiModalModel):
             len(inputs["input_ids"][0]), config["max_new_tokens"]
         )
 
-        def model_generate():
-            try:
-                return self._model.generate(**inputs, **config, streamer=streamer)
-            except Exception:
-                streamer.end()
-                raise
-
-        thread = Thread(target=model_generate)
-        thread.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(
+            {**inputs, **config, "streamer": streamer}
+        ), len(inputs.input_ids[0])
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         raw_config = req.inference_kwargs.get("raw_params", {})

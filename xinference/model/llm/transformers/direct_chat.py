@@ -32,8 +32,16 @@ class PytorchDirectChatMixin(ChatModelMixin):
     model_uid: str
     model_family: Any
     _tokenizer: Any
+    _model: Any
     tool_parser: Any
     reasoning_parser: Any
+
+    def _start_streaming_thread(
+        self, kwargs: Dict[str, Any], generate=None
+    ) -> Iterator:
+        from .streaming import generate_stream
+
+        return generate_stream(generate or self._model.generate, kwargs)
 
     @abstractmethod
     def build_inputs_from_messages(
@@ -151,9 +159,19 @@ class PytorchDirectChatMixin(ChatModelMixin):
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Iterator[CompletionChunk]:
         config: Dict[str, Any] = dict(generate_config or {})
+        streamer, prompt_tokens = self.build_streaming_iter(messages, config)
+        try:
+            yield from self._generate_streaming_chunks(streamer, prompt_tokens, config)
+        finally:
+            close = getattr(streamer, "close", None)
+            if close is not None:
+                close()
+
+    def _generate_streaming_chunks(
+        self, streamer: Iterator, prompt_tokens: int, config: Dict[str, Any]
+    ) -> Iterator[CompletionChunk]:
         tools = config.get("tools")
         use_tool_calls = bool(tools and self.tool_parser)
-        streamer, prompt_tokens = self.build_streaming_iter(messages, config)
         stream_options = config.get("stream_options")
         include_usage = (
             stream_options.get("include_usage", False)
@@ -301,9 +319,17 @@ class PytorchDirectChatMixin(ChatModelMixin):
                 parser = self.reasoning_parser
                 if use_tool_calls or (parser and not parser.check_content_parser()):
                     parser = None
-                return self._to_chat_completion_chunks(
-                    self.generate_streaming(messages, generate_config), parser, ctx=ctx
-                )
+
+                def owned_chunks():
+                    chunks = self.generate_streaming(messages, generate_config)
+                    try:
+                        yield from self._to_chat_completion_chunks(
+                            chunks, parser, ctx=ctx
+                        )
+                    finally:
+                        chunks.close()
+
+                return owned_chunks()
             return self.generate_non_streaming(messages, generate_config)
         finally:
             chat_context_var.reset(token)

@@ -233,7 +233,9 @@ def actor_call(
     return getattr(actor_ref, method_name)(*args, **kwargs)
 
 
-def wrap_async_iterator(value: Any, metadata: Optional[RpcMetadata]) -> Any:
+def wrap_async_iterator(
+    value: Any, metadata: Optional[RpcMetadata], *, owned: bool = False
+) -> Any:
     """Keep RPC context active while a deferred async iterator is consumed."""
 
     if metadata is None or not hasattr(value, "__aiter__"):
@@ -242,6 +244,8 @@ def wrap_async_iterator(value: Any, metadata: Optional[RpcMetadata]) -> Any:
     async def iterate() -> AsyncIterator[Any]:
         iterator = value.__aiter__()
         try:
+            if owned:
+                yield None  # The caller primes cleanup without advancing native work.
             while True:
                 token = _set_rpc_metadata(metadata)
                 try:

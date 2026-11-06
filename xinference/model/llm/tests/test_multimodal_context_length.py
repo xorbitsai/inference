@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 """Launch budgets use prepared multimodal inputs before starting generation."""
 
 from copy import deepcopy
@@ -303,13 +304,12 @@ def test_qwen2_audio_generation_limit(
     original = deepcopy(model.generation_config)
     outputs = []
 
-    def thread_factory(*, target, kwargs):
-        return SimpleNamespace(start=lambda: outputs.append(target(**kwargs)))
+    def start_streaming(kwargs):
+        outputs.append(model.generate(**kwargs))
+        return kwargs["streamer"]
 
-    thread = Mock(side_effect=thread_factory)
-    monkeypatch.setattr(
-        "xinference.model.llm.transformers.multimodal.qwen2_audio.Thread", thread
-    )
+    start = Mock(side_effect=start_streaming)
+    monkeypatch.setattr(adapter, "_start_streaming_thread", start)
     try:
         if isinstance(expected, str):
             error = ContextLengthExceeded if expected == "reject" else ValueError
@@ -325,10 +325,11 @@ def test_qwen2_audio_generation_limit(
                     " 512. This can lead to unexpected behavior. You should consider"
                     " increasing `max_length` or, better yet, setting `max_new_tokens`."
                 )
-            thread.assert_not_called()
+            start.assert_not_called()
             assert not outputs
         else:
             _, prompt_tokens = adapter.build_streaming_iter([], config)
+            start.assert_called_once()
             assert prompt_tokens == prompt
             assert outputs[0].shape[-1] - prompt == expected
     finally:

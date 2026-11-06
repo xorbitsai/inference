@@ -393,3 +393,7 @@ msgstr ""
 "Misurare prima di lasciarlo attivo. La verifica non è il problema: un "
 "forward di quattro token costa solo circa il 40% in più di uno di un token "
 "su entrambi i modelli."
+
+#: source/user_guide/speculative_decoding.rst:101
+msgid "NGram can also use the ordinary-replica version range documented in :ref:`trt_llm_backend`. Draft/Target availability depends on the installed native API; later 1.3 pre-releases removed it. TensorRT-LLM 1.2.1 remains the GPU-validated speculative-decoding baseline."
+msgstr "NGram può anche utilizzare l’intervallo di versioni delle repliche ordinarie documentato in :ref:`trt_llm_backend`. La disponibilità di Draft/Target dipende dall’API nativa installata; le versioni preliminari 1.3 successive l’hanno rimossa. TensorRT-LLM 1.2.1 rimane la base di decodifica speculativa validata su GPU."

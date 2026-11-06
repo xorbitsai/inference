@@ -13,7 +13,6 @@
 # limitations under the License.
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Tuple, Union
 
 import torch
@@ -189,6 +188,4 @@ class Glm4_1VModel(PytorchMultiModalModel):
             "streamer": streamer,
         }
         logger.debug("Generate with kwargs: %s", generate_kwargs)
-        t = Thread(target=self._model.generate, kwargs=kwargs)
-        t.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(kwargs), len(inputs.input_ids[0])

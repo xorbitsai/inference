@@ -69,6 +69,7 @@ from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
+from .._compat import ValidationError
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
     XINFERENCE_AUTH_DB_PATH,
@@ -230,6 +231,16 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
 }
 
 
+def _parse_llm_request(schema, raw_body: dict):
+    # Resolve/validate the raw salt after authorization, allowing provider overrides.
+    try:
+        return schema.parse_obj(
+            {key: value for key, value in raw_body.items() if key != "cache_salt"}
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+
+
 class _SSERequestAbortController:
     """Abort and close an interrupted model stream exactly once."""
 
@@ -249,6 +260,7 @@ class _SSERequestAbortController:
         self._abort_task: Optional[asyncio.Task] = None
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
+        self._completed = False
 
     def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
         self._body_iterator = body_iterator
@@ -256,7 +268,12 @@ class _SSERequestAbortController:
     def bind_stream_task(self) -> None:
         self._stream_task = asyncio.current_task()
 
+    def mark_completed(self) -> None:
+        self._completed = True
+
     async def abort(self) -> None:
+        if self._completed:
+            return
         if self._abort_task is None:
             operation = self._model.abort_request(self._request_id)
             if self._abort_timeout is not None:
@@ -275,13 +292,14 @@ class _SSERequestAbortController:
 
     async def handle_disconnect(self, _message: Dict[str, Any]) -> None:
         with anyio.CancelScope(shield=True):
-            report_client_disconnect(self._request)
-            logger.info(
-                "Disconnected from client (via refresh/close) %s during %s.",
-                self._request.client,
-                self._kind,
-            )
-            await self.abort()
+            if not self._completed:
+                report_client_disconnect(self._request)
+                logger.info(
+                    "Disconnected from client (via refresh/close) %s during %s.",
+                    self._request.client,
+                    self._kind,
+                )
+                await self.abort()
 
             # Cancel and join the response's stream task before the disconnect
             # listener returns. EventSourceResponse cancels its AnyIO task
@@ -1317,8 +1335,13 @@ class RESTfulAPI(CancelMixin):
             CONTEXT_LENGTH_EXCEEDED_DETAIL,
             ContextLengthExceeded,
         )
+        from ..request_priority import PRIORITY_ERROR_MESSAGES
 
         message = str(e)
+        if isinstance(e, ValueError):
+            for detail in PRIORITY_ERROR_MESSAGES:
+                if message.endswith(detail):
+                    raise HTTPException(status_code=400, detail=detail)
         context_error = isinstance(e, ContextLengthExceeded)
         if sanitize and RESTfulAPI._is_context_length_error(e):
             context_error = True
@@ -2691,10 +2714,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_completion(self, request: Request) -> Response:
         raw_body = await request.json()
-        # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        body = CreateCompletionRequest.parse_obj(
-            {key: value for key, value in raw_body.items() if key != "cache_salt"}
-        )
+        body = _parse_llm_request(CreateCompletionRequest, raw_body)
         exclude = {
             "prompt",
             "model",
@@ -2737,13 +2757,13 @@ class RESTfulAPI(CancelMixin):
             is_vllm_backend,
             stream=bool(body.stream),
         )
-        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        model_call_kwargs: Dict[str, Any] = {
+            "raw_params": raw_kwargs,
+            "request_id": request_id,
+        }
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
-            model_call_kwargs["request_id"] = request_id
-        elif await model.is_transformers_batching_enabled():
-            model_call_kwargs["request_id"] = request_id
 
         if body.stream:
             abort_controller = _SSERequestAbortController(
@@ -2772,6 +2792,7 @@ class RESTfulAPI(CancelMixin):
                     async for item in observed_iterator:
                         yield item
                     completed = True
+                    abort_controller.mark_completed()
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
@@ -5095,10 +5116,7 @@ class RESTfulAPI(CancelMixin):
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
-        # Resolve/validate the raw salt after authorization, allowing provider overrides.
-        body = CreateChatCompletion.parse_obj(
-            {key: value for key, value in raw_body.items() if key != "cache_salt"}
-        )
+        body = _parse_llm_request(CreateChatCompletion, raw_body)
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
             "prompt",
@@ -5237,13 +5255,13 @@ class RESTfulAPI(CancelMixin):
             else:
                 for config in (kwargs, raw_kwargs):
                     config[CACHE_SESSION_ARG] = tag
-        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        model_call_kwargs: Dict[str, Any] = {
+            "raw_params": raw_kwargs,
+            "request_id": request_id,
+        }
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
-            model_call_kwargs["request_id"] = request_id
-        elif await model.is_transformers_batching_enabled():
-            model_call_kwargs["request_id"] = request_id
 
         try:
             description_options = (
@@ -5516,6 +5534,7 @@ class RESTfulAPI(CancelMixin):
                     async for item in observed_iterator:
                         yield item
                     completed = True
+                    abort_controller.mark_completed()
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.

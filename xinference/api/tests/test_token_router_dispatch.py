@@ -967,7 +967,8 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
     class FakeModel:
         uid = "physical-model"
 
-        async def chat(self, messages, kwargs, raw_params=None):
+        async def chat(self, messages, kwargs, raw_params=None, request_id=None):
+            assert isinstance(request_id, str) and request_id
             return json.dumps(
                 {
                     "id": "chatcmpl-physical",

@@ -53,6 +53,11 @@ from xoscar.utils import get_next_port
 from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import is_npu_available, is_vacc_available
+from ....request_priority import (
+    VLLM_PRIORITY_DISABLED,
+    VLLM_PRIORITY_VERSION,
+    validate_request_priority,
+)
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -159,6 +164,7 @@ class VLLMModelConfig(TypedDict, total=False):
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
+    priority: int
     cache_salt: Optional[str]
     lora_name: Optional[str]
     n: int
@@ -556,6 +562,7 @@ _update_vllm_supported_lists()
 
 
 class VLLMModel(WeightCachedModel, LLM):
+    supports_native_request_priority = True
     supports_cache_salt = True
     _weight_cache_engine = "vllm"
     allow_batch = True
@@ -2499,6 +2506,14 @@ class VLLMModel(WeightCachedModel, LLM):
         tools: object = False,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
+        priority = validate_request_priority((generate_config or {}).get("priority", 0))
+        if priority:
+            if VLLM_VERSION < version.parse("0.6.3"):
+                raise ValueError(VLLM_PRIORITY_VERSION)
+            if (self._model_config or {}).get(
+                "scheduling_policy", "fcfs"
+            ) != "priority":
+                raise ValueError(VLLM_PRIORITY_DISABLED)
         cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
         try:
             from vllm.sampling_params import SamplingParams
@@ -2843,6 +2858,7 @@ class VLLMModel(WeightCachedModel, LLM):
             sampling_params,
             request_id,
             lora_request=lora_request,
+            **({"priority": priority} if priority else {}),
         )
 
         results_generator = self._track_engine_request(request_id, results_generator)

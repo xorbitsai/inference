@@ -331,6 +331,34 @@ msgstr ""
 " ID di sessione distinti per flussi di lavoro indipendenti, inclusi quelli "
 "con salt differenti."
 
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "Priorità delle richieste"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "Le richieste LLM a ``/v1/chat/completions`` e ``/v1/completions`` supportano un intero ``priority`` con vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp e TensorRT-LLM, anche in streaming. Il valore predefinito è ``0``; i valori minori hanno priorità maggiore. La priorità influisce sulla pianificazione all’interno di una replica del modello; non seleziona repliche e non aggira i limiti delle richieste. L’intervallo valido di ``priority`` è ``[-10000, 10000]``."
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM e SGLang utilizzano la pianificazione nativa per priorità. Abilitare la pianificazione per priorità all’avvio del modello: impostare ``scheduling_policy=\"priority\"`` per vLLM (versione 0.6.3 o successiva), oppure ``enable_priority_scheduling=True`` per una versione di SGLang che supporti questa funzione. Xinference converte le priorità secondo l’ordinamento configurato di SGLang, quindi i valori minori indicano sempre una priorità maggiore nell’API Xinference, indipendentemente da ``schedule_low_priority_values_first``."
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "Gli altri motori utilizzano una coda di priorità per replica prima di inviare le richieste al motore. Le richieste attive sono limitate dalla capacità di elaborazione in batch o parallela configurata; i percorsi seriali eseguono una richiesta alla volta. Le richieste in attesa vengono eseguite per priorità e, a parità di priorità, in ordine di arrivo. Questa coda non interrompe le richieste in esecuzione. I modelli Transformers senza elaborazione in batch ora eseguono una sola richiesta alla volta, anche se priority viene omesso. Le richieste in attesa contano per ``request_limits``; raggiunto il limite, vengono rifiutate anche le richieste successive con priorità maggiore."
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "Con il client Python di Xinference, passare ``generate_config={\"priority\": -10}`` a ``model.chat()`` o ``model.generate()``. Con il client Python di OpenAI, utilizzare ``extra_body``:"
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "I tipi di priorità non validi o i valori fuori da ``[-10000, 10000]`` restituiscono HTTP 422; stringhe, booleani e numeri frazionari non vengono convertiti in interi. Le priorità diverse da zero richiedono la pianificazione nativa per priorità attivata per vLLM, SGLang e le versioni di TRT-LLM con API nativa di priorità; altrimenti le richieste senza streaming falliscono con HTTP 400. Per le richieste in streaming, la configurazione e la versione del motore vengono verificate dopo l’invio di HTTP 200, quindi questi errori compaiono nel flusso SSE."
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "Le versioni TRT-LLM con un parametro nativo ``priority`` usano la pianificazione nativa per repliche ordinarie e P/D. Xinference imposta ``scheduler_config.waiting_queue_policy`` su ``\"priority\"`` e converte linearmente gli interi: ``-10000`` corrisponde a ``1.0``, ``0`` a ``0.5`` e ``10000`` a ``0.0``. Le versioni precedenti, inclusa 1.2.1, rifiutano ``priority`` esplicito con HTTP 400 (richieste senza streaming), anche se vale ``0``. Omettere il campo per usarle; TRT-LLM non utilizza la coda condivisa come alternativa."
+
 #: ../../source/user_guide/client_api.rst:114
 msgid ""
 "With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
@@ -356,3 +384,6 @@ msgstr ""
 " conteggiati. Il passaggio a un’altra replica può richiedere il ricalcolo "
 "del prefisso o il trasferimento KV; la politica non stima questi costi e non"
 " riserva capacità."
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference ora verifica i valori ``request_id`` forniti dal client per tutti i motori, anche nelle richieste senza ``priority``. Gli ID devono essere univoci tra le richieste attive di una replica. Dopo un annullamento, l’ID viene bloccato per 30 secondi per impostazione predefinita; usare un nuovo ID per i tentativi successivi oppure configurare ``block_duration`` nella richiesta di annullamento."

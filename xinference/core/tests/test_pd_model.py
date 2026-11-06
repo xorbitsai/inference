@@ -72,8 +72,8 @@ async def router():
 @pytest.mark.parametrize("method", ["chat", "generate"])
 async def test_infer_preserves_decode_config(router, method):
     actor, prefill, decode = router
-    config = {"max_tokens": 32, "stream": False}
-    raw = {"max_tokens": 32, "stream": False}
+    config = {"max_tokens": 32, "stream": False, "priority": -10}
+    raw = {"max_tokens": 32, "stream": False, "priority": -10}
     result = await actor._infer(
         method, "prompt", config, raw_params=raw, request_id="r"
     )
@@ -83,6 +83,7 @@ async def test_infer_preserves_decode_config(router, method):
     d_call = getattr(decode, method).call_args
     assert p_call.args[1]["max_tokens"] == 1
     assert d_call.args[1]["max_tokens"] == 32
+    assert p_call.args[1]["priority"] == d_call.args[1]["priority"] == -10
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
     prefill.free_model_cache.assert_not_awaited()

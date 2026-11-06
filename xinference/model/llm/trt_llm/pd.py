@@ -50,7 +50,7 @@ class XavierRequest:
         return (tokens + 63) // 64
 
 
-def submit_xavier(engine, tokens, params, state):
+def submit_xavier(engine, tokens, params, state, **priority_options):
     from tensorrt_llm.inputs import get_cache_salt_id
 
     salt = uuid.uuid4().hex
@@ -58,7 +58,9 @@ def submit_xavier(engine, tokens, params, state):
     with _lock:
         _requests[salt_id] = state
     try:
-        request = engine.generate_async(tokens, params, streaming=True, cache_salt=salt)
+        request = engine.generate_async(
+            tokens, params, streaming=True, cache_salt=salt, **priority_options
+        )
         request._xinference_xavier_salt_id = salt_id
     except BaseException:
         with _lock:
@@ -135,8 +137,9 @@ def configure_native(model_path, config, replica):
 
 
 class TRTLLMPD:
-    def __init__(self, role, backend, contract=None):
+    def __init__(self, role, backend, contract=None, *, engine_version="1.2.1"):
         self.role, self.backend, self.contract = role, backend, contract
+        self.engine_version = engine_version
         self.client = None
         self._native = None
         self.active: dict = {}
@@ -198,6 +201,10 @@ class TRTLLMPD:
 
             if handoff.get("contract") != self.contract.fingerprint:
                 raise ValueError("Incompatible TRT-LLM P/D checkpoint or KV contract")
+            if handoff.get("engine_version", "1.2.1") != self.engine_version:
+                raise ValueError(
+                    "TRT-LLM native P/D requires matching runtime versions"
+                )
             context = dict(handoff["context"])
             context["opaque_state"] = base64.b64decode(
                 context["opaque_state"], validate=True
@@ -269,9 +276,11 @@ class TRTLLMPD:
             await self.release(request_id)
             raise
 
-    def submit(self, engine, tokens, params, state):
+    def submit(self, engine, tokens, params, state, **priority_options):
         if self.client is not None:
-            request = submit_xavier(engine, tokens, params, state["context"])
+            request = submit_xavier(
+                engine, tokens, params, state["context"], **priority_options
+            )
         else:
             from tensorrt_llm.disaggregated_params import DisaggregatedParams
 
@@ -279,7 +288,11 @@ class TRTLLMPD:
                 request_type="context_only"
             )
             request = engine.generate_async(
-                tokens, params, streaming=True, disaggregated_params=native
+                tokens,
+                params,
+                streaming=True,
+                disaggregated_params=native,
+                **priority_options,
             )
         state["request"] = request
         return request
@@ -304,6 +317,7 @@ class TRTLLMPD:
             state["ticket"] = context.ctx_request_id
             handoff.update(
                 contract=self.contract.fingerprint,
+                engine_version=self.engine_version,
                 context=dict(
                     first_gen_tokens=context.first_gen_tokens,
                     ctx_request_id=context.ctx_request_id,
@@ -311,6 +325,10 @@ class TRTLLMPD:
                     draft_tokens=context.draft_tokens,
                 ),
             )
+            for field in ("ctx_dp_rank", "ctx_info_endpoint"):
+                value = getattr(context, field, None)
+                if value is not None:
+                    handoff["context"][field] = value
         else:
             if self.client.config.get("heterogeneous"):
                 from .gpu import service

@@ -125,6 +125,7 @@ def log_async(
     ignore_kwargs: Optional[List[str]] = None,
     log_exception=True,
     wrap_result: bool = True,
+    own_result: bool = False,
 ):
     import time
     from functools import wraps
@@ -187,7 +188,12 @@ def log_async(
             try:
                 ret = await func(*args, **kwargs)
                 if wrap_result:
-                    ret = wrap_async_iterator(ret, get_current_rpc_metadata())
+                    wrapped_ret = wrap_async_iterator(
+                        ret, get_current_rpc_metadata(), owned=own_result
+                    )
+                    if own_result and wrapped_ret is not ret:
+                        await wrapped_ret.__anext__()
+                    ret = wrapped_ret
                 elapsed = time.perf_counter() - start_time
                 logger.log(
                     level,

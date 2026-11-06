@@ -52,10 +52,20 @@ class LLM(abc.ABC):
     supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
+    supports_native_request_priority = False
+    supports_request_priority_fallback = True
+    # Opt in only when coroutine cancellation waits for native request cleanup.
+    _cancel_async_request_on_abort = False
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
     # whether the engine can load a GGUF quantization uploaded as split files
     support_split_gguf = True
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        """Total admission capacity, or a request's execution-path limit."""
+        return 1
 
     def __init__(
         self,

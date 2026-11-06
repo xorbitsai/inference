@@ -14,7 +14,6 @@
 import logging
 import math
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
@@ -414,12 +413,9 @@ class InternVLChatModel(PytorchMultiModalModel):
             len(inputs["input_ids"][0]), configs["max_new_tokens"]
         )
         generate_kwargs = {**inputs, **configs, "streamer": streamer}
-        thread = Thread(
-            target=self._model.generate,
-            kwargs=generate_kwargs,
+        return self._start_streaming_thread(generate_kwargs), len(
+            inputs["input_ids"][0]
         )
-        thread.start()
-        return streamer, len(inputs["input_ids"][0])
 
     def check_conditions(self, new_text: str) -> Tuple[str, bool]:
         if new_text == self._model.conv_template.sep:

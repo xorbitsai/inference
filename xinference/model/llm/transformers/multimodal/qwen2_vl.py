@@ -243,8 +243,6 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         messages: List[Dict],
         generate_config: Dict,
     ) -> Tuple[Iterator, int]:
-        from threading import Thread
-
         from transformers import TextIteratorStreamer
 
         tokenizer = self._tokenizer
@@ -257,30 +255,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         config["max_new_tokens"] = self._cap_context_max_new_tokens(
             len(inputs["input_ids"][0]), config["max_new_tokens"]
         )
-        errors: List[Exception] = []
-
-        def model_generate():
-            try:
-                return self._model.generate(**inputs, **config, streamer=streamer)
-            except Exception as exc:
-                errors.append(exc)
-                streamer.end()
-
-        thread = Thread(target=model_generate, daemon=True)
-        thread.start()
-
-        def iterate() -> Iterator[str]:
-            yield from streamer
-            # The streamer may end before generate returns or raises.
-            thread.join(timeout=streamer.timeout)
-            if thread.is_alive():
-                raise TimeoutError(
-                    "Qwen2-VL generation did not finish after stream end"
-                )
-            if errors:
-                raise errors[0]
-
-        return iterate(), len(inputs.input_ids[0])
+        return self._start_streaming_thread(
+            {**inputs, **config, "streamer": streamer}
+        ), len(inputs.input_ids[0])
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """

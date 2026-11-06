@@ -14,7 +14,6 @@
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import torch
@@ -242,6 +241,4 @@ class CogAgentChatModel(PytorchMultiModalModel):
         )
         generation_kwargs = {**inputs, **config, "streamer": streamer}
 
-        thread = Thread(target=self._model.generate, kwargs=generation_kwargs)
-        thread.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(generation_kwargs), len(inputs.input_ids[0])

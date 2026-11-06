@@ -40,6 +40,7 @@ from xoscar.utils import get_next_port
 
 from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
+from ....request_priority import SGLANG_PRIORITY_DISABLED, validate_request_priority
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -79,6 +80,8 @@ logger = logging.getLogger(__name__)
 
 
 class SGLANGModelConfig(TypedDict, total=False):
+    enable_priority_scheduling: bool
+    schedule_low_priority_values_first: bool
     page_size: int
     mamba_scheduler_strategy: str
     mamba_radix_cache_strategy: str
@@ -112,6 +115,7 @@ class SGLANGModelConfig(TypedDict, total=False):
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
+    priority: int
     presence_penalty: float
     frequency_penalty: float
     temperature: float
@@ -233,6 +237,7 @@ def _minicpmv47_compatibility_error(
 
 
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
+    supports_native_request_priority = True
     supports_cache_salt = True
     _weight_cache_engine = "sglang"
     allow_batch = True
@@ -933,6 +938,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         """
         top: Dict = {}
         for k in (
+            "priority",
             "return_logprob",
             "top_logprobs_num",
             "return_text_in_logprobs",
@@ -1379,6 +1385,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        priority = validate_request_priority(config.get("priority", 0))
+        priority_enabled = (getattr(self, "_model_config", None) or {}).get(
+            "enable_priority_scheduling", False
+        )
+        if priority and not priority_enabled:
+            raise ValueError(SGLANG_PRIORITY_DISABLED)
+        if priority_enabled:
+            # Xinference uses lower values first, regardless of SGLang's
+            # native scheduling direction (higher values first by default).
+            lower_first = (self._model_config or {}).get(
+                "schedule_low_priority_values_first", False
+            )
+            config["priority"] = priority if lower_first else -priority
+        else:
+            config.pop("priority", None)
         from ..xavier.cache_lifecycle import CACHE_SESSION_ARG
 
         cache_session = config.pop(CACHE_SESSION_ARG, None)

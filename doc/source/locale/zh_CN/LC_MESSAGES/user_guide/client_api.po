@@ -335,6 +335,34 @@ msgstr ""
 "注册表为每个模型最多保留 4096 个会话，每个凭证作用域最多保留 1024 个会话。未提供凭证的请求共享一个匿名作用域。生命周期 ID 独立于 "
 "``cache_salt``；独立工作流应使用不同的会话 ID，使用不同 salt 的工作流也不例外。"
 
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "请求优先级"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "使用 vLLM、SGLang、Transformers、MLX、MLX-VLM、llama.cpp 和 TensorRT-LLM 时，``/v1/chat/completions`` 和 ``/v1/completions`` 的大语言模型请求支持整数参数 ``priority``，包括流式请求。默认值为 ``0``，数值越小，优先级越高。优先级影响单个模型副本内的调度，不用于选择副本，也不会绕过请求数量限制。 ``priority`` 的有效范围为 ``[-10000, 10000]``。"
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM 和 SGLang 使用原生优先级调度。启动模型时启用优先级调度：vLLM（0.6.3 或更新版本）设置 ``scheduling_policy=\"priority\"``；支持优先级调度的 SGLang 版本设置 ``enable_priority_scheduling=True``。Xinference 会根据 SGLang 配置的排序方向转换优先级，因此无论 ``schedule_low_priority_values_first`` 如何设置，Xinference API 都是数值越小，优先级越高。"
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "其他引擎在请求提交给引擎前，使用每个副本独立的优先级队列。活动请求数量不超过引擎配置的批处理或并行容量；串行路径一次执行一个请求。等待请求按优先级执行，同优先级按到达顺序执行。此队列不会抢占正在执行的请求。 非批处理的 Transformers 模型现在一次只运行一个请求，即使省略 priority 也是如此。等待中的请求计入 ``request_limits``；达到限制后，后续请求即使优先级更高也会被拒绝。"
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "使用 Xinference Python 客户端时，向 ``model.chat()`` 或 ``model.generate()`` 传入 ``generate_config={\"priority\": -10}``。使用 OpenAI Python 客户端时，通过 ``extra_body`` 传入："
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "无效优先级类型或超出 ``[-10000, 10000]`` 的值返回 HTTP 422；字符串、布尔值和小数不会转换为整数。vLLM、SGLang 以及提供原生优先级 API 的 TRT-LLM 版本必须启用原生优先级调度才能使用非零优先级，否则非流式请求返回 HTTP 400。流式请求在发送 HTTP 200 后才检查引擎配置和版本，因此这些错误通过 SSE 流报告。"
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "具有原生 ``priority`` 参数的 TRT-LLM 版本在普通副本和 P/D 副本上都使用原生调度。Xinference 默认将 ``scheduler_config.waiting_queue_policy`` 设为 ``\"priority\"``，并线性转换整数范围：``-10000`` 对应 ``1.0``，``0`` 对应 ``0.5``，``10000`` 对应 ``0.0``。包括 1.2.1 在内的旧版本会对显式传入的 ``priority`` 返回 HTTP 400（非流式请求），即使值为 ``0``。省略该字段可继续使用旧版本；TRT-LLM 不使用公共队列作为回退。"
+
 #: ../../source/user_guide/client_api.rst:114
 msgid ""
 "With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
@@ -353,3 +381,6 @@ msgstr ""
 "rank。无效容量值会禁用此引擎专用探测。未达到此容量时，请求保持亲和并可进行批处理。如果所有副本都忙碌，Xinference "
 "会保留首选副本及其正常的排队和准入行为。此探测按请求计数，因此 ``n > 1`` "
 "的请求可能占用比计数更多的序列槽位。切换副本可能需要重新计算前缀或传输 KV；该策略不会估算这些成本，也不会预留容量。"
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference 现在会为所有引擎检查客户端传入的 ``request_id``，包括未提供 ``priority`` 的请求。同一副本上的活动请求必须使用唯一 ID。中止请求后，该 ID 默认封禁 30 秒；重试时请使用新 ID，或通过中止请求中的 ``block_duration`` 配置封禁时间。"

@@ -234,7 +234,9 @@ TRT-LLM
 
 .. versionadded:: v4.1.0
 
-The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. Model support follows the text architectures implemented by that version, including Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS and Starcoder2. Fine-tuned and custom models use the same architecture matching.
+The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm>=1.2.1,<1.4`` for ordinary replicas. Model support retains the TensorRT-LLM 1.2.1 text-architecture baseline, including Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS and Starcoder2. Fine-tuned and custom models use the same architecture matching.
+
+The default extra pins ``tensorrt-llm==1.2.1``. Newer versions require an explicit installation override. Version 1.3 pre-releases, such as ``tensorrt-llm==1.3.0rc24``, require an explicit installation choice. Xavier shared caching and both P/D backends accept 1.2.1 or ``>=1.3.0rc24,<1.4``. The 1.3 integration, including P/D, is experimental and has not been GPU-validated; 1.2.1 remains the validated baseline. Request priority requires a native priority API; older versions reject an explicitly supplied ``priority``. See :doc:`client_api`.
 
 Ordinary replicas accept ``pytorch``, ``fp8`` and ``fp4`` checkpoints, with quantization inferred from the checkpoint configuration. This includes compatible ModelOpt exports and native FP8 block-scaled or MXFP4 weights. Use ModelOpt exports for AWQ; generic Hugging Face AWQ/GPTQ, bitsandbytes, GGUF and MLX checkpoint formats are not supported by this PyTorch loader. TRT validates the checkpoint recipe and GPU kernel requirements at startup. Ordinary replicas accept ``dtype="auto"``, ``"float16"`` or ``"bfloat16"``; TP=PP=CP=1 still applies. Shared caching and P/D have the additional constraints below.
 

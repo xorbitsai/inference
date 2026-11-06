@@ -402,3 +402,66 @@ def test_tiny_retains_batching():
     model = Ling3PytorchChatModel("tiny-0", family, "/tmp/unused")
     assert model.allow_batch is True
     assert model._should_use_batching() is True
+
+
+@pytest.mark.asyncio
+async def test_serial_stream_close_waits_for_ling_generation_thread(direct_model):
+    import asyncio
+    import threading
+    from unittest.mock import AsyncMock
+
+    from ....core.model import ModelActor
+
+    model = direct_model
+    model.prepare_parse_reasoning_content(False, enable_thinking=False)
+    cancelled = threading.Event()
+    release = threading.Event()
+    entered = []
+    streams = []
+    original = model.build_streaming_iter
+
+    def retain_stream(*args):
+        result = original(*args)
+        streams.append(result[0])
+        return result
+
+    model.build_streaming_iter = retain_stream
+
+    def generate(**kwargs):
+        entered.append(True)
+        streamer = kwargs["streamer"]
+        if len(entered) == 1:
+            streamer.on_finalized_text("first ", stream_end=False)
+            while not kwargs["stopping_criteria"][0](None, None):
+                if release.wait(0.001):
+                    break
+            cancelled.set()
+            assert release.wait(5)
+        streamer.on_finalized_text("done", stream_end=True)
+
+    model._model.generate = generate
+    actor = ModelActor("test:123", "test:456", model, "ling-0", None)
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    messages = [{"role": "user", "content": "hello"}]
+    stream = await actor.chat(messages, {"stream": True, "max_tokens": 4})
+    stream._actor_ref = actor
+    await stream.__anext__()
+    next_request = asyncio.create_task(actor.chat(messages, {"max_tokens": 4}))
+    stream._gc_destroy = False
+    closing = asyncio.create_task(stream.destroy())
+    try:
+
+        async def cancellation_observed():
+            while not cancelled.is_set():
+                await asyncio.sleep(0)
+
+        await asyncio.wait_for(cancellation_observed(), 2)
+        assert not closing.done()
+        assert not next_request.done()
+        assert len(entered) == 1
+    finally:
+        release.set()
+        await asyncio.gather(closing, next_request, return_exceptions=True)
+        for source in streams:
+            await asyncio.to_thread(source.close)
