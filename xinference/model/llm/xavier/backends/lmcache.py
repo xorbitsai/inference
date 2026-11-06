@@ -128,7 +128,10 @@ class _LMCacheStorage:
                 ),
                 eviction_config=EvictionConfig("LRU"),
                 l2_adapter_config=L2AdaptersConfig([adapter]),
-                prefetch_policy="retain",
+                # Disk read buffers must be released after their owned copy is
+                # returned. Retaining each batch can fill L1 halfway through a
+                # long-prefix restore, before LMCache's eviction loop runs.
+                prefetch_policy="default",
             )
         )
         if self._remote_keys is not None:
@@ -491,6 +494,7 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
             "l2_backend": self._config.get("l2_backend", "filesystem"),
             "pages": len(self._known),
             "resident_pages": len(self.ready),
+            "directory_capacity": self._directory_capacity,
             "capacity": self.capacity,
         }
 

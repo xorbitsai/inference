@@ -47,7 +47,9 @@ class _XavierLookup(AsyncLookupManager):
     def batch_lookup(
         self, keys: list[OffloadKey], req_context: ReqContext
     ) -> Iterable[bool]:
-        return self._tier._executor.submit(self._tier._contains, keys).result()
+        return self._tier._executor.submit(
+            self._tier._contains, keys, req_context
+        ).result()
 
 
 class XavierOffloadTier(SecondaryTierManager):
@@ -104,7 +106,9 @@ class XavierOffloadTier(SecondaryTierManager):
                 ref = await xo.actor_ref(address=self._address, uid=self._uid)
                 await ref.configure_pages(self._namespace, self._page_bytes)
                 self._ref = ref
-            return await getattr(self._ref, method)(self._namespace, *args)
+            return await getattr(self._ref, method)(
+                *((self._namespace, *args) if method != "bind_cache_session" else args)
+            )
 
         if self._loop is None:
             self._loop = acquire_actor_loop()
@@ -119,7 +123,25 @@ class XavierOffloadTier(SecondaryTierManager):
         # The actor uses SHA-256 keys. OffloadKey also includes the group ID.
         return hashlib.sha256(key).hexdigest()
 
-    def _contains(self, keys: list[OffloadKey]) -> list[bool]:
+    def _contains(
+        self, keys: list[OffloadKey], req_context: Optional[ReqContext] = None
+    ) -> list[bool]:
+        from ...xavier.cache_lifecycle import CACHE_SESSION_ARG
+
+        session = (
+            (req_context.kv_transfer_params or {}).get(CACHE_SESSION_ARG)
+            if req_context
+            else None
+        )
+        if isinstance(session, dict):
+            try:
+                self._rpc(
+                    "bind_cache_session",
+                    session,
+                    [self._key(key) for key in keys[:4096]],
+                )
+            except Exception:
+                logger.debug("Agent offload binding unavailable", exc_info=True)
         hits = []
         for start in range(0, len(keys), 4096):
             hits.extend(

@@ -382,7 +382,7 @@ async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd, quantization):
 
 
 @pytest.mark.asyncio
-async def test_single_mlx_replica_disables_shared_xavier(launch_runtime, caplog):
+async def test_single_mlx_replica_uses_shared_xavier(launch_runtime):
     supervisor, workers, actors, _ = launch_runtime
     supervisor._resolve_replica_config.return_value = ([(workers[0], [0], 1)], {0: "p"})
     kwargs = launch_kwargs()
@@ -390,11 +390,9 @@ async def test_single_mlx_replica_disables_shared_xavier(launch_runtime, caplog)
     kwargs["replica_config"] = kwargs["replica_config"][:1]
     kwargs["replica_config"][0].role = None
     await supervisor.launch_builtin_model(**kwargs)
-    assert "replica<=1" in caplog.text
-    assert not actors and not supervisor._xavier_cache_mapping
-    assert (
-        "_xavier_cache_config" not in workers[0].launch_builtin_model.call_args.kwargs
-    )
+    assert "XavierBytesCacheActor" in actors
+    assert supervisor._xavier_cache_mapping
+    assert "_xavier_cache_config" in workers[0].launch_builtin_model.call_args.kwargs
 
 
 @pytest.mark.asyncio
@@ -559,7 +557,7 @@ async def test_trt_pd_invalid_launch_has_no_side_effects(launch_runtime, options
 @pytest.mark.parametrize(
     "model_format,quantization", [("pytorch", None), ("ggufv2", "4bit")]
 )
-async def test_single_sglang_replica_disables_shared_xavier(
+async def test_single_sglang_replica_uses_shared_xavier(
     launch_runtime, model_format, quantization
 ):
     supervisor, workers, actors, _ = launch_runtime
@@ -574,10 +572,15 @@ async def test_single_sglang_replica_disables_shared_xavier(
     )
     kwargs["replica_config"] = kwargs["replica_config"][:1]
     kwargs["replica_config"][0].role = None
+    if quantization:
+        with pytest.raises(ValueError, match="unquantized PyTorch"):
+            await supervisor.launch_builtin_model(**kwargs)
+        assert not actors
+        return
     await supervisor.launch_builtin_model(**kwargs)
-    assert not actors and not supervisor._xavier_cache_mapping
+    assert "XavierCacheActor" in actors
     launch = workers[0].launch_builtin_model.call_args.kwargs
-    assert "_xavier_cache_config" not in launch
+    assert "_xavier_cache_config" in launch
     assert launch["xavier_config"] is None
     workers[1].launch_builtin_model.assert_not_awaited()
 
@@ -1545,9 +1548,7 @@ async def test_lmcache_backend_launch_config(launch_runtime, lmcache_launch_opti
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "invalid", ["disabled", "gpu", "cpu", "unsupported", "mlx", "single"]
-)
+@pytest.mark.parametrize("invalid", ["disabled", "gpu", "cpu", "unsupported"])
 async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     launch_runtime, invalid
 ):
@@ -1557,14 +1558,11 @@ async def test_lmcache_backend_rejects_unsupported_launch_before_side_effects(
     for replica in kwargs["replica_config"]:
         replica.role = "hybrid"
     if invalid == "gpu":
-        kwargs["xavier_gpu_cache_bytes"] = 0
+        kwargs["xavier_gpu_cache_bytes"] = 8192
     elif invalid == "cpu":
         kwargs["xavier_cache_bytes"] = 8192
-    elif invalid in ("unsupported", "mlx"):
-        kwargs["model_engine"] = "Transformers" if invalid == "unsupported" else "MLX"
-    elif invalid == "single":
-        kwargs.pop("replica_config")
-        kwargs["replica"] = 1
+    elif invalid == "unsupported":
+        kwargs["model_engine"] = "Transformers"
     with pytest.raises(ValueError, match="LMCache backend requires"):
         await supervisor.launch_builtin_model(
             **kwargs,
@@ -1839,3 +1837,41 @@ async def test_pd_history_rolls_back_actors_when_prefill_launch_fails(launch_run
     destroyed = [call.args[0] for call in destroy.await_args_list]
     assert actors["XavierHistoryProxy"] in destroyed
     assert actors["XavierHistoryCacheActor"] in destroyed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "TRT-LLM", "MLX"])
+async def test_single_replica_lmcache_keeps_native_engine_adapter(
+    launch_runtime, engine
+):
+    supervisor, workers, actors, destroy = launch_runtime
+    supervisor._resolve_replica_config.return_value = ([(workers[0], [0], 1)], {0: "p"})
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine=engine, enable_xavier=True, replica=1)
+    kwargs["replica_config"] = kwargs["replica_config"][:1]
+    kwargs["replica_config"][0].role = None
+    if engine == "MLX":
+        kwargs["model_format"] = "mlx"
+    await supervisor.launch_builtin_model(
+        **kwargs,
+        xavier_cache_backend="lmcache",
+        xavier_cache_backend_config={
+            "cpu_bytes": 8192,
+            "disk_bytes": 32768,
+            "disk_path": "/cache",
+        },
+    )
+    launch = workers[0].launch_builtin_model.call_args.kwargs
+    actor_type = (
+        "XavierHistoryCacheActor" if engine in ("vLLM", "MLX") else "XavierCacheActor"
+    )
+    assert actor_type in actors
+    assert actors[actor_type].constructor_kwargs["cache_backend"]["name"] == "lmcache"
+    if engine == "vLLM":
+        assert launch["xavier_config"]["cpu_prefix_cache"]["capacity_bytes"] == 8192
+        assert launch["xavier_config"]["gpu_cache_bytes"] == 0
+    else:
+        assert launch["_xavier_cache_config"]["uid"] == "xavier-cache-pd"
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_cache_mapping
+    assert actors[actor_type] in [call.args[0] for call in destroy.await_args_list]

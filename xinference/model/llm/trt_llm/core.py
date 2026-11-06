@@ -88,6 +88,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
 
             configure_xavier(self.model_path, config, cache_config)
             self._cache_enabled = True
+            self._xavier_cache_config = cache_config
         try:
             from .compat import prepare_runtime
 
@@ -189,6 +190,10 @@ class TRTLLMModel(LLM, ChatModelMixin):
         request.abort()
         return "DONE"
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        config = getattr(self, "_xavier_cache_config", None)
+        return bool(self._engine is not None and config and not config.get("role"))
+
     def _sampling_params(self, prompt: str, config: dict):
         from tensorrt_llm import SamplingParams
 
@@ -257,6 +262,20 @@ class TRTLLMModel(LLM, ChatModelMixin):
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
         tokens, params = self._sampling_params(prompt, config)
+        from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, bind_cache_session
+
+        if self.supports_agent_cache_lifecycle():
+            from ..xavier.contract import KVCacheContract, build_prefix_keys
+            from ..xavier.prefix import prefix_keys
+
+            cache = self._xavier_cache_config
+            contract = KVCacheContract.from_dict(cache["contract"])
+            keys = (
+                prefix_keys(tokens, contract.block_size)
+                if cache.get("shared_prefix")
+                else [key.digest for key in build_prefix_keys(contract, tokens)]
+            )
+            await bind_cache_session(cache, config.get(CACHE_SESSION_ARG), keys)
         request_id = request_id or str(uuid.uuid4())
         created = int(time.time())
         pd_state = None

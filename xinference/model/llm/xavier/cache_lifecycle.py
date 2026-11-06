@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 """Bounded agent lifecycle hints and soft eviction ordering for free KV blocks."""
 
+import asyncio
+import logging
 import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
@@ -11,6 +13,9 @@ CACHE_SESSION_ARG = "_xinference_cache_session"
 CACHE_SESSION_TTL = 300.0
 MAX_CACHE_SESSIONS = 4096
 MAX_CACHE_SESSIONS_PER_SCOPE = 1024
+MAX_SESSION_PREFIX_KEYS = 4096
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -114,33 +119,70 @@ class CacheSessionRegistry:
         }
 
 
-def order_free_session_blocks(
-    pool: Any, offers: Iterable[Any], phases: Dict[str, str]
-) -> int:
-    """Move waiting chains to the tail, ordered so their heads survive longest.
+class SessionPrefixPolicy:
+    """Engine-independent, bounded soft retention of immutable prefix keys.
 
-    All blocks remain free. Active requests and in-progress transfers retain
-    their existing ownership and reuse fences. Active, finished and expired
-    hints leave blocks in their ordinary engine eviction order.
+    Waiting prefixes are touched tail first so their causal heads survive
+    longest. Nothing is pinned: allocation, active reads and P/D leases win.
+    Finished or expired sessions immediately lose this preference, without
+    deleting pages another session may still use.
     """
-    positions: Dict[int, int] = {}
-    for offer in offers:
-        if phases.get(offer.session_id) != "waiting":
-            continue
-        for position, block_id in enumerate(offer.block_ids):
-            positions[block_id] = max(positions.get(block_id, -1), position)
-    queue = pool.free_block_queue
-    moved = 0
-    for block_id in sorted(positions, key=positions.__getitem__, reverse=True):
-        block = pool.blocks[block_id]
+
+    def __init__(self):
+        self.registry = CacheSessionRegistry()
+        self.prefixes: OrderedDict[str, list[str]] = OrderedDict()
+        self.key_count = 0
+
+    def bind(self, session: dict, keys: list[str]) -> bool:
         if (
-            block.ref_cnt
-            or block.is_null
-            or block.prev_free_block is None
-            or block.next_free_block is None
+            not isinstance(keys, (list, tuple))
+            or len(keys) > MAX_SESSION_PREFIX_KEYS
+            or any(
+                not isinstance(key, str)
+                or len(key) != 64
+                or any(c not in "0123456789abcdef" for c in key)
+                for key in keys
+            )
         ):
-            continue
-        queue.remove(block)
-        queue.append_n([block])
-        moved += 1
-    return moved
+            raise ValueError("Invalid Xavier session prefix keys")
+        if not self.registry.update(session):
+            return False
+        previous = self.prefixes.pop(session["id"], [])
+        self.key_count -= len(previous)
+        # Batches can arrive independently, including during vLLM offload.
+        keys = list(dict.fromkeys([*previous, *keys]))[:MAX_SESSION_PREFIX_KEYS]
+        self.prefixes[session["id"]] = keys
+        self.key_count += len(keys)
+        while self.key_count > MAX_SESSION_PREFIX_KEYS:
+            _, dropped = self.prefixes.popitem(last=False)
+            self.key_count -= len(dropped)
+        return True
+
+    def waiting_keys(self) -> list[str]:
+        phases = self.registry.get(self.prefixes)
+        positions: Dict[str, int] = {}
+        for session_id, keys in list(self.prefixes.items()):
+            if session_id not in phases or phases[session_id] == "finished":
+                self.key_count -= len(self.prefixes.pop(session_id))
+            elif phases[session_id] == "waiting":
+                for position, key in enumerate(keys):
+                    positions[key] = max(position, positions.get(key, -1))
+        return sorted(positions, key=positions.__getitem__, reverse=True)
+
+
+async def bind_cache_session(config: dict, session: Any, keys: list[str]) -> None:
+    """Best-effort metadata RPC, never part of model correctness or KV ownership."""
+    if not isinstance(session, CacheSessionTag) or config.get("role"):
+        return
+    import xoscar as xo
+
+    async def bind():
+        ref = await xo.actor_ref(address=config["address"], uid=config["uid"])
+        await ref.bind_cache_session(session.to_dict(), keys[:MAX_SESSION_PREFIX_KEYS])
+
+    try:
+        await asyncio.wait_for(bind(), timeout=0.5)
+    except Exception:
+        logger.debug(
+            "Agent prefix binding unavailable; continuing inference", exc_info=True
+        )

@@ -95,6 +95,7 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
             "connector_worker_class": "XavierConnectorWorker",
         },
     )
+    cache_config["contract"] = contract.to_dict()
     # The model process owns its environment and hosts TRT's embedded worker.
     # KvCacheConnectorConfig in 1.2.1 has no user-config field.
     os.environ[CONFIG_ENV] = json.dumps(

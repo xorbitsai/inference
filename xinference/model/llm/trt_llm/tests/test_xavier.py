@@ -783,3 +783,35 @@ def test_trt_large_shared_reads_are_byte_bounded_and_stop_at_a_gap(connector, ca
     client.rpc = rpc
     assert client.read_prefix(keys) == [page] * cached
     assert len(reads) == (2 if cached == 6 else 17)
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_binds_connector_keys_before_lazy_stream(monkeypatch):
+    from unittest.mock import AsyncMock, Mock
+
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ...xavier.contract import build_prefix_keys
+    from ..core import TRTLLMModel
+
+    c = KVCacheContract("a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "bfloat16")
+    tokens = list(range(10))
+    model = TRTLLMModel.__new__(TRTLLMModel)
+    model._engine = SimpleNamespace(generate_async=Mock())
+    model._pd = None
+    model._xavier_cache_config = {
+        "address": "storage",
+        "uid": "cache",
+        "contract": c.to_dict(),
+    }
+    model._sampling_params = Mock(return_value=(tokens, object()))
+    actor = SimpleNamespace(bind_cache_session=AsyncMock(return_value=True))
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=actor))
+    session = CacheSessionTag("scoped", 0)
+    stream = await model.async_generate(
+        "prompt", {CACHE_SESSION_ARG: session, "stream": True}
+    )
+    actor.bind_cache_session.assert_awaited_once_with(
+        session.to_dict(), [key.digest for key in build_prefix_keys(c, tokens)]
+    )
+    model._engine.generate_async.assert_not_called()
+    await stream.aclose()

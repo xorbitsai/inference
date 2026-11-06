@@ -108,11 +108,12 @@ async def test_unauthorized_control_never_reaches_tracker():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("routing_key", [None, "same-agent"])
+@pytest.mark.parametrize("vllm", [True, False])
 @pytest.mark.parametrize(
     "hint_error", [None, asyncio.TimeoutError(), ConnectionError("unavailable")]
 )
 async def test_chat_scopes_metadata_and_continues_when_hints_are_unavailable(
-    monkeypatch, hint_error, routing_key
+    monkeypatch, hint_error, routing_key, vllm
 ):
     from ...model.llm.xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
     from ..restful_api import Response
@@ -128,7 +129,8 @@ async def test_chat_scopes_metadata_and_continues_when_hints_are_unavailable(
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     model = SimpleNamespace(
         uid=b"model-rep0",
-        is_vllm_backend=AsyncMock(return_value=True),
+        is_vllm_backend=AsyncMock(return_value=vllm),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
         chat=AsyncMock(return_value=b"{}"),
     )
     require_model = AsyncMock(return_value=model)

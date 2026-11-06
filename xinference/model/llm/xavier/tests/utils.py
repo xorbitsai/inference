@@ -76,6 +76,24 @@ class DiskCacheActor(XavierCacheActor):
 
 
 class DiskHistoryCacheActor(XavierHistoryCacheActor):
+    async def fill_l1_below_watermark(self, count):
+        """Keep unrelated pages resident while a larger prefix streams from L2."""
+        storage = self._store._storage
+        manager = storage.manager
+        keys = [storage._key(10**9 + i) for i in range(count)]
+        reserved = manager.reserve_write(keys, storage._layout)
+        assert len(reserved) == count
+        for obj in reserved.values():
+            obj.tensor.zero_()
+        manager.finish_write(keys)
+        deadline = asyncio.get_running_loop().time() + 10
+        while any(
+            state["pending_keys_count"] or state["in_flight_task_count"]
+            for state in manager.report_status()["store_controllers"].values()
+        ):
+            assert asyncio.get_running_loop().time() < deadline
+            await asyncio.sleep(0.05)
+
     async def evict_l2_pages(self):
         """Leave Xavier's directory stale after evicting this actor's objects."""
         await self.force_disk_reads()

@@ -119,3 +119,39 @@ async def test_discovery_probes_independent_capabilities_concurrently(monkeypatc
     description = await asyncio.wait_for(owner.describe_running_model("model"), 1)
     assert description["supports_thinking_budget"]
     assert description["supports_agent_cache_lifecycle"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["sglang", "trt", "mlx"])
+@pytest.mark.parametrize("role", [None, "prefill", "decode"])
+async def test_storage_engine_lifecycle_requires_loaded_ordinary_adapter(engine, role):
+    if engine == "sglang":
+        from ...model.llm.sglang.core import SGLANGModel as Engine
+    elif engine == "trt":
+        from ...model.llm.trt_llm.core import TRTLLMModel as Engine
+    else:
+        from ...model.llm.mlx.core import MLXModel as Engine
+    model = Engine.__new__(Engine)
+    model._engine = object()
+    model._xavier_cache_config = {"address": "storage", "role": role}
+    model._xavier = SimpleNamespace(role=role)
+    assert model.supports_agent_cache_lifecycle() is (role is None)
+    model._engine = None
+    model._xavier = None
+    assert not model.supports_agent_cache_lifecycle()
+
+
+@pytest.mark.asyncio
+async def test_control_updates_gpu_and_shared_storage_semantics_together():
+    owner = SupervisorActor.__new__(SupervisorActor)
+    owner._supports_agent_cache_lifecycle = AsyncMock(return_value=True)
+    gpu, storage = [
+        SimpleNamespace(update_cache_session=AsyncMock(return_value=True))
+        for _ in range(2)
+    ]
+    owner._block_tracker_mapping = {"model": gpu}
+    owner._xavier_cache_mapping = {"model": storage}
+    session = {"id": "agent", "revision": 2, "phase": "waiting"}
+    assert await owner.update_cache_session("model", session)
+    gpu.update_cache_session.assert_awaited_once_with(session)
+    storage.update_cache_session.assert_awaited_once_with(session)
