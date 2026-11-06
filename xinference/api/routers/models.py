@@ -71,7 +71,7 @@ def register_routes(api: "RESTfulAPI") -> None:
     )
 
     router.add_api_route(
-        "/v1/models/{model_uid}/runtime",
+        "/v1/models/{model_uid:path}/runtime",
         api.get_model_runtime_info,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
