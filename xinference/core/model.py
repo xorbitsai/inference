@@ -84,11 +84,16 @@ XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
 )
 
 
-async def _await_owned_task(task: asyncio.Future, *, close_sync=None):
+async def _await_owned_task(
+    task: asyncio.Future, *, close_sync=None, cancel_on_cancel: bool = False
+):
     """Cancellation cannot abandon native work that still owns model resources."""
     try:
         return await asyncio.shield(task)
     except asyncio.CancelledError:
+        if cancel_on_cancel:
+            # Signal once, then shield acknowledgement from repeated cancellation.
+            task.cancel()
         while not task.done():
             try:
                 await asyncio.shield(task)
@@ -1454,10 +1459,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     and self._model.allow_batch
                     and not (config or {}).get("stream")
                 ):
-                    # Cancellation must not cancel the result future before
-                    # a native batch has removed the request at its next step.
+                    # Preserve native ownership until removal; engines with
+                    # cancellation-owned cleanup also need the cancel signal.
                     return await _await_owned_task(
-                        asyncio.create_task(fn(*args, **kwargs))
+                        asyncio.create_task(fn(*args, **kwargs)),
+                        cancel_on_cancel=getattr(
+                            self._model, "_cancel_async_request_on_abort", False
+                        ),
                     )
                 return await fn(*args, **kwargs)
             if not wait_for_sync_on_cancel:

@@ -152,6 +152,253 @@ async def test_mlx_constrained_requests_wait_in_priority_order(mlx_priority_mode
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("cancel_during_cleanup", [False, True])
+@pytest.mark.parametrize("cleanup_error", [False, True])
+async def test_mlx_batch_abort_cancels_generation_and_waits_for_removal(
+    mlx_priority_model, monkeypatch, method, cancel_during_cleanup, cleanup_error
+):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from ..mlx.core import MLXBatchModel
+
+    model, actor = mlx_priority_model
+    model._model_config["batch_size"] = 1
+    monkeypatch.setattr(
+        model._tokenizer, "decode", lambda tokens, **kw: "", raising=False
+    )
+    cleanup_started, cleanup_release, cleanup_finished = (
+        asyncio.Event(),
+        asyncio.Event(),
+        asyncio.Event(),
+    )
+    state = {
+        "generator": SimpleNamespace(remove=Mock()),
+        "queues": {},
+        "pending": {},
+        "active": set(),
+        "cache_boundaries": {},
+        "cache_salts": {},
+        "xavier_prompts": {},
+        "xavier_writes": {},
+    }
+    inserted = []
+
+    async def flush(writes):
+        if len(inserted) == 1:
+            cleanup_started.set()
+            try:
+                await cleanup_release.wait()
+                if cleanup_error:
+                    raise RuntimeError("cache publication failed after removal")
+            finally:
+                cleanup_finished.set()
+
+    batch = object.__new__(MLXBatchModel)
+    batch._xavier = SimpleNamespace(flush=flush)
+    batch._get_or_create_generator = lambda *args: state
+    batch._ensure_background_worker = lambda *args: None
+
+    def insert(*args, **kwargs):
+        uid = len(inserted) + 1
+        inserted.append(uid)
+        if uid > 1 or cancel_during_cleanup:
+            state["pending"][uid] = [SimpleNamespace(token=None, finish_reason="stop")]
+        return uid, 0, None
+
+    batch._insert_request = insert
+    monkeypatch.setattr(MLXBatchModel, "_tokenizer_ref", model._tokenizer)
+    monkeypatch.setattr(MLXBatchModel, "_lock", None)
+    model._batch_model = batch
+    handler = getattr(actor, method)
+    prompt = [{"role": "user", "content": "hello"}] if method == "chat" else "hello"
+
+    async def until(predicate):
+        async def wait():
+            while not predicate():
+                await asyncio.sleep(0)
+
+        await asyncio.wait_for(wait(), 2)
+
+    busy = asyncio.create_task(
+        handler(prompt, {"request_id": "busy", "max_tokens": 1000})
+    )
+    waiting = None
+    try:
+        await until(lambda: bool(inserted))
+        if cancel_during_cleanup:
+            await asyncio.wait_for(cleanup_started.wait(), 2)
+        waiting = asyncio.create_task(
+            handler(prompt, {"request_id": "next", "priority": -5})
+        )
+        await until(lambda: bool(actor._request_priority_scheduler._waiting))
+        assert await actor.abort_request("busy", block_duration=0) == "DONE"
+        # Active-generation cases receive no EOS or max_tokens result.
+        await asyncio.wait_for(cleanup_started.wait(), 2)
+        state["generator"].remove.assert_called_once_with([1])
+        assert not state["active"] and not state["queues"]
+        busy.cancel()  # Repeated cancellation must not interrupt acknowledgement.
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not cleanup_finished.is_set()
+        assert not busy.done() and not waiting.done()
+        assert inserted == [1]
+        cleanup_release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(asyncio.shield(busy), 2)
+        await asyncio.wait_for(waiting, 2)
+        assert inserted == [1, 2]
+        assert actor._request_priority_scheduler.idle and actor._serve_count == 0
+    finally:
+        cleanup_release.set()
+        # Let the pre-fix shielded task exit after a failed assertion.
+        for queue in list(state["queues"].values()):
+            queue.put_nowait(SimpleNamespace(token=None, finish_reason="stop"))
+        await asyncio.wait_for(
+            asyncio.gather(
+                busy, *([waiting] if waiting else []), return_exceptions=True
+            ),
+            3,
+        )
+
+
+@pytest.mark.asyncio
+async def test_mlx_batch_cancel_before_registration_creates_no_native_uid(
+    mlx_priority_model, monkeypatch
+):
+    from unittest.mock import Mock
+
+    from ..mlx.core import MLXBatchModel
+
+    waiting = asyncio.Event()
+
+    class HeldLock(asyncio.Lock):
+        async def acquire(self):
+            if self.locked():
+                waiting.set()
+            return await super().acquire()
+
+    lock = HeldLock()
+    await lock.acquire()
+    model, _ = mlx_priority_model
+    batch = object.__new__(MLXBatchModel)
+    batch._get_or_create_generator = lambda *args: {"generator": object()}
+    batch._ensure_background_worker = lambda *args: None
+    batch._insert_request = Mock(return_value=(1, 0, None))
+    monkeypatch.setattr(MLXBatchModel, "_tokenizer_ref", model._tokenizer)
+    monkeypatch.setattr(MLXBatchModel, "_lock", lock)
+    stream = batch.generate_stream("hello", max_tokens=1000)
+    task = asyncio.create_task(stream.__anext__())
+    try:
+        await asyncio.wait_for(waiting.wait(), 2)
+        batch._insert_request.assert_not_called()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(task, 2)
+        batch._insert_request.assert_not_called()
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        lock.release()
+        await stream.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("cancel_during_cleanup", [False, True])
+async def test_mlx_serial_abort_stops_decode_and_joins_cleanup(
+    mlx_priority_model, monkeypatch, method, cancel_during_cleanup
+):
+    import threading
+
+    from ..utils import generate_completion_chunk
+
+    model, actor = mlx_priority_model
+    started, step_release, closing, close_release, closed = (
+        threading.Event() for _ in range(5)
+    )
+    close_queued = asyncio.Event()
+    advanced_after_abort = []
+    entered = []
+
+    def generate(prompt, config):
+        entered.append(config["request_id"])
+        if config["request_id"] != "busy":
+            yield generate_completion_chunk(
+                "ok", "stop", "next", model.model_uid, 3, 1, 4
+            ), {}
+            return
+        try:
+            started.set()
+            assert step_release.wait(5)
+            yield generate_completion_chunk(
+                "x", None, "busy", model.model_uid, 3, 1, 4
+            ), {}
+            if not cancel_during_cleanup:
+                advanced_after_abort.append(True)
+        finally:
+            closing.set()
+            assert close_release.wait(5)
+            closed.set()
+
+    async def until(predicate):
+        async def wait():
+            while not predicate():
+                await asyncio.sleep(0.001)
+
+        await asyncio.wait_for(wait(), 2)
+
+    model._generate_stream = generate
+    handler = getattr(actor, method)
+    prompt = [{"role": "user", "content": "hello"}] if method == "chat" else "hello"
+    config = {"response_format": {"type": "json_object"}, "max_tokens": 1000}
+    busy = asyncio.create_task(handler(prompt, {**config, "request_id": "busy"}))
+    waiting = None
+    try:
+        await until(started.is_set)
+        submit = model._fallback_executor.submit
+
+        def record_submit(fn, *args, **kwargs):
+            if getattr(fn, "__name__", None) == "close":
+                close_queued.set()
+            return submit(fn, *args, **kwargs)
+
+        monkeypatch.setattr(model._fallback_executor, "submit", record_submit)
+        if cancel_during_cleanup:
+            step_release.set()
+            await until(closing.is_set)
+        waiting = asyncio.create_task(handler(prompt, {**config, "request_id": "next"}))
+        await until(lambda: bool(actor._request_priority_scheduler._waiting))
+        assert await actor.abort_request("busy", block_duration=0) == "DONE"
+        await asyncio.wait_for(close_queued.wait(), 2)
+        step_release.set()
+        await until(closing.is_set)
+        busy.cancel()
+        for _ in range(5):
+            await asyncio.sleep(0)
+        assert not closed.is_set() and not busy.done() and not waiting.done()
+        assert entered == ["busy"] and not advanced_after_abort
+        assert model._fallback_active and model._fallback_lock.locked()
+        close_release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(asyncio.shield(busy), 2)
+        await asyncio.wait_for(waiting, 2)
+        assert closed.is_set() and entered == ["busy", "next"]
+        assert not model._fallback_active and not model._fallback_lock.locked()
+        assert actor._request_priority_scheduler.idle and actor._serve_count == 0
+    finally:
+        step_release.set()
+        close_release.set()
+        await asyncio.wait_for(
+            asyncio.gather(
+                busy, *([waiting] if waiting else []), return_exceptions=True
+            ),
+            3,
+        )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outer_workers", [4, 32])
 async def test_llama_cpp_callback_capacity_keeps_waiters_in_priority_queue(
     monkeypatch, outer_workers
