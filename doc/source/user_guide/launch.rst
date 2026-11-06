@@ -308,6 +308,8 @@ omitted.
 The Web UI keeps the dependency installation result visible while a replica is
 loading. When no dependency installation is needed, the replica card says so.
 
+When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload.
+
 Replicas specify the number of model instances to load. For example, if you have two GPUs and each can host one replica of the model,
 you can set the replica count to 2. This way, two identical instances of the model will be distributed across the two GPUs.
 Xinference automatically load-balances requests to ensure even distribution across multiple GPUs.

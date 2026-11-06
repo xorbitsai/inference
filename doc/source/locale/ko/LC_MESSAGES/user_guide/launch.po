@@ -795,3 +795,7 @@ msgstr ""
 #: ../../source/user_guide/launch.rst:566
 msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
 msgstr "``quantization_method=\"compressed-tensors\"``를 선언한 체크포인트는 vLLM의 compressed-tensors 로더가 전처리된 IPC 가중치를 지원하지 않으면 기본 가중치 로딩을 사용합니다. 자동 가중치 유지는 이 구성을 건너뛰며, 유지를 명시적으로 활성화하면 시작이 거부됩니다."
+
+#: ../../source/user_guide/launch.rst:311
+msgid "When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload."
+msgstr "**실행 중인 모델** 에서 복제본을 추가하면 Web UI는 일반적인 60초 제한 시간을 적용하지 않고 전체 요청이 완료될 때까지 기다리며 경과 시간과 복제본별 진행률을 표시합니다. 복제본이 준비될 때까지 진행률은 100% 미만으로 유지됩니다. 성공 응답을 받은 경우에만 전체 작업의 성공을 확정하고 대화 상자를 닫으며, 이후 새로 고침 실패로 성공 결과가 바뀌지 않습니다. 연결이나 게이트웨이 오류가 발생하면 추적을 종료하거나 다시 시도하기 전에 현재 복제본을 확인하세요. UI는 자동으로 다시 제출하지 않습니다. 추적 상태는 현재 페이지에만 저장되며 페이지를 다시 로드하면 사라집니다."

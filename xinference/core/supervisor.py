@@ -4728,10 +4728,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     details,
                 ) = await self._progress_tracker.get_progress_details(request_id)
             except KeyError:
-                continue
+                if "status" not in metadata:
+                    continue
+                progress, info, details = 0.0, None, {}
 
             details = details if isinstance(details, dict) else {}
             stage = str(details.get("stage") or default_stage)
+            status = metadata.get("status")
+            if status == LaunchStatus.READY.name:
+                progress, stage = 1.0, "completed"
+            elif status is not None:
+                progress = min(progress, 0.99)
+                if stage == "completed":
+                    stage = (
+                        "loading"
+                        if status == LaunchStatus.LOADING.name
+                        else default_stage
+                    )
+                if status == LaunchStatus.ERROR.name:
+                    stage = "failed"
             files = details.get("download_files")
             files = files if isinstance(files, list) else []
             normalized_files = []
@@ -4768,6 +4783,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             (
                 candidate
                 for candidate in (
+                    "failed",
                     "downloading",
                     "installing_dependencies",
                     "waiting_for_dependencies",
@@ -4800,14 +4816,35 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 "replicas": [],
             }
         targets: List[Tuple[str, Dict[str, Any]]] = []
-        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
+        statuses = (
+            await self._status_guard_ref.get_replica_statuses(model_uid)
+            if self._status_guard_ref is not None
+            else []
+        )
+        by_uid = {status.replica_model_uid: status for status in statuses}
+        replica_uids = set(self._iter_active_replica_model_uids(model_uid))
+        replica_uids.update(
+            uid
+            for uid, status in by_uid.items()
+            if uid
+            and status.status
+            in {
+                LaunchStatus.CREATING.name,
+                LaunchStatus.LOADING.name,
+                LaunchStatus.UPDATING.name,
+                LaunchStatus.ERROR.name,
+            }
+        )
+        for rep_model_uid in sorted(replica_uids):
             _, replica_id = parse_replica_model_uid(rep_model_uid)
+            status = by_uid.get(rep_model_uid)
             targets.append(
                 (
                     f"launching-{rep_model_uid}",
                     {
                         "replica_id": replica_id,
                         "replica_model_uid": rep_model_uid,
+                        **({"status": status.status} if status is not None else {}),
                     },
                 )
             )
