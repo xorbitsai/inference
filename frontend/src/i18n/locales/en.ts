@@ -1265,6 +1265,19 @@ const en = {
     addReplicaUidLabel: 'Replica Alias',
     addReplicaUidPlaceholder: 'Optional, hidden if empty',
     addReplicaAutoWorker: 'Auto (default)',
+    addReplicaSimplePlacement: 'Automatic Scheduling',
+    addReplicaPlacementHint:
+      'GPU indexes belong to each Worker; different Workers may use the same indexes. Leave blank for automatic allocation on that Worker. Specify indexes when a particular GPU count is required.',
+    addReplicaRow: 'New replica {{row}}',
+    addReplicaRowError_count:
+      'The number of placement rows must match the positive number of new replicas.',
+    addReplicaRowError_worker: 'New replica {{row}}: select an available Worker.',
+    addReplicaRowError_gpu:
+      'New replica {{row}}: enter comma-separated non-negative integer GPU indexes.',
+    addReplicaRowError_duplicateGpu:
+      'New replica {{row}}: GPU indexes must not repeat within a row.',
+    addReplicaRowError_duplicateAlias:
+      'New replica {{row}}: this replica alias is already used in this batch.',
     addReplicaWorkerHint:
       'Each selected Worker receives at least one replica. Additional replicas reuse them in selection order.',
     addReplicaWorkerRequired: 'Select a worker before specifying GPU indexes.',

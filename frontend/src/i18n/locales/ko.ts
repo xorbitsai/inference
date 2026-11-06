@@ -1078,6 +1078,18 @@ const ko = {
     addReplicaUidLabel: '복제본 별칭',
     addReplicaUidPlaceholder: '선택사항, 비워두면 표시하지 않음',
     addReplicaAutoWorker: '자동 (기본값)',
+    addReplicaSimplePlacement: '자동 스케줄링',
+    addReplicaPlacementHint:
+      'GPU 번호는 각 Worker에 속하므로 다른 Worker에서 같은 번호를 사용할 수 있습니다. 비워 두면 선택한 Worker에서 자동 할당합니다. GPU 수를 지정하려면 인덱스를 입력하세요.',
+    addReplicaRow: '새 복제본 {{row}}',
+    addReplicaRowError_count: '배치 행 수는 양의 정수인 새 복제본 수와 같아야 합니다.',
+    addReplicaRowError_worker: '새 복제본 {{row}}: 사용 가능한 Worker를 선택하세요.',
+    addReplicaRowError_gpu:
+      '새 복제본 {{row}}: 음수가 아닌 정수 GPU 인덱스를 쉼표로 구분하여 입력하세요.',
+    addReplicaRowError_duplicateGpu:
+      '새 복제본 {{row}}: 한 행 안에서 GPU 인덱스를 중복할 수 없습니다.',
+    addReplicaRowError_duplicateAlias:
+      '새 복제본 {{row}}: 이 별칭은 이번 배치에서 이미 사용 중입니다.',
     addReplicaWorkerHint:
       '선택한 각 워커에 하나 이상의 복제본을 할당하고, 추가 복제본은 선택 순서대로 반복합니다.',
     addReplicaWorkerRequired: 'GPU 인덱스를 지정하기 전에 Worker를 선택하세요.',

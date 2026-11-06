@@ -417,6 +417,8 @@ omitted, Xinference assigns the stable default
 and use ``n_gpu="auto"`` to let the selected worker allocate GPUs
 automatically.
 
+In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply.
+
 Running models can be scaled by one or more replicas in a single operation.
 The new replicas reuse the existing launch configuration by default. You can
 override their model engine and device allocation without changing existing
