@@ -325,9 +325,120 @@ async def test_mlx_batch_capacity_and_shared_limit(mlx_priority_model, serial_ac
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
+@pytest.mark.parametrize("json_encoded", [False, True])
+@pytest.mark.parametrize(
+    "context,capacity",
+    [
+        ({}, 4),
+        ({"thinking_budget": None}, 4),
+        ({"thinking_budget": 0}, 1),
+        ({"thinking_budget": -1}, 1),
+    ],
+)
+def test_mlx_capacity_normalizes_chat_options_without_mutating(
+    mlx_priority_model, json_encoded, context, capacity
+):
+    import copy
+    import json
+
+    model, _ = mlx_priority_model
+    config = {"chat_template_kwargs": json.dumps(context) if json_encoded else context}
+    original = copy.deepcopy(config)
+    assert model.get_request_priority_capacity(config) == capacity
+    assert config == original
+
+
 @pytest.mark.asyncio
-async def test_mlx_completion_capacity_probe_ignores_chat_only_budget(
+@pytest.mark.parametrize("endpoint", ["chat", "completion"])
+@pytest.mark.parametrize("priority", [None, 0])
+async def test_mlx_api_accepts_json_string_chat_template_kwargs(
+    mlx_priority_model, monkeypatch, endpoint, priority
+):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock
+
+    from ....api import restful_api
+
+    model, actor = mlx_priority_model
+    model._batch_model.generate.return_value = (
+        "ok",
+        {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
+    )
+    proxy = SimpleNamespace(
+        uid=b"priority-test-0",
+        chat=actor.chat,
+        generate=actor.generate,
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+    )
+    supervisor = SimpleNamespace(
+        get_model=AsyncMock(return_value=proxy),
+        describe_model=AsyncMock(
+            return_value={"model_family": "priority-test", "model_engine": "MLX"}
+        ),
+    )
+    api = object.__new__(restful_api.RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._set_trace_model = api._set_trace_model_type = MagicMock()
+    api._check_model_access = MagicMock()
+    api._report_error_event = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    body = {
+        "model": "priority-test",
+        "messages": [{"role": "user", "content": "hello"}],
+        "prompt": "hello",
+        "max_tokens": 4,
+        "chat_template_kwargs": "{}",
+    }
+    if priority is not None:
+        body["priority"] = priority
+    request = SimpleNamespace(
+        json=AsyncMock(return_value=body), headers={}, state=SimpleNamespace()
+    )
+    handler = (
+        api.create_chat_completion if endpoint == "chat" else api.create_completion
+    )
+    response = await handler(request)
+    assert response.status_code == 200
+    choice = json.loads(response.body)["choices"][0]
+    assert (
+        choice["message"]["content"] if endpoint == "chat" else choice["text"]
+    ) == "ok"
+    model._batch_model.generate.assert_awaited_once()
+    assert model.get_request_priority_capacity({"chat_template_kwargs": "{}"}) == 4
+    api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("context", ["not-json", "null", "[]", None, [], True])
+async def test_mlx_chat_still_rejects_invalid_chat_options(mlx_priority_model, context):
+    model, actor = mlx_priority_model
+    with pytest.raises(TypeError, match="chat_template_kwargs"):
+        await actor.chat(
+            [{"role": "user", "content": "hello"}], {"chat_template_kwargs": context}
+        )
+    model._batch_model.generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "chat_template_kwargs",
+    [
+        {"enable_thinking": True, "thinking_budget": -1},
+        '{"enable_thinking": true, "thinking_budget": -1}',
+        "not-json",
+        "null",
+        "[]",
+        None,
+        [],
+        True,
+    ],
+)
+async def test_mlx_completion_capacity_probe_preserves_ignored_chat_options(
     mlx_priority_model,
+    chat_template_kwargs,
 ):
     import copy
     from unittest.mock import AsyncMock
@@ -346,7 +457,7 @@ async def test_mlx_completion_capacity_probe_ignores_chat_only_budget(
     )
     config = {
         "max_tokens": 4,
-        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": -1},
+        "chat_template_kwargs": chat_template_kwargs,
     }
     original = copy.deepcopy(config)
     assert model.get_request_priority_capacity(config) == 1

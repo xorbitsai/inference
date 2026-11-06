@@ -901,7 +901,13 @@ class MLXModel(LLM, ChatModelMixin):
             return 1
         if generate_config is not None:
             config = generate_config
-            context = config.get("chat_template_kwargs") or {}
+            try:
+                context = (
+                    self._get_chat_template_kwargs_from_generate_config(config) or {}
+                )
+            except TypeError:
+                # Completions ignore chat-only options; defer their validation to chat.
+                return 1
             if (
                 normalize_response_format(config.get("response_format"))
                 or is_forced_tool_choice(config)
