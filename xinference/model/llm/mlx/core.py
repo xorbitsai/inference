@@ -2097,6 +2097,10 @@ class MLXModel(LLM, ChatModelMixin):
                     if stopping:
                         executor.shutdown(wait=False)
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        cache = getattr(self, "_xavier", None)
+        return cache is not None and cache.role is None
+
     async def async_generate(
         self,
         prompt: Union[str, Dict[str, Any]],
@@ -2186,6 +2190,17 @@ class MLXModel(LLM, ChatModelMixin):
             if not isinstance(prompt, str):
                 raise ValueError("MLX Xavier requires a text prompt")
             tokens = self._tokenizer.encode(prompt)
+            from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, bind_cache_session
+
+            cache_session = cast(Dict[str, Any], generate_config).pop(
+                CACHE_SESSION_ARG, None
+            )
+            if self.supports_agent_cache_lifecycle() and cache_session is not None:
+                await bind_cache_session(
+                    xavier.config,
+                    cache_session,
+                    xavier.keys(tokens[:-1], generate_config.get("cache_salt")),
+                )
             # Claim/copy/release the lease before returning a lazy stream. Even
             # an unconsumed or disconnected response cannot strand the handoff.
             xavier_inputs = dict(

@@ -79,7 +79,12 @@ async def test_cache_session_propagates_only_trusted_supported_tags(
 
     def generate(prompt, params, *args, **kwargs):
         expected = (
-            {CACHE_SESSION_ARG: session.to_dict()} if trusted and supported else None
+            {
+                CACHE_SESSION_ARG: session.to_dict(),
+                "kv_transfer_params": {CACHE_SESSION_ARG: session.to_dict()},
+            }
+            if trusted and supported
+            else None
         )
         assert getattr(params, "extra_args", None) == expected
         raise ReachedEngine

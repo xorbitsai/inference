@@ -2381,7 +2381,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         return self._pending_requests.qsize()
 
     async def can_accept_chat_request(self) -> bool:
-        return self._model_state == "ready" and _has_request_capacity(self)
+        if self._model_state != "ready" or not _has_request_capacity(self):
+            return False
+        get_capacity = getattr(self._model, "get_max_concurrent_requests", None)
+        capacity = get_capacity() if get_capacity is not None else None
+        return capacity is None or self._serve_count < capacity
 
     @log_async(logger=logger)
     async def free_model_cache(self, request_id: str):

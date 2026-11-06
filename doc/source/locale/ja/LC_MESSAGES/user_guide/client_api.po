@@ -258,8 +258,8 @@ msgid "Agent cache lifecycle"
 msgstr "エージェントのキャッシュライフサイクル"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
-msgstr "対応する vLLM Xavier ハイブリッド GPU プレフィックスモデルは ``supports_agent_cache_lifecycle: true`` を公開します。OpenAI クライアントの ``extra_body`` または Xinference クライアントの ``generate_config`` を通じて、チャットリクエストに ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` を追加します。セッション ID はリクエストの認証情報ごとに分離されます。キャッシュの分離には引き続き ``cache_salt`` を使用します。"
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "vLLM ハイブリッドモデル、SGLang、TRT-LLM、MLX の対応 Xavier アダプターは ``supports_agent_cache_lifecycle: true`` を公開します。OpenAI クライアントの ``extra_body`` または Xinference クライアントの ``generate_config`` を通じて、チャットリクエストに ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` を追加します。セッション ID はリクエストの認証情報ごとに分離されます。キャッシュの分離には引き続き ``cache_salt`` を使用します。"
 
 #: ../../source/user_guide/client_api.rst:103
 msgid ""
@@ -278,15 +278,8 @@ msgstr ""
 "はフェーズ変更を自動送信しますが、5 分を超える待機では明示的な更新が必要です。"
 
 #: ../../source/user_guide/client_api.rst:105
-msgid ""
-"Waiting prefixes are placed later in the engine's eviction order, with chain"
-" tails evicted before heads. Finished sessions follow normal LRU eviction. "
-"Blocks remain available for allocation, and active requests and transfer "
-"leases retain their ownership. Capacity limits and normal recomputation "
-"still apply."
-msgstr ""
-"待機中のプレフィックスは後から削除され、ブロック列の末尾が先頭より先に削除されます。終了したセッションには通常の LRU "
-"削除が適用されます。ブロックは引き続き割り当て可能で、アクティブなリクエストと転送リースは所有権を保持します。容量制限と通常の再計算も引き続き適用されます。"
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "待機中のプレフィックスは優先的に保持されます。vLLM は空きハイブリッド GPU ブロックの順序を調整し、4 つのアダプターはいずれも共有 CPU プレフィックスを更新します。LMCache は上限付きでディスクからプリフェッチできます。終了または期限切れのセッションは、共有ページを削除せずに優先扱いを失います。ブロックは引き続き割り当て可能で、実行中のリクエストと転送リースは所有権を維持します。ストレージ障害時はプリフィルに戻ります。P/D のライフサイクルヒントは未対応です。"
 
 #: ../../source/user_guide/client_api.rst:101
 msgid ""
@@ -337,3 +330,23 @@ msgstr "無効な優先度の型には HTTP 422 が返されます。文字列�
 #: source/user_guide/client_api.rst:515
 msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
 msgstr "ネイティブの ``priority`` 引数を備えた TRT-LLM は、通常および P/D レプリカでネイティブのスケジューリングを使用します。Xinference は ``scheduler_config.waiting_queue_policy`` の既定値を ``\"priority\"`` に設定し、整数範囲を線形変換します。``-10000`` は ``1.0``、``0`` は ``0.5``、``10000`` は ``0.0`` に対応します。1.2.1 を含む旧版は、明示的な ``priority`` に対して、値が ``0`` でも HTTP 400 を返します。旧版ではこのフィールドを省略してください。TRT-LLM は共通キューにフォールバックしません。"
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"vLLM では、正の整数 ``max_num_seqs`` "
+"に、そのレプリカが処理するデータ並列ランク数を掛けた値を親和ルーティングの参考容量として使用します。外部負荷分散では 1 "
+"ランク、ハイブリッド負荷分散ではローカルランク数を数えます。無効な容量値では、このエンジン固有の判定を無効にします。容量未満ではリクエストは親和性を維持し、バッチ処理できます。すべてのレプリカがビジーなら、Xinference"
+" は優先レプリカと通常のキューおよび受付動作を維持します。この判定はリクエスト数を数えるため、``n > 1`` "
+"のリクエストは数えた以上のシーケンス枠を消費する場合があります。別のレプリカへの切り替えにはプレフィックスの再計算や KV "
+"転送が必要な場合がありますが、このポリシーはそのコストを推定せず、容量も予約しません。"

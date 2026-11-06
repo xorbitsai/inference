@@ -3494,9 +3494,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
         if cache_backend != "native" and (
             not (requested_xavier or pd_enabled)
-            or replica <= 1
             or not pd_enabled
-            and (model_engine or "").lower() not in {"vllm", "sglang", "trt-llm"}
+            and (model_engine or "").lower() not in {"vllm", "sglang", "trt-llm", "mlx"}
             or model_type not in (None, "LLM")
             or not pd_enabled
             and any(
@@ -3504,13 +3503,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             or transport_backend != "xavier"
             or kwargs.get("xavier_gpu_cache_bytes") is not None
-            and not (pd_history and kwargs["xavier_gpu_cache_bytes"] == 0)
+            and kwargs["xavier_gpu_cache_bytes"] != 0
             or kwargs.get("xavier_cache_bytes") is not None
             and not pd_mlx_prefill
         ):
             raise ValueError(
-                "The LMCache backend requires enable_xavier with multiple ordinary "
-                "vLLM V1, SGLang or TRT-LLM replicas, or Xavier P/D roles, "
+                "The LMCache backend requires enable_xavier with ordinary "
+                "vLLM V1, SGLang, TRT-LLM or MLX replicas, or Xavier P/D roles, "
                 "and backend cpu_bytes for history instead of native cache budgets"
             )
         if pd_history and set(replica_engines) != {"mlx"}:
@@ -3528,14 +3527,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if cache_backend != "native"
             else None
         )
-        if (
-            requested_xavier
-            and not pd_enabled
-            and replica <= 1
-            and (model_engine or "").lower() in ("mlx", "sglang", "trt-llm")
-        ):
-            logger.warning("Enabling xavier when replica<=1 is meaningless.")
-            requested_xavier = False
         mlx_xavier = (
             (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
@@ -3614,9 +3605,17 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             and not heterogeneous_cache
         )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
-        vllm_cpu_prefix = (
-            enable_xavier and not pd_enabled and replica > 1 and cache_bytes is not None
-        )
+        # The byte tier transports complete engine-owned hybrid checkpoints.
+        # LMCache uses this same path instead of creating a second GPU cache.
+        if (
+            shared_cache_backend
+            and enable_xavier
+            and not pd_enabled
+            and (replica == 1 or kwargs.get("xavier_gpu_cache_bytes") == 0)
+        ):
+            cache_bytes = cache_backend_config["cpu_bytes"]
+            kwargs.setdefault("xavier_gpu_cache_bytes", 0)
+        vllm_cpu_prefix = enable_xavier and not pd_enabled and cache_bytes is not None
         mlx_prefill = host_handoff and pd_mlx_prefill
         if cache_bytes is not None and (
             not (
@@ -4033,10 +4032,22 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         XavierBytesCacheActor,
                     )
 
+                    cache_actor_class = XavierBytesCacheActor
+                    if shared_cache_backend:
+                        from ..model.llm.xavier.backends.bytes.history import (
+                            XavierHistoryCacheActor,
+                        )
+
+                        cache_actor_class = XavierHistoryCacheActor
+
                     cache_ref = await SupervisorActor._create_model_service_actor(
                         self,
-                        XavierBytesCacheActor,
-                        capacity_bytes=cache_bytes or 512 * 1024**2,
+                        cache_actor_class,
+                        **(
+                            {"cache_backend": shared_cache_backend}
+                            if shared_cache_backend
+                            else {"capacity_bytes": cache_bytes or 512 * 1024**2}
+                        ),
                         address=(service_address or model_service_address(self)),
                         uid=f"xavier-cache-{model_uid}",
                     )
@@ -4059,10 +4070,24 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                             XavierBytesCacheActor,
                         )
 
+                        cache_actor_class = XavierBytesCacheActor
+                        if shared_cache_backend and not pd_enabled:
+                            from ..model.llm.xavier.backends.bytes.history import (
+                                XavierHistoryCacheActor,
+                            )
+
+                            cache_actor_class = XavierHistoryCacheActor
+
                         cache_ref = await SupervisorActor._create_model_service_actor(
                             self,
-                            XavierBytesCacheActor,
-                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            cache_actor_class,
+                            **(
+                                {"cache_backend": shared_cache_backend}
+                                if shared_cache_backend and not pd_enabled
+                                else {
+                                    "capacity_bytes": cache_bytes or 512 * 1024 * 1024
+                                }
+                            ),
                             address=(service_address or model_service_address(self)),
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
@@ -7747,7 +7772,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         return description
 
     async def _supports_agent_cache_lifecycle(self, model_uid: str) -> bool:
-        tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
+        tracker = getattr(self, "_xavier_cache_mapping", {}).get(model_uid) or getattr(
+            self, "_block_tracker_mapping", {}
+        ).get(model_uid)
         if tracker is None or model_uid in self._pd_model_mapping:
             return False
 
@@ -7773,8 +7800,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def update_cache_session(self, model_uid: str, session: dict) -> bool:
         if not await self._supports_agent_cache_lifecycle(model_uid):
             raise ValueError("This model does not support agent cache lifecycle hints")
-        tracker = self._block_tracker_mapping[model_uid]
-        return await tracker.update_cache_session(session)
+        targets = [
+            mapping[model_uid]
+            for mapping in (
+                getattr(self, "_block_tracker_mapping", {}),
+                getattr(self, "_xavier_cache_mapping", {}),
+            )
+            if model_uid in mapping
+        ]
+        results = await asyncio.gather(
+            *(target.update_cache_session(session) for target in targets)
+        )
+        return any(results)
 
     async def _supports_thinking_budget(self, model_uid: str) -> bool:
         async def probe(model: Any) -> bool:

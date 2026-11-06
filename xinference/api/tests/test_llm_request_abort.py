@@ -439,6 +439,43 @@ async def test_normal_stream_completion_does_not_abort(monkeypatch, kind):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("is_vllm", [False, True])
+async def test_disconnect_after_stream_completion_does_not_abort(
+    monkeypatch, kind, is_vllm
+):
+    source, closed, _ = _tracked_stream(wait_after_first=False)
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, source, is_vllm=is_vllm
+    )
+    completed = asyncio.Event()
+
+    async def receive():
+        await completed.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] != "http.response.body":
+            return
+        if b"[DONE]" in message.get("body", b"") or not message.get("more_body", False):
+            completed.set()
+            # Let the ASGI disconnect listener run after generation finished.
+            await asyncio.Event().wait()
+
+    await asyncio.wait_for(
+        response(
+            {"type": "http", "method": "POST", "asgi": {"version": "3.0"}},
+            receive,
+            send,
+        ),
+        timeout=5,
+    )
+    model.abort_request.assert_not_awaited()
+    model.decrease_serve_count.assert_awaited_once()
+    assert closed.is_set() and decrease_completed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
 async def test_iterator_close_failure_still_releases_serve_count(monkeypatch, kind):
     close_attempted = asyncio.Event()
 

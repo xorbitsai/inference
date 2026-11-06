@@ -249,6 +249,7 @@ class _SSERequestAbortController:
         self._abort_task: Optional[asyncio.Task] = None
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
+        self._completed = False
 
     def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
         self._body_iterator = body_iterator
@@ -256,7 +257,12 @@ class _SSERequestAbortController:
     def bind_stream_task(self) -> None:
         self._stream_task = asyncio.current_task()
 
+    def mark_completed(self) -> None:
+        self._completed = True
+
     async def abort(self) -> None:
+        if self._completed:
+            return
         if self._abort_task is None:
             operation = self._model.abort_request(self._request_id)
             if self._abort_timeout is not None:
@@ -275,13 +281,14 @@ class _SSERequestAbortController:
 
     async def handle_disconnect(self, _message: Dict[str, Any]) -> None:
         with anyio.CancelScope(shield=True):
-            report_client_disconnect(self._request)
-            logger.info(
-                "Disconnected from client (via refresh/close) %s during %s.",
-                self._request.client,
-                self._kind,
-            )
-            await self.abort()
+            if not self._completed:
+                report_client_disconnect(self._request)
+                logger.info(
+                    "Disconnected from client (via refresh/close) %s during %s.",
+                    self._request.client,
+                    self._kind,
+                )
+                await self.abort()
 
             # Cancel and join the response's stream task before the disconnect
             # listener returns. EventSourceResponse cancels its AnyIO task
@@ -2785,6 +2792,7 @@ class RESTfulAPI(CancelMixin):
                     async for item in observed_iterator:
                         yield item
                     completed = True
+                    abort_controller.mark_completed()
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
@@ -5243,19 +5251,18 @@ class RESTfulAPI(CancelMixin):
         is_vllm_backend = await model.is_vllm_backend()
         if cache_session is not None:
             tag = self._cache_session_tag(request, cache_session)
-            if is_vllm_backend:
-                try:
-                    await asyncio.wait_for(
-                        supervisor_ref.update_cache_session(model_uid, tag.to_dict()),
-                        timeout=1,
-                    )
-                except Exception:
-                    logger.debug(
-                        "Agent cache hint unavailable; continuing chat", exc_info=True
-                    )
-                else:
-                    for config in (kwargs, raw_kwargs):
-                        config[CACHE_SESSION_ARG] = tag
+            try:
+                await asyncio.wait_for(
+                    supervisor_ref.update_cache_session(model_uid, tag.to_dict()),
+                    timeout=1,
+                )
+            except Exception:
+                logger.debug(
+                    "Agent cache hint unavailable; continuing chat", exc_info=True
+                )
+            else:
+                for config in (kwargs, raw_kwargs):
+                    config[CACHE_SESSION_ARG] = tag
         model_call_kwargs: Dict[str, Any] = {
             "raw_params": raw_kwargs,
             "request_id": request_id,
@@ -5538,6 +5545,7 @@ class RESTfulAPI(CancelMixin):
                     async for item in observed_iterator:
                         yield item
                     completed = True
+                    abort_controller.mark_completed()
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.

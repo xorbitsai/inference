@@ -116,6 +116,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 self.model_path, config, cache_config, engine_version=runtime_version
             )
             self._cache_enabled = True
+            self._xavier_cache_config = cache_config
         try:
             prepare_runtime(config, engine_version=runtime_version)
             if isinstance(config.get("speculative_config"), dict):
@@ -231,6 +232,10 @@ class TRTLLMModel(LLM, ChatModelMixin):
         request.abort()
         return "DONE"
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        config = getattr(self, "_xavier_cache_config", None)
+        return bool(self._engine is not None and config and not config.get("role"))
+
     def _sampling_params(self, prompt: str, config: dict):
         from tensorrt_llm import SamplingParams
 
@@ -307,6 +312,20 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 raise ValueError(TRT_PRIORITY_DISABLED)
             priority_options["priority"] = to_trt_request_priority(priority)
         tokens, params = self._sampling_params(prompt, config)
+        from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, bind_cache_session
+
+        if self.supports_agent_cache_lifecycle():
+            from ..xavier.contract import KVCacheContract, build_prefix_keys
+            from ..xavier.prefix import prefix_keys
+
+            cache = self._xavier_cache_config
+            contract = KVCacheContract.from_dict(cache["contract"])
+            keys = (
+                prefix_keys(tokens, contract.block_size)
+                if cache.get("shared_prefix")
+                else [key.digest for key in build_prefix_keys(contract, tokens)]
+            )
+            await bind_cache_session(cache, config.get(CACHE_SESSION_ARG), keys)
         request_id = request_id or str(uuid.uuid4())
         created = int(time.time())
         pd_state = None

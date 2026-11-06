@@ -96,13 +96,13 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
 Agent cache lifecycle
 =====================
 
-Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={"id": "run-1", "revision": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``.
+Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={"id": "run-1", "revision": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``.
 
 A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention with recurrent state. Non-hybrid single-replica launches are rejected.
 
 Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active`` or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat marks the session active. Older revisions and phase changes at the same revision are rejected. Increase the revision after chat before sending ``waiting``. Repeating the same revision and phase refreshes the 300-second TTL. Xagent sends phase changes automatically; waits longer than five minutes require explicit refreshes.
 
-Waiting prefixes are placed later in the engine's eviction order, with chain tails evicted before heads. Finished sessions follow normal LRU eviction. Blocks remain available for allocation, and active requests and transfer leases retain their ownership. Capacity limits and normal recomputation still apply.
+Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported.
 
 The registry holds at most 4096 sessions per model and 1024 per credential scope. Requests without credentials share one anonymous scope. Lifecycle IDs are independent of ``cache_salt``; use distinct session IDs for independent workflows, including workflows with different salts.
 
@@ -123,6 +123,8 @@ For a model with ordinary chat replicas, send the same optional ``routing_key`` 
 Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature.
 
 Xinference retains at most 4096 routing keys per model in a least-recently-used table shared across credentials. High key churn from one credential can evict another credential's affinity; this affects replica preference only.
+
+With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by the number of data-parallel ranks served by the replica as an advisory capacity. External load balancing serves one rank; hybrid load balancing counts local ranks. Invalid capacity values disable this engine-specific probe. Below this capacity, requests keep affinity and can batch. If all replicas are busy, Xinference keeps the preferred replica and its normal queueing and admission behavior. This probe counts requests, so requests with ``n > 1`` may consume more sequence slots than counted. Moving to another replica may incur prefix recomputation or KV transfer; the policy does not estimate these costs or reserve capacity.
 
 OpenAI Client Tool Calls
 ========================

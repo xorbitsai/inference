@@ -278,8 +278,8 @@ msgid "Agent cache lifecycle"
 msgstr "에이전트 캐시 수명 주기"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
-msgstr "지원되는 vLLM Xavier 하이브리드 GPU 접두사 모델은 ``supports_agent_cache_lifecycle: true`` 를 알립니다. OpenAI 클라이언트의 ``extra_body`` 또는 Xinference 클라이언트의 ``generate_config`` 를 통해 채팅 요청에 ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` 을 추가합니다. 세션 ID는 요청 자격 증명별로 분리됩니다. 캐시 격리는 계속 ``cache_salt`` 를 사용합니다."
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "vLLM 하이브리드 모델, SGLang, TRT-LLM, MLX용 지원 Xavier 어댑터는 ``supports_agent_cache_lifecycle: true`` 를 알립니다. OpenAI 클라이언트의 ``extra_body`` 또는 Xinference 클라이언트의 ``generate_config`` 를 통해 채팅 요청에 ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` 을 추가합니다. 세션 ID는 요청 자격 증명별로 분리됩니다. 캐시 격리는 계속 ``cache_salt`` 를 사용합니다."
 
 #: ../../source/user_guide/client_api.rst:103
 msgid ""
@@ -298,15 +298,8 @@ msgstr ""
 " 대기할 경우 명시적인 갱신이 필요합니다."
 
 #: ../../source/user_guide/client_api.rst:105
-msgid ""
-"Waiting prefixes are placed later in the engine's eviction order, with chain"
-" tails evicted before heads. Finished sessions follow normal LRU eviction. "
-"Blocks remain available for allocation, and active requests and transfer "
-"leases retain their ownership. Capacity limits and normal recomputation "
-"still apply."
-msgstr ""
-"대기 중인 접두사는 나중에 제거되며 블록 체인의 꼬리가 머리보다 먼저 제거됩니다. 종료된 세션에는 일반 LRU 제거가 적용됩니다. 블록은"
-" 계속 할당 가능하며 활성 요청과 전송 임대는 소유권을 유지합니다. 용량 제한과 일반적인 재계산도 계속 적용됩니다."
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "대기 중인 접두사는 우선 보존됩니다. vLLM은 사용 가능한 하이브리드 GPU 블록 순서를 조정하고, 네 어댑터 모두 공유 CPU 접두사를 갱신하며, LMCache는 제한된 접두사를 디스크에서 미리 읽을 수 있습니다. 종료되거나 만료된 세션은 공유 페이지를 삭제하지 않고 우선권을 잃습니다. 블록은 계속 할당 가능하며 활성 요청과 전송 임대는 소유권을 유지합니다. 스토리지 오류 시 프리필로 돌아갑니다. P/D 수명 주기 힌트는 지원하지 않습니다."
 
 #: ../../source/user_guide/client_api.rst:101
 msgid ""
@@ -357,3 +350,23 @@ msgstr "잘못된 우선순위 유형은 HTTP 422를 반환하며 문자열, 불
 #: source/user_guide/client_api.rst:515
 msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
 msgstr "네이티브 ``priority`` 매개변수가 있는 TRT-LLM은 일반 및 P/D 복제본에서 네이티브 스케줄링을 사용합니다. Xinference는 ``scheduler_config.waiting_queue_policy`` 기본값을 ``\"priority\"`` 로 설정하고 정수 범위를 선형 변환합니다. ``-10000`` 은 ``1.0``, ``0`` 은 ``0.5``, ``10000`` 은 ``0.0`` 에 대응합니다. 1.2.1을 포함한 이전 버전은 명시적으로 전달한 ``priority`` 에 대해 값이 ``0`` 이어도 HTTP 400을 반환합니다. 이전 버전에서는 이 필드를 생략하세요. TRT-LLM에는 공통 큐 대체 경로가 적용되지 않습니다."
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"vLLM에서는 양의 정수 ``max_num_seqs``에 해당 복제본이 처리하는 데이터 병렬 순위 수를 곱한 값을 친화성 라우팅의 참고 "
+"용량으로 사용합니다. 외부 부하 분산은 한 순위를 처리하고, 하이브리드 부하 분산은 로컬 순위를 계산합니다. 잘못된 용량 값은 이 엔진별"
+" 검사를 비활성화합니다. 용량 미만에서는 요청이 친화성을 유지하며 배치 처리될 수 있습니다. 모든 복제본이 바쁘면 Xinference는 "
+"선호 복제본과 일반적인 대기열 및 수락 동작을 유지합니다. 이 검사는 요청 수를 세므로 ``n > 1``인 요청은 계산된 수보다 더 많은"
+" 시퀀스 슬롯을 소비할 수 있습니다. 다른 복제본으로 전환하면 접두사 재계산이나 KV 전송이 필요할 수 있으며, 정책은 이러한 비용을 "
+"추정하거나 용량을 예약하지 않습니다."

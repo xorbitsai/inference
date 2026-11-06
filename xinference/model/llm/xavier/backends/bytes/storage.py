@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 import xoscar as xo
 
+from ...cache_lifecycle import SessionPrefixPolicy
 from ...contract import KVCacheContract
 
 
@@ -21,6 +22,7 @@ class XavierBytesCacheActor(xo.Actor):
         self._page_bytes = 0
         self._pages: OrderedDict[str, bytes] = OrderedDict()
         self._handoffs: dict = {}
+        self._sessions = SessionPrefixPolicy()
         self._counts = dict(
             stored_pages=0,
             read_pages=0,
@@ -82,6 +84,22 @@ class XavierBytesCacheActor(xo.Actor):
     def _pinned(self):
         return {key for entry in self._handoffs.values() for key in entry["keys"]}
 
+    def get_cache_sessions(self, session_ids):
+        return self._sessions.registry.get(session_ids)
+
+    def bind_cache_session(self, session, keys):
+        return self._sessions.bind(session, keys)
+
+    def update_cache_session(self, session):
+        accepted = self._sessions.registry.update(session)
+        self._order_waiting_prefixes()
+        return accepted
+
+    def _order_waiting_prefixes(self):
+        for key in self._sessions.waiting_keys():
+            if key in self._pages:
+                self._pages.move_to_end(key)
+
     def put(self, namespace, keys, pages, start=0):
         self._validate(namespace, keys)
         if (
@@ -97,6 +115,7 @@ class XavierBytesCacheActor(xo.Actor):
         if len(keys) > self._capacity:
             return [False] * len(keys)
         pinned = self._pinned()
+        self._order_waiting_prefixes()
         # Refresh an aged prefix before inserting any suffix pages. Otherwise
         # insertion can evict this chain's own head before the final refresh.
         for key in reversed(keys[:start]):
@@ -117,6 +136,7 @@ class XavierBytesCacheActor(xo.Actor):
         for key in reversed(keys):
             if key in self._pages:
                 self._pages.move_to_end(key)
+        self._order_waiting_prefixes()
         return [key in self._pages for key in keys]
 
     def get(self, namespace, keys):

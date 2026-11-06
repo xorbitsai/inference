@@ -6,11 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..cache_lifecycle import (
-    CacheSessionRegistry,
-    order_free_session_blocks,
-    validate_cache_session,
-)
+from ...vllm.xavier.cache_lifecycle import order_free_session_blocks
+from ..cache_lifecycle import CacheSessionRegistry, validate_cache_session
 from ..transport import validate_gpu_cache_budget
 
 

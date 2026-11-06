@@ -276,8 +276,8 @@ msgid "Agent cache lifecycle"
 msgstr "Ciclo de vida do cache de agentes"
 
 #: ../../source/user_guide/client_api.rst
-msgid "Supported vLLM Xavier hybrid GPU-prefix models advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
-msgstr "Os modelos vLLM Xavier compatíveis com prefixos híbridos na GPU anunciam ``supports_agent_cache_lifecycle: true``. Adicione ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` às solicitações de chat por meio de ``extra_body`` do cliente OpenAI ou ``generate_config`` do cliente Xinference. Os IDs de sessão são limitados às credenciais da solicitação. O isolamento do cache continua usando ``cache_salt``."
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "Os adaptadores Xavier compatíveis com modelos híbridos vLLM, SGLang, TRT-LLM e MLX anunciam ``supports_agent_cache_lifecycle: true``. Adicione ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` às solicitações de chat por meio de ``extra_body`` do cliente OpenAI ou ``generate_config`` do cliente Xinference. Os IDs de sessão são limitados às credenciais da solicitação. O isolamento do cache continua usando ``cache_salt``."
 
 #: ../../source/user_guide/client_api.rst:103
 msgid ""
@@ -298,18 +298,8 @@ msgstr ""
 "minutos exigem renovações explícitas."
 
 #: ../../source/user_guide/client_api.rst:105
-msgid ""
-"Waiting prefixes are placed later in the engine's eviction order, with chain"
-" tails evicted before heads. Finished sessions follow normal LRU eviction. "
-"Blocks remain available for allocation, and active requests and transfer "
-"leases retain their ownership. Capacity limits and normal recomputation "
-"still apply."
-msgstr ""
-"Os prefixos em espera são removidos mais tarde, descartando as caudas das "
-"cadeias antes das cabeças. Sessões finalizadas seguem a remoção LRU normal. "
-"Os blocos continuam disponíveis para alocação e as solicitações ativas e os "
-"leases de transferência mantêm sua propriedade. Os limites de capacidade e o"
-" recálculo normal continuam aplicáveis."
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "Os prefixos em espera recebem preferência de retenção: o vLLM reordena os blocos híbridos livres na GPU; os quatro adaptadores atualizam os prefixos compartilhados na CPU, e o LMCache pode pré-carregar um prefixo limitado do disco. Sessões encerradas ou expiradas perdem essa preferência sem excluir páginas compartilhadas. Os blocos continuam alocáveis; solicitações ativas e concessões de transferência mantêm a propriedade. Falhas de armazenamento recorrem ao prefill. Indicações de ciclo de vida P/D não são suportadas."
 
 #: ../../source/user_guide/client_api.rst:101
 msgid ""
@@ -364,3 +354,29 @@ msgstr "Tipos de prioridade inválidos retornam HTTP 422; strings, booleanos e n
 #: source/user_guide/client_api.rst:515
 msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
 msgstr "As versões do TRT-LLM com um parâmetro nativo ``priority`` usam agendamento nativo em réplicas comuns e P/D. O Xinference define ``scheduler_config.waiting_queue_policy`` como ``\"priority\"`` e converte linearmente os inteiros: ``-10000`` corresponde a ``1.0``, ``0`` a ``0.5`` e ``10000`` a ``0.0``. Versões anteriores, incluindo 1.2.1, rejeitam ``priority`` explícito com HTTP 400, mesmo com valor ``0``. Omita o campo para continuar usando essas versões; o TRT-LLM não usa a fila compartilhada como alternativa."
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"Com vLLM, a afinidade usa um inteiro positivo ``max_num_seqs`` multiplicado "
+"pelo número de ranks de paralelismo de dados atendidos pela réplica como "
+"capacidade indicativa. O balanceamento externo atende um rank; o híbrido "
+"conta os ranks locais. Valores de capacidade inválidos desativam essa "
+"verificação específica do mecanismo. Abaixo dessa capacidade, as "
+"solicitações mantêm a afinidade e podem ser agrupadas. Se todas as réplicas "
+"estiverem ocupadas, o Xinference mantém a réplica preferida e seu "
+"comportamento normal de fila e admissão. A verificação conta solicitações, "
+"portanto aquelas com ``n > 1`` podem consumir mais posições de sequência do "
+"que as contabilizadas. Mudar de réplica pode exigir recálculo do prefixo ou "
+"transferência de KV; a política não estima esses custos nem reserva "
+"capacidade."

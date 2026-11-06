@@ -45,16 +45,29 @@ async def read_page_snapshots(
 ) -> List[Optional[torch.Tensor]]:
     """Return owned pages, bounding each RPC's copies by the staging capacity."""
     candidates = store.ready_keys(keys)[: store.capacity]
-    if not candidates or not await store.prefetch(candidates):
+    if not candidates:
         return [None] * len(keys)
-    lease = uuid4().hex
-    if not store.reserve(lease, candidates):
-        return [None] * len(keys)
-    try:
-        pages = {key: store.read("page", [key])[0] for key in candidates}
-        return [pages.get(key) for key in keys]
-    finally:
-        store.release(lease)
+    # Leave headroom for LMCache's existing L1 objects and asynchronous writes.
+    # Returned pages are independent copies; each read lease can be released
+    # before requesting the next batch. Total copies remain capacity-bounded.
+    batch_size = (
+        max(1, store.capacity // 8)
+        if store.get_stats()["backend"] == "lmcache"
+        else len(candidates)
+    )
+    pages = {}
+    for offset in range(0, len(candidates), batch_size):
+        batch = candidates[offset : offset + batch_size]
+        if not await store.prefetch(batch):
+            continue
+        lease = uuid4().hex
+        if not store.reserve(lease, batch):
+            continue
+        try:
+            pages.update({key: store.read("page", [key])[0] for key in batch})
+        finally:
+            store.release(lease)
+    return [pages.get(key) for key in keys]
 
 
 def create_snapshot_backend(

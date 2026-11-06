@@ -291,6 +291,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             if self._n_worker != 1:
                 raise ValueError("SGLang Xavier requires one worker per replica")
             configure_xavier(self.model_path, self._model_config, cache_config)
+            self._xavier_cache_config = cache_config
             if cache_config.get("role"):
                 from sglang.srt.plugins.hook_registry import HookRegistry
 
@@ -667,6 +668,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
         return generate_config
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        config = getattr(self, "_xavier_cache_config", None)
+        return bool(self._engine is not None and config and not config.get("role"))
+
     def _get_tokenizer(self, lora_request: Any = None) -> Any:
         if self._engine is None:
             return None
@@ -954,9 +959,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ):
         import aiohttp
 
+        input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            "text": prompt,
+            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1026,9 +1032,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ) -> dict:
         import aiohttp
 
+        input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            "text": prompt,
+            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1356,6 +1363,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             config["priority"] = priority if lower_first else -priority
         else:
             config.pop("priority", None)
+        from ..xavier.cache_lifecycle import CACHE_SESSION_ARG
+
+        cache_session = config.pop(CACHE_SESSION_ARG, None)
         anthropic = config.pop("_anthropic_request", False)
         transfer = config.pop("_pd_kv_transfer_params", None)
         pd: Any = getattr(self, "_xavier_handoff", None) or getattr(
@@ -1391,6 +1401,29 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         sanitized_generate_config = self._sanitize_generate_config(
             cast(SGLANGGenerateConfig, config)
         )
+        from ..xavier.cache_lifecycle import CacheSessionTag, bind_cache_session
+
+        if (
+            isinstance(cache_session, CacheSessionTag)
+            and self.supports_agent_cache_lifecycle()
+        ):
+            from ..xavier.prefix import prefix_keys
+
+            # Send these exact token IDs to SGLang, avoiding a second tokenizer
+            # pass with potentially different BOS defaults in its HTTP server.
+            tokens = await asyncio.to_thread(self._get_tokenizer().encode, prompt)
+            await bind_cache_session(
+                self._xavier_cache_config,
+                cache_session,
+                prefix_keys(
+                    tokens,
+                    self._xavier_cache_config["contract"]["block_size"],
+                    sanitized_generate_config.get("cache_salt"),
+                ),
+            )
+            cast(Dict[str, Any], sanitized_generate_config)[
+                "_xavier_input_ids"
+            ] = tokens
         parser = getattr(self, "reasoning_parser", None)
         thinking = bool(
             parser and parser.reasoning_end_tag and parser.is_enable_thinking()

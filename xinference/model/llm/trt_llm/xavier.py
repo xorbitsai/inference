@@ -103,6 +103,7 @@ def configure_xavier(
             "connector_worker_class": "XavierConnectorWorker",
         },
     )
+    cache_config["contract"] = contract.to_dict()
     # The model process owns its environment and hosts TRT's embedded worker.
     # The connector receives only the native engine arguments.
     os.environ[CONFIG_ENV] = json.dumps(

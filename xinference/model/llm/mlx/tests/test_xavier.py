@@ -1658,3 +1658,100 @@ async def test_shared_prefix_metal_imports_and_exports_foreign_canonical_pages(d
             await actor.get(c.fingerprint, prefix_keys(tokens[:-1], cache_salt="b"))
             == pages
         )
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_binds_mlx_salted_pages_before_fetch(monkeypatch):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ..core import MLXModel
+
+    model = MLXModel.__new__(MLXModel)
+    model.model_uid = "model"
+    model._model = object()
+    model._tokenizer = SimpleNamespace(encode=lambda p: list(range(129)))
+    model._model_generation_config = {}
+    model._batch_model = SimpleNamespace(generate_stream=MagicMock())
+    model._xavier = MLXXavierCache(contract(), {"address": "storage", "uid": "cache"})
+    model._xavier.fetch = AsyncMock(return_value=([], 0))
+    actor = SimpleNamespace(bind_cache_session=AsyncMock(return_value=True))
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=actor))
+    session = CacheSessionTag("scoped", 0)
+    stream = await model.async_generate(
+        "prompt",
+        {
+            CACHE_SESSION_ARG: session,
+            "cache_salt": "tenant",
+            "stream": True,
+            "max_tokens": 2,
+        },
+    )
+    actor.bind_cache_session.assert_awaited_once_with(
+        session.to_dict(), model._xavier.keys(list(range(128)), "tenant")
+    )
+    model._xavier.fetch.assert_awaited_once()
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("length", [64, 65, 128, 129])
+async def test_lifecycle_binds_mlx_native_prefix_under_pressure(length):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ..core import MLXModel
+
+    tokens = list(range(length))
+    c = contract()
+    page = bytes(c.layer_nbytes * c.num_layers)
+    prefix_pages = (length - 2) // c.block_size + 1
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierBytesCacheActor,
+            (prefix_pages + 1) * len(page),
+            address=pool.external_address,
+        )
+        client = MLXXavierCache(c, dict(address=actor.address, uid=actor.uid))
+        # Exercise native key construction and real actor fetches without Metal.
+        client.decode = Mock(return_value=[])
+        await client.initialize()
+        prefix_keys = client.keys(tokens[:-1], "tenant")
+        other_keys = client.keys([999] * c.block_size, "other")
+        incoming_keys = client.keys([1000] * c.block_size, "other")
+        assert len(prefix_keys) == prefix_pages
+        await actor.put(c.fingerprint, prefix_keys, [page] * prefix_pages)
+        await actor.put(c.fingerprint, other_keys, [page])
+
+        model = MLXModel.__new__(MLXModel)
+        model.model_uid = "model"
+        model._model = object()
+        model._tokenizer = SimpleNamespace(encode=lambda p: tokens)
+        model._model_generation_config = {}
+        model._batch_model = SimpleNamespace(generate_stream=MagicMock())
+        model._xavier = client
+        session = CacheSessionTag("scoped", 0)
+        stream = await model.async_generate(
+            "prompt",
+            {
+                CACHE_SESSION_ARG: session,
+                "cache_salt": "tenant",
+                "stream": True,
+                "max_tokens": 2,
+            },
+        )
+        await stream.aclose()
+        client.decode.assert_called_once_with([page] * prefix_pages, length - 1)
+        assert await actor.update_cache_session(
+            dict(session.to_dict(), revision=1, phase="waiting")
+        )
+        # Make the waiting prefix older than unrelated work, then exceed capacity.
+        assert await actor.get(c.fingerprint, other_keys) == [page]
+        assert await actor.put(c.fingerprint, incoming_keys, [page]) == [True]
+        assert await client.fetch(tokens, cache_salt="tenant") == ([], length - 1)
+        assert await actor.get(c.fingerprint, other_keys) == []
+
+        # Retention remains soft: finishing makes the prefix evictable again.
+        assert await actor.update_cache_session(
+            dict(session.to_dict(), revision=2, phase="finished")
+        )
+        await actor.get(c.fingerprint, incoming_keys)
+        await actor.put(c.fingerprint, other_keys, [page])
+        assert (await client.fetch(tokens, cache_salt="tenant"))[1] < length - 1

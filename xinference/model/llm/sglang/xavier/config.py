@@ -162,6 +162,7 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"
         )
     model_config["dtype"] = dtype
+    cache_config["contract"] = contract.to_dict()
     prefix_cache = cache_config.get("prefix_cache")
     if cache_config.get("role"):
         if not prefix_cache and (
