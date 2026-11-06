@@ -44,6 +44,14 @@ VARIANTS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def supported_sglang_python(monkeypatch):
+    """Keep supported-runtime tests independent of the CI interpreter."""
+    runtime_sys = SimpleNamespace(**vars(sglang_core.sys))
+    runtime_sys.version_info = (3, 12, 0, "final", 0)
+    monkeypatch.setattr(sglang_core, "sys", runtime_sys)
+
+
 @pytest.fixture
 def virtualenv_worker(monkeypatch):
     monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", False)
@@ -283,6 +291,69 @@ def test_sglang_python_range(virtualenv_worker, monkeypatch, version, virtualenv
         assert "Python 3.11-3.13" in result[1]
         with pytest.raises(ValueError, match="Python 3.11-3.13"):
             SGLANGVisionModel("unsupported-python", family, "/models/test", {})
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize(
+    "version,model_format,size,quantization,error",
+    [
+        ((3, 10), "pytorch", 35, "none", "Python 3.11-3.13"),
+        ((3, 14), "pytorch", 35, "none", "Python 3.11-3.13"),
+        ((3, 12), "bnb", 1, "4-bit", "BNB"),
+    ],
+)
+def test_sglang_factory_rejects_before_caching_weights(
+    virtualenv_worker,
+    monkeypatch,
+    hub,
+    version,
+    model_format,
+    size,
+    quantization,
+    error,
+):
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    with pytest.raises(ValueError, match=error):
+        create_llm_model_instance(
+            "unsupported-launch",
+            "MiniCPM-V-4.7",
+            "SGLang",
+            model_format,
+            size,
+            quantization,
+            download_hub=hub,
+            enable_virtual_env=True,
+        )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("version", [(3, 11), (3, 12), (3, 13)])
+def test_sglang_factory_caches_supported_checkpoint(
+    virtualenv_worker, monkeypatch, version
+):
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    model = create_llm_model_instance(
+        "supported-launch",
+        "MiniCPM-V-4.7",
+        "SGLang",
+        "pytorch",
+        35,
+        "none",
+        download_hub="huggingface",
+        enable_virtual_env=True,
+    )
+    assert isinstance(model, SGLANGVisionModel)
+    cache.assert_called_once_with()
 
 
 @pytest.mark.parametrize(

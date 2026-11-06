@@ -657,6 +657,10 @@ def create_llm_model_instance(
         )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
+    validate_launch = getattr(llm_cls, "validate_launch", None)
+    if callable(validate_launch):
+        validate_launch(llm_family)
+
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)

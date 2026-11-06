@@ -239,6 +239,15 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     support_draft_model = True
     supports_tool_controls = True
 
+    @classmethod
+    def validate_launch(cls, model_family: "LLMFamilyV2") -> None:
+        """Reject incompatible launches before downloading checkpoints."""
+        compatibility_error = _minicpmv47_compatibility_error(
+            model_family, model_family.model_specs[0]
+        )
+        if compatibility_error:
+            raise ValueError(compatibility_error)
+
     def __init__(
         self,
         model_uid: str,
@@ -247,11 +256,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
-        compatibility_error = _minicpmv47_compatibility_error(
-            self.model_family, self.model_spec
-        )
-        if compatibility_error:
-            raise ValueError(compatibility_error)
+        self.validate_launch(model_family)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
