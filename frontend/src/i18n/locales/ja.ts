@@ -818,6 +818,12 @@ const ja = {
     launchProgress: '起動状況',
     overallProgress: '全体の進捗',
     noReplicaStatus: 'レプリカの状態を待っています...',
+    launchWaiting: 'モデルをデプロイ中、レプリカの準備完了を待っています',
+    launchElapsed: '{{seconds}} 秒待機中',
+    launchWaitHint:
+      'モデルの準備、ダウンロード、読み込みには数分かかる場合があります。しばらくお待ちください。',
+    launchCanceling: 'デプロイをキャンセルしています。しばらくお待ちください…',
+    launchFinishing: 'モデルの準備ができました。デプロイの最終処理を行っています…',
     stagePreparing: 'デプロイを準備しています...',
     stageDownloading: 'モデルファイルをダウンロードしています...',
     stageWaitingDependencies: 'モデルの依存パッケージの準備を待っています...',

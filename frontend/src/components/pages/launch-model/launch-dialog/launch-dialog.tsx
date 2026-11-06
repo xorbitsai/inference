@@ -147,6 +147,8 @@ export default function LaunchDialog({
   const [progress, setProgress] = useState(0);
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
+  const [launchStartedAt, setLaunchStartedAt] = useState<number | null>(null);
+  const [launchElapsedSeconds, setLaunchElapsedSeconds] = useState(0);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
   const modelDefaults = useModelDefaults(form);
   const {
@@ -163,7 +165,7 @@ export default function LaunchDialog({
   );
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cacheUidRef = useRef<string | undefined>(undefined);
-  const isCanceledLaunchRef = useRef(false);
+  const launchCancellationRef = useRef({ canceled: false });
   const visibleLaunchIdRef = useRef(0);
   const isCanceledDownloadRef = useRef(false);
   const modelEngineRequestIdRef = useRef(0);
@@ -1738,12 +1740,13 @@ export default function LaunchDialog({
   }, []);
 
   const fetchProgress = useCallback(async () => {
+    const launchId = visibleLaunchIdRef.current;
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     const [progressResult, replicaResult] = await Promise.allSettled([
       request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
       request.get<unknown>(`/v1/models/${modelUid}/replicas`),
     ]);
-    if (pollingRef.current === null) return;
+    if (pollingRef.current === null || launchId !== visibleLaunchIdRef.current) return;
 
     if (progressResult.status === 'fulfilled') {
       const progressRes = progressResult.value;
@@ -1790,18 +1793,26 @@ export default function LaunchDialog({
 
   const handleCancelLaunch = async () => {
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
+    const launchId = visibleLaunchIdRef.current;
+    const cancellation = launchCancellationRef.current;
     setCanceling(true);
 
     try {
       await request.post(`/v1/models/${encodeURIComponent(modelUid)}/cancel`);
-      isCanceledLaunchRef.current = true;
+      cancellation.canceled = true;
+      if (launchId !== visibleLaunchIdRef.current) return;
+      visibleLaunchIdRef.current += 1;
       stopPolling();
+      setLaunchStartedAt(null);
+      setLaunchElapsedSeconds(0);
       setLoading(false);
       setProgressDetails(null);
       setReplicaStatuses([]);
       toast.success(t('launchModel.launchCanceled'));
+    } catch {
+      // The request layer reports the error. Keep waiting for the active launch.
     } finally {
-      setCanceling(false);
+      if (cancellation === launchCancellationRef.current) setCanceling(false);
     }
   };
 
@@ -1847,23 +1858,30 @@ export default function LaunchDialog({
 
     const launchRequestValues = getLaunchRequestValues(values);
     if (!launchRequestValues) return;
-    isCanceledLaunchRef.current = false;
+    const cancellation = { canceled: false };
+    launchCancellationRef.current = cancellation;
     const launchId = ++visibleLaunchIdRef.current;
     const isVisibleLaunch = () => launchId === visibleLaunchIdRef.current;
     setLoading(true);
+    setIsDownloading(false);
+    setCanceling(false);
+    setLaunchElapsedSeconds(0);
+    setLaunchStartedAt(Date.now());
     setProgressDetails(null);
     setReplicaStatuses([]);
 
     request
       .post<{ model_uid?: string }>('/v1/models', launchRequestValues, { noTimeout: true })
       .then(async (launchResponse) => {
-        // Prevents a false deployment success notification when /v1/models returns model_uid after download cancellation, triggering the success logic below.
-        if (isCanceledLaunchRef.current) {
+        // A canceled request can still resolve after a new deployment has started.
+        if (cancellation.canceled) {
           return;
         }
 
         if (isVisibleLaunch()) {
           stopPolling();
+          setLaunchStartedAt(null);
+          setLaunchElapsedSeconds(0);
           setProgressDetails({ stage: 'completed' });
         }
 
@@ -1919,6 +1937,8 @@ export default function LaunchDialog({
       .catch(() => {
         if (!isVisibleLaunch()) return;
         stopPolling();
+        setLaunchStartedAt(null);
+        setLaunchElapsedSeconds(0);
         setProgressDetails(null);
         setReplicaStatuses([]);
       })
@@ -1981,6 +2001,8 @@ export default function LaunchDialog({
     setLoading(false);
     setIsDownloading(false);
     setCanceling(false);
+    setLaunchStartedAt(null);
+    setLaunchElapsedSeconds(0);
     setProgress(0);
     setProgressDetails(null);
     setReplicaStatuses([]);
@@ -2044,6 +2066,32 @@ export default function LaunchDialog({
       active = false;
     };
   }, [clusterAuth?.auth, form, hasSettingsRead, isOpen, model?.model_name]);
+
+  useEffect(() => {
+    if (!isOpen || launchStartedAt === null) return;
+    let active = true;
+    const timer = setInterval(() => {
+      if (active) {
+        setLaunchElapsedSeconds(Math.max(0, Math.floor((Date.now() - launchStartedAt) / 1000)));
+      }
+    }, 1000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [isOpen, launchStartedAt]);
+
+  useEffect(() => {
+    if (isOpen) return;
+    visibleLaunchIdRef.current += 1;
+    stopPolling();
+    setLoading(false);
+    setCanceling(false);
+    setLaunchStartedAt(null);
+    setLaunchElapsedSeconds(0);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+  }, [isOpen, stopPolling]);
 
   useEffect(() => {
     return () => {
@@ -2157,9 +2205,34 @@ export default function LaunchDialog({
             <FormField hidden name="model_type" />
             {renderLaunchFields(currentLaunchFields)}
           </Form>
-          <DialogFooter className={cn(loading ? '!flex-col' : '')}>
+          <DialogFooter className={cn(loading ? '!flex-col gap-4 border-t pt-4' : '')}>
             {loading && (
-              <div className="w-full space-y-2 pr-3">
+              <div className="max-h-[40vh] w-full space-y-3 overflow-y-auto pr-3">
+                {!isDownloading && (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+                      <p role="status">
+                        {t(
+                          launchStartedAt === null
+                            ? 'launchModel.launchFinishing'
+                            : canceling
+                              ? 'launchModel.launchCanceling'
+                              : 'launchModel.launchWaiting'
+                        )}
+                      </p>
+                      {launchStartedAt !== null && (
+                        <span className="tabular-nums text-muted-foreground" aria-live="off">
+                          · {t('launchModel.launchElapsed', { seconds: launchElapsedSeconds })}
+                        </span>
+                      )}
+                    </div>
+                    {launchStartedAt !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('launchModel.launchWaitHint')}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {isDownloading && (
                   <div className="flex items-center gap-3">
                     <Progress
@@ -2198,7 +2271,7 @@ export default function LaunchDialog({
                   <Button
                     type="button"
                     variant="outline"
-                    disabled={canceling}
+                    disabled={canceling || (!isDownloading && launchStartedAt === null)}
                     loading={canceling}
                     onClick={isDownloading ? handleCancelDownload : handleCancelLaunch}
                     className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"

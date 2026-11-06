@@ -831,6 +831,12 @@ const en = {
     launchProgress: 'Launch Progress',
     overallProgress: 'Overall progress',
     noReplicaStatus: 'Waiting for replica status...',
+    launchWaiting: 'Deploying model, waiting for replicas to be ready',
+    launchElapsed: 'Waited {{seconds}} seconds',
+    launchWaitHint:
+      'Model preparation, downloading, and loading may take several minutes. Please wait.',
+    launchCanceling: 'Canceling deployment, please wait…',
+    launchFinishing: 'Model is ready, finishing deployment…',
     stagePreparing: 'Preparing deployment...',
     stageDownloading: 'Downloading model files...',
     stageWaitingDependencies: 'Waiting to prepare model dependencies...',

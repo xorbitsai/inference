@@ -813,6 +813,12 @@ const ko = {
     launchProgress: '시작 진행 상황',
     overallProgress: '전체 진행 상황',
     noReplicaStatus: '복제본 상태를 기다리는 중...',
+    launchWaiting: '모델 배포 중, 복제본이 준비되기를 기다리는 중',
+    launchElapsed: '{{seconds}}초 대기 중',
+    launchWaitHint:
+      '모델 준비, 다운로드 및 로딩에 몇 분 정도 걸릴 수 있습니다. 잠시 기다려 주세요.',
+    launchCanceling: '배포를 취소하는 중입니다. 잠시 기다려 주세요…',
+    launchFinishing: '모델이 준비되었습니다. 배포를 마무리하는 중…',
     stagePreparing: '배포 준비 중...',
     stageDownloading: '모델 파일 다운로드 중...',
     stageWaitingDependencies: '모델 의존성 준비 대기 중...',

@@ -291,6 +291,8 @@ cache receives the files. If it is omitted, the supervisor selects one worker.
 Replica
 =======
 
+The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display.
+
 During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress``
 reports a stage for each replica. After model files finish downloading, a replica
 can report ``waiting_for_dependencies`` while another launch prepares its shared
