@@ -89,6 +89,8 @@ runtime with ``--model-engine``:
 * The Qwen3-TTS models, ``MeloTTS-English``, ``MeloTTS-English-v3``, and
   ``VoxCPM2`` use ``PyTorch`` by default and also support ``MLX`` on Mac
   computers with Apple silicon.
+* ``Audio8-TTS-Realistic-0.6b`` uses ``transformers`` on CPU or CUDA by default.
+  Linux with NVIDIA GPUs also supports ``SGLang-Omni``.
 
 For example:
 
@@ -117,6 +119,7 @@ Text to audio (TTS)
 * MeloTTS series
 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
+* :ref:`Audio8-TTS-Realistic-0.6b <models_builtin_audio8-tts-realistic-0.6b>`
 
 **Models supporting voice design** (natural-language voice description):
 
@@ -139,6 +142,7 @@ Speaker embeddings
 
 **Models supporting voice cloning** (requires reference audio):
 
+* :ref:`Audio8-TTS-Realistic-0.6b <models_builtin_audio8-tts-realistic-0.6b>`
 * :ref:`Breeze-TTS-2 <models_builtin_breeze-tts-2>`
 * :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
@@ -377,6 +381,79 @@ Speech API use non-stream by default as
   .. code-tab:: output
 
     The output will be an audio binary.
+
+
+Audio8-TTS Usage
+~~~~~~~~~~~~~~~~
+
+``Audio8-TTS-Realistic-0.6b`` synthesizes 44.1 kHz speech in 23 languages,
+with or without a reference voice. For cloning, provide reference audio bytes
+in ``prompt_speech`` and the exact transcript in ``prompt_text`` together.
+The model infers language from the text. Leave ``voice`` empty and keep
+``speed=1.0`` and ``stream=False``.
+
+Launch with a model virtual environment to isolate the required Transformers
+4.x stack. The default ``transformers`` engine requires
+``transformers>=4.57.0,<5``; CPU inference uses FP32 and CUDA defaults to BF16.
+The ``SGLang-Omni`` engine requires Linux, an NVIDIA CUDA GPU, and the pinned
+upstream Omni revision, SGLang 0.5.8, PyTorch 2.9.1 with CUDA 12.8, and
+Transformers 4.57.1 declared in the model specification. Its bundled Audio8
+adapter uses TP=1.
+The engine configuration selects CUDA wheels from the official PyTorch index so that
+ARM64 installations do not fall back to CPU-only PyTorch.
+On NVIDIA GB10 (SM 12.1), the pinned prebuilt SGLang kernel stack can fail
+during synthesis with ``RMSNorm failed with error code no kernel image is
+available for execution on the device``. Use the ``transformers`` engine on
+this hardware; reaching ``READY`` alone does not establish inference support.
+See the `upstream deployment guide
+<https://github.com/Edge0-AI/Audio8_TTS/blob/master/guides/deployment.md>`_
+for CUDA system requirements and ``AUDIO8_TTS_*`` runtime settings.
+
+.. code-block:: bash
+
+    xinference launch --model-name Audio8-TTS-Realistic-0.6b --model-type audio --model-engine transformers --enable-virtual-env
+    # Linux with NVIDIA CUDA:
+    xinference launch --model-name Audio8-TTS-Realistic-0.6b --model-type audio --model-engine SGLang-Omni --enable-virtual-env
+
+Both engines accept ``max_new_tokens`` (default 1024), ``temperature`` (0.8),
+``top_p`` (0.95), ``top_k`` (50), and ``do_sample`` (true). Use
+``do_sample=False`` for greedy decoding. Only the ``transformers`` engine
+accepts ``seed``. Xinference currently returns complete audio for both engines;
+Omni SSE streaming is not exposed. Realistic has no official ONNX export.
+
+``top_k`` must be a positive integer for either engine. MP3, WAV, FLAC,
+OGG/Vorbis and 16-bit little-endian PCM output use SoundFile, including on Linux ARM64,
+without requiring TorchCodec. Other formats use the TorchAudio encoder and
+require a compatible TorchCodec installation with TorchAudio 2.9 or newer.
+
+Custom Audio8 models and explicit ``model_path`` values require
+``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker before startup for either
+engine, because these loaders execute Python code from the model snapshot.
+Enable this only for model sources you trust. The registered built-in model
+uses the normal built-in trust policy when downloaded through Xinference.
+
+.. code-block:: python
+
+    from pathlib import Path
+    from xinference.client import Client
+
+    model = Client("http://localhost:9997").get_model("<MODEL_UID>")
+    audio = model.speech(
+        input="Welcome to Audio8 TTS.",
+        voice="",
+        response_format="wav",
+        max_new_tokens=1024,
+    )
+    Path("audio8.wav").write_bytes(audio)
+
+    cloned_audio = model.speech(
+        input="This sentence uses the reference voice.",
+        voice="",
+        response_format="wav",
+        prompt_speech=Path("reference.wav").read_bytes(),
+        prompt_text="The exact transcript of the reference recording.",
+    )
+    Path("audio8-clone.wav").write_bytes(cloned_audio)
 
 
 .. _breeze_tts_2_speech:

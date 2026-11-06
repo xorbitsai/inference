@@ -1,0 +1,69 @@
+[
+  {
+    "version": 2,
+    "model_name": "Audio8-TTS-Realistic-0.6b",
+    "model_family": "audio8_tts",
+    "model_description": "Audio8-TTS-Realistic 0.6B supports 23-language 44.1 kHz speech synthesis and zero-shot voice cloning. For cloning, provide prompt_speech with its exact prompt_text transcript. Language is inferred from text; named voices, speed control and Xinference streaming are unavailable.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "yue",
+      "zh",
+      "nl",
+      "en",
+      "fr",
+      "de",
+      "it",
+      "ja",
+      "ko",
+      "pl",
+      "es",
+      "ar",
+      "fi",
+      "hi",
+      "id",
+      "ms",
+      "no",
+      "pt",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi"
+    ],
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Edge0/Audio8-TTS-Realistic-0.6b",
+        "model_revision": "main"
+      }
+    },
+    "updated_at": 1793491200,
+    "featured": false,
+    "engine": "transformers",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0,<5 ; #engine# == \"transformers\"",
+        "torch>=2.5 ; #engine# == \"transformers\"",
+        "torchaudio>=2.5 ; #engine# == \"transformers\"",
+        "numpy>=1.26",
+        "huggingface-hub>=0.36,<1.0",
+        "safetensors>=0.4",
+        "soundfile>=0.13.1",
+        "tqdm>=4.66",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchaudio# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\"",
+        "sglang-omni @ https://github.com/sgl-project/sglang-omni/archive/68a572348837f7b004857b4b07993c20ade4c017.zip ; #engine# == \"SGLang-Omni\"",
+        "sglang==0.5.8 ; #engine# == \"SGLang-Omni\"",
+        "transformers==4.57.1 ; #engine# == \"SGLang-Omni\"",
+        "torch==2.9.1+cu128 ; #engine# == \"SGLang-Omni\"",
+        "torchaudio==2.9.1 ; #engine# == \"SGLang-Omni\""
+      ]
+    }
+  }
+]

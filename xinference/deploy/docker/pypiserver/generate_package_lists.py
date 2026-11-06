@@ -355,6 +355,9 @@ def main() -> None:
                 if engine.lower() not in excluded_engines:
                     candidate_engines.add(engine)
         for cand in candidate_engines:
+            candidate_indexes = extra_index_urls
+            if extra_index_url is None and cand is not None:
+                candidate_indexes = engine_extra_indexes.get(cand.lower(), [])
             for spec in filter_packages(
                 list(concrete), cand, args.cuda_version, "linux"
             ):
@@ -375,7 +378,7 @@ def main() -> None:
                 if is_find_links_only_requirement(model_name, spec):
                     find_links_only_pins.setdefault(spec, set()).add(source)
                     continue
-                _add(spec, source, extra_index_urls)
+                _add(spec, source, candidate_indexes)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
     (out / "git.txt").write_text("".join(f"{g}\n" for g in sorted(git_sources)))
