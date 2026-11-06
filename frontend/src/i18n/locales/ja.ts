@@ -1063,6 +1063,20 @@ const ja = {
     addReplicaEnginePlaceholder: '利用可能なモデルエンジン情報がありません',
     addReplicaSuccess: '{{count}} 個のレプリカを追加しました',
     addReplicaFailed: 'レプリカの追加に失敗しました',
+    addReplicaState_pending: 'レプリカの読み込みを待機中',
+    addReplicaState_succeeded: 'レプリカの追加が完了しました',
+    addReplicaState_failed: 'レプリカの追加に失敗しました',
+    addReplicaState_unknown: '結果の確認が必要です',
+    addReplicaUnknown:
+      '接続が切れたか、ゲートウェイがタイムアウトしました。再送信前に現在のレプリカを確認してください。',
+    addReplicaElapsed: '{{seconds}} 秒待機中',
+    addReplicaWaitHint:
+      '読み込みには数分かかる場合があります。ページを閉じてもサーバーの追加処理は取り消されません。',
+    addReplicaWaitingCount: '要求したレプリカのうち {{count}} 個がまだ表示されていません。',
+    addReplicaRefreshFailed: '状態の取得に失敗しました。前回の状態を保持して再試行します。',
+    addReplicaSuccessRefreshFailed:
+      'レプリカの追加は完了しましたが、状態の更新に失敗しました。再読み込みして最終状態を確認してください。',
+    addReplicaAcknowledge: '結果を確認しました。追跡を終了',
     addReplicaLoading: 'レプリカ追加中...',
     addReplicaWorkerLabel: 'ワーカー',
     addReplicaGpuIdxLabel: 'GPU インデックス',
@@ -1858,6 +1872,7 @@ const ja = {
       fri: '金',
       sat: '土',
     },
+    close: '閉じる',
     cancel: 'キャンセル',
     confirm: '確認',
     update: '更新',

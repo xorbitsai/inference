@@ -24,6 +24,7 @@ import xoscar as xo
 from xoscar.backends.router import Router
 
 from ..exceptions import ModelNotReadyError
+from ..progress_tracker import ProgressTrackerActor
 from ..replica_config import DeviceConfig, ReplicaConfig
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import build_replica_model_uid
@@ -505,6 +506,50 @@ def _make_supervisor(workers, launch_args, replica_uid="demo-0"):
     supervisor._collective_manager_mapping = {}
     supervisor._block_tracker_mapping = {}
     return supervisor
+
+
+@pytest.mark.asyncio
+async def test_progress_includes_unrouted_replica_until_real_load_completion():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    tracker = ProgressTrackerActor()
+    supervisor._progress_tracker = SimpleNamespace(
+        get_progress_details=AsyncMock(side_effect=tracker.get_progress_details)
+    )
+    loading = asyncio.Event()
+    ready = asyncio.Event()
+
+    async def wait_for_load(model_uid):
+        tracker.start(f"launching-{model_uid}")
+        tracker.set_progress(f"launching-{model_uid}", 1.0)  # Old worker protocol.
+        loading.set()
+        await ready.wait()
+
+    worker.wait_for_load = wait_for_load
+    task = asyncio.create_task(supervisor.add_model_replica("demo"))
+    try:
+        await asyncio.wait_for(loading.wait(), timeout=2)
+        result = await supervisor.get_launch_builtin_model_progress_details("demo")
+        by_id = {replica["replica_id"]: replica for replica in result["replicas"]}
+        assert set(by_id) == {0, 1}
+        assert by_id[0]["progress"] == 1  # Expired ready record uses real status.
+        assert by_id[1]["progress"] == 0.99
+        assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
+        assert not task.done()
+        ready.set()
+        await asyncio.wait_for(task, timeout=2)
+        result = await supervisor.get_launch_builtin_model_progress_details("demo")
+        assert all(replica["progress"] == 1 for replica in result["replicas"])
+        # Terminated/rolled back records are not added back by progress queries.
+        await supervisor._status_guard_ref.update_replica_status(
+            "demo", 2, {"replica_model_uid": "demo-rep2", "status": "TERMINATED"}
+        )
+        result = await supervisor.get_launch_builtin_model_progress_details("demo")
+        assert {r["replica_id"] for r in result["replicas"]} == {0, 1}
+    finally:
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
 
 @pytest.mark.asyncio

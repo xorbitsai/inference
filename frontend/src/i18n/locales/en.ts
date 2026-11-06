@@ -1244,6 +1244,20 @@ const en = {
     addReplicaEnginePlaceholder: 'No engine information available',
     addReplicaSuccess: '{{count}} replica(s) added successfully',
     addReplicaFailed: 'Failed to add replica',
+    addReplicaState_pending: 'Waiting for replicas to load',
+    addReplicaState_succeeded: 'Replica addition completed',
+    addReplicaState_failed: 'Replica addition failed',
+    addReplicaState_unknown: 'Result needs verification',
+    addReplicaUnknown:
+      'Connection lost or gateway timed out. Verify the current replicas before submitting again.',
+    addReplicaElapsed: 'Waited {{seconds}} seconds',
+    addReplicaWaitHint:
+      'Loading can take several minutes. Closing this page does not cancel the server operation.',
+    addReplicaWaitingCount: '{{count}} requested replica(s) have not appeared yet.',
+    addReplicaRefreshFailed: 'Status refresh failed; retaining the last snapshot and retrying.',
+    addReplicaSuccessRefreshFailed:
+      'Replicas were added successfully, but status refresh failed. Refresh to view the final state.',
+    addReplicaAcknowledge: 'I have verified the result; stop tracking',
     addReplicaLoading: 'Adding replica...',
     addReplicaWorkerLabel: 'Worker',
     addReplicaGpuIdxLabel: 'GPU Index',
@@ -2045,6 +2059,7 @@ const en = {
       fri: 'Fri',
       sat: 'Sat',
     },
+    close: 'Close',
     cancel: 'Cancel',
     confirm: 'Confirm',
     update: 'Update',

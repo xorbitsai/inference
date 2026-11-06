@@ -1022,6 +1022,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._pending_control_faults: Dict[str, Dict[str, _ControlFaultModel]] = {}
         self._retrying_control_faults = False
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
+        self._launch_progressors: Dict[str, "Progressor"] = {}
         # Tracks whether this worker has successfully called supervisor.add_worker().
         # _supervisor_ref being non-None no longer implies registered, because
         # heartbeat() uses add_worker=False and may populate the ref cache before
@@ -5090,7 +5091,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return fingerprint
 
     async def _get_progressor(
-        self, request_id: str, initial_info: str = "Start to launch model"
+        self,
+        request_id: str,
+        initial_info: str = "Start to launch model",
+        launch: bool = False,
     ):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
@@ -5104,10 +5108,32 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             request_id,
             progress_tracker_ref,
             asyncio.get_running_loop(),
+            generation=uuid.uuid4().hex if launch else None,
         )
         await progressor.start()
         progressor.set_progress(0.0, initial_info)
+        if launch:
+            self.__dict__.setdefault("_launch_progressors", {})[
+                request_id.removeprefix("launching-")
+            ] = progressor
         return progressor
+
+    async def _finish_launch_progress(
+        self, model_uid: str, success: bool, progressor: Optional["Progressor"] = None
+    ) -> None:
+        progressors = getattr(self, "_launch_progressors", {})
+        current = progressors.get(model_uid)
+        if current is None or (progressor is not None and current is not progressor):
+            return
+        progressors.pop(model_uid, None)
+        try:
+            await xo.wait_for(current.finish_launch(success), timeout=5)
+        except Exception:
+            # Progress reporting must not turn a ready model into a failed
+            # launch, nor prevent resource cleanup after an engine failure.
+            logger.warning(
+                "Failed to finish launch progress for %s", model_uid, exc_info=True
+            )
 
     @classmethod
     def _upload_download_progress(
@@ -5739,7 +5765,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             )
 
                         progressor = await self._get_progressor(
-                            "launching-" + model_uid
+                            "launching-" + model_uid, launch=True
                         )
                         # split into download and launch
                         progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
@@ -6060,6 +6086,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         self._launch_waiting,
                     )
         finally:
+            if sys.exc_info()[0] is not None:
+                await WorkerActor._finish_launch_progress(self, model_uid, False)
             if _was_queued:
                 self._launch_waiting -= 1
             self._model_uid_launching_guard.pop(model_uid, None)
@@ -6105,16 +6133,27 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.error(
                 f"Failed to finalize launch of model {model_uid}", exc_info=True
             )
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
 
-    async def _clean_up_failed_launch(self, model_uid: str, model_ref=None):
+    async def _clean_up_failed_launch(
+        self,
+        model_uid: str,
+        model_ref=None,
+        progressor: Optional["Progressor"] = None,
+    ):
         """Roll back the state registered by ``launch_builtin_model`` when the
         launch fails after registration (e.g. an engine that loads
         asynchronously crashes at init and the error only surfaces in
         ``wait_for_load``). Without this, the stale ``_model_uid_to_model``
         entry makes relaunching the same model_uid fail on the registration
         assert until the whole service is restarted."""
+        # Only finish the generation captured by the failing launch. Recovery
+        # may already have registered a new progressor for the same UID.
+        if progressor is not None:
+            await WorkerActor._finish_launch_progress(
+                self, model_uid, False, progressor
+            )
         try:
             fence = getattr(self, "_control_fence", None)
             if fence is None:
@@ -6144,13 +6183,22 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     @management_operation
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
+        progressor = getattr(self, "_launch_progressors", {}).get(model_uid)
         try:
             await model_ref.wait_for_load()
         except Exception:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
-        await self._update_model_state(model_uid, "ready")
+        try:
+            await self._update_model_state(model_uid, "ready")
+        except Exception:
+            await WorkerActor._finish_launch_progress(
+                self, model_uid, False, progressor
+            )
+            raise
+        if progressor is not None:
+            await WorkerActor._finish_launch_progress(self, model_uid, True, progressor)
 
     @log_sync(logger=logger, level=logging.INFO)
     @management_operation
@@ -6772,6 +6820,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             if reload_children:
                 await asyncio.to_thread(_stop_reload_children, reload_children)
             self._release_virtual_env_usage(model_uid)
+            await WorkerActor._finish_launch_progress(self, model_uid, False)
 
             self._model_uid_to_model.pop(model_uid, None)
             if getattr(self, "_control_fence", None) is not None:

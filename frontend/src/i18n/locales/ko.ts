@@ -1057,6 +1057,20 @@ const ko = {
     addReplicaEnginePlaceholder: '사용 가능한 모델 엔진 정보가 없습니다',
     addReplicaSuccess: '복제본 {{count}}개를 추가했습니다',
     addReplicaFailed: '복제본 추가에 실패했습니다',
+    addReplicaState_pending: '복제본 로딩 대기 중',
+    addReplicaState_succeeded: '복제본 추가 완료',
+    addReplicaState_failed: '복제본 추가 실패',
+    addReplicaState_unknown: '결과 확인 필요',
+    addReplicaUnknown:
+      '연결이 끊어졌거나 게이트웨이 시간이 초과되었습니다. 다시 제출하기 전에 현재 복제본을 확인하세요.',
+    addReplicaElapsed: '{{seconds}}초 대기 중',
+    addReplicaWaitHint:
+      '로딩에 몇 분이 걸릴 수 있습니다. 페이지를 닫아도 서버의 추가 작업은 취소되지 않습니다.',
+    addReplicaWaitingCount: '요청한 복제본 중 {{count}}개가 아직 나타나지 않았습니다.',
+    addReplicaRefreshFailed: '상태 조회에 실패했습니다. 마지막 상태를 유지하고 다시 시도합니다.',
+    addReplicaSuccessRefreshFailed:
+      '복제본 추가는 완료되었지만 상태 새로 고침에 실패했습니다. 새로 고침하여 최종 상태를 확인하세요.',
+    addReplicaAcknowledge: '결과를 확인했습니다. 추적 종료',
     addReplicaLoading: '복제본 추가 중...',
     addReplicaWorkerLabel: '워커',
     addReplicaGpuIdxLabel: 'GPU 인덱스',
@@ -1844,6 +1858,7 @@ const ko = {
       fri: '금',
       sat: '토',
     },
+    close: '닫기',
     cancel: '취소',
     confirm: '확인',
     update: '업데이트',

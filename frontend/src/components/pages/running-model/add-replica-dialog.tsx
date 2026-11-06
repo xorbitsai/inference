@@ -19,7 +19,9 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { Select, type SelectOption } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
-import type { AddReplicaRequest, ModelEngine } from '@/types/services';
+import type { AddReplicaRequest, ModelEngine, ReplicaItem } from '@/types/services';
+import ReplicaLaunchProgress from '../launch-model/launch-dialog/replica-launch-progress';
+import type { AddReplicaOperation } from './use-add-replica';
 import { buildReplicaConfigs, filterWorkerOptions } from './add-replica-utils.mjs';
 import { hasCompatibleEngineSpec } from './engine-compatibility.mjs';
 
@@ -37,6 +39,11 @@ interface AddReplicaDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (body: AddReplicaRequest) => void;
   loading: boolean;
+  operation?: AddReplicaOperation | null;
+  elapsedSeconds?: number;
+  newReplicas?: ReplicaItem[];
+  onRefresh?: () => void;
+  onAcknowledge?: () => void;
   workerOptions: WorkerOption[];
   modelUid: string;
   modelName: string;
@@ -54,6 +61,11 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   onOpenChange,
   onConfirm,
   loading,
+  operation,
+  elapsedSeconds = 0,
+  newReplicas = [],
+  onRefresh,
+  onAcknowledge,
   workerOptions,
   modelUid,
   modelName,
@@ -72,9 +84,12 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [gpuIdx, setGpuIdx] = useState('');
   const [engineMap, setEngineMap] = useState<ModelEngine>({});
+  const unknown = operation?.phase === 'unknown';
+  const locked = loading || unknown || operation?.phase === 'succeeded';
+  const hasOperation = Boolean(operation);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || hasOperation) return;
 
     setSelectedEngine(modelEngine ?? '');
     setReplicaCount(1);
@@ -103,7 +118,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     return () => {
       active = false;
     };
-  }, [defaultDevice, modelEngine, modelName, modelType, open]);
+  }, [defaultDevice, hasOperation, modelEngine, modelName, modelType, open]);
 
   const engineOptions = useMemo<SelectOption<string>[]>(() => {
     const options: SelectOption<string>[] = Object.entries(engineMap)
@@ -146,6 +161,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   }, [filteredWorkerOptions]);
 
   const handleConfirm = () => {
+    if (locked) return;
     const normalizedReplicaCount = Number(replicaCount);
     if (
       !Number.isInteger(normalizedReplicaCount) ||
@@ -228,7 +244,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
               onChange={(value) => setSelectedEngine(value ?? '')}
               placeholder={modelEngine || t('runningModels.addReplicaEnginePlaceholder')}
               allowClear={false}
-              disabled={loading || engineOptions.length === 0}
+              disabled={locked || engineOptions.length === 0}
             />
           </div>
 
@@ -251,7 +267,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
                   Math.max(Number(count) || 0, selectedWorkers.length || 1)
                 );
               }}
-              disabled={loading}
+              disabled={locked}
             />
             <p className="text-xs text-muted-foreground">
               {t('runningModels.addReplicaCountPreview', {
@@ -277,7 +293,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
                 if (value !== 'GPU') setGpuIdx('');
               }}
               allowClear={false}
-              disabled={loading}
+              disabled={locked}
             />
           </div>
 
@@ -290,7 +306,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
                 value={gpuIdx}
                 onChange={(event) => setGpuIdx(event.target.value)}
                 placeholder={t('runningModels.addReplicaGpuIdxPlaceholder')}
-                disabled={loading}
+                disabled={locked}
               />
             </div>
           )}
@@ -308,7 +324,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
               }}
               placeholder={t('runningModels.addReplicaAutoWorker')}
               searchable
-              disabled={loading}
+              disabled={locked}
             />
             <p className="text-xs text-muted-foreground">
               {t('runningModels.addReplicaWorkerHint')}
@@ -316,18 +332,77 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
           </div>
         </div>
 
+        {operation && (
+          <div className="mt-6 space-y-3 border-t pt-4">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+              <p role="status">{t(`runningModels.addReplicaState_${operation.phase}`)}</p>
+              {(loading || unknown) && (
+                <span className="tabular-nums text-muted-foreground" aria-live="off">
+                  · {t('runningModels.addReplicaElapsed', { seconds: elapsedSeconds })}
+                </span>
+              )}
+            </div>
+            {(loading || unknown) && (
+              <p className="text-xs text-muted-foreground">
+                {t('runningModels.addReplicaWaitHint')}
+              </p>
+            )}
+            {unknown && (
+              <p className="text-sm text-amber-600" role="status">
+                {t('runningModels.addReplicaUnknown')}
+              </p>
+            )}
+            {operation.error && (
+              <p className="break-words text-sm text-destructive" role="alert">
+                {operation.error}
+              </p>
+            )}
+            {operation.refreshFailed && (
+              <p className="text-sm text-amber-600" role="status">
+                {t(
+                  operation.phase === 'succeeded'
+                    ? 'runningModels.addReplicaSuccessRefreshFailed'
+                    : 'runningModels.addReplicaRefreshFailed'
+                )}
+              </p>
+            )}
+            <ReplicaLaunchProgress
+              replicaStatuses={newReplicas}
+              progressDetails={operation.progress}
+            />
+            {(loading || unknown) && operation.count > newReplicas.length && (
+              <p className="text-xs text-muted-foreground">
+                {t('runningModels.addReplicaWaitingCount', {
+                  count: operation.count - newReplicas.length,
+                })}
+              </p>
+            )}
+            <Button variant="outline" size="sm" onClick={onRefresh}>
+              {t('common.refresh')}
+            </Button>
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
-            {t('common.cancel')}
+            {t(operation && !loading ? 'common.close' : 'common.cancel')}
           </Button>
-          <Button onClick={handleConfirm} disabled={loading}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 h-4 w-4" />
-            )}
-            {loading ? t('runningModels.addReplicaLoading') : t('runningModels.addReplica')}
-          </Button>
+          {unknown ? (
+            <Button variant="outline" onClick={onAcknowledge}>
+              {t('runningModels.addReplicaAcknowledge')}
+            </Button>
+          ) : (
+            operation?.phase !== 'succeeded' && (
+              <Button onClick={handleConfirm} disabled={locked}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 h-4 w-4" />
+                )}
+                {loading ? t('runningModels.addReplicaLoading') : t('runningModels.addReplica')}
+              </Button>
+            )
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
