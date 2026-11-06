@@ -14,6 +14,8 @@
 
 # CI: linux
 
+import asyncio
+from functools import partial
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -21,6 +23,7 @@ import pytest
 from packaging.version import Version
 
 from ...model.llm.vllm.core import VLLMModel
+from ..exceptions import ModelNotReadyError
 from ..model import ModelActor
 from ..supervisor import SupervisorActor
 from ..utils import build_replica_model_uid
@@ -179,3 +182,38 @@ async def test_all_saturated_engines_keep_affinity_and_normal_admission():
     }
     assert await supervisor.get_model("demo", routing_key="task") is models[1]
     assert info.routing_keys["task"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unavailable", [False, True])
+async def test_affinity_checks_all_replicas_during_concurrent_round_robin(unavailable):
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(3)
+    info.routing_keys["task"] = 0
+    supervisor._model_uid_to_replica_info = {"demo": info}
+    models = [_chat_actor(1, active=int(index < 2)) for index in range(3)]
+    probing, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(index, **kwargs):
+        if index == 1:
+            probing.set()
+            await release.wait()
+        if unavailable and index < 2:
+            raise ModelNotReadyError("loading")
+        return models[index]
+
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", index): SimpleNamespace(
+            get_model=AsyncMock(side_effect=partial(get_model, index))
+        )
+        for index in range(3)
+    }
+    sticky = asyncio.create_task(supervisor.get_model("demo", routing_key="task"))
+    try:
+        await asyncio.wait_for(probing.wait(), 1)
+        assert await supervisor.get_model("demo") is models[2]
+    finally:
+        release.set()
+    assert await sticky is models[2]
+    assert info.routing_keys["task"] == 2
