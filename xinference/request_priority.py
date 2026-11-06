@@ -41,7 +41,6 @@ def validate_request_priority(value: Any) -> int:
 
 def to_trt_request_priority(priority: int) -> float:
     """TRT uses [0, 1], higher first; keep every supported integer distinct."""
-    priority = validate_request_priority(priority)
     return (MAX_REQUEST_PRIORITY - priority) / (
         MAX_REQUEST_PRIORITY - MIN_REQUEST_PRIORITY
     )
@@ -60,8 +59,15 @@ class PriorityScheduler:
         self._waiting: List[Tuple[int, int, asyncio.Future, int]] = []
         self._closed = False
 
+    @property
+    def idle(self) -> bool:
+        return self._available == self._capacity
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
     async def acquire(self, priority: int, capacity: Optional[int] = None) -> None:
-        validate_request_priority(priority)
         capacity = self._capacity if capacity is None else capacity
         if type(capacity) is not int or not 1 <= capacity <= self._capacity:
             raise ValueError("Request capacity must be within the scheduler capacity")

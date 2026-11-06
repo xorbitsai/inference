@@ -350,3 +350,6 @@ msgstr ""
 " は優先レプリカと通常のキューおよび受付動作を維持します。この判定はリクエスト数を数えるため、``n > 1`` "
 "のリクエストは数えた以上のシーケンス枠を消費する場合があります。別のレプリカへの切り替えにはプレフィックスの再計算や KV "
 "転送が必要な場合がありますが、このポリシーはそのコストを推定せず、容量も予約しません。"
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference は、``priority`` のない要求も含め、すべてのエンジンでクライアント指定の ``request_id`` を検証します。同じレプリカ上で実行中の要求には一意の ID が必要です。中止後、その ID は既定で 30 秒間ブロックされます。再試行には新しい ID を使うか、中止要求の ``block_duration`` で時間を設定してください。"

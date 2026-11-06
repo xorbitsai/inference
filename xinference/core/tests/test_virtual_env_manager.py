@@ -1565,7 +1565,7 @@ class TestGetEngineCriticalDependencySpecs:
         declared = ["torch>=2.10", "numpy>=2", "transformers>=5.1"]
         with self._patch_metadata(versions, {"tensorrt_llm": declared}):
             specs = get_engine_critical_dependency_specs(
-                "TRT-LLM", get_engine_virtualenv_packages("TRT-LLM")
+                "TRT-LLM", ["tensorrt_llm==1.3.0rc24"]
             )
         assert specs == ["transformers>=5.1"]
 

@@ -342,3 +342,6 @@ msgstr ""
 "rank。無效容量值會停用此引擎專用探測。未達到此容量時，請求保持親和並可進行批次處理。如果所有副本都忙碌，Xinference "
 "會保留首選副本及其正常的排隊和准入行為。此探測按請求計數，因此 ``n > 1`` "
 "的請求可能占用比計數更多的序列槽位。切換副本可能需要重新計算前綴或傳輸 KV；該策略不會估算這些成本，也不會預留容量。"
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference 現在會為所有引擎檢查用戶端傳入的 ``request_id``，包括未提供 ``priority`` 的請求。同一副本上的作用中請求必須使用唯一 ID。中止請求後，該 ID 預設封鎖 30 秒；重試時請使用新 ID，或透過中止請求中的 ``block_duration`` 設定封鎖時間。"

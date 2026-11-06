@@ -384,3 +384,6 @@ msgstr ""
 " conteggiati. Il passaggio a un’altra replica può richiedere il ricalcolo "
 "del prefisso o il trasferimento KV; la politica non stima questi costi e non"
 " riserva capacità."
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference ora verifica i valori ``request_id`` forniti dal client per tutti i motori, anche nelle richieste senza ``priority``. Gli ID devono essere univoci tra le richieste attive di una replica. Dopo un annullamento, l’ID viene bloccato per 30 secondi per impostazione predefinita; usare un nuovo ID per i tentativi successivi oppure configurare ``block_duration`` nella richiesta di annullamento."

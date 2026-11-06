@@ -32,8 +32,16 @@ class PytorchDirectChatMixin(ChatModelMixin):
     model_uid: str
     model_family: Any
     _tokenizer: Any
+    _model: Any
     tool_parser: Any
     reasoning_parser: Any
+
+    def _start_streaming_thread(
+        self, kwargs: Dict[str, Any], generate=None
+    ) -> Iterator:
+        from .streaming import generate_stream
+
+        return generate_stream(generate or self._model.generate, kwargs)
 
     @abstractmethod
     def build_inputs_from_messages(

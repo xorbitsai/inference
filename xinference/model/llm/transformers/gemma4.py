@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from ....core.model import register_batching_multimodal_models
@@ -195,9 +194,7 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **configs}
-        t = Thread(target=self._model.generate, kwargs=gen_kwargs)
-        t.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(gen_kwargs), len(inputs.input_ids[0])
 
     @cache_clean
     async def _direct_chat(

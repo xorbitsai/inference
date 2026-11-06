@@ -15,7 +15,6 @@ import json
 import logging
 import typing
 import uuid
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
@@ -310,9 +309,15 @@ class ChatglmPytorchChatModel(PytorchChatModel):
         tools = {tool["function"]["name"] for tool in tools} if tools else {}
         generation_kwargs = dict(inputs, streamer=streamer)
         generation_kwargs.update(kwargs)
-        thread = Thread(target=self._model.generate, kwargs=generation_kwargs)
-        thread.start()
+        from .streaming import generate_stream
 
+        owned = generate_stream(self._model.generate, generation_kwargs)
+        try:
+            yield from self._iterate_chat_stream(owned, tools)
+        finally:
+            owned.close()
+
+    def _iterate_chat_stream(self, streamer, tools):
         response = ""
         for token in streamer:
             response += token
@@ -403,25 +408,29 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                 chunk_id = "chat-" + str(uuid.uuid1())
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
                 prompt_tokens = len(inputs["input_ids"][0])
-                for chunk_text in self._stream_chat(inputs, tools, **kwargs):
-                    if tools and isinstance(chunk_text, dict):
-                        yield self._post_process_completion_chunk(
-                            self.model_family, self.model_uid, chunk_text
+                owned_chat = self._stream_chat(inputs, tools, **kwargs)
+                try:
+                    for chunk_text in owned_chat:
+                        if tools and isinstance(chunk_text, dict):
+                            yield self._post_process_completion_chunk(
+                                self.model_family, self.model_uid, chunk_text
+                            )
+                            return
+                        completion_tokens = completion_tokens + 1
+                        total_tokens = prompt_tokens + completion_tokens
+                        chunk_text = chunk_text[last_chunk_text_length:]
+                        last_chunk_text_length += len(chunk_text)
+                        yield generate_completion_chunk(
+                            chunk_text,
+                            finish_reason=None,
+                            chunk_id=chunk_id,
+                            model_uid=self.model_uid,
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens,
+                            total_tokens=total_tokens,
                         )
-                        return
-                    completion_tokens = completion_tokens + 1
-                    total_tokens = prompt_tokens + completion_tokens
-                    chunk_text = chunk_text[last_chunk_text_length:]
-                    last_chunk_text_length += len(chunk_text)
-                    yield generate_completion_chunk(
-                        chunk_text,
-                        finish_reason=None,
-                        chunk_id=chunk_id,
-                        model_uid=self.model_uid,
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                    )
+                finally:
+                    owned_chat.close()
                 yield generate_completion_chunk(
                     None,
                     finish_reason="stop",
@@ -445,7 +454,14 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         has_choice=False,
                     )
 
-            return self._to_chat_completion_chunks(_stream_generator())
+            def owned_result():
+                chunks = _stream_generator()
+                try:
+                    yield from self._to_chat_completion_chunks(chunks)
+                finally:
+                    chunks.close()
+
+            return owned_result()
 
     def prepare_sanitize_generate_config(self, req: InferenceRequest):
         """

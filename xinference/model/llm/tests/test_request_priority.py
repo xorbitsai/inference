@@ -323,3 +323,35 @@ async def test_mlx_batch_capacity_and_shared_limit(mlx_priority_model, serial_ac
             stream._gc_destroy = False
             await stream.destroy()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_mlx_completion_capacity_probe_ignores_chat_only_budget(
+    mlx_priority_model,
+):
+    import copy
+    from unittest.mock import AsyncMock
+
+    from ..reasoning_parser import ReasoningParser
+
+    model, actor = mlx_priority_model
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    model._batch_model.generate = AsyncMock(
+        return_value=(
+            "ok",
+            {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
+        )
+    )
+    config = {
+        "max_tokens": 4,
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": -1},
+    }
+    original = copy.deepcopy(config)
+    assert model.get_request_priority_capacity(config) == 1
+    assert config == original
+    # Completion generation has never applied chat-only budget controls.
+    await actor.generate("hello", config)
+    model._batch_model.generate.assert_awaited_once()
+    assert config == original

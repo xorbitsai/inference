@@ -531,6 +531,8 @@ TRT-LLM versions exposing a native ``priority`` parameter use native scheduling 
 
 Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority.
 
+Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request.
+
 With the Xinference Python client, pass ``generate_config={"priority": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:
 
 .. code-block:: python

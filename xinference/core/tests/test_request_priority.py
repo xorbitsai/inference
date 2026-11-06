@@ -586,3 +586,166 @@ async def test_admitted_sync_call_keeps_rpc_context_and_stops_its_executor():
     model.stop.assert_called_once()
     with pytest.raises(RuntimeError, match="shutdown"):
         executor.submit(lambda: None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("native", [False, True])
+async def test_rpc_metadata_is_bound_during_stream_iteration(method, native):
+    from ..rpc_context import get_current_rpc_metadata
+
+    actor, model = _actor()
+    model.supports_native_request_priority = native
+    if native:
+        actor._lock = None  # Native schedulers use the concurrent actor path.
+    observed = []
+
+    async def chunks():
+        try:
+            for _ in range(2):
+                metadata = get_current_rpc_metadata()
+                observed.append(metadata.correlation_id if metadata else None)
+                yield {"choices": []}
+        finally:
+            metadata = get_current_rpc_metadata()
+            observed.append(metadata.correlation_id if metadata else None)
+
+    async def infer(prompt, config, **kwargs):
+        return chunks()
+
+    setattr(model, method, infer)
+    metadata = {
+        RPC_METADATA_KEY: RpcMetadata(correlation_id="stream-request").to_payload()
+    }
+    stream = await getattr(actor, method)("hello", {"stream": True}, **metadata)
+    stream._actor_ref = actor
+    assert get_current_rpc_metadata() is None
+    assert len([chunk async for chunk in stream]) == 2
+    assert observed == ["stream-request"] * 3
+    assert get_current_rpc_metadata() is None
+
+
+@pytest.mark.asyncio
+async def test_non_stream_batch_cancellation_retains_admission_until_native_removal():
+    actor, model = _actor()
+    model.allow_batch = True
+    active, release, removed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    entered = []
+
+    async def infer(prompt, config):
+        entered.append(prompt)
+        if prompt == "busy":
+            active.set()
+            try:
+                await release.wait()
+            finally:
+                removed.set()
+        return {"choices": []}
+
+    model.generate = infer
+    busy = asyncio.create_task(actor.generate("busy", {}))
+    await active.wait()
+    waiting = asyncio.create_task(actor.generate("next", {}))
+    await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+    busy.cancel()
+    try:
+        await asyncio.sleep(0)
+        assert not removed.is_set()
+        assert not busy.done()
+        assert entered == ["busy"]
+    finally:
+        release.set()
+        await asyncio.gather(busy, waiting, return_exceptions=True)
+    assert removed.is_set()
+    assert entered == ["busy", "next"]
+    assert actor._serve_count == 0
+
+
+@pytest.mark.asyncio
+async def test_native_stream_close_does_not_occupy_shared_executor(monkeypatch):
+    import contextvars
+    import functools
+    from concurrent.futures import ThreadPoolExecutor
+    from unittest.mock import Mock
+
+    from ...model.llm.llama_cpp.core import _owned_native_stream
+
+    shared = ThreadPoolExecutor(max_workers=1)
+
+    async def shared_thread(fn, *args, **kwargs):
+        call = functools.partial(contextvars.copy_context().run, fn, *args, **kwargs)
+        return await asyncio.get_running_loop().run_in_executor(shared, call)
+
+    monkeypatch.setattr(asyncio, "to_thread", shared_thread)
+    actor, model = _actor()
+    native = Future()
+    closed = threading.Event()
+
+    def source():
+        try:
+            yield None
+            yield {"choices": []}
+        finally:
+            closed.set()
+
+    def infer(prompt, config):
+        iterator = source()
+        next(iterator)
+        return _owned_native_stream(iterator, native)
+
+    model.generate = infer
+    model.stop = Mock()
+    stream = await actor.generate("stream", {"stream": True})
+    stream._actor_ref = actor
+    await stream.__anext__()
+    closing = asyncio.create_task(_close(stream))
+    try:
+        await _wait_for(closed.is_set)
+        assert (
+            await asyncio.wait_for(asyncio.to_thread(lambda: "responsive"), 1)
+            == "responsive"
+        )
+        assert not closing.done()
+        # Stop fences admission but must leave the executor available to drain.
+        await actor.stop()
+        assert not closing.done()
+    finally:
+        native.set_result(None)
+        await closing
+        shared.shutdown(wait=True)
+    assert "_request_priority_executor" not in actor.__dict__
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("native", [False, True])
+async def test_explicit_ids_are_unique_and_aborted_ids_remain_blocked(native):
+    actor, model = _actor()
+    model.supports_native_request_priority = native
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def infer(prompt, config, **kwargs):
+        entered.set()
+        await release.wait()
+        return {"choices": []}
+
+    model.async_generate = infer
+    model.abort_request = AsyncMock(return_value="DONE")
+    task = asyncio.create_task(actor.generate("hello", {}, request_id="public-id"))
+    block = None
+    try:
+        await entered.wait()
+        with pytest.raises(Exception, match="Duplicate request id"):
+            await actor.generate("hello", {}, request_id="public-id")
+        assert await actor.abort_request("public-id") == "DONE"
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        with pytest.raises(Exception, match="request has been aborted"):
+            await actor.generate("hello", {}, request_id="public-id")
+        block = actor._running_tasks.get("public-id")
+    finally:
+        release.set()
+        task.cancel()
+        if block is not None:
+            block.cancel()
+        await asyncio.gather(task, *([block] if block else []), return_exceptions=True)

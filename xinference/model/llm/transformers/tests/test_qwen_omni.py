@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
+
 import importlib
 import inspect
 import sys
@@ -84,15 +86,15 @@ def test_token_limit_reaches_thinker(adapter, config, expected):
 @pytest.mark.filterwarnings("error::FutureWarning")
 def test_streaming_is_text_only(adapter, monkeypatch):
     model, captured = adapter
-    thread = Mock()
-    monkeypatch.setattr(omni, "Thread", thread)
+    start_stream = Mock(side_effect=lambda kwargs: kwargs["streamer"])
+    monkeypatch.setattr(model, "_start_streaming_thread", start_stream)
     streamer, prompt_tokens = model.build_streaming_iter([], {"max_tokens": 8})
-    kwargs = thread.call_args.kwargs["kwargs"]
+    kwargs = start_stream.call_args.args[0]
     assert kwargs["streamer"] is streamer
     assert prompt_tokens == 2
-    thread.return_value.start.assert_called_once_with()
+    start_stream.assert_called_once()
     with pytest.raises(StopAtThinker):
-        thread.call_args.kwargs["target"](**kwargs)
+        model._model.generate(**kwargs)
     assert not captured.get("output_hidden_states")
     assert captured["max_new_tokens"] == 8
 
@@ -177,8 +179,8 @@ def test_context_budget(adapter, monkeypatch, mode, limit, max_tokens, expected)
     soundfile = Mock()
     soundfile.write.side_effect = lambda output, *args, **kw: output.write(b"wav")
     monkeypatch.setitem(sys.modules, "soundfile", soundfile)
-    thread = Mock()
-    monkeypatch.setattr(omni, "Thread", thread)
+    start_stream = Mock(side_effect=lambda kwargs: kwargs["streamer"])
+    monkeypatch.setattr(model, "_start_streaming_thread", start_stream)
     config = {"temperature": 0.25, "use_audio_in_video": False}
     if max_tokens is not None:
         config["max_tokens"] = max_tokens
@@ -198,7 +200,7 @@ def test_context_budget(adapter, monkeypatch, mode, limit, max_tokens, expected)
         )
         with pytest.raises(ContextLengthExceeded, match=message):
             run()
-        thread.assert_not_called()
+        start_stream.assert_not_called()
         generate.assert_not_called()
         return
     result = run()
@@ -214,12 +216,12 @@ def test_context_budget(adapter, monkeypatch, mode, limit, max_tokens, expected)
         soundfile.write.assert_called_once()
     else:
         streamer, prompt_tokens = result
-        kwargs = thread.call_args.kwargs["kwargs"]
+        kwargs = start_stream.call_args.args[0]
         assert kwargs["streamer"] is streamer
         assert prompt_tokens == 7
         assert kwargs[mode] == (False if mode == "return_audio" else "text")
-        thread.return_value.start.assert_called_once_with()
-        thread.call_args.kwargs["target"](**kwargs)
+        start_stream.assert_called_once()
+        model._model.generate(**kwargs)
     generate.assert_called_once_with(**kwargs)
     assert kwargs["input_ids"] is inputs.input_ids
     assert kwargs["thinker_max_new_tokens"] == expected

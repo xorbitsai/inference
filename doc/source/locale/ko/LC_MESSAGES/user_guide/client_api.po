@@ -370,3 +370,6 @@ msgstr ""
 "선호 복제본과 일반적인 대기열 및 수락 동작을 유지합니다. 이 검사는 요청 수를 세므로 ``n > 1``인 요청은 계산된 수보다 더 많은"
 " 시퀀스 슬롯을 소비할 수 있습니다. 다른 복제본으로 전환하면 접두사 재계산이나 KV 전송이 필요할 수 있으며, 정책은 이러한 비용을 "
 "추정하거나 용량을 예약하지 않습니다."
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference는 이제 ``priority``가 없는 요청을 포함해 모든 엔진에서 클라이언트가 지정한 ``request_id``를 검사합니다. 같은 복제본의 활성 요청은 고유한 ID를 사용해야 합니다. 중단 후 해당 ID는 기본적으로 30초 동안 차단됩니다. 재시도에는 새 ID를 사용하거나 중단 요청의 ``block_duration``으로 차단 시간을 설정하세요."

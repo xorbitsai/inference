@@ -1086,9 +1086,7 @@ def test_prepare_virtual_env_trt_defaults_are_selected_at_launch(
     if engine == "TRT-LLM":
         assert len(manager.calls) == 1
         packages, _ = manager.calls[0]
-        assert any(
-            package.startswith("tensorrt_llm>=1.2.1,<1.4") for package in packages
-        )
+        assert any(package.startswith("tensorrt_llm==1.2.1") for package in packages)
     else:
         assert not manager.calls
     if settings is not None:
@@ -5433,3 +5431,34 @@ async def test_terminate_dead_model_removes_all_cached_rank_pools(monkeypatch):
     assert all(call.kwargs == {"force": True} for call in calls)
     assert uid not in worker._model_uid_to_model
     assert uid not in worker._model_uid_to_subpool_addresses
+
+
+@pytest.mark.parametrize("source", ["settings", "launch"])
+def test_trt_explicit_new_runtime_overrides_default_pin(tmp_path, monkeypatch, source):
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
+    explicit = ["tensorrt-llm==1.3.0rc29"]
+    settings = (
+        VirtualEnvSettings(packages=explicit, inherit_pip_config=False)
+        if source == "settings"
+        else None
+    )
+    monkeypatch.setattr(worker_module, "get_pip_config_args", lambda: {})
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        explicit if source == "launch" else None,
+        model_engine="TRT-LLM",
+    )
+    packages, _ = manager.calls[0]
+    requirements = [Requirement(package) for package in packages]
+    engine = [
+        requirement
+        for requirement in requirements
+        if canonicalize_name(requirement.name) == "tensorrt-llm"
+    ]
+    assert len(engine) == 1
+    assert str(engine[0].specifier) == "==1.3.0rc29"

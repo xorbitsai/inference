@@ -17,7 +17,6 @@ import io
 import logging
 import time
 import uuid
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
@@ -216,9 +215,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
         gen_kwargs["thinker_max_new_tokens"] = self._cap_context_max_new_tokens(
             inputs.input_ids.shape[-1], gen_kwargs["thinker_max_new_tokens"]
         )
-        thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
-        thread.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(gen_kwargs), len(inputs.input_ids[0])
 
     def generate_non_streaming(
         self,

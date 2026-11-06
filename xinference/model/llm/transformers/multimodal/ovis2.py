@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Tuple, Union
 
 import torch
@@ -249,6 +248,6 @@ class Ovis2ChatModel(PytorchMultiModalModel):
             inputs["inputs_embeds"].shape[-2], gen_kwargs["max_new_tokens"]
         )
 
-        thread = Thread(target=self._model.llm.generate, kwargs=gen_kwargs)
-        thread.start()
-        return streamer, len(input_ids[0])
+        return self._start_streaming_thread(gen_kwargs, self._model.llm.generate), len(
+            input_ids[0]
+        )

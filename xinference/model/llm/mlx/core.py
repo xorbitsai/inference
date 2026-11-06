@@ -900,11 +900,13 @@ class MLXModel(LLM, ChatModelMixin):
         if getattr(self, "_batch_model", None) is None:
             return 1
         if generate_config is not None:
-            _, config = self._prepare_chat_controls(generate_config)
+            config = generate_config
+            context = config.get("chat_template_kwargs") or {}
             if (
-                config.get("response_format")
+                normalize_response_format(config.get("response_format"))
                 or is_forced_tool_choice(config)
                 or config.get("_mlx_thinking_budget") is not None
+                or context.get("thinking_budget") is not None
                 or config.get("_mlx_cache_boundaries")
                 # Chat resolves these checkpoints after rendering the prompt.
                 or config.get("_anthropic_cache_control")

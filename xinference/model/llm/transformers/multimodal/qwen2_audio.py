@@ -13,7 +13,6 @@
 # limitations under the License.
 import logging
 from io import BytesIO
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Tuple, Union
 from urllib.request import urlopen
 
@@ -148,6 +147,4 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
         )
 
         gen_kwargs = {"streamer": streamer, **inputs, **config}
-        thread = Thread(target=self._model.generate, kwargs=gen_kwargs)
-        thread.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(gen_kwargs), len(inputs.input_ids[0])
