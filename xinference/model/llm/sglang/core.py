@@ -81,6 +81,7 @@ logger = logging.getLogger(__name__)
 class SGLANGModelConfig(TypedDict, total=False):
     page_size: int
     mamba_scheduler_strategy: str
+    mamba_radix_cache_strategy: str
     mamba_track_interval: int
     tokenizer_mode: str
     trust_remote_code: bool
@@ -129,6 +130,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     skip_special_tokens: bool
     require_reasoning: bool
     response_format: dict
+    mm_processor_kwargs: Dict[str, Any]
 
 
 try:
@@ -193,6 +195,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
     "MiniCPMV4_6ForConditionalGeneration",
+    "MiniCPMV4_7ForConditionalGeneration",
     "MllamaForConditionalGeneration",
     "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
@@ -200,6 +203,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 ]
 
 LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
+MINICPMV47_MIN_SGLANG_VERSION = Version("0.5.23")
 
 
 def _get_sglang_version() -> Optional[Version]:
@@ -210,12 +214,39 @@ def _get_sglang_version() -> Optional[Version]:
         return None
 
 
+def _minicpmv47_compatibility_error(
+    llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1"
+) -> Optional[str]:
+    if not llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+        return None
+    if not (3, 11) <= sys.version_info[:2] < (3, 14):
+        return (
+            "MiniCPM-V-4.7 SGLang requires Python 3.11-3.13; "
+            f"found {sys.version_info[0]}.{sys.version_info[1]}"
+        )
+    if llm_spec.model_format == "bnb":
+        return (
+            "MiniCPM-V-4.7 BNB checkpoints are not supported by SGLang: "
+            "quantization-state names do not match the native model"
+        )
+    return None
+
+
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     supports_cache_salt = True
     _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
     supports_tool_controls = True
+
+    @classmethod
+    def validate_launch(cls, model_family: "LLMFamilyV2") -> None:
+        """Reject incompatible launches before downloading checkpoints."""
+        compatibility_error = _minicpmv47_compatibility_error(
+            model_family, model_family.model_specs[0]
+        )
+        if compatibility_error:
+            raise ValueError(compatibility_error)
 
     def __init__(
         self,
@@ -225,6 +256,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
+        self.validate_launch(model_family)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -535,6 +567,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             model_config.setdefault("page_size", 64)
             model_config.setdefault("mamba_scheduler_strategy", "extra_buffer")
             model_config.setdefault("mamba_track_interval", 64)
+        if self.model_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+            model_config.setdefault("mamba_radix_cache_strategy", "extra_buffer")
+            # Native processors also work for quantized snapshots whose
+            # auto_map references remote processor files they do not include.
+            model_config.setdefault("trust_remote_code", False)
         # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
         model_config["trust_remote_code"] = (
             bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
@@ -889,7 +926,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     @staticmethod
     def _lift_logprob_request_params(sampling_params: dict) -> dict:
-        """Pop sglang's top-level GenerateReqInput logprob fields out of the
+        """Pop sglang's top-level GenerateReqInput fields out of the
         sampling_params dict. sglang reads them off GenerateReqInput, not
         SamplingParams; leaving them in sampling_params crashes the msgspec
         SamplingParams with unknown kwargs (#3553).
@@ -905,6 +942,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             "bootstrap_host",
             "bootstrap_port",
             "bootstrap_room",
+            "mm_processor_kwargs",
         ):
             if k in sampling_params:
                 top[k] = sampling_params.pop(k)
@@ -1758,6 +1796,19 @@ class SGLANGVisionModel(SGLANGModel):
             return False, "SGLang vision engine requires CUDA GPUs"
         if not cls._is_linux():
             return False, "SGLang vision engine is only supported on Linux"
+        is_minicpmv47 = llm_family.has_architecture(
+            "MiniCPMV4_7ForConditionalGeneration"
+        )
+        compatibility_error = _minicpmv47_compatibility_error(llm_family, llm_spec)
+        if compatibility_error:
+            return False, compatibility_error
+        if is_minicpmv47 and not _virtual_env_allows_missing_sglang():
+            installed = _get_sglang_version()
+            if installed is None or installed < MINICPMV47_MIN_SGLANG_VERSION:
+                return (
+                    False,
+                    f"MiniCPM-V-4.7 requires SGLang >= {MINICPMV47_MIN_SGLANG_VERSION}; found {installed or 'not installed'}",
+                )
         if (
             llm_family.has_architecture("Qwen4ExpForConditionalGeneration")
             and not _virtual_env_allows_missing_sglang()
@@ -1781,7 +1832,9 @@ class SGLANGVisionModel(SGLANGModel):
                 f"SGLang vision engine supports {'/'.join(supported_formats)} formats only",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            if quantization not in (None, "none") and not (
+                is_minicpmv47 and llm_spec.quantization_method
+            ):
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang vision",
