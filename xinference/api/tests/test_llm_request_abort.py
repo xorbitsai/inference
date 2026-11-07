@@ -267,6 +267,56 @@ async def test_failed_chat_releases_reservation(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_vllm_non_streaming_disconnect_releases_pending_reservation(monkeypatch):
+    dispatched = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def chat(*args, **kwargs):
+        dispatched.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    async def receive():
+        await dispatched.wait()
+        return {"type": "http.disconnect"}
+
+    model = SimpleNamespace(
+        uid=b"model-rep0",
+        is_vllm_backend=AsyncMock(return_value=True),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
+        chat=AsyncMock(side_effect=chat),
+        abort_request=AsyncMock(return_value="DONE"),
+        release_chat_reservation=AsyncMock(),
+    )
+    supervisor = SimpleNamespace(
+        get_chat_model=AsyncMock(return_value=(model, True)),
+        describe_model=AsyncMock(return_value={}),
+    )
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+            "request_id": "chat-request",
+        }
+    )
+    request.receive = receive
+
+    response = await asyncio.wait_for(api.create_chat_completion(request), 5)
+    assert response.status_code == 499
+    assert cancelled.is_set()
+    model.abort_request.assert_awaited_once_with("chat-request")
+    model.release_chat_reservation.assert_awaited_once_with(
+        model.chat.await_args.kwargs["_chat_reservation_id"]
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["completion", "chat"])
 @pytest.mark.parametrize("is_vllm", [False, True])
 @pytest.mark.parametrize("ignore_eos", [None, False, True])
@@ -393,9 +443,11 @@ async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, p
     assert closed.is_set()
     assert decrease_completed.is_set()
     if kind == "chat":
-        model.release_chat_reservation.assert_awaited_once_with(
+        assert (
             model.chat.await_args.kwargs["_chat_reservation_id"]
+            == restful_api.require_chat_model.await_args.kwargs["reservation_id"]
         )
+        model.release_chat_reservation.assert_not_awaited()
 
 
 @pytest.mark.asyncio

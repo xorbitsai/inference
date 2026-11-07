@@ -6615,6 +6615,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 reserved = False
                 if len(info.active_replica_ids) > 1:
                     try:
+                        needs_capacity_probe = reservation_id is None
                         if reservation_id is not None:
                             try:
                                 reserved = available = await xo.wait_for(
@@ -6631,11 +6632,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                                     not in str(exc)
                                 ):
                                     raise
-                                available = await xo.wait_for(
-                                    model.can_accept_chat_request(),
-                                    _AFFINITY_CAPACITY_TIMEOUT,
-                                )
-                        else:
+                                needs_capacity_probe = True
+                        if needs_capacity_probe:
                             available = await xo.wait_for(
                                 model.can_accept_chat_request(),
                                 _AFFINITY_CAPACITY_TIMEOUT,

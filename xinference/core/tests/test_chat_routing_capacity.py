@@ -255,6 +255,28 @@ async def test_chat_admission_converts_reservation_to_active_request():
 
 
 @pytest.mark.asyncio
+async def test_pending_reservation_blocks_unreserved_request():
+    actor = _chat_actor(1, request_limit=1)
+    actor._replica_model_uid = "demo-rep0"
+    actor._metrics_labels = {}
+    actor.record_metrics = AsyncMock()
+    operation = AsyncMock(return_value="done")
+
+    @request_limit
+    async def unreserved(model):
+        return await operation()
+
+    assert await actor.reserve_chat_request("chat")
+    try:
+        with pytest.raises(RuntimeError, match="Rate limit reached"):
+            await unreserved(actor)
+        operation.assert_not_awaited()
+    finally:
+        actor.release_chat_reservation("chat")
+    assert await unreserved(actor) == "done"
+
+
+@pytest.mark.asyncio
 async def test_chat_preflights_share_reservation_at_request_limit():
     actor = _chat_actor(1, request_limit=1)
     actor._replica_model_uid = "demo-rep0"
@@ -361,17 +383,32 @@ async def test_affinity_timeout_releases_reservation_before_busy_fallback(monkey
 
 
 @pytest.mark.asyncio
-async def test_affinity_releases_reservation_for_removed_replica():
+@pytest.mark.parametrize("replace_info", [False, True])
+async def test_affinity_releases_reservation_when_selected_replica_changes(
+    replace_info,
+):
     preferred = SimpleNamespace(release_chat_reservation=AsyncMock())
     other = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=True))
     supervisor, info = _reservation_supervisor(preferred, other)
 
     async def reserve(_reservation_id):
-        info.active_replica_ids.remove(0)
+        if replace_info:
+            supervisor._model_uid_to_replica_info["demo"] = (
+                supervisor._build_replica_info(2)
+            )
+        else:
+            info.active_replica_ids.remove(0)
         return True
 
     preferred.reserve_chat_request = reserve
-    assert await supervisor.get_chat_model("demo", "task", "chat") == (other, False)
+    if replace_info:
+        with pytest.raises(ModelNotReadyError, match="no ready replica"):
+            await supervisor.get_chat_model("demo", "task", "chat")
+        supervisor._replica_model_uid_to_worker[
+            build_replica_model_uid("demo", 1)
+        ].get_model.assert_not_awaited()
+    else:
+        assert await supervisor.get_chat_model("demo", "task", "chat") == (other, False)
     preferred.release_chat_reservation.assert_awaited_once_with("chat")
 
 

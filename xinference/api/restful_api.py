@@ -5574,6 +5574,8 @@ class RESTfulAPI(CancelMixin):
                         kwargs,
                         **model_call_kwargs,
                     )
+                    # Admission consumed the reservation before returning the iterator.
+                    stream_reservations.pop_all()
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),

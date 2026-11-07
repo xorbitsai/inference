@@ -21,7 +21,7 @@ import os
 import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, Optional
 
 from fastapi import HTTPException, Request
 
@@ -96,16 +96,10 @@ def _put_negative_cache(model_uid: str) -> None:
         _MODEL_NOT_FOUND_CACHE.popitem(last=False)
 
 
-class _ModelRoutingOptions(TypedDict, total=False):
-    routing_key: str
-
-
 async def require_model(
     get_supervisor_ref: Callable,
     model_uid: str,
     report_error_event: Optional[Callable] = None,
-    *,
-    routing_key: Optional[str] = None,
 ) -> Any:
     """
     Get a model with standardized error handling.
@@ -145,18 +139,14 @@ async def require_model(
     async with _model_lookup(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
-        routing_options: _ModelRoutingOptions = (
-            {"routing_key": routing_key} if routing_key is not None else {}
-        )
         request_id = get_current_model_request_id()
         if request_id is None:
-            return await supervisor.get_model(model_uid, **routing_options)
+            return await supervisor.get_model(model_uid)
         model_ref = await actor_call(
             supervisor,
             "get_model",
             model_uid,
             _rpc_correlation_id=request_id,
-            **routing_options,
         )
         return correlate_model_ref(model_ref, request_id)
 
