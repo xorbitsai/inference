@@ -1112,6 +1112,26 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             raise RuntimeError("SGLang PD decode aborted")
         return reason is not None and str(reason).lower() != "none"
 
+    def get_runtime_context_length(self) -> Optional[int]:
+        import requests
+
+        from ..context_length import normalize_runtime_positive_int
+
+        if self._engine is None:
+            return None
+        with requests.get(
+            self._engine.url + "/v1/models",
+            headers=self._engine_headers(),
+            timeout=2,
+        ) as response:
+            response.raise_for_status()
+            # The base ModelCard exposes model_config.context_len. LoRA cards
+            # have a parent and do not report their own context capacity.
+            for card in response.json().get("data", []):
+                if card.get("parent") is None:
+                    return normalize_runtime_positive_int(card.get("max_model_len"))
+            return None
+
     def _engine_headers(self) -> dict:
         api_key = getattr(self, "_model_config", {}).get("api_key")
         return {"Authorization": f"Bearer {api_key}"} if api_key else {}

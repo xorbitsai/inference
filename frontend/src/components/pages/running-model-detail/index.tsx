@@ -18,6 +18,7 @@ import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import { ReloadDialog } from './components/reload-dialog';
+import { type ModelRuntime, RuntimeContext, useModelRuntime } from './components/runtime-context';
 import { TryApiDrawer } from './components/try-api-drawer';
 import { RouterStatusBadge } from '@/components/pages/token-router/router-status-badge';
 import { getPrimaryModelAbilities, isTokenRouterModel, transformRunningModelDetail } from './utils';
@@ -36,7 +37,15 @@ function DetailItem({ label, value }: { label: string; value?: ReactNode }) {
   );
 }
 
-function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; modelUid: string }) {
+function ModelDetails({
+  model,
+  modelUid,
+  runtime,
+}: {
+  model: RunningModelDetailType;
+  modelUid: string;
+  runtime: ModelRuntime | null;
+}) {
   const { t } = useI18n();
   const tokenRouterModel = isTokenRouterModel(model);
   const deployment = model.deployment;
@@ -117,10 +126,14 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
             <DetailItem label={t('runningModels.modelFormat')} value={model.model_format} />
             <DetailItem label={t('runningModels.modelSize')} value={model.model_size_in_billions} />
             <DetailItem label={t('runningModels.quantization')} value={model.quantization} />
-            <DetailItem
-              label={t('runningModels.detail.contextLength')}
-              value={model.context_length}
-            />
+            {model.model_type === 'LLM' ? (
+              <RuntimeContext runtime={runtime} registeredContextLength={model.context_length} />
+            ) : (
+              <DetailItem
+                label={t('runningModels.detail.contextLength')}
+                value={model.context_length}
+              />
+            )}
             <DetailItem label={t('runningModels.detail.replica')} value={model.replica} />
             <DetailItem label={t('runningModels.detail.address')} value={model.address} />
           </>
@@ -153,6 +166,10 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const [loading, setLoading] = useState(true);
   const isChat = (model?.model_ability || []).includes(ModelAbility.Chat);
   const tokenRouterModel = isTokenRouterModel(model);
+  const runtime = useModelRuntime(
+    modelUid,
+    model?.model_type === 'LLM' && !tokenRouterModel ? model : null
+  );
   const routerCanServe =
     !tokenRouterModel || ['ready', 'degraded'].includes(model?.router_status || '');
   const [selectAbility, setSelectAbility] = useState<ModelAbility | undefined>(undefined);
@@ -201,7 +218,13 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     if (!model) return null;
 
     if (isChat) {
-      return <ChatPanel model={model} modelUid={modelUid} />;
+      return (
+        <ChatPanel
+          model={model}
+          modelUid={modelUid}
+          runtimeContextLength={runtime?.runtime_context_length}
+        />
+      );
     }
 
     if (!selectAbility || !CAPABILITY_CONFIGS[selectAbility]) {
@@ -267,7 +290,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     >
       {model && (
         <div className="space-y-5">
-          <ModelDetails model={model} modelUid={modelUid} />
+          <ModelDetails model={model} modelUid={modelUid} runtime={runtime} />
           {!routerCanServe && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
               {t('runningModels.routerRequestUnavailable', {

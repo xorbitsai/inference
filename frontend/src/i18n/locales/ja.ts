@@ -933,6 +933,11 @@ const ja = {
       modelUid: 'モデル UID',
       modelName: 'モデル名',
       virtual: '仮想モデル',
+      registeredContextLength: '登録済みコンテキスト長（参考）',
+      runtimeContextLength: 'ロード済みコンテキスト長（トークン）',
+      unknownContextLength: '不明',
+      runtimeContextDescription:
+        '入力と出力の合計上限。レプリカの最小値を使用し、報告できないレプリカがある場合は不明と表示します。',
       contextLength: 'コンテキスト長',
       replica: 'レプリカ数',
       address: 'アドレス',

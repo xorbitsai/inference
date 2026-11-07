@@ -23,6 +23,7 @@ INFERENCE_READS = {
     "describe_model",
     "describe_running_model",
     "get_model_status",
+    "get_model_runtime_info",
     "list_models",
     "list_virtual_models",
     "resolve_token_router_runtime",

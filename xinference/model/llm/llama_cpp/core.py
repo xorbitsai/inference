@@ -20,6 +20,7 @@ import queue
 import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
+from urllib.parse import urlsplit, urlunsplit
 
 from packaging import version
 
@@ -519,6 +520,31 @@ class XllamaCppModel(LLM, ChatModelMixin):
             )
         except AssertionError:
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
+
+    def get_runtime_context_length(self) -> Optional[int]:
+        import requests
+
+        from ..context_length import normalize_runtime_positive_int
+
+        address = getattr(self._llm, "listening_address", None)
+        if not address:
+            return None
+        url = urlsplit(address)
+        # The server may listen on all interfaces; query its loopback address.
+        if url.hostname in {"0.0.0.0", "::"}:
+            host = "[::1]" if url.hostname == "::" else "127.0.0.1"
+            url = url._replace(netloc=f"{host}:{url.port}")
+        config = self._llamacpp_model_config
+        prefix = config.get("api_prefix", "").strip("/")
+        url = url._replace(path=f"/{prefix}/props" if prefix else "/props")
+        keys = config.get("api_keys") or []
+        headers = {"Authorization": f"Bearer {keys[0]}"} if keys else {}
+        with requests.get(urlunsplit(url), headers=headers, timeout=2) as response:
+            response.raise_for_status()
+            settings = response.json().get("default_generation_settings", {})
+            # This is the resolved per-slot value, including engine rounding;
+            # the launch-time n_ctx is the total pool across parallel slots.
+            return normalize_runtime_positive_int(settings.get("n_ctx"))
 
     def generate(
         self, prompt: str, generate_config: Optional[dict] = None

@@ -928,6 +928,11 @@ const ko = {
       modelUid: '모델 UID',
       modelName: '모델 이름',
       virtual: '가상 모델',
+      registeredContextLength: '등록된 컨텍스트 길이(참고)',
+      runtimeContextLength: '로드된 컨텍스트 길이(토큰)',
+      unknownContextLength: '알 수 없음',
+      runtimeContextDescription:
+        '입력과 출력의 총 한도입니다. 복제본의 최솟값을 사용하며, 보고할 수 없는 복제본이 있으면 알 수 없음으로 표시합니다.',
       contextLength: '컨텍스트 길이',
       replica: '복제본 수',
       address: '주소',

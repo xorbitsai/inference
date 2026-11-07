@@ -1514,6 +1514,16 @@ class Client:
             )
         return response.json()
 
+    def get_model_runtime_info(self, model_uid: str) -> Dict[str, Any]:
+        """Return runtime_context_length (tokens, or None) and per-replica limits."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/runtime"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get model runtime info, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         """Return the latest reload operation, including its stage and error."""
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"

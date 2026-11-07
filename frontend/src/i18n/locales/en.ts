@@ -946,6 +946,11 @@ const en = {
       modelUid: 'Model UID',
       modelName: 'Model Name',
       virtual: 'Virtual',
+      registeredContextLength: 'Registered context length (reference)',
+      runtimeContextLength: 'Loaded context length (tokens)',
+      unknownContextLength: 'Unknown',
+      runtimeContextDescription:
+        'Total input and output limit. Uses the smallest replica limit; unknown if any replica cannot report it.',
       contextLength: 'Context Length',
       replica: 'Replicas',
       address: 'Address',

@@ -7785,6 +7785,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             result[virtual_model_uid] = self._build_token_router_model_info(config)
         return result
 
+    async def get_model_runtime_info(self, model_uid: str) -> Dict[str, Any]:
+        from .model_runtime import get_model_runtime_info
+
+        return await get_model_runtime_info(self, model_uid)
+
     @log_async(logger=logger)
     async def describe_running_model(self, model_uid: str) -> Dict[str, Any]:
         """Describe either a public virtual model or an existing physical model."""
