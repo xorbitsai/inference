@@ -31,6 +31,8 @@ air-gapped.
    unsupported direct references, filtered for the target platform/CUDA.
    The `git.txt` manifest and its `git` count include Git dependencies and
    other non-wheel direct references, such as source archives.
+   Audio8-TTS's SGLang-Omni dependencies are omitted from the mirror while
+   that model path requires a remote source archive.
    Runtime venvs select only the dependencies for the launched model and format.
    Known integrations awaiting an upstream release are explicitly recorded in
    `manifest.json` as `deferred_model_pins`. Preflight checks these requirements

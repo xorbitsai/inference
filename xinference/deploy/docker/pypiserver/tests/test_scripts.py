@@ -173,7 +173,6 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
     )
     assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
     gemma_source = "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
-    assert all(pin["source"] != gemma_source for pin in manifest["deferred_model_pins"])
     pins = json.loads((out / "pins.json").read_text())
     assert (
         gemma_source
@@ -185,11 +184,14 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
         "indexed-model.json:indexed-model (vllm)",
         "nested-model.json:indexed-model (vllm)",
     ]
-    omni_torch = next(pin for pin in pins if pin["spec"] == "torch==2.9.1+cu128")
-    assert omni_torch["extra_index_urls"] == ["https://download.pytorch.org/whl/cu128"]
-    assert any(
-        "Audio8-TTS-Realistic-0.6b (SGLang-Omni)" in source
-        for source in omni_torch["sources"]
+    assert {"sglang==0.5.8", "torch==2.9.1+cu128", "torchaudio==2.9.1"}.isdisjoint(
+        pin["spec"] for pin in pins
+    )
+    assert "sglang-omni @ https://github.com/" in (out / "git.txt").read_text()
+    audio8_transformers = next(pin for pin in pins if pin["spec"] == "torch>=2.5")
+    assert (
+        "audio/models/Audio8-TTS-Realistic-0.6b.json:"
+        "Audio8-TTS-Realistic-0.6b (transformers)" in audio8_transformers["sources"]
     )
 
 

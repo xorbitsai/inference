@@ -62,6 +62,9 @@ BARE_URL_MARKER_RE = re.compile(r"(https?://\S+)\s+;\s*(.*)")
 # Remove each exception when a compatible candidate is published.
 DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {}
 
+# Trim this model's separate CUDA stack while its engine requires remote source.
+PRUNED_OFFLINE_MODEL_ENGINES = {("Audio8-TTS-Realistic-0.6b", "sglang-omni")}
+
 
 def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
     """
@@ -370,9 +373,18 @@ def main() -> None:
             candidate_indexes = extra_index_urls
             if extra_index_url is None and cand is not None:
                 candidate_indexes = engine_extra_indexes.get(cand.lower(), [])
-            for spec in filter_packages(
-                list(concrete), cand, args.cuda_version, "linux"
-            ):
+            filtered = filter_packages(list(concrete), cand, args.cuda_version, "linux")
+            if cand and (model_name, cand.lower()) in PRUNED_OFFLINE_MODEL_ENGINES:
+                # Use the worker's check so a switch to a wheel restores mirroring.
+                remote_sources = core_utils.find_remote_direct_reference_packages(
+                    core_utils.rewrite_direct_url_packages_for_index(filtered)
+                )
+                if remote_sources:
+                    unsupported_sources.update(
+                        normalize_mirror_spec(spec) for spec in remote_sources
+                    )
+                    continue
+            for spec in filtered:
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname
