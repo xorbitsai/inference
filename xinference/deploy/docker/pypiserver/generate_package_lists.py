@@ -58,17 +58,9 @@ XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
 DIRECT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 BARE_URL_MARKER_RE = re.compile(r"(https?://\S+)\s+;\s*(.*)")
 
-# This model's vLLM integration targets an upstream release that is not yet
-# published. Keep the runtime requirement intact, but do not block the offline
-# mirror for every other model. Remove this entry when that release is available.
-DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {
-    (
-        "embedding/models/embeddinggemma-2.json",
-        "embeddinggemma-2",
-        "vllm",
-        "vllm>=0.32.0",
-    ): "EmbeddingGemma 2 requires the unpublished vLLM release with EmbeddingGemma2Model",
-}
+# Temporarily omit individual model requirements awaiting an upstream release.
+# Remove each exception when a compatible candidate is published.
+DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {}
 
 
 def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:

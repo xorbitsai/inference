@@ -33,13 +33,9 @@ air-gapped.
    other non-wheel direct references, such as source archives.
    Runtime venvs select only the dependencies for the launched model and format.
    Known integrations awaiting an upstream release are explicitly recorded in
-   `manifest.json` as `deferred_model_pins`. Currently this excludes only
-   EmbeddingGemma 2's `vllm>=0.32.0` requirement, since that upstream release
-   is not published. Its vLLM backend is unavailable from this offline mirror;
-   the runtime requirement is unchanged. Other models still include released
-   vLLM versions. Remove this exception when the required release is published.
-   Preflight also checks deferred requirements and warns when a published
-   candidate becomes available, prompting removal of the exception.
+   `manifest.json` as `deferred_model_pins`. Preflight checks these requirements
+   and warns when a published candidate becomes available, prompting removal of
+   the exception.
 2. **`download_packages.py`** first locks the exact shared runtime pins from
    `xinference/deploy/docker/requirements-runtime.txt`, then locks each engine
    set with `uv pip compile`, and fetches the fully-pinned locks with
@@ -51,9 +47,10 @@ air-gapped.
    and skipped by the downloader.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
    shared runtime constraint, index-compatible engine set, pin and direct wheel
-   against the baked mirror ALONE (`--disable-fallback`). Any gap fails the
-   image build; recorded git and non-wheel direct references are reported as
-   unsupported.
+   against the baked mirror alone (`--disable-fallback`). The selfcheck server
+   caches package directory entries and file digests across resolver requests.
+   Any resolution gap fails the image build. The selfcheck reports Git and
+   non-wheel direct references as unsupported.
 
 The generation manifest and download report are baked into the image under
 `/data/manifest/` for debugging (`report.json` lists total size, packages with
@@ -70,7 +67,7 @@ a regression test keeps the default Python target aligned with the Dockerfile.
 It does not download artifacts, install engines or build images. Index request errors fail
 the check rather than silently dropping requirements.
 
-This catches unpublished requirements such as `vllm>=0.32.0` before a long build.
+This catches unpublished requirements before a long build.
 It does not resolve transitive dependencies, prove that sdists compile or check
 all native platform requirements (such as external system libraries). The full
 image build and offline selfcheck remain required for releases.
