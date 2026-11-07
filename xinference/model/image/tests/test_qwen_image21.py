@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import base64
 import io
@@ -184,3 +186,17 @@ def test_edit_preserves_references_and_alpha(loaded_model, multiple, size):
     output = Image.open(io.BytesIO(base64.b64decode(result["data"][0]["b64_json"])))
     assert output.mode == "RGBA"
     assert output.getpixel((0, 0)) == (1, 2, 3, 42)
+
+
+def test_edit_pads_every_reference_image(loaded_model):
+    model, calls = loaded_model
+    primary = Image.new("RGBA", (60, 44), (1, 2, 3, 42))
+    reference = Image.new("RGB", (30, 50))
+    model.image_to_image(
+        primary,
+        prompt="Edit",
+        reference_images=[reference],
+        padding_image_to_multiple=16,
+        response_format="b64_json",
+    )
+    assert [image.size for image in calls[0]["image"]] == [(64, 48), (32, 64)]
