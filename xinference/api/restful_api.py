@@ -29,7 +29,7 @@ import struct
 import time
 import uuid
 import warnings
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 from typing import (
     Any,
@@ -5123,6 +5123,12 @@ class RESTfulAPI(CancelMixin):
         return {}
 
     async def create_chat_completion(self, request: Request) -> Response:
+        async with AsyncExitStack() as reservations:
+            return await self._create_chat_completion(request, reservations)
+
+    async def _create_chat_completion(
+        self, request: Request, reservations: AsyncExitStack
+    ) -> Response:
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
@@ -5244,12 +5250,35 @@ class RESTfulAPI(CancelMixin):
 
         for config in (kwargs, raw_kwargs):
             config.pop(CACHE_SESSION_ARG, None)
-        model = await require_model(
-            self._get_supervisor_ref,
-            model_uid,
-            self._report_error_event,
-            **routing_options,
-        )
+        reserved = False
+        if routing_options:
+            reservation_id = uuid.uuid4().hex
+            model, reserved = await require_model(
+                self._get_supervisor_ref,
+                model_uid,
+                self._report_error_event,
+                **routing_options,
+                chat_reservation_id=reservation_id,
+            )
+            if reserved:
+
+                async def release_reservation() -> None:
+                    with anyio.CancelScope(shield=True):
+                        try:
+                            await asyncio.wait_for(
+                                model.release_chat_reservation(reservation_id),
+                                timeout=1,
+                            )
+                        except Exception:
+                            logger.debug(
+                                "Chat reservation cleanup failed", exc_info=True
+                            )
+
+                reservations.push_async_callback(release_reservation)
+        else:
+            model = await require_model(
+                self._get_supervisor_ref, model_uid, self._report_error_event
+            )
         is_vllm_backend = await model.is_vllm_backend()
         if cache_session is not None:
             tag = self._cache_session_tag(request, cache_session)
@@ -5269,6 +5298,8 @@ class RESTfulAPI(CancelMixin):
             "raw_params": raw_kwargs,
             "request_id": request_id,
         }
+        if reserved:
+            model_call_kwargs["_chat_reservation_id"] = reservation_id
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
@@ -5525,6 +5556,9 @@ class RESTfulAPI(CancelMixin):
                 model, request_id, request, "chat"
             )
 
+            async def release_stream_reservation() -> None:
+                await stream_reservations.aclose()
+
             async def stream_results():
                 abort_controller.bind_stream_task()
                 iterator = None
@@ -5574,22 +5608,30 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": detail}))
                     return
                 finally:
-                    await _cleanup_model_stream(
-                        abort_controller=abort_controller,
-                        interrupted=not completed,
-                        observed_iterator=observed_iterator,
-                        model_iterator=iterator,
-                        model=model,
-                        request_id=request_id,
-                        kind="chat",
-                    )
+                    try:
+                        await _cleanup_model_stream(
+                            abort_controller=abort_controller,
+                            interrupted=not completed,
+                            observed_iterator=observed_iterator,
+                            model_iterator=iterator,
+                            model=model,
+                            request_id=request_id,
+                            kind="chat",
+                        )
+                    finally:
+                        await release_stream_reservation()
 
             body_iterator = stream_results()
             response = EventSourceResponse(
-                body_iterator, ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+                body_iterator,
+                ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+                background=(
+                    BackgroundTask(release_stream_reservation) if reserved else None
+                ),
             )
             abort_controller.bind_body_iterator(body_iterator)
             _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            stream_reservations = reservations.pop_all()
             return response
         else:
             try:

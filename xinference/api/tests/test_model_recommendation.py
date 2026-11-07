@@ -149,24 +149,17 @@ async def test_context_overflow_is_a_client_error(
         describe_model=AsyncMock(return_value={}),
         resolve_token_router_runtime=AsyncMock(return_value=None),
     )
-    api = SimpleNamespace(
-        extract_guided_params=lambda **kwargs: {},
-        _set_trace_model=lambda *args: None,
-        _set_trace_model_type=lambda *args: None,
-        _check_model_access=lambda *args: None,
-        _get_supervisor_ref=AsyncMock(return_value=supervisor),
-        _report_error_event=AsyncMock(),
-        _get_model_last_error=AsyncMock(side_effect=lambda uid, error: error),
-        _is_qwen38_description=lambda desc: False,
-        _apply_cache_salt=RESTfulAPI._apply_cache_salt,
-        _count_multimodal_items=RESTfulAPI._count_multimodal_items,
-        handle_request_limit_error=RESTfulAPI.handle_request_limit_error,
-        _chat_completion_error_detail=RESTfulAPI._chat_completion_error_detail,
-    )
+    api = object.__new__(RESTfulAPI)
+    api._set_trace_model = MagicMock()
+    api._set_trace_model_type = MagicMock()
+    api._check_model_access = MagicMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._report_error_event = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
     app = FastAPI()
-    method = RESTfulAPI.create_chat_completion if chat else RESTfulAPI.create_completion
+    method = api.create_chat_completion if chat else api.create_completion
     path = "/v1/chat/completions" if chat else "/v1/completions"
-    app.add_api_route(path, method.__get__(api), methods=["POST"])
+    app.add_api_route(path, method, methods=["POST"])
     body = {"model": "test", "stream": stream}
     body.update(
         {"messages": [{"role": "user", "content": "hello"}]}

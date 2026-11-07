@@ -55,8 +55,10 @@ async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
     )
     supervisor = SimpleNamespace(
         get_model=AsyncMock(return_value=model),
+        get_chat_model=AsyncMock(return_value=(model, True)),
         describe_model=AsyncMock(return_value={"model_family": "test-family"}),
     )
+    model.release_chat_reservation = AsyncMock()
     api = _new_api()
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
@@ -75,10 +77,13 @@ async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
         call = model.chat.await_args
         assert "routing_key" not in call.args[1]
         assert "routing_key" not in call.kwargs["raw_params"]
+        reservation_id = supervisor.get_chat_model.await_args.args[2]
+        assert call.kwargs["_chat_reservation_id"] == reservation_id
+        model.release_chat_reservation.assert_awaited_with(reservation_id)
         supervisor.describe_model.assert_awaited_with(
             "affinity-model", selected_replica_uid="affinity-model-rep1"
         )
-    keys = [call.kwargs["routing_key"] for call in supervisor.get_model.await_args_list]
+    keys = [call.args[1] for call in supervisor.get_chat_model.await_args_list]
     assert keys[0] == keys[1] != keys[2]
     assert "task-1" not in keys
 
@@ -113,9 +118,10 @@ async def test_chat_describes_live_peer_when_selected_replica_was_removed(
 
     async def get_model(*args, **kwargs):
         info.active_replica_ids.remove(1)
-        return model
+        return model, True
 
-    supervisor.get_model = AsyncMock(side_effect=get_model)
+    supervisor.get_chat_model = AsyncMock(side_effect=get_model)
+    model.release_chat_reservation = AsyncMock()
     api = _new_api()
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
@@ -137,6 +143,9 @@ async def test_chat_describes_live_peer_when_selected_replica_was_removed(
         assert caught.value.status_code == 503
         assert caught.value.headers["Retry-After"] == "30"
         model.chat.assert_not_awaited()
+    model.release_chat_reservation.assert_awaited_once_with(
+        supervisor.get_chat_model.await_args.args[2]
+    )
     api._report_error_event.assert_not_awaited()
 
 
@@ -172,6 +181,7 @@ async def _create_streaming_response(
     model = SimpleNamespace(
         uid=f"{kind}-model".encode(),
         abort_request=AsyncMock(return_value="DONE"),
+        release_chat_reservation=AsyncMock(),
         decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
         is_vllm_backend=AsyncMock(return_value=is_vllm),
         get_limit_mm_per_prompt=limit_getter or AsyncMock(return_value=None),
@@ -180,6 +190,8 @@ async def _create_streaming_response(
     )
 
     async def require_model(*_args, **_kwargs):
+        if "chat_reservation_id" in _kwargs:
+            return model, True
         return model
 
     monkeypatch.setattr(restful_api, "require_model", require_model)
@@ -326,7 +338,10 @@ async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
 async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, phase):
     source, closed, next_item_started = _tracked_stream(wait_after_first=True)
     response, model, decrease_completed = await _create_streaming_response(
-        monkeypatch, kind, source
+        monkeypatch,
+        kind,
+        source,
+        extra_body={"routing_key": "task"} if kind == "chat" else None,
     )
 
     await _run_asgi_disconnect(response, phase, next_item_started)
@@ -335,6 +350,10 @@ async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, p
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
     assert decrease_completed.is_set()
+    if kind == "chat":
+        model.release_chat_reservation.assert_awaited_once_with(
+            model.chat.await_args.kwargs["_chat_reservation_id"]
+        )
 
 
 @pytest.mark.asyncio

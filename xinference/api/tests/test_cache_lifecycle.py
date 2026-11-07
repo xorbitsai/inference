@@ -133,7 +133,9 @@ async def test_chat_scopes_metadata_and_continues_when_hints_are_unavailable(
         is_transformers_batching_enabled=AsyncMock(return_value=False),
         chat=AsyncMock(return_value=b"{}"),
     )
-    require_model = AsyncMock(return_value=model)
+    require_model = AsyncMock(
+        return_value=(model, False) if routing_key is not None else model
+    )
 
     async def run_request(request, actor, request_id, kind, call):
         return Response(await call, media_type="application/json")

@@ -6496,10 +6496,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def get_model(
         self, model_uid: str, routing_key: Optional[str] = None
     ) -> xo.ActorRefType["ModelActor"]:
+        model, _ = await self._select_model(model_uid, routing_key)
+        return model
+
+    @log_async(logger=logger)
+    async def get_chat_model(
+        self, model_uid: str, routing_key: str, reservation_id: str
+    ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
+        return await self._select_model(model_uid, routing_key, reservation_id)
+
+    async def _select_model(
+        self,
+        model_uid: str,
+        routing_key: Optional[str],
+        reservation_id: Optional[str] = None,
+    ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
                 raise ModelNotReadyError(f"PD model {model_uid} is not ready")
-            return self._pd_model_mapping[model_uid]
+            return self._pd_model_mapping[model_uid], False
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             available_uids = list(self._model_uid_to_replica_info.keys())
@@ -6512,12 +6527,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         if routing_key is not None:
-            return await self._get_affinity_model(model_uid, replica_info, routing_key)
-        return await self._get_replica_model(model_uid, next(replica_info.scheduler))
+            return await self._get_affinity_model(
+                model_uid, replica_info, routing_key, reservation_id
+            )
+        return (
+            await self._get_replica_model(model_uid, next(replica_info.scheduler)),
+            False,
+        )
 
     async def _get_affinity_model(
-        self, model_uid: str, info: ReplicaInfo, routing_key: str
-    ) -> xo.ActorRefType["ModelActor"]:
+        self,
+        model_uid: str,
+        info: ReplicaInfo,
+        routing_key: str,
+        reservation_id: Optional[str] = None,
+    ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         routes = info.routing_keys
         preferred = routes.get(routing_key)
         if preferred is None or preferred not in info.active_replica_ids:
@@ -6578,11 +6602,30 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     last_error = exc
                     continue
                 available = True
+                reserved = False
                 if len(info.active_replica_ids) > 1:
                     try:
-                        available = await xo.wait_for(
-                            model.can_accept_chat_request(), _AFFINITY_CAPACITY_TIMEOUT
-                        )
+                        if reservation_id is not None:
+                            try:
+                                reserved = available = await xo.wait_for(
+                                    model.reserve_chat_request(reservation_id),
+                                    _AFFINITY_CAPACITY_TIMEOUT,
+                                )
+                            except AttributeError as exc:
+                                if (
+                                    "has no attribute 'reserve_chat_request'"
+                                    not in str(exc)
+                                ):
+                                    raise
+                                available = await xo.wait_for(
+                                    model.can_accept_chat_request(),
+                                    _AFFINITY_CAPACITY_TIMEOUT,
+                                )
+                        else:
+                            available = await xo.wait_for(
+                                model.can_accept_chat_request(),
+                                _AFFINITY_CAPACITY_TIMEOUT,
+                            )
                     except asyncio.TimeoutError:
                         # A slow probe does not establish that a live actor is
                         # unavailable. Keep it as a fallback and retain affinity.
@@ -6618,7 +6661,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 # A concurrent request may already have moved or evicted this key.
                 if not preserve_route and routes.get(routing_key) == preferred:
                     routes[routing_key] = replica
-                return model
+                return model, reserved
             if busy is None:
                 busy = (replica, model)
         if (
@@ -6628,7 +6671,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         ):
             # Preserve the model's normal admission/error handling when every
             # reachable replica is at its limit or reloading.
-            return busy[1]
+            return busy[1], False
         if last_error is not None:
             raise last_error
         raise ModelNotReadyError(

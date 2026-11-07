@@ -105,6 +105,7 @@ async def require_model(
     report_error_event: Optional[Callable] = None,
     *,
     routing_key: Optional[str] = None,
+    chat_reservation_id: Optional[str] = None,
 ) -> Any:
     """
     Get a model with standardized error handling.
@@ -154,6 +155,20 @@ async def require_model(
             {"routing_key": routing_key} if routing_key is not None else {}
         )
         request_id = get_current_model_request_id()
+        if routing_key is not None and chat_reservation_id is not None:
+            if request_id is None:
+                return await supervisor.get_chat_model(
+                    model_uid, routing_key, chat_reservation_id
+                )
+            model_ref, reserved = await actor_call(
+                supervisor,
+                "get_chat_model",
+                model_uid,
+                routing_key,
+                chat_reservation_id,
+                _rpc_correlation_id=request_id,
+            )
+            return correlate_model_ref(model_ref, request_id), reserved
         if request_id is None:
             return await supervisor.get_model(model_uid, **routing_options)
         model_ref = await actor_call(
