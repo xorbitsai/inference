@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# CI: linux
+
 import logging
 from types import SimpleNamespace
 
@@ -54,6 +57,27 @@ def test_process_seed_builds_generator_or_ignores_it(monkeypatch):
     kwargs = {"seed": 42}
     model._process_seed(kwargs)
     assert kwargs == {}
+
+
+@pytest.mark.parametrize(
+    "last_size, bars",
+    [
+        ((200, 100), [(0, 0, 20, 100), (180, 0, 200, 100)]),
+        ((100, 200), [(0, 0, 100, 20), (0, 180, 100, 200)]),
+    ],
+)
+def test_center_crop_resize_matches_first_frame(last_size, bars):
+    from PIL import Image
+
+    last_frame = Image.new("RGB", last_size, (0, 0, 255))
+    for bar in bars:
+        last_frame.paste((255, 0, 0), bar)
+
+    resized = DiffusersVideoModel._center_crop_resize(last_frame, height=48, width=64)
+
+    assert resized.size == (64, 48)
+    assert resized.getpixel((0, 0)) == (0, 0, 255)
+    assert resized.getpixel((63, 47)) == (0, 0, 255)
 
 
 @pytest.mark.skip(reason="Video model requires too many GRAM.")
