@@ -4,6 +4,8 @@
 # You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
 
+# CI: linux
+
 import importlib.util
 import json
 import re
@@ -232,6 +234,7 @@ def test_model_index_resolves_nightly_pin(checker, monkeypatch, tmp_path, machin
     )
     constraints = tmp_path / "constraints.txt"
     constraints.write_text("")
+    (tmp_path / "urls.txt").write_text("")
     checks = checker.collect_requirements(tmp_path, constraints, "3.12.0")
     assert checks[0]["indexes"] == (
         checker.PYPI_INDEX,
@@ -294,6 +297,7 @@ def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
     )
     constraints = tmp_path / "constraints.txt"
     constraints.write_text("# shared runtime\ntorch==2.11.0\n")
+    (tmp_path / "urls.txt").write_text("")
     checks = checker.collect_requirements(tmp_path, constraints, "3.12.0")
     assert {check["requirement"].name for check in checks} == {
         "torch",
@@ -307,6 +311,47 @@ def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
     deferred = next(check for check in checks if check["deferred"])
     assert deferred["sources"] == ["future-model"]
     assert str(deferred["requirement"]) == "vllm>=0.32.0"
+    constraints.write_text("torch @ https://example.com/torch.tar.gz\n")
+    with pytest.raises(
+        ValueError, match="unexpected direct reference in .*constraints"
+    ):
+        checker.collect_requirements(tmp_path, constraints, "3.12.0")
+
+
+@pytest.mark.parametrize(
+    "spec,error",
+    [
+        (
+            "pkg @ https://example.com/abc.zip#subdirectory=python",
+            "invalid direct wheel",
+        ),
+        ("https://example.com/pkg.whl", "invalid direct wheel"),
+        ("other @ https://example.com/pkg-1.0-py3-none-any.whl", "name does not match"),
+        (
+            "https://example.com/pkg-1.0-cp312-cp312-manylinux2014_x86_64.whl",
+            "incompatible",
+        ),
+        (
+            "https://example.com/pkg-1.0-cp311-cp311-manylinux2014_aarch64.whl",
+            "incompatible",
+        ),
+        ("https://example.com/pkg-1.0-cp312-cp312-manylinux2014_aarch64.whl", None),
+        (
+            "pkg @ https://example.com/pkg-1.0-cp312-cp312-manylinux2014_x86_64.whl"
+            '?download=1#sha256=abcd ; platform_machine == "x86_64"',
+            None,
+        ),
+    ],
+)
+def test_validate_direct_wheels(checker, tmp_path, spec, error):
+    path = tmp_path / "urls.txt"
+    path.write_text(spec + "\n")
+    environment = {"platform_machine": "aarch64"}
+    if error is None:
+        checker.validate_direct_wheels(path, environment, "3.12.0")
+    else:
+        with pytest.raises(ValueError, match=error):
+            checker.validate_direct_wheels(path, environment, "3.12.0")
 
 
 @pytest.mark.parametrize("format", ["json", "html"])
