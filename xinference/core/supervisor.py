@@ -6539,11 +6539,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
                 if replica != preferred
             ),
+            # Other requests can advance the shared scheduler during a probe.
+            # Include any replicas that its interleaved iteration skipped.
+            tuple(info.active_replica_ids),
         )
         busy = None
         last_error: Optional[Exception] = None
         preserve_route = False
+        tried = set()
         for replica in candidates:
+            if replica in tried:
+                continue
+            tried.add(replica)
             try:
                 try:
                     model = await self._get_replica_model(model_uid, replica)
