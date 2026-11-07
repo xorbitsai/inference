@@ -161,7 +161,7 @@ from .streaming_outcome import (
     report_client_disconnect,
     report_stream_failure,
 )
-from .utils import get_request_route_path, require_model
+from .utils import get_request_route_path, require_chat_model, require_model
 
 logger = logging.getLogger(__name__)
 
@@ -5253,12 +5253,12 @@ class RESTfulAPI(CancelMixin):
         reserved = False
         if routing_options:
             reservation_id = uuid.uuid4().hex
-            model, reserved = await require_model(
+            model, reserved = await require_chat_model(
                 self._get_supervisor_ref,
                 model_uid,
                 self._report_error_event,
                 **routing_options,
-                chat_reservation_id=reservation_id,
+                reservation_id=reservation_id,
             )
             if reserved:
 
@@ -5298,8 +5298,10 @@ class RESTfulAPI(CancelMixin):
             "raw_params": raw_kwargs,
             "request_id": request_id,
         }
-        if reserved:
-            model_call_kwargs["_chat_reservation_id"] = reservation_id
+        reservation_options = (
+            {"_chat_reservation_id": reservation_id} if reserved else {}
+        )
+        model_call_kwargs.update(reservation_options)
         if is_vllm_backend:
             kwargs.pop("request_id", None)
             raw_kwargs.pop("request_id", None)
@@ -5426,7 +5428,7 @@ class RESTfulAPI(CancelMixin):
         if is_vllm_backend and any(media_counts.values()):
             try:
                 raw_preflight = await model.preflight_multimodal_request(
-                    messages, kwargs
+                    messages, kwargs, **reservation_options
                 )
                 if isinstance(raw_preflight, (str, bytes)):
                     try:
@@ -5518,7 +5520,9 @@ class RESTfulAPI(CancelMixin):
             is not None
         ):
             try:
-                prepared = await model.prepare_reasoning_request(kwargs)
+                prepared = await model.prepare_reasoning_request(
+                    kwargs, **reservation_options
+                )
                 if isinstance(prepared, (str, bytes)):
                     prepared = json.loads(prepared)
                 if not isinstance(prepared, dict):
@@ -5634,6 +5638,14 @@ class RESTfulAPI(CancelMixin):
             stream_reservations = reservations.pop_all()
             return response
         else:
+
+            async def run_chat():
+                result = await model.chat(messages, kwargs, **model_call_kwargs)
+                # Admission consumed the reservation. Only failed or abandoned
+                # calls need the cleanup RPC.
+                reservations.pop_all()
+                return result
+
             try:
                 if is_vllm_backend:
                     return await _run_non_streaming_request(
@@ -5641,13 +5653,9 @@ class RESTfulAPI(CancelMixin):
                         model,
                         request_id,
                         "chat",
-                        model.chat(messages, kwargs, **model_call_kwargs),
+                        run_chat(),
                     )
-                data = await model.chat(
-                    messages,
-                    kwargs,
-                    **model_call_kwargs,
-                )
+                data = await run_chat()
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)

@@ -38,6 +38,7 @@ def _chat_actor(slots, active=0, request_limit=float("inf"), **engine_config):
     actor._model_state = "ready"
     actor._serve_count = active
     actor._chat_reservations = {}
+    actor._chat_preflight_reservations = set()
     actor._request_limits = request_limit
     actor._realtime_runtime = None
     return actor
@@ -251,6 +252,136 @@ async def test_chat_admission_converts_reservation_to_active_request():
         with pytest.raises(asyncio.CancelledError):
             await task
     assert await actor.can_accept_chat_request()
+
+
+@pytest.mark.asyncio
+async def test_chat_preflights_share_reservation_at_request_limit():
+    actor = _chat_actor(1, request_limit=1)
+    actor._replica_model_uid = "demo-rep0"
+    actor._metrics_labels = {}
+    actor.record_metrics = AsyncMock()
+    actor._model.async_preflight_multimodal_request = AsyncMock()
+    actor._model.prepare_reasoning_request = AsyncMock()
+    actor._call_wrapper_json = AsyncMock(return_value={})
+    assert await actor.reserve_chat_request("chat")
+    try:
+        await actor.preflight_multimodal_request([], {}, _chat_reservation_id="chat")
+        await actor.prepare_reasoning_request({}, _chat_reservation_id="chat")
+        assert actor._call_wrapper_json.await_count == 2
+        assert actor._serve_count == 0
+        assert not await actor.reserve_chat_request("other")
+    finally:
+        actor.release_chat_reservation("chat")
+    assert await actor.can_accept_chat_request()
+
+
+@pytest.mark.asyncio
+async def test_active_preflight_leaves_other_slot_available():
+    actor = _chat_actor(2, request_limit=2)
+    actor._replica_model_uid = "demo-rep0"
+    actor._metrics_labels = {}
+    actor.record_metrics = AsyncMock()
+    actor._model.prepare_reasoning_request = AsyncMock()
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def prepare(*args, **kwargs):
+        entered.set()
+        await finish.wait()
+
+    actor._call_wrapper_json = prepare
+    assert await actor.reserve_chat_request("first")
+    task = asyncio.create_task(
+        actor.prepare_reasoning_request({}, _chat_reservation_id="first")
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        assert await actor.reserve_chat_request("second")
+        assert not await actor.reserve_chat_request("third")
+        finish.set()
+        await task
+        assert not await actor.reserve_chat_request("third")
+    finally:
+        finish.set()
+        await task
+        for reservation in ("first", "second", "third"):
+            actor.release_chat_reservation(reservation)
+
+
+@pytest.mark.asyncio
+async def test_chat_reservation_expires(monkeypatch):
+    monkeypatch.setattr("xinference.core.model._CHAT_RESERVATION_TTL", 0)
+    actor = _chat_actor(1)
+    released = asyncio.Event()
+    release = actor.release_chat_reservation
+
+    def on_expire(reservation_id):
+        release(reservation_id)
+        released.set()
+
+    actor.release_chat_reservation = on_expire
+    assert await actor.reserve_chat_request("chat")
+    assert not await actor.can_accept_chat_request()
+    await asyncio.wait_for(released.wait(), 1)
+    assert await actor.can_accept_chat_request()
+
+
+def _reservation_supervisor(*models):
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(len(models))
+    info.routing_keys["task"] = 0
+    supervisor._model_uid_to_replica_info = {"demo": info}
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", index): SimpleNamespace(
+            get_model=AsyncMock(return_value=model)
+        )
+        for index, model in enumerate(models)
+    }
+    return supervisor, info
+
+
+@pytest.mark.asyncio
+async def test_affinity_timeout_releases_reservation_before_busy_fallback(monkeypatch):
+    monkeypatch.setattr("xinference.core.supervisor._AFFINITY_CAPACITY_TIMEOUT", 0.02)
+    actor = _chat_actor(1)
+
+    async def reserve(reservation_id):
+        assert await actor.reserve_chat_request(reservation_id)
+        await asyncio.Event().wait()
+
+    preferred = SimpleNamespace(
+        reserve_chat_request=reserve,
+        release_chat_reservation=AsyncMock(side_effect=actor.release_chat_reservation),
+    )
+    busy = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=False))
+    supervisor, _ = _reservation_supervisor(preferred, busy)
+    assert await supervisor.get_chat_model("demo", "task", "chat") == (preferred, False)
+    preferred.release_chat_reservation.assert_awaited_once_with("chat")
+    assert await actor.can_accept_chat_request()
+
+
+@pytest.mark.asyncio
+async def test_affinity_releases_reservation_for_removed_replica():
+    preferred = SimpleNamespace(release_chat_reservation=AsyncMock())
+    other = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=True))
+    supervisor, info = _reservation_supervisor(preferred, other)
+
+    async def reserve(_reservation_id):
+        info.active_replica_ids.remove(0)
+        return True
+
+    preferred.reserve_chat_request = reserve
+    assert await supervisor.get_chat_model("demo", "task", "chat") == (other, False)
+    preferred.release_chat_reservation.assert_awaited_once_with("chat")
+
+
+@pytest.mark.asyncio
+async def test_affinity_probes_legacy_model_without_reservation():
+    legacy = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+    other = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=True))
+    supervisor, _ = _reservation_supervisor(legacy, other)
+    assert await supervisor.get_chat_model("demo", "task", "chat") == (legacy, False)
+    legacy.can_accept_chat_request.assert_awaited_once()
 
 
 @pytest.mark.asyncio

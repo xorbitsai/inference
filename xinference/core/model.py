@@ -82,6 +82,7 @@ XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
+_CHAT_RESERVATION_TTL = 30
 
 
 async def _await_owned_task(
@@ -137,19 +138,36 @@ def register_batching_multimodal_models(*model_names: str):
     return decorator
 
 
-def _has_request_capacity(model: "ModelActor") -> bool:
+def _pending_chat_reservations(
+    model: "ModelActor", reservation_id: Optional[str] = None
+) -> int:
+    reservations = getattr(model, "_chat_reservations", ())
+    preflights = getattr(model, "_chat_preflight_reservations", ())
+    # A preflight temporarily occupies the same slot as its reservation.
+    own_pending = reservation_id in reservations and reservation_id not in preflights
+    return len(reservations) - len(preflights) - own_pending
+
+
+def _has_request_capacity(
+    model: "ModelActor", reservation_id: Optional[str] = None
+) -> bool:
     realtime = getattr(model, "_realtime_runtime", None)
     realtime_count = realtime.active_count if realtime is not None else 0
-    reserved = len(getattr(model, "_chat_reservations", ()))
+    reserved = _pending_chat_reservations(model, reservation_id)
     return 1 + model._serve_count + realtime_count + reserved <= model._request_limits
 
 
-def request_limit(fn):
+def request_limit(fn=None, *, keep_chat_reservation=False):
     """
     Used by ModelActor.
     As a decorator, added to a ModelActor method to control
     how many requests are accessing that method at the same time.
     """
+
+    if fn is None:
+        return functools.partial(
+            request_limit, keep_chat_reservation=keep_chat_reservation
+        )
 
     async def wrapped_func(self, *args, **kwargs):
         if getattr(self, "_model_state", None) == "reloading":
@@ -162,10 +180,19 @@ def request_limit(fn):
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
         reservation_id = kwargs.pop("_chat_reservation_id", None)
-        if reservation_id is not None:
+        preflight_reservation_id = None
+        if reservation_id is not None and not keep_chat_reservation:
             self.release_chat_reservation(reservation_id)
-        if _has_request_capacity(self):
+        elif (
+            reservation_id is not None
+            and reservation_id in self._chat_reservations
+            and reservation_id not in self._chat_preflight_reservations
+        ):
+            preflight_reservation_id = reservation_id
+        if _has_request_capacity(self, preflight_reservation_id):
             self._serve_count += 1
+            if preflight_reservation_id is not None:
+                self._chat_preflight_reservations.add(preflight_reservation_id)
         else:
             await self.record_metrics(
                 "model_request_total",
@@ -185,6 +212,12 @@ def request_limit(fn):
         _error = False
         released = False
         stream_transferred = False
+
+        def release_slot():
+            if preflight_reservation_id is not None:
+                self._chat_preflight_reservations.discard(preflight_reservation_id)
+            self._serve_count = max(0, self._serve_count - 1)
+
         try:
             try:
                 await self.record_metrics(
@@ -204,7 +237,7 @@ def request_limit(fn):
                     or isinstance(ret, IteratorWrapper)
                 )
                 if not _is_stream:
-                    self._serve_count = max(0, self._serve_count - 1)
+                    release_slot()
                     released = True
                 stream_label = "true" if _is_stream else "false"
                 await self.record_metrics(
@@ -256,7 +289,7 @@ def request_limit(fn):
                             asyncio.create_task(asyncio.to_thread(ret.close))
                         )
                 finally:
-                    self._serve_count = max(0, self._serve_count - 1)
+                    release_slot()
 
     return wrapped_func
 
@@ -419,6 +452,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._progress_tracker_ref = None
         self._serve_count = 0
         self._chat_reservations: Dict[str, asyncio.TimerHandle] = {}
+        self._chat_preflight_reservations: set[str] = set()
         self._realtime_runtime = None
         self._realtime_file_streams: Set[_RealtimeFileStream] = set()
         self._realtime_start_lock = asyncio.Lock()
@@ -696,7 +730,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return None
         return self._model.get_explicit_limit_mm_per_prompt()
 
-    @request_limit
+    @request_limit(keep_chat_reservation=True)
     @log_async(logger=logger)
     async def preflight_multimodal_request(
         self, messages: List[Dict], generate_config: Optional[Dict] = None
@@ -811,7 +845,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             limits=RealtimeLimits(max_sessions=max_sessions),
             inference_lock=self._lock,
             admission=lambda: self._model_state == "ready"
-            and self._serve_count + runtime.active_count + len(self._chat_reservations)
+            and self._serve_count
+            + runtime.active_count
+            + _pending_chat_reservations(self)
             < self._request_limits,
         )
         worker_host = urlsplit(
@@ -1903,7 +1939,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         supports = getattr(self._model, "supports_agent_cache_lifecycle", None)
         return supports is not None and supports() is True
 
-    @request_limit
+    @request_limit(keep_chat_reservation=True)
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):
         self._require_ready()
@@ -2453,7 +2489,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return False
         get_capacity = getattr(self._model, "get_max_concurrent_requests", None)
         capacity = get_capacity() if get_capacity is not None else None
-        reserved = len(getattr(self, "_chat_reservations", ()))
+        reserved = _pending_chat_reservations(self)
         return capacity is None or self._serve_count + reserved < capacity
 
     async def can_accept_chat_request(self) -> bool:
@@ -2466,13 +2502,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             return False
         # A timed-out RPC or a disconnected REST process can lose the reply.
         self._chat_reservations[reservation_id] = asyncio.get_running_loop().call_later(
-            30, self.release_chat_reservation, reservation_id
+            _CHAT_RESERVATION_TTL, self.release_chat_reservation, reservation_id
         )
         return True
 
     def release_chat_reservation(self, reservation_id: str) -> None:
         timer = self._chat_reservations.pop(reservation_id, None)
         if timer is not None:
+            self._chat_preflight_reservations.discard(reservation_id)
             timer.cancel()
 
     @log_async(logger=logger)

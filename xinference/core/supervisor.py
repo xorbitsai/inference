@@ -6571,6 +6571,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         last_error: Optional[Exception] = None
         preserve_route = False
         tried = set()
+
+        async def release_reservation(model) -> None:
+            try:
+                await xo.wait_for(
+                    model.release_chat_reservation(reservation_id),
+                    _AFFINITY_CAPACITY_TIMEOUT,
+                )
+            except Exception:
+                logger.debug("Chat reservation cleanup failed", exc_info=True)
+
         for replica in candidates:
             if replica in tried:
                 continue
@@ -6611,6 +6621,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                                     model.reserve_chat_request(reservation_id),
                                     _AFFINITY_CAPACITY_TIMEOUT,
                                 )
+                            except asyncio.TimeoutError:
+                                # The actor may have committed before the reply timed out.
+                                await release_reservation(model)
+                                raise
                             except AttributeError as exc:
                                 if (
                                     "has no attribute 'reserve_chat_request'"
@@ -6653,9 +6667,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
                 last_error = exc
                 continue
-            if self._model_uid_to_replica_info.get(model_uid) is not info:
-                break
-            if replica not in info.active_replica_ids:
+            current_info = self._model_uid_to_replica_info.get(model_uid)
+            if current_info is not info or replica not in info.active_replica_ids:
+                if reserved:
+                    await release_reservation(model)
+                if current_info is not info:
+                    break
                 continue
             if available:
                 # A concurrent request may already have moved or evicted this key.
