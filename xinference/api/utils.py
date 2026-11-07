@@ -20,7 +20,8 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Optional, TypedDict
+from contextlib import asynccontextmanager
+from typing import Any, Callable, Optional
 
 from fastapi import HTTPException, Request
 
@@ -95,16 +96,10 @@ def _put_negative_cache(model_uid: str) -> None:
         _MODEL_NOT_FOUND_CACHE.popitem(last=False)
 
 
-class _ModelRoutingOptions(TypedDict, total=False):
-    routing_key: str
-
-
 async def require_model(
     get_supervisor_ref: Callable,
     model_uid: str,
     report_error_event: Optional[Callable] = None,
-    *,
-    routing_key: Optional[str] = None,
 ) -> Any:
     """
     Get a model with standardized error handling.
@@ -141,29 +136,58 @@ async def require_model(
     Raises:
         HTTPException: With appropriate status code on error
     """
-    try:
-        supervisor = await get_supervisor_ref()
-
-        # ---- negative-cache fast path ----
-        cached_detail = _check_negative_cache(model_uid)
-        if cached_detail is not None:
-            logger.debug("get_model blocked by negative cache for uid: %s", model_uid)
-            raise HTTPException(status_code=404, detail=cached_detail)
-
-        routing_options: _ModelRoutingOptions = (
-            {"routing_key": routing_key} if routing_key is not None else {}
-        )
+    async with _model_lookup(
+        get_supervisor_ref, model_uid, report_error_event
+    ) as supervisor:
         request_id = get_current_model_request_id()
         if request_id is None:
-            return await supervisor.get_model(model_uid, **routing_options)
+            return await supervisor.get_model(model_uid)
         model_ref = await actor_call(
             supervisor,
             "get_model",
             model_uid,
             _rpc_correlation_id=request_id,
-            **routing_options,
         )
         return correlate_model_ref(model_ref, request_id)
+
+
+async def require_chat_model(
+    get_supervisor_ref: Callable,
+    model_uid: str,
+    report_error_event: Optional[Callable] = None,
+    *,
+    routing_key: str,
+    reservation_id: str,
+) -> tuple[Any, bool]:
+    """Return the selected chat model and whether it reserved a slot."""
+    async with _model_lookup(
+        get_supervisor_ref, model_uid, report_error_event
+    ) as supervisor:
+        request_id = get_current_model_request_id()
+        if request_id is None:
+            return await supervisor.get_chat_model(
+                model_uid, routing_key, reservation_id
+            )
+        model_ref, reserved = await actor_call(
+            supervisor,
+            "get_chat_model",
+            model_uid,
+            routing_key,
+            reservation_id,
+            _rpc_correlation_id=request_id,
+        )
+        return correlate_model_ref(model_ref, request_id), reserved
+
+
+@asynccontextmanager
+async def _model_lookup(get_supervisor_ref, model_uid, report_error_event):
+    try:
+        supervisor = await get_supervisor_ref()
+        cached_detail = _check_negative_cache(model_uid)
+        if cached_detail is not None:
+            logger.debug("get_model blocked by negative cache for uid: %s", model_uid)
+            raise HTTPException(status_code=404, detail=cached_detail)
+        yield supervisor
     except HTTPException:
         raise
     except ModelNotReadyError as e:

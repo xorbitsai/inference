@@ -287,7 +287,7 @@ async def test_chat_affinity_all_unavailable_preserves_error(
 ):
     from fastapi import HTTPException
 
-    from ...api.utils import require_model
+    from ...api.utils import require_chat_model
 
     model_uid = f"affinity-{replicas}-{type(error).__name__}"
     supervisor, _, _, workers = _affinity_supervisor(replicas, model_uid)
@@ -298,11 +298,12 @@ async def test_chat_affinity_all_unavailable_preserves_error(
     )
     report_error = AsyncMock()
     with pytest.raises(HTTPException) as caught:
-        await require_model(
+        await require_chat_model(
             AsyncMock(return_value=supervisor),
             model_uid,
             report_error,
             routing_key="task",
+            reservation_id="chat",
         )
     assert caught.value.status_code == expected_status
     if isinstance(error, ModelNotReadyError):

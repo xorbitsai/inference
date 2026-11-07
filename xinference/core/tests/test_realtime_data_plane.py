@@ -72,7 +72,8 @@ async def test_frame_count_does_not_increase_control_rpc(frames):
         assert service.runtime.model.loads == 1
 
 
-async def test_actor_lifecycle_and_shared_capacity():
+@pytest.mark.parametrize("occupied_by", ["file_request", "chat_reservation"])
+async def test_actor_lifecycle_and_shared_capacity(occupied_by):
     model = FakeModel()
     model.load()
     actor = ModelActor(
@@ -106,15 +107,21 @@ async def test_actor_lifecycle_and_shared_capacity():
                 await file_request(actor)
             await ws.close()
             await wait_empty(runtime)
-            # File requests already admitted must also block realtime admission.
-            actor._serve_count = 1
-            descriptor = actor.get_realtime_endpoint("u", "binary.echo")
-            with pytest.raises(aiohttp.WSServerHandshakeError):
-                await client.ws_connect(
-                    descriptor["endpoint"],
-                    headers={"Authorization": "Bearer " + descriptor["ticket"]},
-                )
-            actor._serve_count = 0
+            # Active requests and pending chat reservations both occupy slots.
+            if occupied_by == "file_request":
+                actor._serve_count = 1
+            else:
+                assert await actor.reserve_chat_request("chat")
+            try:
+                descriptor = actor.get_realtime_endpoint("u", "binary.echo")
+                with pytest.raises(aiohttp.WSServerHandshakeError):
+                    await client.ws_connect(
+                        descriptor["endpoint"],
+                        headers={"Authorization": "Bearer " + descriptor["ticket"]},
+                    )
+            finally:
+                actor._serve_count = 0
+                actor.release_chat_reservation("chat")
         assert model.loads == 1
     finally:
         await runtime.stop()

@@ -134,11 +134,13 @@ async def test_chat_scopes_metadata_and_continues_when_hints_are_unavailable(
         chat=AsyncMock(return_value=b"{}"),
     )
     require_model = AsyncMock(return_value=model)
+    require_chat_model = AsyncMock(return_value=(model, False))
 
     async def run_request(request, actor, request_id, kind, call):
         return Response(await call, media_type="application/json")
 
     monkeypatch.setattr(restful_api, "require_model", require_model)
+    monkeypatch.setattr(restful_api, "require_chat_model", require_chat_model)
     monkeypatch.setattr(restful_api, "_run_non_streaming_request", run_request)
     request = _Request(
         {
@@ -155,14 +157,13 @@ async def test_chat_scopes_metadata_and_continues_when_hints_are_unavailable(
     raw = model.chat.call_args.kwargs["raw_params"]
     assert "cache_session" not in config and "cache_session" not in raw
     assert "routing_key" not in config and "routing_key" not in raw
-    routing_options = require_model.await_args.kwargs
     if routing_key is not None:
-        assert routing_options["routing_key"] != routing_key
+        assert require_chat_model.await_args.kwargs["routing_key"] != routing_key
         supervisor.describe_model.assert_awaited_once_with(
             "model", selected_replica_uid="model-rep0"
         )
     else:
-        assert routing_options == {}
+        assert require_model.await_args.kwargs == {}
     if hint_error is None:
         assert isinstance(config[CACHE_SESSION_ARG], CacheSessionTag)
         assert config[CACHE_SESSION_ARG].id != "agent"
