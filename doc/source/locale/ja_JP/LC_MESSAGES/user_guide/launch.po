@@ -33,3 +33,7 @@ msgstr "**実行中のモデル** からレプリカを追加すると、Web UI 
 #: ../../source/user_guide/launch.rst:418
 msgid "In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply."
 msgstr "**実行中のモデル** の **レプリカを追加** ダイアログでは、自動スケジューリングとレプリカごとの配置を選択できます。レプリカごとの配置では、新しいレプリカごとにワーカーを 1 つ選択し、各行に GPU インデックスと別名を任意で入力できます。GPU インデックスはそのワーカー内の番号です。自動割り当てには空欄にし、GPU インデックスを送信しない場合は CPU を選択します。選択したモードのみが送信されます。GPU の可用性と別名の重複はサーバーが確認し、既存のスケールアップ制限も適用されます。"
+
+#: ../../source/user_guide/launch.rst:294
+msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
+msgstr "デプロイを送信すると、レプリカの準備中や読み込み中も含め、ダイアログに待機メッセージと経過時間がすぐに表示されます。レプリカの準備完了や進捗 100% だけではリクエストは完了しません。デプロイのレスポンスを受信すると待機計測が終了し、ダイアログを閉じる前に設定の保存が完了する場合があります。キャンセルに失敗した場合は、元の開始時刻を維持して待機を続けます。ダウンロードのみの操作では従来どおり個別の進捗を表示します。"

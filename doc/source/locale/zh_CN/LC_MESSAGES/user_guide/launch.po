@@ -825,3 +825,7 @@ msgstr "从 **运行中的模型** 添加副本时，Web UI 会等待整个请�
 #: ../../source/user_guide/launch.rst:418
 msgid "In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply."
 msgstr "在 **运行中的模型** 中，**新增副本** 弹窗提供自动调度和逐副本指定两种模式。逐副本指定需要为每个新副本选择一个 Worker，并可逐行填写 GPU 索引和副本别名。GPU 索引对应所选 Worker 的本地编号；留空时自动分配，选择 CPU 时不传 GPU 索引。只提交当前选中的模式。GPU 可用性和别名冲突由服务端检查，现有扩容限制仍然适用。"
+
+#: ../../source/user_guide/launch.rst:294
+msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
+msgstr "提交部署后，弹窗立即显示等待提示和已用时间，涵盖副本准备及加载阶段。某个副本就绪或进度达到 100% 不代表请求已经完成。部署响应返回后停止等待计时，弹窗关闭前可能还需完成配置保存。取消失败时继续等待，保留原开始时间。仅下载操作仍使用独立的进度展示。"
