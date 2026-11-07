@@ -60,9 +60,11 @@ def test_generate_package_list_classification():
 
     assert generator.classify_spec("transformers>=4.53.3") == "pin"
     assert generator.classify_spec("https://example.com/pkg.whl") == "url"
-    assert generator.classify_spec("pkg @ https://example.com/pkg.whl") == "url"
-    assert generator.classify_spec("git+https://github.com/org/repo") == "git"
-    assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "git"
+    wheel = "pkg @ https://example.com/a@b/pkg.whl?download=1#sha256=abcd"
+    assert generator.classify_spec(wheel) == "url"
+    assert generator.classify_spec("https://example.com/pkg.tar.gz") == "source"
+    assert generator.classify_spec("git+https://github.com/org/repo") == "source"
+    assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "source"
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
     assert (
@@ -723,6 +725,9 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
     src_root = tmp_path / "src"
     model_dir = src_root / "xinference" / "model"
     model_dir.mkdir(parents=True)
+    wheel = "https://example.invalid/direct-1.0-py3-none-any.whl"
+    git_source = "git-package @ git+https://example.invalid/repo.git@abc"
+    archive = "sglang @ https://example.invalid/archive/abc.zip#subdirectory=python"
     (model_dir / "spec.json").write_text(
         json.dumps(
             {
@@ -730,8 +735,9 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
                 "virtualenv": {
                     "packages": [
                         "model-pin==1.0",
-                        "https://example.invalid/direct-1.0-py3-none-any.whl",
-                        "git-package @ git+https://example.invalid/repo.git@abc",
+                        wheel,
+                        git_source,
+                        archive,
                     ]
                 },
             }
@@ -784,13 +790,13 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
             "sources": ["spec.json:test-model"],
         }
     ]
-    assert "direct-1.0-py3-none-any.whl" in (out / "urls.txt").read_text()
-    assert "git+https://example.invalid/repo.git@abc" in (out / "git.txt").read_text()
+    assert (out / "urls.txt").read_text().splitlines() == [wheel]
+    assert (out / "git.txt").read_text().splitlines() == [git_source, archive]
     assert json.loads((out / "manifest.json").read_text())["counts"] == {
         "engines": 1,
         "pins": 1,
         "urls": 1,
-        "git": 1,
+        "git": 2,
         "find_links_only": 0,
         "deferred_model_pins": 0,
     }

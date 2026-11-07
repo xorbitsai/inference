@@ -31,7 +31,7 @@ Outputs (under --out):
     engines/<engine>.meta.json  extra index URLs / index strategy per engine
     pins.json                   per-model specs and their additional indexes
     urls.txt                    direct wheel URLs (target arch only)
-    git.txt                     git+ sources
+    git.txt                     unsupported direct references (Git and source archives)
     manifest.json               generation parameters and counts
 """
 
@@ -46,6 +46,7 @@ import sys
 import types
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from urllib.parse import unquote, urlsplit
 
 PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
@@ -158,18 +159,15 @@ def iter_virtualenv_packages(
 
 
 def classify_spec(spec: str) -> str:
-    """Classify a marker-free requirement spec: 'url', 'git' or 'pin'."""
-    candidate = spec.strip()
-    if candidate.startswith(("http://", "https://")):
-        return "url"
-    if candidate.startswith("git+"):
-        return "git"
-    if "@" in candidate:
-        target = candidate.partition("@")[2].strip()
-        if target.startswith("git+"):
-            return "git"
-        if target.startswith(("http://", "https://")):
-            return "url"
+    """Distinguish direct wheels, unsupported sources, and index requirements."""
+    target = spec.strip()
+    if not target.startswith(("http://", "https://", "git+")):
+        target = target.partition("@")[2].strip()
+    if target.startswith("git+"):
+        return "source"
+    if target.startswith(("http://", "https://")):
+        url = target.split(maxsplit=1)[0]
+        return "url" if unquote(urlsplit(url).path).endswith(".whl") else "source"
     return "pin"
 
 
@@ -274,7 +272,7 @@ def main() -> None:
     (out / "engines").mkdir(parents=True, exist_ok=True)
 
     urls: Set[str] = set()
-    git_sources: Set[str] = set()
+    unsupported_sources: Set[str] = set()
     pins: Dict[str, Set[str]] = {}  # spec -> sources
     pin_indexes: Dict[str, List[str]] = {}
     excluded_pins: Set[str] = set()
@@ -288,8 +286,8 @@ def main() -> None:
         kind = classify_spec(spec)
         if kind == "url":
             urls.add(spec)
-        elif kind == "git":
-            git_sources.add(spec)
+        elif kind == "source":
+            unsupported_sources.add(spec)
         else:
             name = spec.split(";", 1)[0].strip().lower()
             if any(pattern in name for pattern in excluded_packages):
@@ -381,7 +379,9 @@ def main() -> None:
                 _add(spec, source, candidate_indexes)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
-    (out / "git.txt").write_text("".join(f"{g}\n" for g in sorted(git_sources)))
+    (out / "git.txt").write_text(
+        "".join(f"{spec}\n" for spec in sorted(unsupported_sources))
+    )
     (out / "pins.json").write_text(
         json.dumps(
             [
@@ -418,7 +418,7 @@ def main() -> None:
             "engines": len(engines_meta),
             "pins": len(pins),
             "urls": len(urls),
-            "git": len(git_sources),
+            "git": len(unsupported_sources),
             "find_links_only": len(find_links_only_pins),
             "deferred_model_pins": len(deferred_model_pins),
         },

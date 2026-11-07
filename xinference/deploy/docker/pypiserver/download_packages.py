@@ -517,9 +517,8 @@ def main() -> None:
             unconstrained_fallbacks.append(spec)
 
     # ------------------------------------------------------------------
-    # 3. Direct wheel URLs. Git sources are deliberately not built: the
-    #    runtime rejects git/direct references in explicit offline mode, and
-    #    a simple index cannot preserve their requested source revisions.
+    # 3. Direct wheel URLs. The generator records Git and non-wheel direct
+    #    references separately because the offline runtime rejects them.
     # ------------------------------------------------------------------
     for url in (manifest_dir / "urls.txt").read_text().splitlines():
         if not url.strip():
