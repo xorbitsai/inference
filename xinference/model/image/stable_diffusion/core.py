@@ -1200,7 +1200,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 origin_x, origin_y = image.size
             kwargs["origin_size"] = (origin_x, origin_y)
             kwargs["is_padded"] = True
-            image = self.pad_to_multiple(image, multiple=int(padding_image_to_multiple))
+            multiple = int(padding_image_to_multiple)
+            if isinstance(image, list):
+                image = [self.pad_to_multiple(img, multiple=multiple) for img in image]
+            else:
+                image = self.pad_to_multiple(image, multiple=multiple)
 
         if size:
             width, height = map(int, re.split(r"[^\d]+", size))
