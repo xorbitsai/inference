@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+# CI: linux
 
-from ..utils import MAX_IMAGE_SEED, resolve_image_seed_list
+import pytest
+from PIL import Image
+
+from .. import utils
+from ..utils import MAX_IMAGE_SEED, handle_image_result, resolve_image_seed_list
 
 
 def test_resolve_image_seed_list_preserves_and_pads_seeds():
@@ -37,3 +41,12 @@ def test_resolve_image_seed_list_keeps_scalar_seed_backward_compatible():
 def test_resolve_image_seed_list_rejects_invalid_values(seeds, n):
     with pytest.raises(ValueError):
         resolve_image_seed_list(seeds, n)
+
+
+def test_handle_image_result_url_raises_when_saving_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(utils, "XINFERENCE_IMAGE_DIR", str(tmp_path))
+    saved = Image.new("RGB", (4, 4))
+    unsaveable = Image.new("I;16", (4, 4))
+
+    with pytest.raises(OSError):
+        handle_image_result("url", [saved, unsaveable])
