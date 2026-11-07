@@ -31,7 +31,7 @@ Outputs (under --out):
     engines/<engine>.meta.json  extra index URLs / index strategy per engine
     pins.json                   per-model specs and their additional indexes
     urls.txt                    direct wheel URLs (target arch only)
-    git.txt                     git+ sources
+    git.txt                     unsupported direct references (Git and source archives)
     manifest.json               generation parameters and counts
 """
 
@@ -46,12 +46,17 @@ import sys
 import types
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from urllib.parse import unquote, urlsplit
+
+from packaging.requirements import InvalidRequirement, Requirement
 
 PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
 SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_-]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
 XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
+DIRECT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+BARE_URL_MARKER_RE = re.compile(r"(https?://\S+)\s+;\s*(.*)")
 
 # This model's vLLM integration targets an upstream release that is not yet
 # published. Keep the runtime requirement intact, but do not block the offline
@@ -158,23 +163,30 @@ def iter_virtualenv_packages(
 
 
 def classify_spec(spec: str) -> str:
-    """Classify a marker-free requirement spec: 'url', 'git' or 'pin'."""
+    """Distinguish direct wheels, unsupported sources, and index requirements."""
     candidate = spec.strip()
-    if candidate.startswith(("http://", "https://")):
+    if DIRECT_SCHEME_RE.match(candidate) or candidate.startswith(
+        ("git+", "hg+", "svn+", "bzr+")
+    ):
+        target = candidate.split(maxsplit=1)[0]
+    elif "@" in candidate:
+        try:
+            target = Requirement(normalize_mirror_spec(candidate)).url
+        except InvalidRequirement:
+            return "pin"
+    else:
+        return "pin"
+    if target is None:
+        return "pin"
+    if target.startswith(("http://", "https://")) and unquote(
+        urlsplit(target).path
+    ).endswith(".whl"):
         return "url"
-    if candidate.startswith("git+"):
-        return "git"
-    if "@" in candidate:
-        target = candidate.partition("@")[2].strip()
-        if target.startswith("git+"):
-            return "git"
-        if target.startswith(("http://", "https://")):
-            return "url"
-    return "pin"
+    return "source"
 
 
 def normalize_mirror_spec(spec: str) -> str:
-    """Strip xoscar-only markers that pip cannot evaluate.
+    """Convert mirror requirements to syntax pip can evaluate.
 
     The offline mirror must carry dependencies for both CPU and CUDA model
     launches. xoscar selects the applicable branch when it creates the model
@@ -186,6 +198,14 @@ def normalize_mirror_spec(spec: str) -> str:
     requirement, separator, marker = candidate.partition(";")
     if separator and marker.strip().lower() in XOSCAR_RUNTIME_MARKERS:
         return requirement.strip()
+    bare_wheel = BARE_URL_MARKER_RE.fullmatch(candidate)
+    if bare_wheel is not None:
+        # Pip accepts markers on named direct requirements.
+        url, marker = bare_wheel.groups()
+        filename = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
+        if filename.endswith(".whl"):
+            name = filename.split("-", 1)[0]
+            return f"{name} @ {url} ; {marker}"
     return candidate
 
 
@@ -274,7 +294,7 @@ def main() -> None:
     (out / "engines").mkdir(parents=True, exist_ok=True)
 
     urls: Set[str] = set()
-    git_sources: Set[str] = set()
+    unsupported_sources: Set[str] = set()
     pins: Dict[str, Set[str]] = {}  # spec -> sources
     pin_indexes: Dict[str, List[str]] = {}
     excluded_pins: Set[str] = set()
@@ -288,8 +308,8 @@ def main() -> None:
         kind = classify_spec(spec)
         if kind == "url":
             urls.add(spec)
-        elif kind == "git":
-            git_sources.add(spec)
+        elif kind == "source":
+            unsupported_sources.add(spec)
         else:
             name = spec.split(";", 1)[0].strip().lower()
             if any(pattern in name for pattern in excluded_packages):
@@ -381,7 +401,9 @@ def main() -> None:
                 _add(spec, source, candidate_indexes)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
-    (out / "git.txt").write_text("".join(f"{g}\n" for g in sorted(git_sources)))
+    (out / "git.txt").write_text(
+        "".join(f"{spec}\n" for spec in sorted(unsupported_sources))
+    )
     (out / "pins.json").write_text(
         json.dumps(
             [
@@ -418,7 +440,7 @@ def main() -> None:
             "engines": len(engines_meta),
             "pins": len(pins),
             "urls": len(urls),
-            "git": len(git_sources),
+            "git": len(unsupported_sources),
             "find_links_only": len(find_links_only_pins),
             "deferred_model_pins": len(deferred_model_pins),
         },

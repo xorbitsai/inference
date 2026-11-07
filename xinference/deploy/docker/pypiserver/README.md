@@ -14,11 +14,12 @@ The mirror also carries only the CPU build of `xllamacpp`; its GPU wheels come
 from a separate CUDA-specific index. Preinstall the matching GPU wheel in a
 custom runtime image when llama.cpp GPU acceleration is required air-gapped.
 
-Git and non-wheel direct references cannot be reproduced faithfully through a
-simple index. The generator records them, the selfcheck reports them as
-unsupported, and `XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1` makes the runtime
-reject them before attempting egress. Preinstall those exact source revisions
-in a custom runtime image when the corresponding model is needed air-gapped.
+Git and non-wheel direct references bypass package indexes. The generator
+records them and the selfcheck reports them as unsupported by the bundled
+mirror. With `XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1`, the runtime rejects
+remote references before attempting egress. Preinstall those exact source
+revisions in a custom runtime image when the corresponding model is needed
+air-gapped.
 
 ## How the build works
 
@@ -27,8 +28,10 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    so the lists cannot drift from what the runtime installs. It emits one
    requirement set per engine (including the union of its format-scoped
    optional dependencies), the per-model concrete pins, direct wheel URLs and
-   git sources, filtered for the target platform/CUDA. Runtime venvs still
-   select only the dependencies for the launched model and format.
+   unsupported direct references, filtered for the target platform/CUDA.
+   The `git.txt` manifest and its `git` count include Git dependencies and
+   other non-wheel direct references, such as source archives.
+   Runtime venvs select only the dependencies for the launched model and format.
    Known integrations awaiting an upstream release are explicitly recorded in
    `manifest.json` as `deferred_model_pins`. Currently this excludes only
    EmbeddingGemma 2's `vllm>=0.32.0` requirement, since that upstream release
@@ -44,8 +47,8 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    specs cannot fan out into many versions. Model pins are fetched constrained
    to the shared locks (with a recorded unconstrained fallback on conflicts),
    direct wheel URLs are downloaded with their dependencies, and sdist-only
-   downloads are built into wheels. Git sources are recorded but deliberately
-   skipped because the offline runtime rejects them.
+   downloads are built into wheels. Unsupported direct references are recorded
+   and skipped by the downloader.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
    shared runtime constraint, index-compatible engine set, pin and direct wheel
    against the baked mirror ALONE (`--disable-fallback`). Any gap fails the
