@@ -48,6 +48,10 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
 - Inferência distribuída: modelos podem ser executados entre vários workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Melhorias no vLLM: compartilhamento do KV-cache entre réplicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Novos modelos
+- Suporte integrado para [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b) : [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- Suporte integrado para [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0) : [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- Suporte integrado para [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3) : [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- Suporte integrado para [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2) : [#5913](https://github.com/xorbitsai/inference/pull/5913)
 - Suporte integrado para [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) : [#5792](https://github.com/xorbitsai/inference/pull/5792)
 - Suporte integrado para a série FIBO 2.0 ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)) : [#5790](https://github.com/xorbitsai/inference/pull/5790)
 - Suporte integrado para a série Ming-3.0 TTS ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)) : [#5788](https://github.com/xorbitsai/inference/pull/5788)
@@ -60,9 +64,6 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
 - Suporte integrado para a série GLM-5.3 ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)) : [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - Suporte integrado para [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) : [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - Suporte integrado para [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) : [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- Suporte integrado para [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) : [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- Suporte integrado para [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) : [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- Suporte integrado para [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) : [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### Integrações
 - [Xagent](https://github.com/xorbitsai/xagent): plataforma de agentes enterprise com planejamento, memória e integração de ferramentas.
 - [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): plataforma LLMOps para construir aplicações rapidamente com visualização e controle.

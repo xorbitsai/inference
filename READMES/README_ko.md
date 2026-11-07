@@ -48,6 +48,10 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
+- [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b) 기본 지원: [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0) 기본 지원: [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3) 기본 지원: [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2) 기본 지원: [#5913](https://github.com/xorbitsai/inference/pull/5913)
 - [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) 기본 지원: [#5792](https://github.com/xorbitsai/inference/pull/5792)
 - FIBO 2.0 시리즈 ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)) 기본 지원: [#5790](https://github.com/xorbitsai/inference/pull/5790)
 - Ming-3.0 TTS 시리즈 ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)) 기본 지원: [#5788](https://github.com/xorbitsai/inference/pull/5788)
@@ -60,9 +64,6 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - GLM-5.3 시리즈 ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)) 기본 지원: [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) 기본 지원: [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) 기본 지원: [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) 기본 지원: [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) 기본 지원: [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) 기본 지원: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
