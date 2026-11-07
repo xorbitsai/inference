@@ -38,3 +38,40 @@ msgstr "ネイティブの ``priority`` 引数を備えた TRT-LLM は、通常�
 
 msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
 msgstr "Xinference は、``priority`` のない要求も含め、すべてのエンジンでクライアント指定の ``request_id`` を検証します。同じレプリカ上で実行中の要求には一意の ID が必要です。中止後、その ID は既定で 30 秒間ブロックされます。再試行には新しい ID を使うか、中止要求の ``block_duration`` で時間を設定してください。"
+
+#: user_guide/client_api.rst:10
+msgid "Loaded context length"
+msgstr "ロード済みモデルのコンテキスト長"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent"
+" call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` "
+"endpoint. ``runtime_context_length`` is the loaded adapter's total input-"
+"plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each"
+" ``replica_uid`` and its limit. The model-wide value is the minimum only "
+"when every active replica reports a value. Queries follow the serving "
+"generation after reload; the model details panel fetches this information on"
+" entry and after a reload."
+msgstr ""
+"``client.get_model_runtime_info(model_uid)`` と非同期版は、Xinference 専用の ``GET "
+"/v1/models/{model_uid}/runtime`` を呼び出します。``runtime_context_length`` "
+"はロード済みアダプターの入力と出力を合計したトークン数の上限で、不明な場合は ``null`` です。``replicas`` は各 "
+"``replica_uid`` "
+"とその上限を示します。すべてのアクティブなレプリカが値を報告した場合にのみ、最小値をモデル全体の上限として返します。再ロード後は現在のサービングインスタンスを参照し、モデル詳細パネルはページを開いたときと再ロード完了後に情報を取得します。"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"The registered ``context_length`` and OpenAI/Anthropic model, generation, "
+"and streaming response formats remain unchanged. vLLM, Transformers, MLX, "
+"and TRT-LLM report their adapter limit; SGLang queries its runtime. "
+"llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's "
+"``/props`` endpoint, rather than dividing the launch-time total capacity. "
+"Older runtimes without a query interface report ``null``. The limit does not"
+" guarantee available memory."
+msgstr ""
+"登録済みの ``context_length`` と OpenAI/Anthropic "
+"のモデル、生成、ストリーミングの応答形式は変更されません。vLLM、Transformers、MLX、TRT-LLM "
+"はアダプターの上限を報告し、SGLang はランタイムに問い合わせます。llama.cpp "
+"は起動時の総容量をスロット数で割るのではなく、ロード済みサーバーの ``/props`` から実際のスロット単位の ``n_ctx`` "
+"を読み取ります。問い合わせ機能のない古いランタイムは ``null`` を返します。この上限はリクエストに必要なメモリの空きを保証しません。"

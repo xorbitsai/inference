@@ -1729,6 +1729,20 @@ class AsyncClient:
         await _release_response(response)
         return data
 
+    async def get_model_runtime_info(self, model_uid: str) -> Dict[str, Any]:
+        """Return runtime_context_length (tokens, or None) and per-replica limits."""
+        await self._ensure_initialized()
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/runtime"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get model runtime info, detail: {await _get_error_string(response)}"
+            )
+        try:
+            return await response.json()
+        finally:
+            await _release_response(response)
+
     async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
         """Return the latest reload operation, including its stage and error."""
         await self._ensure_initialized()

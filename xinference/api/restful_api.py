@@ -1988,6 +1988,16 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def get_model_runtime_info(self, model_uid: str) -> JSONResponse:
+        """Xinference metadata; compatibility model and generation schemas stay unchanged."""
+        try:
+            data = await (await self._get_supervisor_ref()).get_model_runtime_info(
+                model_uid
+            )
+            return JSONResponse(content=data)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
     async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).describe_running_model(

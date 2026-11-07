@@ -68,8 +68,10 @@ const { I18nProvider } =
   require('@/contexts/i18n-context') as typeof import('@/contexts/i18n-context');
 const { ChatPanel } = require('./chat-panel') as typeof import('./chat-panel');
 let root: Root, host: HTMLDivElement, model: RunningModelDetail;
+let runtimeContextLength: number | null | undefined;
 beforeEach(() => {
   requests.length = 0;
+  runtimeContextLength = undefined;
   model = {
     model_type: 'LLM',
     model_name: 'test',
@@ -88,7 +90,11 @@ async function render() {
   await act(async () =>
     root.render(
       <I18nProvider initialLocale="en">
-        <ChatPanel model={model} modelUid="test-model" />
+        <ChatPanel
+          model={model}
+          modelUid="test-model"
+          runtimeContextLength={runtimeContextLength}
+        />
       </I18nProvider>
     )
   );
@@ -245,4 +251,30 @@ it('does not leak saved reasoning settings after the model loses those capabilit
   const request = await send();
   assert.equal(Object.hasOwn(request, 'reasoning_effort'), false);
   assert.equal(Object.hasOwn(request, 'thinking_budget'), false);
+});
+
+it('uses the loaded context length for the output token limit', async () => {
+  model.context_length = 40960;
+  runtimeContextLength = 33604;
+  await render();
+  await click('Additional inputs');
+  const control = document.querySelector<HTMLInputElement>(`input[aria-label="${maxTokens}"]`)!;
+  assert.equal(control.max, '33604');
+  await input(maxTokens, '40960');
+  assert.equal(control.validity.rangeOverflow, true);
+  await click('Save');
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await input(maxTokens, '33604');
+  await click('Save');
+  assert.equal((await send()).max_tokens, 33604);
+});
+it('does not use the registered context length when the runtime limit is unknown', async () => {
+  model.context_length = 40960;
+  runtimeContextLength = null;
+  await render();
+  await click('Additional inputs');
+  assert.equal(
+    document.querySelector<HTMLInputElement>(`input[aria-label="${maxTokens}"]`)!.max,
+    ''
+  );
 });

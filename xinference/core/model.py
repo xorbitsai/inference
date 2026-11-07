@@ -835,6 +835,15 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             )
         return self._realtime_runtime.issue_ticket(subject, task)
 
+    async def get_runtime_context_length(self) -> Optional[int]:
+        """Read the serving generation, without inferring from registry metadata."""
+        from ..model.llm.core import LLM
+
+        self._require_ready()
+        if not isinstance(self._model, LLM):
+            return None
+        return await asyncio.to_thread(self._model.get_runtime_context_length)
+
     def get_audio_capabilities(self) -> Dict[str, Any]:
         """Describe the loaded adapter, rather than inferring from its UID."""
         self._require_ready()

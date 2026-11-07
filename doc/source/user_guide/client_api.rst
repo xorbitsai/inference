@@ -6,6 +6,13 @@ Client API
 
 Complete Client API Reference: :ref:`reference_index`
 
+Loaded context length
+=====================
+
+``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` endpoint. ``runtime_context_length`` is the loaded adapter's total input-plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each ``replica_uid`` and its limit. The model-wide value is the minimum only when every active replica reports a value. Queries follow the serving generation after reload; the model details panel fetches this information on entry and after a reload.
+
+The registered ``context_length`` and OpenAI/Anthropic model, generation, and streaming response formats remain unchanged. vLLM, Transformers, MLX, and TRT-LLM report their adapter limit; SGLang queries its runtime. llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's ``/props`` endpoint, rather than dividing the launch-time total capacity. Older runtimes without a query interface report ``null``. The limit does not guarantee available memory.
+
 Replica management
 ==================
 

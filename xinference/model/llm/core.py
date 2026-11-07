@@ -88,6 +88,33 @@ class LLM(abc.ABC):
         if kwargs:
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
 
+    def get_runtime_context_length(self) -> Optional[int]:
+        """Return the loaded adapter's input-plus-output limit, if known."""
+        from .context_length import normalize_runtime_positive_int
+
+        length = normalize_runtime_positive_int(getattr(self, "_context_length", None))
+        if length is not None:
+            return length
+        # Some multimodal Transformers loaders bypass the text loader which
+        # populates _context_length. Inspect their loaded config, without the
+        # config utility's historical 2048-token default.
+        config = getattr(getattr(self, "_model", None), "config", None)
+        if config is None:
+            return None
+        explicit = normalize_runtime_positive_int(
+            getattr(self, "_pytorch_model_config", {}).get("context_length")
+        )
+        if explicit is not None:
+            return explicit
+        from .utils import _collect_context_length_candidates
+
+        candidates = [
+            value
+            for raw in _collect_context_length_candidates(config, ("text_config",))
+            if (value := normalize_runtime_positive_int(raw)) is not None
+        ]
+        return max(candidates) if candidates else None
+
     def count_tokens(
         self, messages: List[Dict], generate_config: Optional[Dict] = None
     ) -> int:
