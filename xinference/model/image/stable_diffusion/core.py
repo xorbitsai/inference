@@ -1268,6 +1268,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         if ability not in self._abilities:
             raise RuntimeError(f"{self._model_uid} does not support inpainting")
 
+        generate_kwargs = (
+            self._model_spec.default_generate_config or {}  # type: ignore
+        ).copy()
+        generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+        kwargs = generate_kwargs
+
         if (
             "text2image" in self._abilities or "image2image" in self._abilities
         ) and self._model is not None:
