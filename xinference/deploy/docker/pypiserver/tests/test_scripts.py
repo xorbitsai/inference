@@ -65,6 +65,7 @@ def test_generate_package_list_classification():
     assert generator.classify_spec("https://example.com/pkg.tar.gz") == "source"
     assert generator.classify_spec("git+https://github.com/org/repo") == "source"
     assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "source"
+    assert generator.classify_spec('pkg ; platform_version == "a@b"') == "pin"
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
     assert (
@@ -81,6 +82,22 @@ def test_generate_package_list_classification():
     )
     standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
     assert generator.normalize_mirror_spec(standard_marker) == standard_marker
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "hg+https://example.com/repo",
+        "pkg @ svn+https://example.com/repo",
+        "bzr+https://example.com/repo",
+        "file:///tmp/pkg-1.0-py3-none-any.whl",
+        "pkg @ file:///tmp/pkg.tar.gz",
+        "pkg @ ../pkg.tar.gz",
+    ],
+)
+def test_generate_package_list_classifies_other_sources(spec):
+    generator = _load_script("generate_package_lists")
+    assert generator.classify_spec(spec) == "source"
 
 
 @pytest.mark.parametrize("platform", ["amd64", "arm64"])
@@ -726,6 +743,8 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
     model_dir = src_root / "xinference" / "model"
     model_dir.mkdir(parents=True)
     wheel = "https://example.invalid/direct-1.0-py3-none-any.whl"
+    marker = ' ; platform_machine == "x86_64"'
+    marked_wheel = "https://example.invalid/marked-1.0-py3-none-any.whl" + marker
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     archive = "sglang @ https://example.invalid/archive/abc.zip#subdirectory=python"
     (model_dir / "spec.json").write_text(
@@ -736,6 +755,7 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
                     "packages": [
                         "model-pin==1.0",
                         wheel,
+                        marked_wheel,
                         git_source,
                         archive,
                     ]
@@ -790,12 +810,15 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
             "sources": ["spec.json:test-model"],
         }
     ]
-    assert (out / "urls.txt").read_text().splitlines() == [wheel]
+    assert (out / "urls.txt").read_text().splitlines() == [
+        wheel,
+        "marked @ " + marked_wheel,
+    ]
     assert (out / "git.txt").read_text().splitlines() == [git_source, archive]
     assert json.loads((out / "manifest.json").read_text())["counts"] == {
         "engines": 1,
         "pins": 1,
-        "urls": 1,
+        "urls": 2,
         "git": 2,
         "find_links_only": 0,
         "deferred_model_pins": 0,

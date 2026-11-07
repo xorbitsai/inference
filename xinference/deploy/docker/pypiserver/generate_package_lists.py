@@ -48,11 +48,15 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 from urllib.parse import unquote, urlsplit
 
+from packaging.requirements import InvalidRequirement, Requirement
+
 PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
 SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_-]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
 XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
+DIRECT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+BARE_URL_MARKER_RE = re.compile(r"(https?://\S+)\s+;\s*(.*)")
 
 # This model's vLLM integration targets an upstream release that is not yet
 # published. Keep the runtime requirement intact, but do not block the offline
@@ -160,19 +164,29 @@ def iter_virtualenv_packages(
 
 def classify_spec(spec: str) -> str:
     """Distinguish direct wheels, unsupported sources, and index requirements."""
-    target = spec.strip()
-    if not target.startswith(("http://", "https://", "git+")):
-        target = target.partition("@")[2].strip()
-    if target.startswith("git+"):
-        return "source"
-    if target.startswith(("http://", "https://")):
-        url = target.split(maxsplit=1)[0]
-        return "url" if unquote(urlsplit(url).path).endswith(".whl") else "source"
-    return "pin"
+    candidate = spec.strip()
+    if DIRECT_SCHEME_RE.match(candidate) or candidate.startswith(
+        ("git+", "hg+", "svn+", "bzr+")
+    ):
+        target = candidate.split(maxsplit=1)[0]
+    elif "@" in candidate:
+        try:
+            target = Requirement(normalize_mirror_spec(candidate)).url
+        except InvalidRequirement:
+            return "pin"
+    else:
+        return "pin"
+    if target is None:
+        return "pin"
+    if target.startswith(("http://", "https://")) and unquote(
+        urlsplit(target).path
+    ).endswith(".whl"):
+        return "url"
+    return "source"
 
 
 def normalize_mirror_spec(spec: str) -> str:
-    """Strip xoscar-only markers that pip cannot evaluate.
+    """Convert mirror requirements to syntax pip can evaluate.
 
     The offline mirror must carry dependencies for both CPU and CUDA model
     launches. xoscar selects the applicable branch when it creates the model
@@ -184,6 +198,14 @@ def normalize_mirror_spec(spec: str) -> str:
     requirement, separator, marker = candidate.partition(";")
     if separator and marker.strip().lower() in XOSCAR_RUNTIME_MARKERS:
         return requirement.strip()
+    bare_wheel = BARE_URL_MARKER_RE.fullmatch(candidate)
+    if bare_wheel is not None:
+        # Pip accepts markers on named direct requirements.
+        url, marker = bare_wheel.groups()
+        filename = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
+        if filename.endswith(".whl"):
+            name = filename.split("-", 1)[0]
+            return f"{name} @ {url} ; {marker}"
     return candidate
 
 

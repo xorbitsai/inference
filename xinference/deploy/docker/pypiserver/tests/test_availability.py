@@ -9,6 +9,7 @@
 import importlib.util
 import json
 import re
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -341,6 +342,11 @@ def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
             '?download=1#sha256=abcd ; platform_machine == "x86_64"',
             None,
         ),
+        (
+            "pkg @ https://example.com/pkg-1.0-cp312-cp312-manylinux2014_x86_64.whl"
+            ' ; platform_machine == "aarch64"',
+            "incompatible",
+        ),
     ],
 )
 def test_validate_direct_wheels(checker, tmp_path, spec, error):
@@ -352,6 +358,44 @@ def test_validate_direct_wheels(checker, tmp_path, spec, error):
     else:
         with pytest.raises(ValueError, match=error):
             checker.validate_direct_wheels(path, environment, "3.12.0")
+
+
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+def test_validate_direct_abi3_wheels(checker, tmp_path, machine):
+    path = tmp_path / "urls.txt"
+    path.write_text(
+        "https://example.com/sgl_kernel-0.3.21%2Bcu130-"
+        f"cp310-abi3-manylinux2014_{machine}.whl\n"
+    )
+    checker.validate_direct_wheels(path, {"platform_machine": machine}, "3.12.0")
+
+
+@pytest.mark.parametrize(
+    "wheel_url,error",
+    [
+        ("https://example.com/source.zip", "invalid direct wheel filename"),
+        (None, "No such file or directory"),
+    ],
+)
+def test_main_reports_manifest_errors(checker, monkeypatch, tmp_path, wheel_url, error):
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"machine": "x86_64", "cuda_version": "13.0", "engines": {}})
+    )
+    if wheel_url is not None:
+        (tmp_path / "urls.txt").write_text(wheel_url + "\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "check_package_availability.py",
+            "--manifest-dir",
+            str(tmp_path),
+            "--runtime-constraints",
+            str(tmp_path / "constraints.txt"),
+        ],
+    )
+    with pytest.raises(SystemExit, match=f"ERROR: .*{error}"):
+        checker.main()
 
 
 @pytest.mark.parametrize("format", ["json", "html"])
