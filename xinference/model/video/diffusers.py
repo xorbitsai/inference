@@ -1222,18 +1222,9 @@ class DiffusersVideoModel:
     def _center_crop_resize(
         cls, image: PIL.Image.Image, height: int, width: int
     ) -> PIL.Image.Image:
-        import torchvision.transforms.functional as TF
+        from PIL import ImageOps
 
-        # Calculate resize ratio to match first frame dimensions
-        resize_ratio = max(width / image.width, height / image.height)
-
-        # Resize the image
-        width = round(image.width * resize_ratio)
-        height = round(image.height * resize_ratio)
-        size = [width, height]
-        image = TF.center_crop(image, size)
-
-        return image
+        return ImageOps.fit(image, (width, height), method=PIL.Image.LANCZOS)
 
     def _output_to_video(self, output: Any, fps: int, response_format: str):
         import gc
