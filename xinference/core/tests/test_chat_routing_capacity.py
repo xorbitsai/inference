@@ -24,7 +24,8 @@ from packaging.version import Version
 
 from ...model.llm.vllm.core import VLLMModel
 from ..exceptions import ModelNotReadyError
-from ..model import ModelActor
+from ..model import ModelActor, request_limit
+from ..rpc_context import actor_call
 from ..supervisor import SupervisorActor
 from ..utils import build_replica_model_uid
 
@@ -36,6 +37,7 @@ def _chat_actor(slots, active=0, request_limit=float("inf"), **engine_config):
     actor._model = backend
     actor._model_state = "ready"
     actor._serve_count = active
+    actor._chat_reservations = {}
     actor._request_limits = request_limit
     actor._realtime_runtime = None
     return actor
@@ -182,6 +184,73 @@ async def test_all_saturated_engines_keep_affinity_and_normal_admission():
     }
     assert await supervisor.get_model("demo", routing_key="task") is models[1]
     assert info.routing_keys["task"] == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_affinity_routes_reserve_the_last_slot():
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(2)
+    info.routing_keys.update({"a": 0, "b": 0})
+    supervisor._model_uid_to_replica_info = {"demo": info}
+    models = [_chat_actor(1), _chat_actor(1)]
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", index): SimpleNamespace(
+            get_model=AsyncMock(return_value=model)
+        )
+        for index, model in enumerate(models)
+    }
+    try:
+        results = await asyncio.gather(
+            supervisor.get_chat_model("demo", "a", "first"),
+            actor_call(
+                supervisor,
+                "get_chat_model",
+                "demo",
+                "b",
+                "second",
+                _rpc_correlation_id="test-correlation",
+            ),
+        )
+        assert all(reserved for _, reserved in results)
+        assert {model for model, _ in results} == set(models)
+        assert not await models[0].can_accept_chat_request()
+        assert not await models[1].can_accept_chat_request()
+    finally:
+        for model in models:
+            for reservation in ("first", "second"):
+                model.release_chat_reservation(reservation)
+    assert await models[0].can_accept_chat_request()
+    assert await models[1].can_accept_chat_request()
+
+
+@pytest.mark.asyncio
+async def test_chat_admission_converts_reservation_to_active_request():
+    actor = _chat_actor(1, request_limit=1)
+    actor.model_uid = lambda: "demo"
+    actor._metrics_labels = {}
+    actor.record_metrics = AsyncMock()
+    entered = asyncio.Event()
+
+    @request_limit
+    async def chat(model):
+        entered.set()
+        await asyncio.Event().wait()
+
+    assert await actor.reserve_chat_request("chat")
+    assert await actor.reserve_chat_request("chat")
+    assert not await actor.reserve_chat_request("other")
+    task = asyncio.create_task(chat(actor, _chat_reservation_id="chat"))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        assert actor._serve_count == 1
+        assert not actor._chat_reservations
+        assert not await actor.can_accept_chat_request()
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert await actor.can_accept_chat_request()
 
 
 @pytest.mark.asyncio

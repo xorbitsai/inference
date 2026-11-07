@@ -140,7 +140,8 @@ def register_batching_multimodal_models(*model_names: str):
 def _has_request_capacity(model: "ModelActor") -> bool:
     realtime = getattr(model, "_realtime_runtime", None)
     realtime_count = realtime.active_count if realtime is not None else 0
-    return 1 + model._serve_count + realtime_count <= model._request_limits
+    reserved = len(getattr(model, "_chat_reservations", ()))
+    return 1 + model._serve_count + realtime_count + reserved <= model._request_limits
 
 
 def request_limit(fn):
@@ -160,6 +161,9 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
+        reservation_id = kwargs.pop("_chat_reservation_id", None)
+        if reservation_id is not None:
+            self.release_chat_reservation(reservation_id)
         if _has_request_capacity(self):
             self._serve_count += 1
         else:
@@ -414,6 +418,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._worker_status_token = worker_status_token
         self._progress_tracker_ref = None
         self._serve_count = 0
+        self._chat_reservations: Dict[str, asyncio.TimerHandle] = {}
         self._realtime_runtime = None
         self._realtime_file_streams: Set[_RealtimeFileStream] = set()
         self._realtime_start_lock = asyncio.Lock()
@@ -806,7 +811,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             limits=RealtimeLimits(max_sessions=max_sessions),
             inference_lock=self._lock,
             admission=lambda: self._model_state == "ready"
-            and self._serve_count + runtime.active_count < self._request_limits,
+            and self._serve_count + runtime.active_count + len(self._chat_reservations)
+            < self._request_limits,
         )
         worker_host = urlsplit(
             self._worker_address
@@ -2442,12 +2448,32 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
 
-    async def can_accept_chat_request(self) -> bool:
+    def _can_accept_chat_request(self) -> bool:
         if self._model_state != "ready" or not _has_request_capacity(self):
             return False
         get_capacity = getattr(self._model, "get_max_concurrent_requests", None)
         capacity = get_capacity() if get_capacity is not None else None
-        return capacity is None or self._serve_count < capacity
+        reserved = len(getattr(self, "_chat_reservations", ()))
+        return capacity is None or self._serve_count + reserved < capacity
+
+    async def can_accept_chat_request(self) -> bool:
+        return self._can_accept_chat_request()
+
+    async def reserve_chat_request(self, reservation_id: str) -> bool:
+        if reservation_id in self._chat_reservations:
+            return True
+        if not self._can_accept_chat_request():
+            return False
+        # A timed-out RPC or a disconnected REST process can lose the reply.
+        self._chat_reservations[reservation_id] = asyncio.get_running_loop().call_later(
+            30, self.release_chat_reservation, reservation_id
+        )
+        return True
+
+    def release_chat_reservation(self, reservation_id: str) -> None:
+        timer = self._chat_reservations.pop(reservation_id, None)
+        if timer is not None:
+            timer.cancel()
 
     @log_async(logger=logger)
     async def free_model_cache(self, request_id: str):
