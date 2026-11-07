@@ -18,6 +18,29 @@ def session(phase="active", revision=0, id="agent"):
     return dict(id=id, revision=revision, phase=phase, scope="credential")
 
 
+@pytest.mark.asyncio
+async def test_concurrent_opaque_reads_share_one_staging_slot(monkeypatch):
+    import asyncio
+
+    backend, _ = mock_lmcache_backend(monkeypatch, cpu_bytes=4096)
+    actor = XavierHistoryCacheActor(backend)
+    namespace = "a" * 64
+    actor.configure_pages(namespace, 4096)
+    keys = [f"{i:064x}" for i in [1, 2]]
+    pages = [bytes([i]) * 4096 for i in [1, 2]]
+    assert actor.put(namespace, keys, pages) == [True, True]
+    try:
+        for _ in range(10):
+            results = await asyncio.gather(
+                *(actor.get(namespace, [key]) for key in keys)
+            )
+            assert results == [[page] for page in pages]
+        assert not actor._store.ready and not actor._store.leases
+        assert actor.get_stats()["missed_pages"] == 0
+    finally:
+        await actor.__pre_destroy__()
+
+
 @pytest.mark.parametrize("backend", ["bytes", "torch"])
 @pytest.mark.parametrize("end", ["waiting", "finished", "expired"])
 def test_waiting_prefix_survives_pressure_but_does_not_pin_capacity(backend, end):
