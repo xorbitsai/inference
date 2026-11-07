@@ -134,6 +134,85 @@ async def test_lmcache_eviction_is_miss_and_invalidates_directory(backend):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_prefetch_waits_for_active_read(backend):
+    _, k, v = publish(backend, [1, 2])
+    entered, release = threading.Event(), threading.Event()
+    original = backend._storage.load
+    active = peak = 0
+
+    def slow(keys):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        try:
+            entered.set()
+            assert release.wait(5)
+            return original(keys)
+        finally:
+            active -= 1
+
+    backend._storage.load = slow
+    reads = [asyncio.create_task(backend.prefetch([1]))]
+    try:
+        assert await asyncio.to_thread(entered.wait, 1)
+        reads.append(asyncio.create_task(backend.prefetch([2])))
+        await asyncio.sleep(0.01)
+        assert not reads[1].done(), "A healthy concurrent read must not become a miss"
+        release.set()
+        assert await asyncio.gather(*reads) == [True, True]
+        assert peak == 1
+        assert backend.reserve("reader", [1, 2])
+        assert torch.equal(backend.read("K", [1, 2]), k)
+        assert torch.equal(backend.read("V", [1, 2]).view(torch.bfloat16), v)
+        backend.release("reader")
+    finally:
+        release.set()
+        await asyncio.gather(*reads, return_exceptions=True)
+        await backend.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_stopped_prefetch_waiter_does_not_cancel_owner(backend, cancel):
+    publish(backend, [1, 2])
+    entered, release = threading.Event(), threading.Event()
+    original = backend._storage.load
+    loads = []
+
+    def slow(keys):
+        loads.append(keys)
+        entered.set()
+        assert release.wait(5)
+        return original(keys)
+
+    backend._storage.load = slow
+    owner = asyncio.create_task(backend.prefetch([1]))
+    reads = [owner]
+    try:
+        assert await asyncio.to_thread(entered.wait, 1)
+        backend._config["read_timeout"] = 1 if cancel else 0.01
+        waiter = asyncio.create_task(backend.prefetch([2]))
+        reads.append(waiter)
+        if cancel:
+            await asyncio.sleep(0.01)
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            assert not await waiter
+            assert backend.get_stats()["timeouts"] == 1
+        assert not owner.done()
+        assert len(loads) == 1
+        release.set()
+        assert await owner
+        assert await backend.prefetch([2])
+    finally:
+        release.set()
+        await asyncio.gather(*reads, return_exceptions=True)
+        await backend.close()
+
+
+@pytest.mark.asyncio
 async def test_prefetch_pressure_does_not_evict_active_reader(backend):
     publish(backend, [1, 2])
     assert await backend.prefetch([1])

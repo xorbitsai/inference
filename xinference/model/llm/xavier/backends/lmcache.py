@@ -334,6 +334,8 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
             config, namespace + "-" + identity[:16], self._page_bytes
         )
         self._pending: Optional[asyncio.Task] = None
+        self._prefetch_idle = asyncio.Event()
+        self._prefetch_idle.set()
         self._closing = False
         self._counts = dict(
             stored_pages=0, l1_hits=0, l2_hits=0, misses=0, timeouts=0, read_seconds=0.0
@@ -405,6 +407,31 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         return [key for key in accepted if key in self._known]
 
     async def prefetch(self, keys: List[int]) -> bool:
+        if self._closing:
+            return False
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self._config["read_timeout"]
+        admitted = False
+        try:
+            # Include admission behind a healthy reader in the same timeout.
+            # Only an abandoned I/O job should make a later read fail fast.
+            while not self._prefetch_idle.is_set():
+                await asyncio.wait_for(
+                    self._prefetch_idle.wait(), max(0, deadline - loop.time())
+                )
+            # Claim and publish in the caller's task so it can reserve its read
+            # lease before another consumer recycles the staged pages.
+            self._prefetch_idle.clear()
+            admitted = True
+            return await self._prefetch(keys, deadline)
+        except asyncio.TimeoutError:
+            self._counts["timeouts"] += 1
+            return False
+        finally:
+            if admitted:
+                self._prefetch_idle.set()
+
+    async def _prefetch(self, keys: List[int], deadline: float) -> bool:
         if self._closing or not self.can_stage(set(keys)):
             return False
         missing = [key for key in dict.fromkeys(keys) if key not in self.ready]
@@ -416,6 +443,9 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         # consumes the LMCache result and releases locks after caller cancellation.
         if self._pending is not None and not self._pending.done():
             return False
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
         started = time.monotonic()
         task = self._pending = asyncio.create_task(
             asyncio.to_thread(self._storage.load, missing)
@@ -430,11 +460,10 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         task.add_done_callback(completed)
         try:
             pages, absent, l1_hits, l2_hits = await asyncio.wait_for(
-                asyncio.shield(task), self._config["read_timeout"]
+                asyncio.shield(task), remaining
             )
         except asyncio.TimeoutError:
-            self._counts["timeouts"] += 1
-            return False
+            raise
         except Exception:
             logger.warning(
                 "Xavier LMCache prefetch failed; recomputing locally", exc_info=True
