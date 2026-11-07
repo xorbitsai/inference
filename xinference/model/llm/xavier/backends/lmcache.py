@@ -320,7 +320,7 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         # Staging/leased copies are transient and have their own bounded budget.
         super().__init__(min(capacity, config["cpu_bytes"] // allocation_bytes))
         self._config = dict(config)
-        self._known: OrderedDict[int, None] = OrderedDict()
+        self._known: OrderedDict[int, object] = OrderedDict()
         self._directory_capacity = (
             config["cpu_bytes"] + storage_bytes
         ) // allocation_bytes
@@ -380,10 +380,11 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
                         "Xavier LMCache payload differs from its KV schema"
                     )
                 parts.append(tensor.reshape(-1).view(torch.uint8))
-            if key in self._known or self._storage.store(key, torch.cat(parts)):
-                if key not in self._known:
-                    self._counts["stored_pages"] += 1
-                self._known[key] = None
+            # L2 can evict an object without updating our directory. Let
+            # LMCache admit complete new payloads even for known keys.
+            if self._storage.store(key, torch.cat(parts)):
+                self._counts["stored_pages"] += 1
+                self._known[key] = object()
                 self._known.move_to_end(key)
                 if key not in accepted:
                     accepted.append(key)
@@ -437,7 +438,8 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         missing = [key for key in dict.fromkeys(keys) if key not in self.ready]
         if not missing:
             return True
-        if not set(missing).issubset(self._known):
+        publications = {key: self._known[key] for key in missing if key in self._known}
+        if len(publications) != len(missing):
             return False
         # Bound abandoned or timed-out I/O to one job per actor. The job still
         # consumes the LMCache result and releases locks after caller cancellation.
@@ -475,8 +477,10 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         self._counts["l2_hits"] += l2_hits
         self._counts["misses"] += len(missing) - len(pages)
         for key in absent:
-            self._known.pop(key, None)
-            self.evicted.add(key)
+            # A miss can only invalidate the publication it was reading.
+            if self._known.get(key) is publications[key]:
+                del self._known[key]
+                self.evicted.add(key)
         if len(pages) != len(missing) or not self.can_stage(set(keys)):
             return False
         if any(

@@ -94,13 +94,13 @@ class DiskHistoryCacheActor(XavierHistoryCacheActor):
             assert asyncio.get_running_loop().time() < deadline
             await asyncio.sleep(0.05)
 
-    async def evict_l2_pages(self):
+    async def evict_l2_pages(self, namespace=None, keys=None):
         """Leave Xavier's directory stale after evicting this actor's objects."""
         await self.force_disk_reads()
         storage = self._store._storage
-        keys = [storage._key(key) for key in self._store._known]
+        selected = self._store._known if keys is None else self._keys(namespace, keys)
         for _, adapter in storage.manager.l2_adapters():
-            adapter.delete(keys)
+            adapter.delete([storage._key(key) for key in selected])
 
     async def force_disk_reads(self):
         await DiskCacheActor.force_disk_reads(self)
