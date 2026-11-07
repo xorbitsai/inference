@@ -1089,6 +1089,18 @@ const ja = {
     addReplicaUidLabel: 'レプリカエイリアス',
     addReplicaUidPlaceholder: '任意、空の場合は表示しません',
     addReplicaAutoWorker: '自動（デフォルト）',
+    addReplicaSimplePlacement: '自動スケジューリング',
+    addReplicaPlacementHint:
+      'GPU 番号は Worker ごとに独立しており、異なる Worker では同じ番号を使用できます。空欄の場合は選択した Worker が自動割り当てします。GPU 数を指定する場合はインデックスを入力してください。',
+    addReplicaRow: '追加レプリカ {{row}}',
+    addReplicaRowError_count: '配置行数を正の整数の追加レプリカ数と一致させてください。',
+    addReplicaRowError_worker: '追加レプリカ {{row}}: 利用可能な Worker を選択してください。',
+    addReplicaRowError_gpu:
+      '追加レプリカ {{row}}: 非負整数の GPU インデックスをカンマ区切りで入力してください。',
+    addReplicaRowError_duplicateGpu:
+      '追加レプリカ {{row}}: 同じ行で GPU インデックスを重複させないでください。',
+    addReplicaRowError_duplicateAlias:
+      '追加レプリカ {{row}}: この別名は今回の追加レプリカで既に使用されています。',
     addReplicaWorkerHint:
       '選択した各ワーカーに少なくとも1つのレプリカを割り当て、追加分は選択順に繰り返します。',
     addReplicaWorkerRequired: 'GPU インデックスを指定する前に Worker を選択してください。',
