@@ -53,6 +53,10 @@ potential of cutting-edge AI models.
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### New Models
+- Built-in support for [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b): [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- Built-in support for [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0): [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- Built-in support for [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3): [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- Built-in support for [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2): [#5913](https://github.com/xorbitsai/inference/pull/5913)
 - Built-in support for [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein): [#5792](https://github.com/xorbitsai/inference/pull/5792)
 - Built-in support for FIBO 2.0 series ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)): [#5790](https://github.com/xorbitsai/inference/pull/5790)
 - Built-in support for Ming-3.0 TTS series ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)): [#5788](https://github.com/xorbitsai/inference/pull/5788)
@@ -65,9 +69,6 @@ potential of cutting-edge AI models.
 - Built-in support for GLM-5.3 series ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)): [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - Built-in support for [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo): [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - Built-in support for [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash): [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- Built-in support for [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2): [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- Built-in support for [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS): [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- Built-in support for [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1): [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### Integrations
 - [Xagent](https://github.com/xorbitsai/xagent): an enterprise agent platform for building and running AI agents with planning, memory, and tool use — not limited to rigid workflows.
 - [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.

@@ -48,6 +48,10 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 - 分散推論：ワーカー間でモデルを実行できます: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM の強化：複数レプリカ間で KV キャッシュを共有: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新規モデル
+- [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b) を組み込みでサポート: [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0) を組み込みでサポート: [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3) を組み込みでサポート: [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2) を組み込みでサポート: [#5913](https://github.com/xorbitsai/inference/pull/5913)
 - [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) を組み込みでサポート: [#5792](https://github.com/xorbitsai/inference/pull/5792)
 - FIBO 2.0 シリーズ（[Dev](https://huggingface.co/briaai/Fibo-2.0-dev)、[Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)） を組み込みでサポート: [#5790](https://github.com/xorbitsai/inference/pull/5790)
 - Ming-3.0 TTS シリーズ（[Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny)、[0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)） を組み込みでサポート: [#5788](https://github.com/xorbitsai/inference/pull/5788)
@@ -60,9 +64,6 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 - GLM-5.3 シリーズ（[BF16](https://huggingface.co/zai-org/GLM-5.3-BF16)、[FP8](https://huggingface.co/zai-org/GLM-5.3)） を組み込みでサポート: [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) を組み込みでサポート: [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) を組み込みでサポート: [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) を組み込みでサポート: [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) を組み込みでサポート: [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) を組み込みでサポート: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 統合
 - [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
 - [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。

@@ -48,6 +48,10 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 - 分散式推論：模型可在多個 worker 之間分散執行： [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 改進：在多個複本之間共享 KV-cache： [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新增模型
+- 內建支援 [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b)： [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- 內建支援 [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0)： [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- 內建支援 [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3)： [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- 內建支援 [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2)： [#5913](https://github.com/xorbitsai/inference/pull/5913)
 - 內建支援 [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein)： [#5792](https://github.com/xorbitsai/inference/pull/5792)
 - 內建支援 FIBO 2.0 系列（[Dev](https://huggingface.co/briaai/Fibo-2.0-dev)、[Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)）： [#5790](https://github.com/xorbitsai/inference/pull/5790)
 - 內建支援 Ming-3.0 TTS 系列（[Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny)、[0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)）： [#5788](https://github.com/xorbitsai/inference/pull/5788)
@@ -60,9 +64,6 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 - 內建支援 GLM-5.3 系列（[BF16](https://huggingface.co/zai-org/GLM-5.3-BF16)、[FP8](https://huggingface.co/zai-org/GLM-5.3)）： [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - 內建支援 [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo)： [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - 內建支援 [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash)： [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- 內建支援 [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2)： [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- 內建支援 [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS)： [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- 內建支援 [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1)： [#5588](https://github.com/xorbitsai/inference/pull/5588)
 ### 整合項目
 - [Xagent](https://github.com/xorbitsai/xagent)：企業級 Agent 平台，具規劃、記憶與工具整合。
 - [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference)：LLMOps 平台，快速建立可視化與控制的應用。
