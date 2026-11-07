@@ -16,6 +16,7 @@
 
 import logging
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -78,6 +79,144 @@ def test_center_crop_resize_matches_first_frame(last_size, bars):
     assert resized.size == (64, 48)
     assert resized.getpixel((0, 0)) == (0, 0, 255)
     assert resized.getpixel((63, 47)) == (0, 0, 255)
+
+
+class _FakeWanImageToVideoPipeline:
+    vae_scale_factor_spatial = 8
+    transformer = SimpleNamespace(config=SimpleNamespace(patch_size=(1, 2, 2)))
+
+    def __call__(
+        self,
+        image,
+        prompt,
+        last_image=None,
+        height=480,
+        width=832,
+        num_videos_per_prompt=1,
+        generator=None,
+        **kwargs,
+    ):
+        return {
+            "image": image,
+            "last_image": last_image,
+            "height": height,
+            "width": width,
+        }
+
+
+def _wan_i2v_model(monkeypatch, default_generate_config):
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/mock",
+        SimpleNamespace(  # type: ignore[arg-type]
+            model_family="Wan",
+            model_ability=["image2video"],
+            default_generate_config=default_generate_config,
+        ),
+    )
+    model._model = _FakeWanImageToVideoPipeline()
+    monkeypatch.setattr(
+        DiffusersVideoModel,
+        "_output_to_video",
+        lambda self, output, fps, response_format: output,
+    )
+    return model
+
+
+@pytest.mark.parametrize(
+    "default_generate_config, kwargs, expected_size",
+    [
+        # Wan2.2-i2v-A14B (diffusers) has no max_area in its spec
+        ({}, {}, (832, 480)),
+        ({}, {"width": 416, "height": 240}, (416, 240)),
+        ({"max_area": [480, 832]}, {}, (832, 480)),
+        ({"max_area": [480, 832]}, {"max_area": "240*416"}, (416, 240)),
+        ({}, {"max_area": 240 * 416}, (416, 240)),
+    ],
+)
+def test_image_to_video_resolves_max_area(
+    monkeypatch, default_generate_config, kwargs, expected_size
+):
+    from PIL import Image
+
+    model = _wan_i2v_model(monkeypatch, default_generate_config)
+    output = model.image_to_video(Image.new("RGB", (1664, 960)), "a cat", **kwargs)
+
+    assert output["image"].size == expected_size
+    assert (output["width"], output["height"]) == expected_size
+
+
+def test_firstlastframe_to_video_without_max_area(monkeypatch):
+    from PIL import Image
+
+    model = _wan_i2v_model(monkeypatch, {})
+    output = model.firstlastframe_to_video(
+        Image.new("RGB", (1664, 960)), Image.new("RGB", (960, 1664)), "a cat"
+    )
+
+    assert output["image"].size == (832, 480)
+    assert output["last_image"].size == (832, 480)
+
+
+@pytest.mark.parametrize("has_image_encoder", [True, False])
+def test_load_wan_image_to_video_without_image_encoder(
+    monkeypatch, tmp_path, has_image_encoder
+):
+    import diffusers
+    import transformers
+
+    from .. import diffusers as diffusers_module
+
+    (tmp_path / "vae").mkdir()
+    if has_image_encoder:
+        (tmp_path / "image_encoder").mkdir()
+
+    calls = {}
+
+    class FakeCLIPVisionModel:
+        @classmethod
+        def from_pretrained(cls, path, subfolder=None, **kwargs):
+            assert subfolder == "image_encoder"
+            calls["image_encoder"] = True
+            return "clip"
+
+    class FakeVAE:
+        @classmethod
+        def from_pretrained(cls, path, subfolder=None, **kwargs):
+            return "vae"
+
+    class FakePipeline:
+        @classmethod
+        def from_pretrained(cls, path, **kwargs):
+            calls["pipeline_kwargs"] = kwargs
+            return MagicMock()
+
+    monkeypatch.setattr(transformers, "CLIPVisionModel", FakeCLIPVisionModel)
+    monkeypatch.setattr(diffusers, "AutoencoderKLWan", FakeVAE)
+    monkeypatch.setattr(diffusers, "WanImageToVideoPipeline", FakePipeline)
+    monkeypatch.setattr(diffusers_module, "gpu_count", lambda: 0)
+    monkeypatch.setattr(
+        diffusers_module, "move_model_to_available_device", lambda pipeline: pipeline
+    )
+
+    model = DiffusersVideoModel(
+        "mock",
+        str(tmp_path),
+        SimpleNamespace(  # type: ignore[arg-type]
+            model_family="Wan",
+            model_ability=["image2video"],
+            default_model_config={},
+            default_generate_config={},
+        ),
+    )
+    model.load()
+
+    assert calls.get("image_encoder", False) == has_image_encoder
+    assert calls["pipeline_kwargs"]["vae"] == "vae"
+    if has_image_encoder:
+        assert calls["pipeline_kwargs"]["image_encoder"] == "clip"
+    else:
+        assert "image_encoder" not in calls["pipeline_kwargs"]
 
 
 @pytest.mark.skip(reason="Video model requires too many GRAM.")
