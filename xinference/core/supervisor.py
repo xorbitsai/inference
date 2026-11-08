@@ -7903,7 +7903,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return await model.supports_agent_cache_lifecycle()
 
         try:
-            results = await asyncio.wait_for(
+            results = await xo.wait_for(
                 asyncio.gather(
                     tracker.get_cache_sessions([]),
                     self._all_replicas_support(model_uid, probe, timeout=1),
@@ -7966,10 +7966,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         try:
             router = self._pd_model_mapping.get(model_uid)
             if router is not None:
-                supported = await asyncio.wait_for(probe(router), timeout=timeout)
+                supported = await xo.wait_for(probe(router), timeout=timeout)
                 return supported and self._pd_model_mapping.get(model_uid) is router
             replica_uids = self._iter_active_replica_model_uids(model_uid)
-            results = await asyncio.wait_for(
+            results = await xo.wait_for(
                 asyncio.gather(
                     *(probe_replica(uid) for uid in replica_uids),
                     return_exceptions=True,
