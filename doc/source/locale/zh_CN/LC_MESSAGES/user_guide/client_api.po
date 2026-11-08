@@ -420,5 +420,5 @@ msgstr ""
 "查询其运行时。llama.cpp 从已加载服务的 ``/props`` 接口读取实际生效的每槽位 "
 "``n_ctx``，而不是用启动时的总容量除以槽位数。不提供查询接口的旧版运行时返回 ``null``。该上限不保证请求所需的内存始终可用。"
 
-msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
-msgstr "当运行中模型的描述声明 ``supports_chat_priority`` 时，客户端可在聊天请求中发送 ``priority_hint: -1``。Xinference 会在启用了优先级调度的 vLLM 副本上应用该提示。显式指定的 ``priority`` 优先。"
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence."
+msgstr "当运行中模型的描述声明 ``supports_chat_priority`` 时，客户端可在聊天请求中发送 ``priority_hint: -1``。选中的副本通过引擎原生调度或 Xinference 优先级队列应用该提示。使用 prefill/decode 分离部署时，两个阶段均须支持优先级。显式指定的 ``priority`` 优先。"

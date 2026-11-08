@@ -2514,16 +2514,7 @@ class VLLMModel(WeightCachedModel, LLM):
         tools: object = False,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
-        config = generate_config or {}
-        priority = validate_request_priority(config.get("priority", 0))
-        hint = config.get("priority_hint")
-        if (
-            "priority" not in config
-            and type(hint) is int
-            and hint == -1
-            and self.supports_chat_priority()
-        ):
-            priority = -1
+        priority = validate_request_priority((generate_config or {}).get("priority", 0))
         if priority:
             if VLLM_VERSION < MIN_VLLM_REQUEST_PRIORITY_VERSION:
                 raise ValueError(VLLM_PRIORITY_VERSION)

@@ -410,5 +410,5 @@ msgstr ""
 " 총용량을 슬롯 수로 나누는 대신 로드된 서버의 ``/props``에서 실제 슬롯별 ``n_ctx``를 읽습니다. 조회 인터페이스가 없는"
 " 이전 런타임은 ``null``을 반환합니다. 이 한도가 요청에 필요한 가용 메모리를 보장하지는 않습니다."
 
-msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
-msgstr "실행 중인 모델의 설명에 ``supports_chat_priority`` 가 표시되면 클라이언트는 채팅 요청에 ``priority_hint: -1`` 을 보낼 수 있습니다. Xinference는 우선순위 스케줄링이 활성화된 vLLM 복제본에 이 힌트를 적용합니다. 명시적으로 지정한 ``priority`` 가 우선합니다."
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence."
+msgstr "실행 중인 모델의 설명에 ``supports_chat_priority`` 가 표시되면 클라이언트는 채팅 요청에 ``priority_hint: -1`` 을 보낼 수 있습니다. 선택된 복제본은 엔진의 기본 스케줄러 또는 Xinference의 우선순위 큐에서 힌트를 적용합니다. prefill/decode 분리 배포에서는 두 단계 모두 우선순위를 지원해야 합니다. 명시적으로 지정한 ``priority`` 가 우선합니다."

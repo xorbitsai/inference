@@ -485,6 +485,24 @@ class PDModelActor(xo.StatelessActor):
                 return {"supports_thinking_budget": False}
         return {"supports_thinking_budget": bool(self._decode_replicas)}
 
+    async def supports_chat_priority(self) -> bool:
+        prefill = self._prefill_replicas.copy()
+        decode = self._decode_replicas.copy()
+        if not prefill or not decode:
+            return False
+        results = await asyncio.gather(
+            *(
+                actor_call(replica, "supports_chat_priority")
+                for replica in (*prefill.values(), *decode.values())
+            ),
+            return_exceptions=True,
+        )
+        return (
+            all(result is True for result in results)
+            and prefill == self._prefill_replicas
+            and decode == self._decode_replicas
+        )
+
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):
         if not self._decode_replicas:

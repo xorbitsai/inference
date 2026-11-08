@@ -7884,20 +7884,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _supports_chat_priority(
         self, model_uid: str, description: Dict[str, Any]
     ) -> bool:
-        if (
-            str(description.get("model_engine", "")).lower() != "vllm"
-            or "chat" not in description.get("model_ability", [])
-            or model_uid in self._pd_model_mapping
-        ):
+        if "chat" not in description.get("model_ability", []):
             return False
 
         async def probe(model: Any) -> bool:
             return await actor_call(model, "supports_chat_priority") is True
 
-        replica_uids = self._iter_active_replica_model_uids(model_uid)
-        return await self._all_replicas_support(
-            model_uid, probe, timeout=1
-        ) and replica_uids == self._iter_active_replica_model_uids(model_uid)
+        return await self._all_replicas_support(model_uid, probe, timeout=1)
 
     async def _supports_agent_cache_lifecycle(self, model_uid: str) -> bool:
         tracker = getattr(self, "_xavier_cache_mapping", {}).get(model_uid) or getattr(
@@ -7971,21 +7964,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return await probe(model)
 
         try:
-            if model_uid in self._pd_model_mapping:
-                return await asyncio.wait_for(
-                    probe(self._pd_model_mapping[model_uid]), timeout=timeout
-                )
+            router = self._pd_model_mapping.get(model_uid)
+            if router is not None:
+                supported = await asyncio.wait_for(probe(router), timeout=timeout)
+                return supported and self._pd_model_mapping.get(model_uid) is router
+            replica_uids = self._iter_active_replica_model_uids(model_uid)
             results = await asyncio.wait_for(
                 asyncio.gather(
-                    *(
-                        probe_replica(uid)
-                        for uid in self._iter_active_replica_model_uids(model_uid)
-                    ),
+                    *(probe_replica(uid) for uid in replica_uids),
                     return_exceptions=True,
                 ),
                 timeout=timeout,
             )
-            return bool(results) and all(result is True for result in results)
+            return (
+                bool(results)
+                and all(result is True for result in results)
+                and replica_uids == self._iter_active_replica_model_uids(model_uid)
+            )
         except Exception:
             # Older/unavailable workers must not prevent the details page loading.
             logger.debug(

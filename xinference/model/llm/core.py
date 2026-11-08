@@ -61,6 +61,13 @@ class LLM(abc.ABC):
     # whether the engine can load a GGUF quantization uploaded as split files
     support_split_gguf = True
 
+    def supports_chat_priority(self) -> bool:
+        """Whether this loaded engine can honor a nonzero chat priority."""
+        return (
+            not self.supports_native_request_priority
+            and self.supports_request_priority_fallback
+        )
+
     def get_request_priority_capacity(
         self, generate_config: Optional[Dict] = None
     ) -> int:

@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple
 INVALID_PRIORITY = "priority must be an integer"
 MIN_REQUEST_PRIORITY = -10000
 MAX_REQUEST_PRIORITY = 10000
+CHAT_PRIORITY_HINT = "priority_hint"
+INTERACTIVE_CHAT_PRIORITY = -1
 PRIORITY_OUT_OF_RANGE = "priority must be between -10000 and 10000"
 VLLM_PRIORITY_VERSION = "Request priority requires vLLM >= 0.6.3"
 VLLM_PRIORITY_DISABLED = (
@@ -37,6 +39,10 @@ def validate_request_priority(value: Any) -> int:
     if not MIN_REQUEST_PRIORITY <= value <= MAX_REQUEST_PRIORITY:
         raise ValueError(PRIORITY_OUT_OF_RANGE)
     return value
+
+
+def is_interactive_priority_hint(value: Any) -> bool:
+    return type(value) is int and value == INTERACTIVE_CHAT_PRIORITY
 
 
 def to_trt_request_priority(priority: int) -> float:

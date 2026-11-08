@@ -433,5 +433,5 @@ msgstr ""
 "melden ``null``. Die Grenze garantiert keinen verfügbaren Speicher für eine "
 "Anfrage."
 
-msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
-msgstr "Clients können in Chat-Anfragen ``priority_hint: -1`` senden, wenn die Beschreibung des laufenden Modells ``supports_chat_priority`` angibt. Xinference wendet den Hinweis auf vLLM-Replikate mit aktivierter Prioritätsplanung an. Ein explizites ``priority`` hat Vorrang."
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence."
+msgstr "Clients können in Chat-Anfragen ``priority_hint: -1`` senden, wenn die Beschreibung des laufenden Modells ``supports_chat_priority`` angibt. Das ausgewählte Replikat wendet den Hinweis über die native Planung oder die Xinference-Prioritätswarteschlange an. Bei Prefill/Decode-Bereitstellungen müssen beide Phasen Prioritäten unterstützen. Ein explizites ``priority`` hat Vorrang."

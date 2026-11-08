@@ -553,7 +553,7 @@ With the Xinference Python client, pass ``generate_config={"priority": -10}`` to
         extra_body={"priority": -10},
     )
 
-Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence.
+Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence.
 
 Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream.
 

@@ -101,7 +101,7 @@ async def test_stopping_fails_queued_requests():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("method", ["generate", "chat", "chat_hint"])
 @pytest.mark.parametrize("capacity", [1, 2, 4])
 async def test_waiting_requests_run_by_priority_then_arrival(method, capacity):
     actor, model = _actor(capacity)
@@ -110,11 +110,14 @@ async def test_waiting_requests_run_by_priority_then_arrival(method, capacity):
 
     async def infer(prompt, config):
         assert "priority" not in config
+        assert "priority_hint" not in config
         started.append(config["request_id"])
         if config["request_id"].startswith("busy"):
             await unblock.wait()
         return {"choices": []}
 
+    use_hint = method == "chat_hint"
+    method = "chat" if use_hint else method
     setattr(model, method, infer)
     handler = getattr(actor, method)
     active = [
@@ -122,17 +125,28 @@ async def test_waiting_requests_run_by_priority_then_arrival(method, capacity):
         for i in range(capacity)
     ]
     await _wait_for(lambda: len(started) == capacity)
-    waiting = [
-        asyncio.create_task(
-            handler("prompt", {"request_id": name, "priority": priority})
-        )
-        for name, priority in [("low", 5), ("high", -5), ("tie", -5), ("default", 0)]
-    ]
+    waiting = []
+    for name, priority in [("low", 5), ("high", -1), ("tie", -1), ("default", 0)]:
+        config = {"request_id": name}
+        if use_hint and name in {"high", "tie"}:
+            work = handler("prompt", config, raw_params={"priority_hint": -1})
+        else:
+            work = handler("prompt", dict(config, priority=priority))
+        waiting.append(asyncio.create_task(work))
     await _wait_for(lambda: len(actor._request_priority_scheduler._waiting) == 4)
     unblock.set()
     await asyncio.gather(*active, *waiting)
     assert started[capacity:] == ["high", "tie", "default", "low"]
     assert actor._serve_count == 0
+
+
+def test_shared_queue_chat_priority_available_on_all_fallback_engines():
+    from ...model.llm.llama_cpp.core import XllamaCppModel
+    from ...model.llm.mlx.core import MLXChatModel, MLXVisionModel
+    from ...model.llm.transformers.core import PytorchChatModel
+
+    for engine in (PytorchChatModel, MLXChatModel, MLXVisionModel, XllamaCppModel):
+        assert object.__new__(engine).supports_chat_priority()
 
 
 @pytest.mark.asyncio

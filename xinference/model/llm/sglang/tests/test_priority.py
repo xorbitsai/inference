@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
+from .....core.model import ModelActor
 from ..core import SGLANGModel
 
 
@@ -31,7 +32,7 @@ def _model(enabled=True, lower_first=False):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("priority", [-10, 0, 10, None])
+@pytest.mark.parametrize("priority", [-10, 0, 10, None, "hint"])
 @pytest.mark.parametrize("lower_first", [False, True])
 async def test_priority_is_top_level_http_metadata(
     monkeypatch, stream, priority, lower_first
@@ -42,7 +43,12 @@ async def test_priority_is_top_level_http_metadata(
     monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: session)
     model = _model(lower_first=lower_first)
     config = {"stream": stream}
-    if priority is not None:
+    assert model.supports_chat_priority()
+    if priority == "hint":
+        actor = ModelActor.__new__(ModelActor)
+        actor._model = model
+        (config,), _ = actor._prepare_request_priority((config,), {}, priority_hint=-1)
+    elif priority is not None:
         config["priority"] = priority
     with pytest.raises(RuntimeError, match="engine reached"):
         result = await model.async_generate("hello", config)
@@ -50,7 +56,7 @@ async def test_priority_is_top_level_http_metadata(
             await anext(result)
     payload = session.post.call_args.kwargs["json"]
     # The unified request default is 0, overriding SGLang’s native default.
-    expected = priority or 0
+    expected = -1 if priority == "hint" else priority or 0
     assert payload["priority"] == (expected if lower_first else -expected)
     assert "priority" not in payload["sampling_params"]
 
@@ -67,6 +73,10 @@ async def test_priority_rejected_before_http_when_invalid_or_disabled(priority):
 @pytest.mark.parametrize("config", [{}, {"priority": 0}])
 async def test_default_priority_is_omitted_when_scheduling_disabled(config):
     model = _model(enabled=False)
+    assert not model.supports_chat_priority()
+    actor = ModelActor.__new__(ModelActor)
+    actor._model = model
+    (config,), _ = actor._prepare_request_priority((config,), {}, priority_hint=-1)
     model._active_request_ids = set()
     model._non_stream_generate = AsyncMock(side_effect=RuntimeError("engine reached"))
     with pytest.raises(RuntimeError, match="engine reached"):

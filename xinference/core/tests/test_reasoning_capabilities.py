@@ -24,7 +24,7 @@ async def test_running_model_budget_capability_requires_every_replica(
         return_value={
             "model_type": "LLM",
             "model_ability": ["chat"],
-            "model_engine": "vLLM",
+            "model_engine": "Transformers",
             "reasoning_effort": None,
         }
     )
@@ -81,11 +81,13 @@ async def test_pd_description_probes_router_without_selecting_a_replica(monkeypa
         "pd": SimpleNamespace(
             get_reasoning_capabilities=AsyncMock(
                 return_value={"supports_thinking_budget": True}
-            )
+            ),
+            supports_chat_priority=AsyncMock(return_value=True),
         )
     }
     description = await owner.describe_running_model("pd")
     assert description["supports_thinking_budget"] is True
+    assert description["supports_chat_priority"] is True
     assert "supports_chat_session_affinity" not in description
 
 
