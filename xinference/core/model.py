@@ -1645,32 +1645,47 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 return str(config["request_id"])
         return str(uuid.uuid1())
 
-    def _prepare_request_priority(self, args, kwargs):
+    def _prepare_request_priority(self, args, kwargs, *, priority_hint=None):
         from ..model.llm.core import LLM
-        from ..request_priority import validate_request_priority
+        from ..request_priority import (
+            INTERACTIVE_CHAT_PRIORITY,
+            is_interactive_priority_hint,
+            validate_request_priority,
+        )
 
         if not isinstance(self._model, LLM):
             return args, kwargs
         config = args[0] if args else kwargs.get("generate_config")
         priority = validate_request_priority((config or {}).get("priority", 0))
-        if (
-            self._model.supports_native_request_priority
-            or not self._model.supports_request_priority_fallback
-        ):
+        use_shared_queue = (
+            not self._model.supports_native_request_priority
+            and self._model.supports_request_priority_fallback
+        )
+        use_hint = (
+            "priority" not in (config or {})
+            and is_interactive_priority_hint(priority_hint)
+            and self._model.supports_chat_priority()
+        )
+        if not use_shared_queue and not use_hint:
             return args, kwargs
         config = dict(config or {})
-        config.pop("priority", None)
+        if use_hint:
+            priority = INTERACTIVE_CHAT_PRIORITY
+        if use_shared_queue:
+            config.pop("priority", None)
+            kwargs["_request_priority"] = priority
+            kwargs["_request_priority_capacity"] = (
+                self._model.get_request_priority_capacity(config)
+            )
+            kwargs["_priority_request_id"] = str(
+                kwargs.get("request_id") or config.get("request_id") or uuid.uuid4().hex
+            )
+        else:
+            config["priority"] = priority
         if args:
             args = (config, *args[1:])
         else:
             kwargs["generate_config"] = config
-        kwargs["_request_priority"] = priority
-        kwargs["_request_priority_capacity"] = (
-            self._model.get_request_priority_capacity(config)
-        )
-        kwargs["_priority_request_id"] = str(
-            kwargs.get("request_id") or config.get("request_id") or uuid.uuid4().hex
-        )
         return args, kwargs
 
     @request_limit
@@ -1719,9 +1734,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     @xo.generator
     @log_async(logger=logger, own_result=True)
     async def chat(self, messages: List[Dict], *args, **kwargs):
+        from ..request_priority import CHAT_PRIORITY_HINT
+
         self._require_ready()
         self._validate_cache_salt(args, kwargs)
-        args, kwargs = self._prepare_request_priority(args, kwargs)
+        raw_params = kwargs.get("raw_params")
+        args, kwargs = self._prepare_request_priority(
+            args,
+            kwargs,
+            priority_hint=(
+                raw_params.get(CHAT_PRIORITY_HINT)
+                if isinstance(raw_params, dict)
+                else None
+            ),
+        )
         start_time = time.time()
         response = None
         try:
@@ -1937,6 +1963,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     def supports_agent_cache_lifecycle(self) -> bool:
         self._require_ready()
         supports = getattr(self._model, "supports_agent_cache_lifecycle", None)
+        return supports is not None and supports() is True
+
+    @rpc_context
+    def supports_chat_priority(self) -> bool:
+        self._require_ready()
+        supports = getattr(self._model, "supports_chat_priority", None)
         return supports is not None and supports() is True
 
     @request_limit(keep_chat_reservation=True)

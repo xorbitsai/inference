@@ -71,7 +71,8 @@ async def test_missing_model_returns_a_validation_error(endpoint):
 
 
 @pytest.mark.parametrize(
-    "engine", ["vLLM", "SGLang", "Transformers", "MLX", "llama.cpp", "TRT-LLM"]
+    "engine",
+    ["vLLM", "SGLang", "Transformers", "MLX", "MLX-VLM", "llama.cpp", "TRT-LLM"],
 )
 @pytest.mark.parametrize("endpoint", ["chat", "completion"])
 @pytest.mark.parametrize("stream", [False, True])
@@ -110,6 +111,8 @@ async def test_api_forwards_priority(monkeypatch, engine, endpoint, stream, prio
     )
     if priority == "omitted":
         body.pop("priority")
+    if endpoint == "chat":
+        body["priority_hint"] = -1
     request = SimpleNamespace(
         json=AsyncMock(return_value=body), headers={}, state=SimpleNamespace()
     )
@@ -120,6 +123,9 @@ async def test_api_forwards_priority(monkeypatch, engine, endpoint, stream, prio
     if stream:
         assert [item async for item in response.body_iterator]
     call = model.chat if endpoint == "chat" else model.generate
+    assert "priority_hint" not in call.await_args.args[1]
+    if endpoint == "chat":
+        assert call.await_args.kwargs["raw_params"]["priority_hint"] == -1
     if priority == "omitted":
         assert "priority" not in call.await_args.args[1]
     else:

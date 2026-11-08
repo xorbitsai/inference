@@ -231,6 +231,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
 
 
@@ -1022,6 +1023,13 @@ class VLLMModel(WeightCachedModel, LLM):
         # used to call async
         self._loop = None
         self._init_weight_cache(model_config or {})
+
+    def supports_chat_priority(self) -> bool:
+        return (
+            VLLM_VERSION is not None
+            and VLLM_VERSION >= MIN_VLLM_REQUEST_PRIORITY_VERSION
+            and (self._model_config or {}).get("scheduling_policy") == "priority"
+        )
 
     def supports_agent_cache_lifecycle(self) -> bool:
         config = self._xavier_config or {}
@@ -2508,7 +2516,7 @@ class VLLMModel(WeightCachedModel, LLM):
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         priority = validate_request_priority((generate_config or {}).get("priority", 0))
         if priority:
-            if VLLM_VERSION < version.parse("0.6.3"):
+            if VLLM_VERSION < MIN_VLLM_REQUEST_PRIORITY_VERSION:
                 raise ValueError(VLLM_PRIORITY_VERSION)
             if (self._model_config or {}).get(
                 "scheduling_policy", "fcfs"

@@ -380,3 +380,6 @@ msgstr ""
 "的模型、生成和串流回應格式保持不變。vLLM、Transformers、MLX 和 TRT-LLM 回傳適配器上限；SGLang "
 "查詢其執行階段。llama.cpp 從已載入服務的 ``/props`` 介面讀取實際生效的每槽位 "
 "``n_ctx``，而不是以啟動時的總容量除以槽位數。不提供查詢介面的舊版執行階段回傳 ``null``。該上限不保證請求所需的記憶體始終可用。"
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint."
+msgstr "執行中模型的描述宣告 ``supports_chat_priority`` 時，用戶端可在聊天請求中傳送 ``priority_hint: -1``。選中的副本透過引擎原生排程或 Xinference 優先級佇列套用此提示。使用 prefill/decode 分離部署時，兩個階段均須支援優先級。明確指定的 ``priority`` 優先。 只有 ``/v1/chat/completions`` 會使用此提示。整數 ``-1`` 以外的值會被忽略。Anthropic Messages 和 OpenAI Responses 介面會忽略此提示。"

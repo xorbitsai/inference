@@ -102,6 +102,7 @@ from ..core.replica_config import ReplicaConfig
 from ..core.rpc_context import actor_call, correlate_model_ref
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
+from ..request_priority import CHAT_PRIORITY_HINT, is_interactive_priority_hint
 from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
@@ -5132,6 +5133,7 @@ class RESTfulAPI(CancelMixin):
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
+        priority_hint = raw_body.pop(CHAT_PRIORITY_HINT, None)
         body = _parse_llm_request(CreateChatCompletion, raw_body)
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
@@ -5555,6 +5557,10 @@ class RESTfulAPI(CancelMixin):
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
+        if is_interactive_priority_hint(priority_hint):
+            # Older ModelActors discard raw_params. Only the selected actor
+            # translates a hint, after checking its own scheduling support.
+            raw_kwargs[CHAT_PRIORITY_HINT] = priority_hint
         if body.stream:
             abort_controller = _SSERequestAbortController(
                 model, request_id, request, "chat"

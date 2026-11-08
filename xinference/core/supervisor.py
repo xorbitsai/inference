@@ -7864,19 +7864,33 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 return self._build_token_router_model_info(config)
         description = await self.describe_model(model_uid)
         if description.get("model_type") == "LLM":
-            thinking, lifecycle = await asyncio.gather(
+            thinking, lifecycle, priority = await asyncio.gather(
                 self._supports_thinking_budget(model_uid),
                 self._supports_agent_cache_lifecycle(model_uid),
+                self._supports_chat_priority(model_uid, description),
             )
             description["supports_thinking_budget"] = thinking
             if lifecycle:
                 description["supports_agent_cache_lifecycle"] = True
+            if priority:
+                description["supports_chat_priority"] = True
             if (
                 "chat" in description.get("model_ability", [])
                 and model_uid not in self._pd_model_mapping
             ):
                 description["supports_chat_session_affinity"] = True
         return description
+
+    async def _supports_chat_priority(
+        self, model_uid: str, description: Dict[str, Any]
+    ) -> bool:
+        if "chat" not in description.get("model_ability", []):
+            return False
+
+        async def probe(model: Any) -> bool:
+            return await actor_call(model, "supports_chat_priority") is True
+
+        return await self._all_replicas_support(model_uid, probe, timeout=1)
 
     async def _supports_agent_cache_lifecycle(self, model_uid: str) -> bool:
         tracker = getattr(self, "_xavier_cache_mapping", {}).get(model_uid) or getattr(
@@ -7950,21 +7964,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return await probe(model)
 
         try:
-            if model_uid in self._pd_model_mapping:
-                return await asyncio.wait_for(
-                    probe(self._pd_model_mapping[model_uid]), timeout=timeout
-                )
+            router = self._pd_model_mapping.get(model_uid)
+            if router is not None:
+                supported = await asyncio.wait_for(probe(router), timeout=timeout)
+                return supported and self._pd_model_mapping.get(model_uid) is router
+            replica_uids = self._iter_active_replica_model_uids(model_uid)
             results = await asyncio.wait_for(
                 asyncio.gather(
-                    *(
-                        probe_replica(uid)
-                        for uid in self._iter_active_replica_model_uids(model_uid)
-                    ),
+                    *(probe_replica(uid) for uid in replica_uids),
                     return_exceptions=True,
                 ),
                 timeout=timeout,
             )
-            return bool(results) and all(result is True for result in results)
+            return (
+                bool(results)
+                and all(result is True for result in results)
+                and replica_uids == self._iter_active_replica_model_uids(model_uid)
+            )
         except Exception:
             # Older/unavailable workers must not prevent the details page loading.
             logger.debug(

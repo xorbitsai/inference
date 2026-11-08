@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+from .....core.model import ModelActor
 from .....request_priority import to_trt_request_priority
 from ..core import TRTLLMModel
 from . import test_core
@@ -43,12 +44,26 @@ def native_model(model, monkeypatch):
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize(
     "priority,expected",
-    [(-10000, 1.0), (-10, 0.5005), (0, 0.5), (10, 0.4995), (10000, 0.0)],
+    [
+        (-10000, 1.0),
+        (-10, 0.5005),
+        (0, 0.5),
+        (10, 0.4995),
+        (10000, 0.0),
+        ("hint", 0.50005),
+    ],
 )
 async def test_native_priority_is_converted_and_forwarded(
     native_model, stream, priority, expected
 ):
-    config = {"priority": priority, "stream": stream, "max_tokens": 2}
+    assert native_model.supports_chat_priority()
+    config = {"stream": stream, "max_tokens": 2}
+    if priority == "hint":
+        actor = ModelActor.__new__(ModelActor)
+        actor._model = native_model
+        (config,), _ = actor._prepare_request_priority((config,), {}, priority_hint=-1)
+    else:
+        config["priority"] = priority
     result = await native_model.async_generate("hi", config)
     if stream:
         assert [chunk async for chunk in result]
@@ -59,7 +74,7 @@ async def test_native_priority_is_converted_and_forwarded(
         == "priority"
     )
     assert "priority" not in native_model._engine.params.__dict__
-    assert config["priority"] == priority
+    assert config["priority"] == (-1 if priority == "hint" else priority)
 
 
 def test_all_integer_priorities_remain_distinct_in_native_float32():
@@ -79,6 +94,7 @@ async def test_explicit_fifo_rejects_nonzero_priority(model, monkeypatch):
     )
     result.load()
     try:
+        assert not result.supports_chat_priority()
         with pytest.raises(ValueError, match="waiting_queue_policy=priority"):
             await result.async_generate("hi", {"priority": -1})
         assert not result._engine.requests
@@ -143,3 +159,9 @@ def test_legacy_engine_does_not_use_the_common_queue(model):
     assert not model.supports_native_request_priority
     assert not model.supports_request_priority_fallback
     assert "scheduler_config" not in model._engine.kwargs
+    assert not model.supports_chat_priority()
+    actor = ModelActor.__new__(ModelActor)
+    actor._model = model
+    args, kwargs = actor._prepare_request_priority(({},), {}, priority_hint=-1)
+    assert args == ({},)
+    assert kwargs == {}

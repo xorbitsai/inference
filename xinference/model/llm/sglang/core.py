@@ -244,6 +244,13 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     support_draft_model = True
     supports_tool_controls = True
 
+    def supports_chat_priority(self) -> bool:
+        return bool(
+            (getattr(self, "_model_config", None) or {}).get(
+                "enable_priority_scheduling", False
+            )
+        )
+
     @classmethod
     def validate_launch(cls, model_family: "LLMFamilyV2") -> None:
         """Reject incompatible launches before downloading checkpoints."""
@@ -1405,10 +1412,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        config_request_id = config.pop("request_id", None)
+        if request_id is None and config_request_id is not None:
+            request_id = str(config_request_id)
         priority = validate_request_priority(config.get("priority", 0))
-        priority_enabled = (getattr(self, "_model_config", None) or {}).get(
-            "enable_priority_scheduling", False
-        )
+        priority_enabled = self.supports_chat_priority()
         if priority and not priority_enabled:
             raise ValueError(SGLANG_PRIORITY_DISABLED)
         if priority_enabled:

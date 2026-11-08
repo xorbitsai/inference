@@ -34,6 +34,12 @@ class TRTLLMModel(LLM, ChatModelMixin):
     support_draft_model = True
     supports_request_priority_fallback = False
 
+    def supports_chat_priority(self) -> bool:
+        return (
+            self.supports_native_request_priority
+            and self._priority_waiting_queue_policy == "priority"
+        )
+
     def __init__(self, model_uid, model_family, model_path, model_config=None):
         super().__init__(model_uid, model_family, model_path)
         self._model_config = dict(model_config or {})
@@ -317,7 +323,7 @@ class TRTLLMModel(LLM, ChatModelMixin):
         priority = validate_request_priority(config.pop("priority", 0))
         priority_options = {}
         if self.supports_native_request_priority:
-            if priority and self._priority_waiting_queue_policy != "priority":
+            if priority and not self.supports_chat_priority():
                 raise ValueError(TRT_PRIORITY_DISABLED)
             priority_options["priority"] = to_trt_request_priority(priority)
         tokens, params = self._sampling_params(prompt, config)
