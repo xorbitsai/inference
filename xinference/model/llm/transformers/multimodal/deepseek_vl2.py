@@ -111,8 +111,15 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
             headers = {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
             }
+
+            def _fill_placeholder(_url, _index):
+                response = requests.get(_url, headers=headers)
+                response.raise_for_status()
+                local_images[_index] = BytesIO(response.content)
+
+            futures = []
             with ThreadPoolExecutor() as executor:
-                for url in images:
+                for url in _images:
                     try:
                         if os.path.exists(url):
                             local_images.append(url)
@@ -122,12 +129,11 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
                         pass
                     # Append a placeholder
                     local_images.append(None)
-
-                    def _fill_placeholder(_url, _index):
-                        response = requests.get(url, headers=headers)
-                        local_images[_index] = BytesIO(response.content)
-
-                    executor.submit(_fill_placeholder, url, len(local_images) - 1)
+                    futures.append(
+                        executor.submit(_fill_placeholder, url, len(local_images) - 1)
+                    )
+            for future in futures:
+                future.result()
             return local_images
 
         if not isinstance(content, str):
