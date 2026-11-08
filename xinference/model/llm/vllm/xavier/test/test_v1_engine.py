@@ -394,6 +394,37 @@ def test_hybrid_prefix_prefers_gpu(engine, hybrid_prefix_config, cpu_fallback):
     factory.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("backend", "explicit_unit", "nnodes", "expected"),
+    [
+        (None, None, 1, "XavierHybridUniProcExecutor"),
+        ("uni", None, 1, "XavierHybridUniProcExecutor"),
+        ("mp", None, 1, "XavierHybridMultiprocExecutor"),
+        ("uni", 64, 1, "uni"),
+        ("ray", None, 1, "ray"),
+        ("mp", None, 2, "mp"),
+    ],
+)
+def test_hybrid_gpu_defaults_preserve_executor_and_explicit_overrides(
+    engine, backend, explicit_unit, nnodes, expected
+):
+    module, _ = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True, is_multimodal_model=False
+        ),
+        distributed_executor_backend=backend,
+        prefix_match_unit=explicit_unit,
+        nnodes=nnodes,
+    )
+    module.XavierEngine.from_engine_args(
+        args, xavier_config={"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 3}
+    )
+    assert args.distributed_executor_backend.rsplit(".", 1)[-1] == expected
+    assert args.prefix_match_unit == explicit_unit
+
+
 def test_single_replica_resident_mode_rejects_non_hybrid_before_engine_start(engine):
     module, factory = engine
     module.VLLM_VERSION = "0.32.0"

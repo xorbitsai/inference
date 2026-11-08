@@ -513,5 +513,5 @@ msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the s
 msgstr "混合模型 vLLM 卸載的共用儲存主機（model-service/supervisor）若與傳輸 actor 使用不同環境，也必須安裝 ``xinference[xavier-lmcache]``。兩側環境都需安裝此擴充；上文逐個傳輸 actor 安裝的要求同樣適用於舊版 vLLM。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:97
-msgid "If vLLM uses a ``prefix_match_unit`` smaller than its cache block size, Xavier can also transfer stable checkpoints inside a block between GPUs. The matching unit must divide every cache group block size. Xavier keeps whole-block checkpoints available when a request cannot reuse the finer checkpoint."
-msgstr "當 vLLM 使用的 ``prefix_match_unit`` 小於快取區塊大小時，Xavier 也可以在 GPU 之間傳輸區塊內的穩定檢查點。比對單位必須能整除每個快取群組的區塊大小。如果請求無法重複使用更細粒度的檢查點，Xavier 仍會保留完整區塊邊界的檢查點供其使用。"
+msgid "With vLLM's single-process or multiprocessing executor on one node, Xavier automatically chooses finer prefix matching when the hybrid cache layout supports it. An explicit ``prefix_match_unit`` takes precedence. Other executors use vLLM's normal defaults. Whole-block checkpoints are still available when finer checkpoints cannot be reused."
+msgstr "在單一節點上使用 vLLM 的單程序或多程序執行器時，如果混合快取配置支援，Xavier 會自動選擇更細的前綴比對單位。明確指定的 ``prefix_match_unit`` 優先。其他執行器採用 vLLM 的一般預設值。無法重複使用更細粒度的檢查點時，仍可使用完整區塊邊界的檢查點。"
