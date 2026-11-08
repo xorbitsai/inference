@@ -5,6 +5,8 @@
 import asyncio
 from typing import Any, Dict
 
+import xoscar as xo
+
 from ..model.llm.context_length import normalize_runtime_positive_int
 from .worker_registry import call_worker_route
 
@@ -26,7 +28,7 @@ async def get_model_runtime_info(supervisor: Any, model_uid: str) -> Dict[str, A
 
         try:
             length = normalize_runtime_positive_int(
-                await asyncio.wait_for(read(), timeout=3)
+                await xo.wait_for(read(), timeout=3)
             )
         except Exception:
             # Loading/reloading, older workers, and unsupported engines have

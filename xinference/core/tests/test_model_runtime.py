@@ -137,3 +137,50 @@ async def test_dead_runtime_is_bounded_and_topology_change_is_unknown(monkeypatc
     assert (await get_model_runtime_info(supervisor, "demo"))[
         "runtime_context_length"
     ] is None
+
+
+@pytest.mark.asyncio
+async def test_runtime_timeout_does_not_wait_for_actor_cancellation(monkeypatch):
+    from xoscar.backends.context import IndigenActorContext
+    from xoscar.backends.message import CancelMessage, ResultMessage
+
+    from .. import model_runtime
+
+    reply = asyncio.get_running_loop().create_future()
+    cancellation_started = asyncio.Event()
+    release_cancellation = asyncio.Event()
+
+    class StalledContext(IndigenActorContext):
+        async def _call(self, address, message, **kwargs):
+            if isinstance(message, CancelMessage):
+                cancellation_started.set()
+                await release_cancellation.wait()
+                reply.set_result(ResultMessage(message.message_id, result=8192))
+                return ResultMessage(message.message_id, result=True)
+            return reply
+
+    context = StalledContext()
+    model = SimpleNamespace(
+        get_runtime_context_length=lambda: context.send(
+            xo.ActorRef("stalled:1234", "demo-rep0"),
+            ("get_runtime_context_length", 0, (), {}),
+        )
+    )
+    supervisor = make_supervisor([8192])
+    supervisor._replica_model_uid_to_worker["demo-0"].get_model.return_value = model
+    wait_for = asyncio.wait_for
+    monkeypatch.setattr(
+        model_runtime.asyncio, "wait_for", lambda coro, timeout: wait_for(coro, 0.01)
+    )
+    task = asyncio.create_task(get_model_runtime_info(supervisor, "demo"))
+    try:
+        await wait_for(cancellation_started.wait(), timeout=1)
+        done, _ = await asyncio.wait({task}, timeout=0.1)
+        assert (
+            task in done
+        ), "Runtime metadata waited for a stalled actor's cancellation"
+        assert task.result()["runtime_context_length"] is None
+    finally:
+        release_cancellation.set()
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.sleep(0)
