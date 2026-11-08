@@ -30,6 +30,14 @@ def is_http_url(value: str) -> bool:
     return value.lower().startswith(("http://", "https://"))
 
 
+def read_file_input(value: Union[str, bytes]) -> bytes:
+    """Return the bytes of an upload given as a local file path or as bytes."""
+    if isinstance(value, str):
+        with open(value, "rb") as f:
+            return f.read()
+    return value
+
+
 def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
     if isinstance(reference, str) and not os.path.isfile(reference):
         return reference
