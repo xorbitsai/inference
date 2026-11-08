@@ -34,7 +34,12 @@ import xoscar as xo
 
 from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
-from .rpc_context import actor_call, get_current_rpc_metadata, wrap_async_iterator
+from .rpc_context import (
+    actor_call,
+    get_current_rpc_metadata,
+    rpc_context,
+    wrap_async_iterator,
+)
 from .utils import log_async
 
 if TYPE_CHECKING:
@@ -485,6 +490,7 @@ class PDModelActor(xo.StatelessActor):
                 return {"supports_thinking_budget": False}
         return {"supports_thinking_budget": bool(self._decode_replicas)}
 
+    @rpc_context
     async def supports_chat_priority(self) -> bool:
         prefill = self._prefill_replicas.copy()
         decode = self._decode_replicas.copy()

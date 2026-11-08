@@ -381,6 +381,18 @@ def _tracked_stream(*, wait_after_first):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("hint", [True, -1.0, "-1", 0, -2])
+async def test_chat_does_not_forward_invalid_priority_hint(monkeypatch, hint):
+    stream, _, _ = _tracked_stream(wait_after_first=False)
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, "chat", stream, extra_body={"priority_hint": hint}
+    )
+    assert [item async for item in response.body_iterator]
+    model.chat.assert_awaited_once()
+    assert "priority_hint" not in model.chat.await_args.kwargs["raw_params"]
+
+
+@pytest.mark.asyncio
 async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
     async def disconnected_stream():
         yield b'{"choices": []}'

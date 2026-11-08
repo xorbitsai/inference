@@ -126,7 +126,7 @@ async def test_waiting_requests_run_by_priority_then_arrival(method, capacity):
     ]
     await _wait_for(lambda: len(started) == capacity)
     waiting = []
-    for name, priority in [("low", 5), ("high", -1), ("tie", -1), ("default", 0)]:
+    for name, priority in [("default", 0), ("low", 5), ("high", -1), ("tie", -1)]:
         config = {"request_id": name}
         if use_hint and name in {"high", "tie"}:
             work = handler("prompt", config, raw_params={"priority_hint": -1})

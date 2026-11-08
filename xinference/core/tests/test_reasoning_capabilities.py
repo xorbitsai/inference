@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from .. import supervisor as supervisor_module
+from ..rpc_context import actor_call
 from ..supervisor import SupervisorActor
 
 
@@ -24,7 +25,6 @@ async def test_running_model_budget_capability_requires_every_replica(
         return_value={
             "model_type": "LLM",
             "model_ability": ["chat"],
-            "model_engine": "Transformers",
             "reasoning_effort": None,
         }
     )
@@ -58,6 +58,28 @@ async def test_running_model_budget_capability_requires_every_replica(
     assert (description.get("supports_chat_priority") is True) is (second is True)
     assert description["supports_chat_session_affinity"] is True
     assert description["reasoning_effort"] is None
+
+
+@pytest.mark.asyncio
+async def test_chat_priority_is_not_advertised_if_active_replicas_change(monkeypatch):
+    owner = SupervisorActor.__new__(SupervisorActor)
+    owner._pd_model_mapping = {}
+    active_replicas = ["rep0"]
+    owner._iter_active_replica_model_uids = lambda _: active_replicas.copy()
+    owner._replica_model_uid_to_worker = {"rep0": object(), "rep1": object()}
+
+    async def supports_chat_priority():
+        active_replicas.append("rep1")
+        return True
+
+    model = SimpleNamespace(
+        supports_chat_priority=AsyncMock(side_effect=supports_chat_priority)
+    )
+    monkeypatch.setattr(
+        supervisor_module, "call_worker_route", AsyncMock(return_value=model)
+    )
+    assert not await owner._supports_chat_priority("model", {"model_ability": ["chat"]})
+    model.supports_chat_priority.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -98,10 +120,17 @@ async def test_actor_capability_query_serializes_without_reserving_generation():
     model = SimpleNamespace(
         model_family=SimpleNamespace(to_description=lambda: {"model_type": "LLM"}),
         get_reasoning_capabilities=lambda: {"supports_thinking_budget": True},
+        supports_chat_priority=lambda: True,
     )
     actor = ModelActor("test:123", "test:345", model, "reasoning-test")
     actor._model_state = "ready"
     assert json.loads(await actor.get_reasoning_capabilities()) == {
         "supports_thinking_budget": True
     }
+    assert (
+        actor_call(
+            actor, "supports_chat_priority", _rpc_correlation_id="describe-model"
+        )
+        is True
+    )
     assert actor._serve_count == 0
