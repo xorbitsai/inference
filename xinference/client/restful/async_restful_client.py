@@ -25,6 +25,7 @@ from ..common import (
     encode_world_reference,
     is_http_url,
     normalize_endpoint,
+    read_file_input,
 )
 
 if TYPE_CHECKING:
@@ -763,7 +764,7 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         Parameters
         ----------
         image: `Union[str, bytes]`
-            The input image to condition the generation on.
+            The input image to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -790,14 +791,13 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         for key, value in params.items():
             data.add_field(key, str(value))
         data.add_field(
-            "image", image, filename="image", content_type="application/octet-stream"
+            "image",
+            read_file_input(image),
+            filename="image",
+            content_type="application/octet-stream",
         )
         if video is not None:
-            if isinstance(video, str):
-                with open(video, "rb") as f:
-                    video_data = f.read()
-            else:
-                video_data = video
+            video_data = read_file_input(video)
             data.add_field(
                 "video",
                 video_data,
@@ -829,9 +829,9 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         Parameters
         ----------
         first_frame: `Union[str, bytes]`
-            The first frame to condition the generation on.
+            The first frame to condition the generation on, as a local file path or bytes.
         last_frame: `Union[str, bytes]`
-            The last frame to condition the generation on.
+            The last frame to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -857,13 +857,13 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             data.add_field(key, str(value))
         data.add_field(
             "first_frame",
-            first_frame,
+            read_file_input(first_frame),
             filename="image",
             content_type="application/octet-stream",
         )
         data.add_field(
             "last_frame",
-            last_frame,
+            read_file_input(last_frame),
             filename="image",
             content_type="application/octet-stream",
         )

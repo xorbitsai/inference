@@ -23,6 +23,7 @@ from ..common import (
     encode_world_reference,
     is_http_url,
     normalize_endpoint,
+    read_file_input,
     streaming_response_iterator,
 )
 
@@ -663,7 +664,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         image: `Union[str, bytes]`
-            The input image to condition the generation on.
+            The input image to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -688,13 +689,11 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
+        files.append(
+            ("image", ("image", read_file_input(image), "application/octet-stream"))
+        )
         if video is not None:
-            if isinstance(video, str):
-                with open(video, "rb") as f:
-                    video_data = f.read()
-            else:
-                video_data = video
+            video_data = read_file_input(video)
             files.append(
                 (
                     "video",
@@ -725,9 +724,9 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         first_frame: `Union[str, bytes]`
-            The first frame to condition the generation on.
+            The first frame to condition the generation on, as a local file path or bytes.
         last_frame: `Union[str, bytes]`
-            The last frame to condition the generation on.
+            The last frame to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -750,10 +749,10 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(
-            ("first_frame", ("image", first_frame, "application/octet-stream"))
-        )
-        files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
+        for key, frame in (("first_frame", first_frame), ("last_frame", last_frame)):
+            files.append(
+                (key, ("image", read_file_input(frame), "application/octet-stream"))
+            )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
