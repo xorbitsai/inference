@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Share aligned hybrid prefixes from vLLM's resident GPU blocks."""
+"""Share hybrid prefixes from vLLM's resident GPU blocks."""
 
 import asyncio
 import logging
@@ -34,6 +34,7 @@ class _PublishedPrefix:
     key: tuple[str, bytes]
     block_ids: list[int]
     session_id: str | None = None
+    partial: bool = False
 
 
 class XavierHybridTieredConnector(MultiConnector):
@@ -114,27 +115,41 @@ class XavierHybridGPUConnector(XavierConnector):
             else []
         )
         self._requests_need_load.pop(request.request_id, None)
-        keys = [
-            self._prefix_key(request, tokens)
-            for tokens in range(
-                (request.num_tokens - 1) // self._block_size * self._block_size,
-                num_computed_tokens,
-                -self._block_size,
-            )
-            if tokens >= self._block_size
-            and request.request_id not in self._attempted
+        keys = []
+        lookup_options = {}
+        if (
+            request.request_id not in self._attempted
             and not request.skip_reading_prefix_cache
-        ]
-        if not keys and not sessions:
+        ):
+            hash_size = self._kv_cache_manager.block_pool.hash_block_size
+            end = request.num_tokens - 1
+            if hash_size < self._block_size:
+                first = num_computed_tokens // hash_size
+                hashes = request.block_hashes[first : end // hash_size]
+                if hashes:
+                    lookup_options["fine_prefix"] = (
+                        self._identity,
+                        hash_size,
+                        first,
+                        hashes,
+                    )
+            else:
+                keys = [
+                    self._prefix_key(request, tokens)
+                    for tokens in range(
+                        end - end % self._block_size,
+                        num_computed_tokens,
+                        -self._block_size,
+                    )
+                ]
+        if not keys and not lookup_options and not sessions:
             return 0, False
+        if sessions:
+            lookup_options["session_ids"] = sessions
 
         async def lookup():
             tracker = await self._get_tracker_ref()
-            if sessions:
-                return await tracker.query_gpu_prefix(
-                    self._rank, keys, session_ids=sessions
-                )
-            return await tracker.query_gpu_prefix(self._rank, keys)
+            return await tracker.query_gpu_prefix(self._rank, keys, **lookup_options)
 
         try:
             offer = self._call(asyncio.wait_for(lookup(), _LOOKUP_TIMEOUT))
@@ -205,29 +220,53 @@ class XavierHybridGPUConnector(XavierConnector):
             )
             and not request.skip_reading_prefix_cache
         ):
-            self._publish(request)
+            self._publish(request, block_ids)
         return False, None
 
-    def _publish(self, request):
+    def _publish(self, request, finished_blocks=()):
         manager = self._kv_cache_manager
-        pool = manager.block_pool
         end = min(request.num_prompt_tokens - 1, request.num_computed_tokens)
-        end -= end % self._block_size
         if end <= 0:
             return
         groups, tokens, _ = manager.coordinator.find_longest_cache_hit(
             request.block_hashes, end
         )
-        if tokens % self._block_size:
-            # A sub-block tail can have a different live slot lifecycle.
+        if tokens % self._block_size and self._can_borrow_partial(
+            groups, finished_blocks
+        ):
+            self._publish_checkpoint(request, groups, tokens, partial=True)
+        # Earlier blocks may also have only a partial checkpoint remaining.
+        # Find a whole checkpoint for requests that diverge before the tail.
+        while tokens % self._block_size:
             groups, tokens, _ = manager.coordinator.find_longest_cache_hit(
                 request.block_hashes, tokens - tokens % self._block_size
             )
-        if not tokens or tokens % self._block_size:
-            return
-        # The vLLM hit includes null placeholders for earlier recurrent
-        # positions. Only immutable, full-block checkpoints can be borrowed.
-        count = tokens // self._block_size
+        if tokens:
+            self._publish_checkpoint(request, groups, tokens)
+
+    @staticmethod
+    def _can_borrow_partial(groups, finished_blocks):
+        # A running request may move its prefix-cache hash and continue writing
+        # to the original slot without allocating it again. Only borrow tails
+        # that are already free or owned solely by the request that just ended.
+        return all(
+            group
+            and (
+                group[-1].ref_cnt == 0
+                or (
+                    group[-1].ref_cnt == 1
+                    and index < len(finished_blocks)
+                    and group[-1].block_id in finished_blocks[index]
+                )
+            )
+            for index, group in enumerate(groups)
+        )
+
+    def _publish_checkpoint(self, request, groups, tokens, *, partial=False):
+        pool = self._kv_cache_manager.block_pool
+        # Recurrent groups have null placeholders before the final state. The
+        # final physical block can contain fewer than block_size valid tokens.
+        count = (tokens + self._block_size - 1) // self._block_size
         for group_id, group in enumerate(groups):
             if len(group) != count:
                 return
@@ -254,16 +293,20 @@ class XavierHybridGPUConnector(XavierConnector):
         session_id = session["id"] if session is not None else None
         if session_id is not None:
             for previous, offer in tuple(self._offers.items()):
-                if offer.session_id == session_id:
+                if offer.session_id == session_id and offer.partial == partial:
                     self._revoke(previous)
-        if len(self._offers) >= _MAX_OFFERS:
+        same_kind = [
+            ticket for ticket, offer in self._offers.items() if offer.partial == partial
+        ]
+        if len(same_kind) >= _MAX_OFFERS:
             victim = next(
                 (
                     ticket
-                    for ticket, offer in self._offers.items()
-                    if self._session_phases.get(offer.session_id) != "waiting"
+                    for ticket in same_kind
+                    if self._session_phases.get(self._offers[ticket].session_id)
+                    != "waiting"
                 ),
-                next(iter(self._offers)),
+                same_kind[0],
             )
             self._revoke(victim)
 
@@ -271,6 +314,7 @@ class XavierHybridGPUConnector(XavierConnector):
             key,
             list(dict.fromkeys(block.block_id for block in owned)),
             session_id,
+            partial,
         )
         self._offers[ticket] = offer
         for block_id in offer.block_ids:

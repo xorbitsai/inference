@@ -528,3 +528,7 @@ msgstr "``xavier_gpu_cache_bytes=0`` 설정을 사용하면 GPU에 있는 캐시
 #: ../../source/user_guide/vllm_enhancement.rst:215
 msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
 msgstr "하이브리드 vLLM 오프로딩에서는 공유 스토리지 호스트(model-service/supervisor)가 전송 액터와 다른 환경을 사용하면 해당 호스트에도 ``xinference[xavier-lmcache]`` 가 필요합니다. 두 환경에 모두 이 추가 의존성을 설치하세요. 위의 각 전송 액터별 설치 요구 사항은 기존 vLLM에도 적용됩니다."
+
+#: ../../source/user_guide/vllm_enhancement.rst:97
+msgid "If vLLM uses a ``prefix_match_unit`` smaller than its cache block size, Xavier can also transfer stable checkpoints inside a block between GPUs. The matching unit must divide every cache group block size. Xavier keeps whole-block checkpoints available when a request cannot reuse the finer checkpoint."
+msgstr "vLLM의 일치 단위(``prefix_match_unit``)가 캐시 블록 크기보다 작으면 Xavier는 블록 내부의 안정된 체크포인트도 GPU 간에 전송할 수 있습니다. 모든 캐시 그룹의 블록 크기는 이 단위의 정수 배여야 합니다. 요청에서 더 세밀한 체크포인트를 재사용할 수 없을 때를 위해 Xavier는 블록 경계의 체크포인트도 유지합니다."

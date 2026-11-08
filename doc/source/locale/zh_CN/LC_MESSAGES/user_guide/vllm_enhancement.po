@@ -511,3 +511,7 @@ msgstr "设置 ``xavier_gpu_cache_bytes=0`` 后，副本可直接共享 GPU 缓�
 #: ../../source/user_guide/vllm_enhancement.rst:215
 msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
 msgstr "混合模型 vLLM 卸载的共享存储主机（model-service/supervisor）若与传输 actor 使用不同环境，也必须安装 ``xinference[xavier-lmcache]``。两侧环境都需安装此扩展；上文逐个传输 actor 安装的要求同样适用于旧版 vLLM。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:97
+msgid "If vLLM uses a ``prefix_match_unit`` smaller than its cache block size, Xavier can also transfer stable checkpoints inside a block between GPUs. The matching unit must divide every cache group block size. Xavier keeps whole-block checkpoints available when a request cannot reuse the finer checkpoint."
+msgstr "当 vLLM 使用的 ``prefix_match_unit`` 小于缓存块大小时，Xavier 也可以在 GPU 之间传输块内的稳定检查点。匹配单位必须能整除每个缓存组的块大小。如果请求无法复用更细粒度的检查点，Xavier 仍保留整块边界的检查点供其使用。"

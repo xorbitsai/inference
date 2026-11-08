@@ -585,3 +585,7 @@ msgstr "Mit ``xavier_gpu_cache_bytes=0`` teilen Replikate ausgerichtete Präfixe
 #: ../../source/user_guide/vllm_enhancement.rst:215
 msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
 msgstr "Hybrides vLLM-Offloading erfordert ``xinference[xavier-lmcache]`` auch auf dem gemeinsamen Speicherhost (model-service/supervisor), wenn dieser eine andere Umgebung als die Transfer-Aktoren verwendet. Installieren Sie das Extra in beiden Umgebungen; die obige Anforderung für jeden Transfer-Aktor gilt auch für älteres vLLM."
+
+#: ../../source/user_guide/vllm_enhancement.rst:97
+msgid "If vLLM uses a ``prefix_match_unit`` smaller than its cache block size, Xavier can also transfer stable checkpoints inside a block between GPUs. The matching unit must divide every cache group block size. Xavier keeps whole-block checkpoints available when a request cannot reuse the finer checkpoint."
+msgstr "Wenn vLLM eine ``prefix_match_unit`` verwendet, die kleiner als seine Cache-Blockgröße ist, kann Xavier auch stabile Checkpoints innerhalb eines Blocks zwischen GPUs übertragen. Die Einheit muss jede Cache-Gruppenblockgröße ohne Rest teilen. Xavier hält Checkpoints an Blockgrenzen verfügbar, wenn eine Anfrage den feineren Checkpoint nicht wiederverwenden kann."
