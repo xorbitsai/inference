@@ -121,16 +121,6 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
                 shutil.copy2(source_path, target)
 
     out = tmp_path / "out"
-    # The known future backend exception must not suppress the same requirement
-    # from a different model: new unavailable pins should fail preflight.
-    (src_root / "xinference" / "model" / "future-model.json").write_text(
-        json.dumps(
-            {
-                "model_name": "future-model",
-                "virtualenv": {"packages": ["vllm>=0.32.0"]},
-            }
-        )
-    )
     # Keep the synthetic pin independent of real model requirements, whose
     # indexes and source labels are merged into the same generated manifest.
     nightly = "vllm==0.0.0.dev1+mirror.test"
@@ -182,32 +172,26 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
         1
     )
     assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
-    assert len(manifest["deferred_model_pins"]) == 1
-    deferred = manifest["deferred_model_pins"][0]
-    assert deferred["spec"] == "vllm>=0.32.0"
-    assert (
-        deferred["source"]
-        == "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
-    )
-    assert "unpublished" in deferred["reason"]
+    gemma_source = "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
     pins = json.loads((out / "pins.json").read_text())
-    assert next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"] == [
-        "future-model.json:future-model"
-    ]
+    assert (
+        gemma_source
+        in next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"]
+    )
     indexed_pin = next(pin for pin in pins if pin["spec"] == nightly)
     assert indexed_pin["extra_index_urls"] == [model_index, secondary_index]
     assert indexed_pin["sources"] == [
         "indexed-model.json:indexed-model (vllm)",
         "nested-model.json:indexed-model (vllm)",
     ]
-    assert "extra_index_urls" not in next(
-        pin for pin in pins if pin["spec"] == "vllm>=0.32.0"
+    assert {"sglang==0.5.8", "torch==2.9.1+cu128", "torchaudio==2.9.1"}.isdisjoint(
+        pin["spec"] for pin in pins
     )
-    omni_torch = next(pin for pin in pins if pin["spec"] == "torch==2.9.1+cu128")
-    assert omni_torch["extra_index_urls"] == ["https://download.pytorch.org/whl/cu128"]
-    assert any(
-        "Audio8-TTS-Realistic-0.6b (SGLang-Omni)" in source
-        for source in omni_torch["sources"]
+    assert "sglang-omni @ https://github.com/" in (out / "git.txt").read_text()
+    audio8_transformers = next(pin for pin in pins if pin["spec"] == "torch>=2.5")
+    assert (
+        "audio/models/Audio8-TTS-Realistic-0.6b.json:"
+        "Audio8-TTS-Realistic-0.6b (transformers)" in audio8_transformers["sources"]
     )
 
 
@@ -763,6 +747,19 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
             }
         )
     )
+    (model_dir / "deferred.json").write_text(
+        json.dumps(
+            {
+                "model_name": "deferred-model",
+                "virtualenv": {"packages": ["model-pin==1.0"]},
+            }
+        )
+    )
+    monkeypatch.setitem(
+        generator.DEFERRED_MODEL_PINS,
+        ("deferred.json", "deferred-model", None, "model-pin==1.0"),
+        "unpublished backend",
+    )
     out = tmp_path / "manifest"
     loaded_roots = []
 
@@ -815,13 +812,21 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         "marked @ " + marked_wheel,
     ]
     assert (out / "git.txt").read_text().splitlines() == [git_source, archive]
-    assert json.loads((out / "manifest.json").read_text())["counts"] == {
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["deferred_model_pins"] == [
+        {
+            "spec": "model-pin==1.0",
+            "source": "deferred.json:deferred-model",
+            "reason": "unpublished backend",
+        }
+    ]
+    assert manifest["counts"] == {
         "engines": 1,
         "pins": 1,
         "urls": 2,
         "git": 2,
         "find_links_only": 0,
-        "deferred_model_pins": 0,
+        "deferred_model_pins": 1,
     }
 
 
