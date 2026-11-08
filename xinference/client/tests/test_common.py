@@ -172,3 +172,25 @@ async def test_async_streaming_response_iterator_stops_at_done():
     assert result == [{"choices": [{"text": "first"}]}]
     assert response.released is True
     assert response.closed is True
+
+
+def test_streaming_response_iterator_accepts_initial_utf8_bom():
+    # The event-stream format permits one UTF-8 BOM at the start of the stream.
+    lines = iter([b'\xef\xbb\xbfdata: {"text": "first"}', b'data: {"text": "second"}'])
+    assert list(streaming_response_iterator(lines)) == [
+        {"text": "first"},
+        {"text": "second"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_streaming_response_iterator_accepts_initial_utf8_bom():
+    response = _FakeResponse(
+        [b'\xef\xbb\xbfdata: {"text": "first"}', b'data: {"text": "second"}']
+    )
+    assert [chunk async for chunk in async_streaming_response_iterator(response)] == [
+        {"text": "first"},
+        {"text": "second"},
+    ]
+    assert response.released is True
+    assert response.closed is True

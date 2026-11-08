@@ -78,7 +78,11 @@ def streaming_response_iterator(
 
     """
 
+    first_line = True
     for line in response_lines:
+        if first_line:
+            line = line.removeprefix(b"\xef\xbb\xbf")
+            first_line = False
         line = line.strip()
         if line.startswith(b"data:"):
             json_str = line[len(b"data:") :].strip()
@@ -127,7 +131,11 @@ async def async_streaming_response_iterator(
         if _prime:
             # Enter the cleanup scope before handing the stream to the caller.
             yield None
+        first_line = True
         async for line in response_lines:
+            if first_line:
+                line = line.removeprefix(b"\xef\xbb\xbf")
+                first_line = False
             line = line.strip()
             if line.startswith(b"data:"):
                 json_str = line[len(b"data:") :].strip()
