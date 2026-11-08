@@ -1412,6 +1412,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        config_request_id = config.pop("request_id", None)
+        if request_id is None and config_request_id is not None:
+            request_id = str(config_request_id)
         priority = validate_request_priority(config.get("priority", 0))
         priority_enabled = self.supports_chat_priority()
         if priority and not priority_enabled:
