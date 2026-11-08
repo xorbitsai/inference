@@ -40,6 +40,7 @@ async def test_priority_is_engine_metadata_not_sampling_params(
     monkeypatch, stream, priority
 ):
     model = _model(monkeypatch)
+    assert model.supports_chat_priority()
     with pytest.raises(RuntimeError, match="engine reached"):
         await core.VLLMModel.async_generate.__wrapped__(
             model, "hello", {"priority": priority, "stream": stream, "max_tokens": 2}
@@ -72,11 +73,30 @@ async def test_nonzero_priority_requires_engine_support(
     monkeypatch, policy, vllm_version, message
 ):
     model = _model(monkeypatch, policy=policy, vllm_version=vllm_version)
+    assert not model.supports_chat_priority()
     with pytest.raises(ValueError, match=message):
         await core.VLLMModel.async_generate.__wrapped__(
             model, "hello", {"priority": -1}
         )
     model._engine.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "policy,config,expected",
+    [
+        ("priority", {"priority_hint": -1}, -1),
+        ("fcfs", {"priority_hint": -1}, 0),
+        ("priority", {"priority_hint": -1, "priority": 0}, 0),
+    ],
+)
+async def test_chat_priority_hint_is_optional(monkeypatch, policy, config, expected):
+    model = _model(monkeypatch, policy=policy)
+    with pytest.raises(RuntimeError, match="engine reached"):
+        await core.VLLMModel.async_generate.__wrapped__(
+            model, "hello", dict(config, max_tokens=2)
+        )
+    assert model._engine.generate.call_args.kwargs.get("priority", 0) == expected
 
 
 @pytest.mark.asyncio

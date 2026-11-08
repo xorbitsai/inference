@@ -24,6 +24,7 @@ async def test_running_model_budget_capability_requires_every_replica(
         return_value={
             "model_type": "LLM",
             "model_ability": ["chat"],
+            "model_engine": "vLLM",
             "reasoning_effort": None,
         }
     )
@@ -31,18 +32,21 @@ async def test_running_model_budget_capability_requires_every_replica(
         SimpleNamespace(
             get_reasoning_capabilities=AsyncMock(
                 return_value=json.dumps({"supports_thinking_budget": True}).encode()
-            )
+            ),
+            supports_chat_priority=AsyncMock(return_value=True),
         ),
         SimpleNamespace(
             get_reasoning_capabilities=AsyncMock(
                 return_value={"supports_thinking_budget": second}
-            )
+            ),
+            supports_chat_priority=AsyncMock(return_value=second),
         ),
     ]
     if second == "legacy":
         models[1] = SimpleNamespace()
     elif second == "unavailable":
         models[1].get_reasoning_capabilities.side_effect = RuntimeError("loading")
+        models[1].supports_chat_priority.side_effect = RuntimeError("loading")
 
     async def get_model(owner, uid, worker, operation, **kwargs):
         assert operation == "get_model"
@@ -51,6 +55,7 @@ async def test_running_model_budget_capability_requires_every_replica(
     monkeypatch.setattr(supervisor_module, "call_worker_route", get_model)
     description = await owner.describe_running_model("model")
     assert description["supports_thinking_budget"] is (second is True)
+    assert (description.get("supports_chat_priority") is True) is (second is True)
     assert description["supports_chat_session_affinity"] is True
     assert description["reasoning_effort"] is None
 

@@ -380,3 +380,6 @@ msgstr ""
 "的模型、生成和串流回應格式保持不變。vLLM、Transformers、MLX 和 TRT-LLM 回傳適配器上限；SGLang "
 "查詢其執行階段。llama.cpp 從已載入服務的 ``/props`` 介面讀取實際生效的每槽位 "
 "``n_ctx``，而不是以啟動時的總容量除以槽位數。不提供查詢介面的舊版執行階段回傳 ``null``。該上限不保證請求所需的記憶體始終可用。"
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
+msgstr "執行中模型的描述宣告 ``supports_chat_priority`` 時，用戶端可在聊天請求中傳送 ``priority_hint: -1``。Xinference 會在已啟用優先級排程的 vLLM 副本上套用此提示。明確指定的 ``priority`` 優先。"

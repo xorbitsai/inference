@@ -426,3 +426,6 @@ msgstr ""
 "servidor carregado, em vez de dividir a capacidade total solicitada na "
 "inicialização. Runtimes antigos sem interface de consulta retornam ``null``."
 " O limite não garante memória disponível para uma solicitação."
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
+msgstr "Os clientes podem enviar ``priority_hint: -1`` nas solicitações de chat quando a descrição do modelo em execução anuncia ``supports_chat_priority``. O Xinference aplica a sugestão nas réplicas vLLM com agendamento por prioridade habilitado. Um valor explícito de ``priority`` tem precedência."

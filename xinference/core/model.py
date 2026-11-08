@@ -1939,6 +1939,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         supports = getattr(self._model, "supports_agent_cache_lifecycle", None)
         return supports is not None and supports() is True
 
+    def supports_chat_priority(self) -> bool:
+        self._require_ready()
+        supports = getattr(self._model, "supports_chat_priority", None)
+        return supports is not None and supports() is True
+
     @request_limit(keep_chat_reservation=True)
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):

@@ -5132,6 +5132,7 @@ class RESTfulAPI(CancelMixin):
         raw_body = await request.json()
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
+        priority_hint = raw_body.pop("priority_hint", None)
         body = _parse_llm_request(CreateChatCompletion, raw_body)
         raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
@@ -5555,6 +5556,10 @@ class RESTfulAPI(CancelMixin):
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
+        if is_vllm_backend and type(priority_hint) is int and priority_hint == -1:
+            # Xagent's scheduling hint is optional. The selected engine checks
+            # its own policy before translating it into a native priority.
+            kwargs["priority_hint"] = priority_hint
         if body.stream:
             abort_controller = _SSERequestAbortController(
                 model, request_id, request, "chat"

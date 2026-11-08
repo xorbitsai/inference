@@ -435,3 +435,6 @@ msgstr ""
 " au démarrage. Les anciens runtimes sans interface de consultation renvoient"
 " ``null``. Cette limite ne garantit pas la mémoire disponible pour une "
 "requête."
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. Xinference applies the hint on vLLM replicas with priority scheduling enabled. An explicit ``priority`` takes precedence."
+msgstr "Les clients peuvent envoyer ``priority_hint: -1`` dans les requêtes de chat lorsque la description du modèle en cours d’exécution annonce ``supports_chat_priority``. Xinference applique cette indication aux réplicas vLLM pour lesquels la planification par priorité est activée. Une valeur ``priority`` explicite est prioritaire."
