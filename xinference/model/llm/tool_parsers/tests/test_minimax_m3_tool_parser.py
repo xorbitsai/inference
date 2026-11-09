@@ -1,3 +1,7 @@
+# CI: linux
+import json
+import re
+
 import pytest
 
 from ..minimax_m3_tool_parser import MiniMaxM3ToolParser
@@ -305,3 +309,127 @@ def test_streaming_returns_raw_delta_on_parser_error(parser, monkeypatch):
         None,
         None,
     )
+
+
+NS = "]<]minimax[>["
+# Each tag in M3's chat template is preceded by the namespace token.
+M3_CALL = (
+    f"{NS}<tool_call>\n"
+    f'{NS}<invoke name="get_weather">'
+    f"{NS}<city>Beijing{NS}</city>"
+    f"{NS}<days>3{NS}</days>"
+    f"{NS}</invoke>\n"
+    f"{NS}</tool_call>"
+)
+
+
+def _m3_family():
+    from ...llm_family import BUILTIN_LLM_FAMILIES
+
+    return next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "MiniMax-M3")
+
+
+def test_tool_call_rendered_by_the_m3_template_is_parsed(parser):
+    from types import SimpleNamespace
+
+    from ...utils import ChatModelMixin
+
+    family = _m3_family()
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_ability=family.model_ability,
+        chat_template=family.chat_template,
+    )
+    arguments = {"code": "if a < b and c > d: x = '&lt;' & y", "cities": ["A", "B"]}
+    prompt = mixin.get_full_context(
+        [
+            {"role": "user", "content": "Run it"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {
+                            "name": "run",
+                            "arguments": json.dumps(arguments),
+                        },
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "c1", "content": "done"},
+        ],
+        family.chat_template,
+        tools=[{"type": "function", "function": {"name": "run"}}],
+    )
+
+    start = prompt.index(f'{NS}<tool_call>\n{NS}<invoke name="run">')
+    end = prompt.index(f"{NS}</tool_call>", start) + len(f"{NS}</tool_call>")
+    assert parser.extract_tool_calls(prompt[start:end]) == [(None, "run", arguments)]
+
+
+def _m3_model():
+    from ...utils import ChatModelMixin
+
+    model = ChatModelMixin()
+    model.tool_parser = MiniMaxM3ToolParser()
+    model.reasoning_parser = None
+    model.model_family = None
+    model.model_uid = "test-model"
+    return model
+
+
+def _completion(text, finish_reason):
+    return {
+        "id": "test",
+        "object": "text_completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [{"index": 0, "text": text, "finish_reason": finish_reason}],
+    }
+
+
+def test_m3_tool_call_reaches_the_chat_response():
+    result = _m3_model()._post_process_completion(
+        None, "test-model", _completion("Checking.\n" + M3_CALL, "stop")
+    )
+    choice = result["choices"][0]
+
+    assert choice["message"]["content"] == "Checking.\n"
+    assert [
+        (call["function"]["name"], json.loads(call["function"]["arguments"]))
+        for call in choice["message"]["tool_calls"]
+    ] == [("get_weather", {"city": "Beijing", "days": 3})]
+    assert choice["finish_reason"] == "tool_calls"
+
+
+@pytest.mark.asyncio
+async def test_m3_tool_call_reaches_the_chat_stream():
+    # The namespace and the <tool_call> tags are single tokens and arrive whole.
+    pieces = []
+    for part in re.split(r"(\]<\]minimax\[>\[|</?tool_call>)", "Checking.\n" + M3_CALL):
+        if part.startswith((NS, "<tool_call>", "</tool_call>")):
+            pieces.append(part)
+        else:
+            pieces.extend(part[i : i + 3] for i in range(0, len(part), 3))
+
+    async def chunks():
+        for piece in pieces:
+            yield _completion(piece, None)
+        yield _completion("", "stop")
+
+    content, calls, finish_reason = "", [], None
+    async for chunk in _m3_model()._async_to_tool_completion_chunks(chunks()):
+        for choice in chunk["choices"]:
+            content += choice["delta"].get("content") or ""
+            calls += [
+                (call["function"]["name"], json.loads(call["function"]["arguments"]))
+                for call in choice["delta"].get("tool_calls") or []
+            ]
+            finish_reason = choice["finish_reason"] or finish_reason
+
+    assert content == "Checking.\n"
+    assert calls == [("get_weather", {"city": "Beijing", "days": 3})]
+    assert finish_reason == "tool_calls"

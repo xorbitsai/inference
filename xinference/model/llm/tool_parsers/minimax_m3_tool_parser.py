@@ -3,11 +3,17 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
+from xml.sax.saxutils import escape
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+# MiniMax-M3's chat template writes this token before every tool-call tag, and
+# only text that follows it is markup: ]<]minimax[>[<tool_call>, ...<invoke>,
+# ...<city>Beijing]<]minimax[>[</city>, ...</tool_call>.
+NAMESPACE = "]<]minimax[>["
 
 
 @register_tool_parser("minimax_m3")
@@ -79,7 +85,25 @@ class MiniMaxM3ToolParser(ToolParser):
                 duplicate_tags.add(child.tag)
         return result
 
+    def _normalize(self, text: str) -> str:
+        """Read M3's namespaced block tags as the tags this parser matches."""
+        return text.replace(
+            NAMESPACE + "<tool_call>", self.tool_call_start_token
+        ).replace(NAMESPACE + "</tool_call>", self.tool_call_end_token)
+
+    @staticmethod
+    def _namespace_to_xml(body: str) -> str:
+        """Keep the namespaced tags and escape everything else, which is text."""
+        parts = body.split(NAMESPACE)
+        xml = [escape(parts[0])]
+        for part in parts[1:]:
+            tag_end = part.find(">") + 1 if part.startswith("<") else 0
+            xml.append(part[:tag_end] + escape(part[tag_end:]))
+        return "".join(xml)
+
     def _parse_invoke_args(self, name: str, body: str) -> Dict[str, Any]:
+        if NAMESPACE in body:
+            body = self._namespace_to_xml(body)
         # Model output is often XML-like rather than strictly valid XML. Escape
         # bare ampersands while preserving the five predefined XML entities and
         # numeric character references.
@@ -153,6 +177,7 @@ class MiniMaxM3ToolParser(ToolParser):
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+        model_output = self._normalize(model_output)
         if self.tool_call_start_token not in model_output:
             return [(model_output, None, None)]
 
@@ -190,6 +215,10 @@ class MiniMaxM3ToolParser(ToolParser):
         def completed_blocks(
             text: str,
         ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+            text = self._normalize(text)
+            # The namespace token arrives whole, before <tool_call>.
+            if text.endswith(NAMESPACE):
+                text = text[: -len(NAMESPACE)]
             for prefix_length in range(len(self.tool_call_start_token) - 1, 0, -1):
                 partial_start = self.tool_call_start_token[:prefix_length]
                 if text.endswith(partial_start):
