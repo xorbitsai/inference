@@ -3512,6 +3512,57 @@ def test_post_process_completion_stopped_while_thinking():
     )
 
 
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "finish_reason,expected", [("stop", "tool_calls"), ("length", "length")]
+)
+def test_tool_call_response_keeps_a_length_finish_reason(
+    stream, finish_reason, expected
+):
+    # A complete call followed by one cut off by max_tokens: the response still
+    # has to say the output was cut off, in both response modes.
+    call = '<tool_call>\n{"name": "get_weather", "arguments": {"city": "Paris"}}\n'
+    text = call + "</tool_call>\n" + call[:20]
+    mixin = ChatModelMixin()
+    mixin.tool_parser = QwenToolParser()
+    mixin.reasoning_parser = None
+    mixin.model_family = None
+    mixin.model_uid = "qwen"
+
+    def completion(text, finish_reason):
+        return {
+            "id": "1",
+            "object": "text_completion",
+            "created": 0,
+            "model": "qwen",
+            "choices": [{"index": 0, "text": text, "finish_reason": finish_reason}],
+        }
+
+    if not stream:
+        choice = mixin._post_process_completion(
+            None, "qwen", completion(text, finish_reason)
+        )["choices"][0]
+        assert choice["message"]["tool_calls"][0]["function"]["name"] == "get_weather"
+        assert choice["finish_reason"] == expected
+        return
+
+    async def chunks():
+        yield completion(text, None)
+        yield completion("", finish_reason)
+
+    async def collect():
+        return [c async for c in mixin._async_to_tool_completion_chunks(chunks())]
+
+    choices = [c["choices"][0] for c in asyncio.run(collect())]
+    names = [
+        call["function"].get("name")
+        for choice in choices
+        for call in choice["delta"].get("tool_calls") or []
+    ]
+    assert "get_weather" in names
+    assert choices[-1]["finish_reason"] == expected
+
+
 @pytest.mark.parametrize("text", ["The user asks", "<think>\nThe user asks"])
 def test_to_chat_completion_stopped_while_thinking(text):
     # Generation hits max_tokens inside the thinking block, so there is no end

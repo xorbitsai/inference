@@ -1431,11 +1431,11 @@ class ChatModelMixin:
             # For non-tool calls, use the processed content from reasoning parser
             content = text
 
-        finish_reason = (
-            "tool_calls"
-            if tool_calls
-            else c["choices"][0].get("finish_reason") or "stop"
-        )
+        # Like the streaming path, keep "length" so a client can tell that
+        # the output, possibly a later call, was cut off.
+        finish_reason = c["choices"][0].get("finish_reason") or "stop"
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_calls"
 
         m = {
             "role": "assistant",
