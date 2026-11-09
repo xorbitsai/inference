@@ -28,9 +28,6 @@ class MiniMaxToolParser(ToolParser):
         self.tool_call_end_token: str = "</minimax:tool_call>"
 
         self.think_regex = re.compile(r"<think>(.*?)</think>", re.DOTALL)
-        self.content_regex = (
-            r"(<(?:think|minimax:tool_call)>.*?</(?:think|minimax:tool_call)>)"
-        )
         self.tool_call_complete_regex = re.compile(
             r"<minimax:tool_call>(.*?)</minimax:tool_call>", re.DOTALL
         )
@@ -67,18 +64,6 @@ class MiniMaxToolParser(ToolParser):
                 )
             results.append((name, args))
         return results
-
-    def _get_function_calls(self, model_output: str) -> List[str]:
-        functions_calls = []
-        last_end = 0
-        for m in re.finditer(self.content_regex, model_output, re.DOTALL):
-            if m.start() > last_end:
-                functions_calls.append(model_output[last_end : m.start()])
-            functions_calls.append(m.group(0))
-            last_end = m.end()
-        if last_end < len(model_output):
-            functions_calls.append(model_output[last_end:])
-        return functions_calls
 
     def _get_function_calls_streaming(self, model_output: str) -> List[str]:
         matched_ranges = self.tool_call_regex.findall(model_output)
@@ -140,36 +125,12 @@ class MiniMaxToolParser(ToolParser):
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        if self.tool_call_start_token not in model_output:
-            return [(model_output, None, None)]
-
-        results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
-            []
-        )
-        try:
-            function_calls = self._get_function_calls(model_output)
-            if not function_calls:
-                return [(model_output, None, None)]
-
-            for function_call in function_calls:
-                if self.tool_call_start_token in function_call:
-                    invokes = self._parse_invoke_calls(function_call)
-                    if not invokes:
-                        results.append((function_call, None, None))
-                        continue
-                    for name, args in invokes:
-                        results.append((None, name, args))
-                else:
-                    if function_call:
-                        results.append((function_call, None, None))
-            return results
-        except Exception as e:
-            logger.error(
-                "Can't parse minimax tool call output: %s. Error: %s",
-                model_output,
-                e,
-            )
-            return [(model_output, None, None)]
+        # Only a closed block is a call, as in streaming. A truncated one stays
+        # text, so the response keeps its finish reason.
+        markup = self._tool_markup(model_output)
+        return self._settled_events(model_output, markup, 0, len(model_output)) or [
+            (model_output, None, None)
+        ]
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

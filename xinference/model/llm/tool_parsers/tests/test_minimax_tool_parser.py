@@ -1,3 +1,6 @@
+# CI: linux
+import asyncio
+
 import pytest
 
 from ..minimax_tool_parser import MiniMaxToolParser
@@ -90,3 +93,60 @@ def test_streaming_long_call_in_small_deltas():
 
     assert content == "Writing. Done."
     assert calls == [("write_file", {"content": code})]
+
+
+# Output that reaches max_tokens after </invoke>, before </minimax:tool_call>.
+TRUNCATED = OUTPUT[: -len("</minimax:tool_call>")]
+
+
+def test_a_block_without_its_closing_tag_stays_text():
+    assert MiniMaxToolParser().extract_tool_calls(TRUNCATED) == [
+        (TRUNCATED, None, None)
+    ]
+
+
+def _completion(text, finish_reason):
+    return {
+        "id": "test",
+        "object": "text_completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [{"index": 0, "text": text, "finish_reason": finish_reason}],
+    }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_a_block_cut_off_before_its_closing_tag_emits_no_call(stream):
+    from ...utils import ChatModelMixin
+
+    model = ChatModelMixin()
+    model.tool_parser = MiniMaxToolParser()
+    model.reasoning_parser = None
+    model.model_family = None
+    model.model_uid = "test-model"
+
+    if stream:
+
+        async def chunks():
+            for i in range(0, len(TRUNCATED), 7):
+                yield _completion(TRUNCATED[i : i + 7], None)
+            yield _completion("", "length")
+
+        async def collect():
+            return [c async for c in model._async_to_tool_completion_chunks(chunks())]
+
+        choices = [c["choices"][0] for c in asyncio.run(collect())]
+        content = "".join(c["delta"].get("content") or "" for c in choices)
+        calls = [call for c in choices for call in c["delta"].get("tool_calls") or []]
+        finish_reason = choices[-1]["finish_reason"]
+    else:
+        choice = model._post_process_completion(
+            None, "test-model", _completion(TRUNCATED, "length")
+        )["choices"][0]
+        content = choice["message"]["content"]
+        calls = choice["message"]["tool_calls"]
+        finish_reason = choice["finish_reason"]
+
+    assert calls == []
+    assert finish_reason == "length"
+    assert content.startswith("Let me check.\n")
