@@ -613,12 +613,20 @@ class ChatModelMixin:
                 return prompt
             else:
                 try:
+                    selected_template = None
                     get_chat_template = getattr(tokenizer, "get_chat_template", None)
                     if callable(get_chat_template):
-                        selected_template = get_chat_template(
-                            chat_template, tools=kwargs.get("tools")
-                        )
-                    else:
+                        try:
+                            selected_template = get_chat_template(
+                                chat_template, tools=kwargs.get("tools")
+                            )
+                        except ValueError:
+                            # Native renderers such as vLLM's DeepSeek-V4.1
+                            # tokenizer have no Jinja template, and the
+                            # transformers lookup raises. Template inspection
+                            # is optional; rendering below still works.
+                            selected_template = None
+                    if selected_template is None:
                         selected_template = chat_template
                         if selected_template is None:
                             selected_template = getattr(
