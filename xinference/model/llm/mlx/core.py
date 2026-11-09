@@ -55,6 +55,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ....utils import dependency_import_guard
 from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded
 from ..core import LLM, chat_context_var
@@ -1439,17 +1440,9 @@ class MLXModel(LLM, ChatModelMixin):
                 "Speculative decoding is only supported by the MLX vision engine "
                 "for now, e.g. gemma-4 with its `*-it-assistant` drafter."
             )
-        try:
+        with dependency_import_guard("mlx_lm"):
             import mlx.core as mx
             from mlx_lm import load
-        except ImportError:
-            error_message = "Failed to import module 'mlx_lm'"
-            installation_guide = [
-                "Please make sure 'mlx_lm' is installed. ",
-                "You can install it by `pip install mlx_lm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer_config = dict(
             use_fast=self._use_fast_tokenizer,
@@ -1523,17 +1516,9 @@ class MLXModel(LLM, ChatModelMixin):
         return model, tokenizer
 
     def _load_model_shard(self, **kwargs):
-        try:
+        with dependency_import_guard("mlx_lm"):
             import mlx.core as mx
             from mlx_lm.utils import load_model, load_tokenizer
-        except ImportError:
-            error_message = "Failed to import module 'mlx_lm'"
-            installation_guide = [
-                "Please make sure 'mlx_lm' is installed. ",
-                "You can install it by `pip install mlx_lm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # Ensure some attributes correctly inited by model actor
         assert (
@@ -1606,14 +1591,21 @@ class MLXModel(LLM, ChatModelMixin):
 
         model_type = config["model_type"]
         model_type = MODEL_REMAPPING.get(model_type, model_type)
+        arch_module = f"xinference.model.llm.mlx.distributed_models.{model_type}"
         try:
-            arch = importlib.import_module(
-                f"xinference.model.llm.mlx.distributed_models.{model_type}"
-            )
-        except ImportError:
-            msg = f"Model type {model_type} not supported for distributed inference."
+            arch = importlib.import_module(arch_module)
+        except ImportError as exc:
+            if isinstance(exc, ModuleNotFoundError) and exc.name == arch_module:
+                msg = (
+                    f"Model type {model_type} not supported for distributed inference."
+                )
+            else:
+                msg = (
+                    f"Failed to import distributed model type {model_type}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
             logger.error(msg)
-            raise ValueError(msg)
+            raise ValueError(msg) from exc
 
         return arch.Model, arch.ModelArgs
 
@@ -2828,16 +2820,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 raise err.with_traceback(tb)
 
     def _load_model(self, **kwargs):
-        try:
+        with dependency_import_guard("mlx_vlm"):
             from mlx_vlm import load
-        except ImportError:
-            error_message = "Failed to import module 'mlx_vlm'"
-            installation_guide = [
-                "Please make sure 'mlx_vlm' is installed. ",
-                "You can install it by `pip install mlx_vlm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._prompt_cache = PromptCache()
 
@@ -2861,11 +2845,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         model, so that both share one thread-local generation stream."""
         try:
             from mlx_vlm.speculative.drafters import load_drafter
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "Speculative decoding requires mlx-vlm>=0.5.0, "
-                "you can upgrade it by `pip install -U mlx-vlm`"
-            )
+                "Speculative decoding requires mlx-vlm>=0.5.0. "
+                f"Import failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
         generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step
         if "draft_model" not in inspect.signature(generate_step).parameters:

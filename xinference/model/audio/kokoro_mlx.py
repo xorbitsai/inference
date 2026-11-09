@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from ...utils import dependency_import_guard
 from .utils import MLXModelThreadMixin
 
 if TYPE_CHECKING:
@@ -53,16 +54,11 @@ class KokoroMLXModel(MLXModelThreadMixin):
         self._run_on_mlx_thread(self._load)
 
     def _load(self):
-        try:
+        with dependency_import_guard(
+            "mlx_audio", install_hint="Install with `pip install mlx-audio`."
+        ):
             from mlx_audio.tts.models.kokoro import KokoroPipeline as KokoroPipeline
             from mlx_audio.tts.utils import load_model
-        except ImportError:
-            error_message = "Failed to import module 'mlx_audio'"
-            installation_guide = [
-                "Please make sure 'mlx-audio' is installed.\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         model = load_model(self._model_path)
         lang_code = self._kwargs.get("lang_code", "a")

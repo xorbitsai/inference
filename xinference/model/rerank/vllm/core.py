@@ -11,7 +11,7 @@ from xoscar import extensible
 
 from ....device_utils import empty_cache, is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ....utils import make_hashable
+from ....utils import dependency_import_guard, make_hashable
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
@@ -34,21 +34,12 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self._native_pooling = False
 
     def load(self):
-        try:
+        with dependency_import_guard("vllm"):
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
             from packaging.version import Version
             from vllm import LLM
             from vllm import __version__ as vllm_version
-
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)

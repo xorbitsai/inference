@@ -28,7 +28,7 @@ import tqdm as tqdm_module
 from tqdm.auto import tqdm
 
 from ..._compat import BaseModel
-from ...utils import get_real_path
+from ...utils import dependency_import_guard, dependency_import_message, get_real_path
 from ..utils import (
     CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
@@ -50,6 +50,39 @@ from ..utils import (
     retry_snapshot_download,
     symlink_local_file,
 )
+
+
+def test_dependency_import_message_uses_distribution_name_for_installation():
+    error = ModuleNotFoundError("No module named 'mlx_audio'", name="mlx_audio")
+    message = dependency_import_message(
+        "mlx_audio", error, install_hint="Install with `pip install mlx-audio`."
+    )
+
+    assert "ModuleNotFoundError: No module named 'mlx_audio'" in message
+    assert "`pip install mlx-audio`" in message
+
+
+def test_dependency_import_message_reports_chained_native_error():
+    error = ModuleNotFoundError("Could not import model class", name="transformers")
+    error.__cause__ = ImportError("Could not initialize torchvision")
+    error.__cause__.__cause__ = OSError("libtorch_cuda.so: undefined symbol")
+
+    message = dependency_import_message("transformers", error)
+
+    assert "ModuleNotFoundError: Could not import model class" in message
+    assert "ImportError: Could not initialize torchvision" in message
+    assert "OSError: libtorch_cuda.so: undefined symbol" in message
+    assert "pip install" not in message
+
+
+def test_dependency_import_guard_preserves_non_import_errors():
+    error = OSError("libtorch_cuda.so: undefined symbol")
+
+    with pytest.raises(OSError) as exc_info:
+        with dependency_import_guard("torch"):
+            raise error
+
+    assert exc_info.value is error
 
 
 def test_extend_classes_once_skips_already_present_classes():
@@ -765,6 +798,7 @@ def test_force_virtualenv_engine_params_and_override():
         engine_params, supported, {"sglang"}, True, match_status
     )
     assert engine_params["SGLang"][0]["virtualenv_required"] is True
+    assert "missing dependency" in engine_params["SGLang"][0]["virtualenv_reason"]
 
 
 def test_virtualenv_override_disabled_marks_unavailable():
@@ -776,6 +810,7 @@ def test_virtualenv_override_disabled_marks_unavailable():
     )
 
     assert isinstance(engine_params["SGLang"], str)
+    assert "missing dependency" in engine_params["SGLang"]
 
 
 @pytest.mark.platform_slow

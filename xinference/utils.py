@@ -15,7 +15,48 @@
 import os
 import subprocess
 import sys
-from typing import Optional
+from contextlib import contextmanager
+from typing import Iterator, Optional
+
+
+def dependency_import_message(
+    module_name: str, exc: ImportError, *, install_hint: Optional[str] = None
+) -> str:
+    """Describe an import failure and suggest installation for a missing module."""
+    details = [f"{type(exc).__name__}: {exc}"]
+    seen = {id(exc)}
+    cause = exc.__cause__
+    while cause is not None and id(cause) not in seen:
+        details.append(f"{type(cause).__name__}: {cause}")
+        seen.add(id(cause))
+        cause = cause.__cause__
+    message = f"Failed to import module '{module_name}': " + "\nCaused by: ".join(
+        details
+    )
+    if (
+        isinstance(exc, ModuleNotFoundError)
+        and exc.name == module_name
+        and exc.__cause__ is None
+    ):
+        hint = install_hint or (
+            f"Install '{module_name}' in the active environment "
+            f"with `pip install {module_name}`."
+        )
+        message = f"{message}\n{hint}"
+    return message
+
+
+@contextmanager
+def dependency_import_guard(
+    module_name: str, *, install_hint: Optional[str] = None
+) -> Iterator[None]:
+    """Report failures from lazy imports while retaining their original cause."""
+    try:
+        yield
+    except ImportError as exc:
+        raise ImportError(
+            dependency_import_message(module_name, exc, install_hint=install_hint)
+        ) from exc
 
 
 def cuda_count():

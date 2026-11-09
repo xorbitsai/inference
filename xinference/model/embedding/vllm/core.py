@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ....utils import dependency_import_guard, dependency_import_message
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -58,21 +59,13 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._dimensions = None
 
     def load(self):
-        try:
+        with dependency_import_guard("vllm"):
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
             from packaging.version import Version
             from vllm import LLM
             from vllm import __version__ as vllm_version
 
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)
 
@@ -585,9 +578,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             try:
                 import vllm
                 from packaging import version
-            except ImportError:
+            except ImportError as exc:
                 if not allow_missing_env:
-                    return False, "vLLM is not installed"
+                    return False, dependency_import_message("vllm", exc)
             else:
                 if not allow_missing_env and version.parse(
                     vllm.__version__

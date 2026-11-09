@@ -40,6 +40,7 @@ from ....device_utils import (
     move_model_to_available_device,
 )
 from ....types import LoRA
+from ....utils import dependency_import_guard
 from ..constants import DOWNSAMPLE_FACTOR, LATENT_CHANNELS
 from ..rng import ImageRNG
 from ..sdapi import SDAPIDiffusionModelMixin
@@ -496,36 +497,19 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._apply_lora()
 
         if self._kwargs.get("deepcache", False):
-            try:
+            with dependency_import_guard("DeepCache"):
                 from DeepCache import DeepCacheSDHelper
-            except ImportError:
-                error_message = "Failed to import module 'deepcache' when you launch with deepcache=True"
-                installation_guide = [
-                    "Please make sure 'deepcache' is installed. ",
-                    "You can install it by `pip install deepcache`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-            else:
-                self._deepcache_helper = helper = DeepCacheSDHelper()
-                helper.set_params(
-                    cache_interval=self._kwargs.get("deepcache_cache_interval", 3),
-                    cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
-                )
+            self._deepcache_helper = helper = DeepCacheSDHelper()
+            helper.set_params(
+                cache_interval=self._kwargs.get("deepcache_cache_interval", 3),
+                cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
+            )
 
     def _get_quantize_config(self, method: str, quantization: str, module: str):
         if method == "bnb":
             self._has_bnb_quantization = True
-            try:
+            with dependency_import_guard("bitsandbytes"):
                 import bitsandbytes  # noqa: F401
-            except ImportError:
-                error_message = "Failed to import module 'bitsandbytes'"
-                installation_guide = [
-                    "Please make sure 'bitsandbytes' is installed. ",
-                    "You can install it by `pip install bitsandbytes`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             if module.startswith("diffusers."):
                 from diffusers import BitsAndBytesConfig
@@ -544,16 +528,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     bnb_4bit_compute_dtype=self._torch_dtype,
                 )
         elif method == "torchao":
-            try:
+            with dependency_import_guard("torchao"):
                 import torchao  # noqa: F401
-            except ImportError:
-                error_message = "Failed to import module 'torchao'"
-                installation_guide = [
-                    "Please make sure 'torchao' is installed. ",
-                    "You can install it by `pip install torchao`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             if module.startswith("diffusers."):
                 from diffusers import TorchAoConfig

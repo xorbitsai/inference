@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Literal, Optional, Union
 import numpy as np
 from tqdm import tqdm
 
+from ...utils import dependency_import_guard
 from .utils import MLXModelThreadMixin
 
 if TYPE_CHECKING:
@@ -58,19 +59,12 @@ class F5TTSMLXModel(MLXModelThreadMixin):
         self._run_on_mlx_thread(self._load)
 
     def _load(self):
-        try:
+        with dependency_import_guard("f5_tts_mlx"):
             import mlx.core as mx
             from f5_tts_mlx.cfm import F5TTS
             from f5_tts_mlx.dit import DiT
             from f5_tts_mlx.duration import DurationPredictor, DurationTransformer
             from vocos_mlx import Vocos
-        except ImportError:
-            error_message = "Failed to import module 'f5_tts_mlx'"
-            installation_guide = [
-                "Please make sure 'f5_tts_mlx' is installed.\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         path = Path(self._model_path)
         # vocab

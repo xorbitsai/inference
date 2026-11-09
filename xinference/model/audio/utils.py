@@ -23,6 +23,8 @@ import numpy as np
 import torch
 from packaging import version
 
+from ...utils import dependency_import_guard
+
 logger = logging.getLogger(__name__)
 
 
@@ -110,14 +112,11 @@ def _audio_stream_generator_with_torchcodec(
     output_generator: typing.Iterator[typing.Any],
     output_chunk_transformer: Callable,
 ):
-    try:
+    with dependency_import_guard(
+        "torchcodec",
+        install_hint="Install a TorchCodec build compatible with the installed PyTorch version.",
+    ):
         from torchcodec import encoders as torchcodec_encoders
-    except ImportError as exc:
-        raise ImportError(
-            "Failed to import 'torchcodec'. It is required for audio streaming "
-            "when 'torchaudio.io.StreamWriter' is unavailable. Install a "
-            "TorchCodec build compatible with the installed PyTorch version."
-        ) from exc
 
     normalized_format = response_format.lower().lstrip(".")
     response_pcm = normalized_format == "pcm"

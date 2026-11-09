@@ -21,6 +21,7 @@ import PIL.Image
 
 from ....device_utils import is_vacc_available
 from ....thirdparty.navidc_ocr import MODEL_ARCHITECTURE as NAVIDC_MODEL_ARCHITECTURE
+from ....utils import dependency_import_guard
 from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
@@ -38,17 +39,10 @@ _minicpm_vllm_executor_lock = threading.Lock()
 
 
 def _load_vllm_model(model_path: str, model_kwargs: Dict[str, Any]):
-    try:
+    with dependency_import_guard("vllm"):
         if is_vacc_available():
             import vllm_vacc  # noqa: F401
         from vllm import LLM
-    except ImportError as exc:
-        error_message = "Failed to import module 'vllm'"
-        installation_guide = [
-            "Please make sure 'vllm' is installed. ",
-            "You can install it by `pip install vllm`\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}") from exc
 
     filtered_kwargs = _filter_engine_args(model_kwargs)
     if filtered_kwargs.keys() != model_kwargs.keys():

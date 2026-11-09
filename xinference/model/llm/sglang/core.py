@@ -50,6 +50,7 @@ from ....types import (
     CompletionLogprobs,
     CompletionUsage,
 )
+from ....utils import dependency_import_guard, dependency_import_message
 from ...utils import check_dependency_available
 from .. import LLMFamilyV2, LLMSpecV1
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
@@ -137,12 +138,16 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     mm_processor_kwargs: Dict[str, Any]
 
 
+_SGLANG_IMPORT_ERROR: Optional[str] = None
 try:
     import sglang  # noqa: F401
 
     SGLANG_INSTALLED = True
-except ImportError:
+except ImportError as exc:
     SGLANG_INSTALLED = False
+    _SGLANG_IMPORT_ERROR = dependency_import_message(
+        "sglang", exc, install_hint="Install with `pip install 'sglang[all]'`."
+    )
 
 
 def _virtual_env_allows_missing_sglang() -> bool:
@@ -288,7 +293,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         return self._driver_info
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "sglang", install_hint="Install with `pip install 'sglang[all]'`."
+        ):
             venv_bin = os.path.dirname(sys.executable)
             if venv_bin:
                 path_entries = os.environ.get("PATH", "").split(os.pathsep)
@@ -297,14 +304,6 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         [venv_bin] + ([p for p in path_entries if p] or [])
                     )
             import sglang as sgl
-        except ImportError:
-            error_message = "Failed to import module 'sglang'"
-            installation_guide = [
-                "Please make sure 'sglang' is installed. ",
-                "You can install it by `pip install 'sglang[all]'`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
         nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
@@ -759,7 +758,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if "generate" not in llm_family.model_ability:
             return False, "SGLang base engine requires generate ability"
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     @staticmethod
@@ -1763,7 +1762,7 @@ class SGLANGChatModel(SGLANGModel):
         if "chat" not in llm_family.model_ability:
             return False, "SGLang chat engine requires chat ability"
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     def _sanitize_chat_config(
@@ -1901,7 +1900,7 @@ class SGLANGVisionModel(SGLANGModel):
         # missing local install must not hide the engine. GPU/OS checks above
         # stay unconditional because virtualenv cannot add a GPU or change the OS.
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     def _sanitize_chat_config(

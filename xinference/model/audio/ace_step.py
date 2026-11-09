@@ -224,8 +224,7 @@ class AceStepModel:
             )
         except ImportError as e:
             raise ImportError(
-                "ACE-Step 1.5 vendored runtime failed to import. Install the "
-                "dependencies declared in its built-in model specification."
+                f"ACE-Step 1.5 vendored runtime failed to import: {type(e).__name__}: {e}"
             ) from e
 
         config = self._load_config()

@@ -16,6 +16,7 @@ from typing import Tuple, Union
 
 import torch
 
+from ....utils import dependency_import_guard
 from ...utils import allow_trust_remote_code
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
@@ -29,20 +30,12 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
     DEEPSEEK_V2_ARCHITECTURES = {"DeepseekV2ForCausalLM"}
 
     def _load_model(self, **kwargs):
-        try:
+        with dependency_import_guard("transformers"):
             from transformers import (
                 AutoModelForCausalLM,
                 AutoTokenizer,
                 GenerationConfig,
             )
-        except ImportError:
-            error_message = "Failed to import module 'transformers'"
-            installation_guide = [
-                "Please make sure 'transformers' is installed. ",
-                "You can install it by `pip install transformers`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,

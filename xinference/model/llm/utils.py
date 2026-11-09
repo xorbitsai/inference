@@ -56,6 +56,7 @@ from ...types import (
     CompletionUsage,
     ToolCallDelta,
 )
+from ...utils import dependency_import_guard
 from .core import chat_context_var
 from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
@@ -305,11 +306,9 @@ class ChatModelMixin:
         """
         Copied from transformers source code.
         """
-        try:
+        with dependency_import_guard("jinja2"):
             from jinja2.exceptions import TemplateError
             from jinja2.sandbox import ImmutableSandboxedEnvironment
-        except ImportError:
-            raise ImportError("xinference requires jinja2 to be installed.")
 
         def raise_exception(message):
             raise TemplateError(message)

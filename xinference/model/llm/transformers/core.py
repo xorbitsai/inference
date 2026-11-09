@@ -36,6 +36,7 @@ from ....types import (
     PytorchGenerateConfig,
     PytorchModelConfig,
 )
+from ....utils import dependency_import_guard
 from ...scheduler.request import InferenceRequest
 from ...utils import check_dependency_available, select_device
 from ..core import LLM, chat_context_var
@@ -223,15 +224,8 @@ class PytorchModel(LLM):
         ]
 
     def _load_model(self, **kwargs):
-        try:
+        with dependency_import_guard("transformers"):
             from transformers import AutoModelForCausalLM, AutoTokenizer
-        except ImportError:
-            error_message = "Failed to import module 'transformers'"
-            installation_guide = [
-                "Please make sure 'transformers' is installed. ",
-                "You can install it by `pip install transformers`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
@@ -249,12 +243,8 @@ class PytorchModel(LLM):
 
     def _apply_lora(self):
         if self._peft_model is not None:
-            try:
+            with dependency_import_guard("peft"):
                 from peft import PeftModel
-            except ImportError:
-                raise ImportError(
-                    f"Failed to import 'PeftModel' from 'peft'. Please make sure 'peft' is installed.\n\n"
-                )
 
             for i, peft_model in enumerate(self._peft_model):
                 if i == 0:
@@ -312,7 +302,8 @@ class PytorchModel(LLM):
             from transformers import FPQuantConfig
         except ImportError as exc:
             raise ImportError(
-                "FP4 quantization requires `transformers` with FPQuantConfig support."
+                "FP4 quantization requires `transformers` with FPQuantConfig support. "
+                f"Import failed: {type(exc).__name__}: {exc}"
             ) from exc
 
         if isinstance(quantization_config, FPQuantConfig):

@@ -26,7 +26,7 @@ from ...device_utils import (
     get_device_preferred_dtype,
     is_device_available,
 )
-from ...utils import make_hashable
+from ...utils import dependency_import_guard, make_hashable
 from ..batch import BatchMixin
 
 if TYPE_CHECKING:
@@ -73,15 +73,10 @@ class Qwen3ASRModel(BatchMixin):
         return self._model_spec.model_ability
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "qwen_asr", install_hint="Install with `pip install qwen-asr`."
+        ):
             from qwen_asr import Qwen3ASRModel as QwenASR
-        except ImportError:
-            error_message = "Failed to import module 'qwen_asr'"
-            installation_guide = [
-                "Please make sure 'qwen-asr' is installed. ",
-                "You can install it by `pip install qwen-asr`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         if self._device is None:
             self._device = get_available_device()

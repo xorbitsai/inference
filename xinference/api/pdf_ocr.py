@@ -26,6 +26,8 @@ import os
 import threading
 from typing import Any, Generator, List, Optional, Tuple, Union
 
+from ..utils import dependency_import_guard
+
 logger = logging.getLogger(__name__)
 
 # PDFium is not thread-safe: pypdfium2 documents that concurrent calls,
@@ -299,14 +301,8 @@ def validate_pdf_for_parse(
     zoom with an overshooting ladder (2 or 6, which reach 18x) can be pointed
     at a higher one with a shorter ladder (3, which stops at 9x).
     """
-    try:
+    with dependency_import_guard("pypdfium2"):
         import pypdfium2 as pdfium
-    except ImportError:
-        error_message = "Failed to import module 'pypdfium2' required for PDF OCR"
-        installation_guide = [
-            "Please make sure 'pypdfium2' is installed, e.g. with `pip install pypdfium2`\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     with _pdfium_lock:
         try:
@@ -394,14 +390,8 @@ def rasterize_pdf(
     serialized on a module-level lock (PDFium itself is not
     thread-safe), which is released between pages while OCR runs.
     """
-    try:
+    with dependency_import_guard("pypdfium2"):
         import pypdfium2 as pdfium
-    except ImportError:
-        error_message = "Failed to import module 'pypdfium2' required for PDF OCR"
-        installation_guide = [
-            "Please make sure 'pypdfium2' is installed, e.g. with `pip install pypdfium2`\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     if not isinstance(dpi, (int, float)) or isinstance(dpi, bool) or dpi <= 0:
         raise ValueError(f"`dpi` must be a positive number, got: {dpi!r}")

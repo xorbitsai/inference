@@ -58,6 +58,7 @@ from ..constants import (
     XINFERENCE_HUB_DETECT_TIMEOUT,
 )
 from ..device_utils import get_available_device, is_device_available
+from ..utils import dependency_import_guard
 from .core import CacheableModelSpec
 from .oci_utils import SCHEME as OCI_SCHEME
 from .oci_utils import resolve_oci_model
@@ -545,7 +546,7 @@ def _drop_unavailable_marker_engines(
         for engine_class in engine_classes:
             lib_ok, _, _, _ = _normalize_match_result(
                 engine_class.check_lib(),
-                f"Engine {engine_name} library is not installed",
+                f"Engine {engine_name} library could not be loaded",
                 "dependency_missing",
             )
             if not lib_ok:
@@ -607,19 +608,23 @@ def _apply_virtualenv_engine_overrides(
             continue
 
         lib_ok = False
+        lib_reason = None
         for engine_class in supported_engines[engine_name]:
             check_lib = getattr(engine_class, "check_lib", None)
             result = check_lib() if callable(check_lib) else True
-            lib_ok, _, _, _ = _normalize_match_result(
+            lib_ok, reason, _, _ = _normalize_match_result(
                 result,
-                f"Engine {engine_name} library is not installed",
+                f"Engine {engine_name} library could not be loaded",
                 "dependency_missing",
             )
             if lib_ok:
                 break
+            lib_reason = lib_reason or reason
 
         require_virtualenv = not lib_ok or not match_status.get(engine_name, True)
-        reason = f"Engine {engine_name} is not installed in the current environment; enable virtualenv to use it."
+        reason = f"Engine {engine_name} is unavailable in the current environment."
+        if not lib_ok and lib_reason:
+            reason = f"{reason} {lib_reason}"
         if enable_virtual_env and engine_name.lower() in engine_markers:
             if require_virtualenv:
                 for param in engine_params[engine_name]:
@@ -1324,12 +1329,8 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
 
 
 def select_device(device):
-    try:
+    with dependency_import_guard("torch"):
         import torch  # noqa: F401
-    except ImportError:
-        raise ImportError(
-            f"Failed to import module 'torch'. Please make sure 'torch' is installed.\n\n"
-        )
 
     if device == "auto":
         return get_available_device()
@@ -1882,7 +1883,7 @@ def _get_engine_params_by_name(
                 try:
                     lib_ok, lib_reason, lib_type, lib_details = _normalize_match_result(
                         engine_class.check_lib(),
-                        f"Engine {engine_name} library is not installed",
+                        f"Engine {engine_name} library could not be loaded",
                         "dependency_missing",
                     )
                     if not lib_ok:
@@ -1985,7 +1986,7 @@ def _get_engine_params_by_name(
                         lib_ok, lib_reason, lib_type, lib_details = (
                             _normalize_match_result(
                                 check_lib() if callable(check_lib) else True,
-                                f"Engine {engine_name} library is not installed",
+                                f"Engine {engine_name} library could not be loaded",
                                 "dependency_missing",
                             )
                         )
@@ -2088,7 +2089,7 @@ def _get_engine_params_by_name(
                         lib_ok, lib_reason, lib_type, lib_details = (
                             _normalize_match_result(
                                 check_lib() if callable(check_lib) else True,
-                                f"Engine {engine_name} library is not installed",
+                                f"Engine {engine_name} library could not be loaded",
                                 "dependency_missing",
                             )
                         )
@@ -2420,7 +2421,7 @@ def _get_engine_params_by_name_with_virtual_env(
                 try:
                     lib_ok, lib_reason, lib_type, lib_details = _normalize_match_result(
                         engine_class.check_lib(),
-                        f"Engine {engine_name} library is not installed",
+                        f"Engine {engine_name} library could not be loaded",
                         "dependency_missing",
                     )
                     if not lib_ok:
@@ -2524,7 +2525,7 @@ def _get_engine_params_by_name_with_virtual_env(
                         lib_ok, lib_reason, lib_type, lib_details = (
                             _normalize_match_result(
                                 check_lib() if callable(check_lib) else True,
-                                f"Engine {engine_name} library is not installed",
+                                f"Engine {engine_name} library could not be loaded",
                                 "dependency_missing",
                             )
                         )
@@ -2628,7 +2629,7 @@ def _get_engine_params_by_name_with_virtual_env(
                         lib_ok, lib_reason, lib_type, lib_details = (
                             _normalize_match_result(
                                 check_lib() if callable(check_lib) else True,
-                                f"Engine {engine_name} library is not installed",
+                                f"Engine {engine_name} library could not be loaded",
                                 "dependency_missing",
                             )
                         )

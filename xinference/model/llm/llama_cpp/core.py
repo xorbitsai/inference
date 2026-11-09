@@ -32,6 +32,7 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
 )
+from ....utils import dependency_import_guard
 from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
@@ -300,11 +301,12 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         try:
             from xllamacpp import common_speculative_type
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "Speculative decoding needs a xllamacpp that knows the "
-                "`gemma4-assistant` architecture, xllamacpp>=2026.6.9713"
-            )
+                "`gemma4-assistant` architecture (xllamacpp>=2026.6.9713). "
+                f"Import failed: {type(exc).__name__}: {exc}"
+            ) from exc
         mtp = getattr(
             common_speculative_type, "COMMON_SPECULATIVE_TYPE_DRAFT_MTP", None
         )
@@ -376,7 +378,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return True
 
     def load(self):
-        try:
+        with dependency_import_guard("xllamacpp"):
             from xllamacpp import (
                 CommonParams,
                 Server,
@@ -393,11 +395,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     )
             except version.InvalidVersion:
                 pass  # If the version parse failed, we just skip the version check.
-        except ImportError:
-            error_message = "Failed to import module 'xllamacpp'"
-            installation_guide = ["Please make sure 'xllamacpp' is installed. "]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
         enable_thinking = self._llamacpp_model_config.pop("enable_thinking", True)
