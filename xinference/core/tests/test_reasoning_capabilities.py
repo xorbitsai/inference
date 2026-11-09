@@ -172,15 +172,25 @@ async def test_description_does_not_wait_for_stalled_capability_probes(monkeypat
         supervisor_module.asyncio, "wait_for", lambda fut, timeout: wait_for(fut, 0.01)
     )
 
+    expected = {"get_reasoning_capabilities", "supports_chat_priority"}
+    if not pd:
+        expected |= {"get_cache_sessions", "supports_agent_cache_lifecycle"}
+
     task = asyncio.create_task(owner.describe_running_model("model"))
     try:
         done, _ = await asyncio.wait({task}, timeout=0.5)
-        assert cancellations
         assert task in done, "Model description waited for a stalled replica"
         description = task.result()
         assert description["supports_thinking_budget"] is False
         assert "supports_chat_priority" not in description
         assert "supports_agent_cache_lifecycle" not in description
+        # Every timed-out probe, tracker and replica alike, must be cancelled
+        # on its actor even though nothing acknowledges the cancellation.
+        for _ in range(50):
+            if expected <= set(cancellations):
+                break
+            await asyncio.sleep(0.01)
+        assert set(cancellations) == expected
     finally:
         release_cancellation.set()
         await asyncio.gather(task, return_exceptions=True)
