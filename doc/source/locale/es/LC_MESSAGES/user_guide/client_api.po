@@ -429,3 +429,7 @@ msgstr ""
 
 msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint."
 msgstr "Los clientes pueden enviar ``priority_hint: -1`` en las solicitudes de chat cuando la descripción del modelo en ejecución anuncia ``supports_chat_priority``. La réplica seleccionada aplica la sugerencia mediante la planificación nativa o la cola de prioridad de Xinference. En los despliegues de prefill/decode, ambas etapas deben admitir prioridades. Un ``priority`` explícito tiene precedencia. Solo ``/v1/chat/completions`` usa esta indicación. Se ignoran los valores distintos del entero ``-1``. Anthropic Messages y OpenAI Responses ignoran la indicación."
+
+#: ../../source/user_guide/client_api.rst:139
+msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Parse the assembled JSON and execute the tool only after its call has finished."
+msgstr "Con ``stream=True``, concatena los fragmentos de ``delta.tool_calls[].function.arguments`` por índice de llamada a la herramienta. Analiza el JSON ensamblado y ejecuta la herramienta solo cuando haya terminado su llamada."

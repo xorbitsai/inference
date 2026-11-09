@@ -1,4 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# CI: linux
+
 import json
 import sys
 from types import SimpleNamespace
@@ -44,7 +46,12 @@ async def test_native_stop_metadata_reaches_anthropic(
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.5.0"))
     model = object.__new__(core.VLLMChatModel)
     model.model_uid = "test"
-    model.model_family = SimpleNamespace(model_name="qwen3", model_ability=["chat"])
+    model.model_family = SimpleNamespace(
+        model_name="qwen3",
+        model_family=None,
+        model_ability=["chat"],
+        has_architecture=lambda _: False,
+    )
     model._nixl_config = model._xavier_config = None
     model._active_request_ids = set()
     model.reasoning_parser = (

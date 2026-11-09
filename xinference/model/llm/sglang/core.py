@@ -63,6 +63,7 @@ from ..tool_controls import (
     single_tool_stream,
     stream_forced_completion,
 )
+from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -1628,7 +1629,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         # Keep terminal metadata without replacing buffered tool text.
                         continue
                     chunk = new_chunk
-                    if tools:
+                    if tools and not isinstance(
+                        getattr(self, "tool_parser", None), QwenToolParser
+                    ):
                         """
                         The qwen2 tool call returns format like this:
                         <tool_call>

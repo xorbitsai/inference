@@ -1,11 +1,14 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+# CI: linux
+
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ...tool_parsers.qwen_tool_parser import QwenToolParser
 from ..core import SGLANGChatModel
 
 
@@ -161,3 +164,47 @@ async def test_nonterminal_finish_sentinels_preserve_logprobs(
     assert output[-2]["choices"][0]["finish_reason"] == "length"
     assert output[-1]["usage"]["completion_tokens"] == 2
     assert [text async for _, text in model._stream_generate("prompt")] == ["AB"]
+
+
+@pytest.mark.asyncio
+async def test_qwen_chat_streams_string_arguments_before_end(stream_model):
+    model, events = stream_model
+    model.model_family = None
+    model.tool_parser = QwenToolParser()
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "Write",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"body": {"type": "string"}},
+                },
+            },
+        }
+    ]
+    first = "<tool_call><function=Write><parameter=body>first"
+    full = first + " second</parameter></function></tool_call>"
+    events.extend([event("<tool", 1), event(first, 2), event(full, 3, "stop")])
+    config = {"stream": True, "stream_options": {"include_usage": True}}
+    model._prepare_chat_inputs = AsyncMock(
+        return_value=("prompt", None, tools, {}, config)
+    )
+    stream = await model.async_chat([{"role": "user", "content": "prompt"}], config)
+
+    choice = (await anext(stream))["choices"][0]
+    assert choice["finish_reason"] is None
+    first_delta = choice["delta"]["tool_calls"][0]
+    assert first_delta["function"]["name"] == "Write"
+    assert first_delta["function"]["arguments"] == '{"body": "first'
+    remaining = [chunk async for chunk in stream]
+    assert remaining[-2]["choices"][0]["finish_reason"] == "tool_calls"
+    assert remaining[-1]["usage"]["completion_tokens"] == 3
+    fragments = [first_delta["function"]["arguments"]]
+    fragments.extend(
+        call["function"]["arguments"]
+        for chunk in remaining
+        for choice in chunk["choices"]
+        for call in choice["delta"].get("tool_calls", [])
+    )
+    assert json.loads("".join(fragments)) == {"body": "first second"}

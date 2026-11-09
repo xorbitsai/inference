@@ -60,8 +60,9 @@ from ...utils import dependency_import_guard
 from .core import chat_context_var
 from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
-from .tool_parsers.abstract_tool_parser import request_tools_var
+from .tool_parsers.abstract_tool_parser import ToolArgumentsDelta, request_tools_var
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
+from .tool_parsers.qwen_tool_parser import QwenToolParser
 
 logger = logging.getLogger(__name__)
 
@@ -1234,11 +1235,26 @@ class ChatModelMixin:
                 current_text = (
                     previous_texts[-1] + delta_text if previous_texts else delta_text
                 )
-                tool_result = self.tool_parser.extract_tool_calls_streaming(
-                    previous_texts,
-                    current_text,
-                    delta_text,
-                )
+                if (
+                    isinstance(self.tool_parser, QwenToolParser)
+                    and tool_call_state is not None
+                    and tools
+                ):
+                    tool_result = (
+                        self.tool_parser.extract_tool_calls_with_argument_deltas(
+                            previous_texts[-1],
+                            current_text,
+                            tool_call_state.setdefault("argument_prefixes", {}),
+                            finish_reason=finish_reason,
+                        )
+                        or None
+                    )
+                else:
+                    tool_result = self.tool_parser.extract_tool_calls_streaming(
+                        previous_texts,
+                        current_text,
+                        delta_text,
+                    )
                 previous_texts[-1] = current_text
         finally:
             request_tools_var.reset(token)
@@ -1276,12 +1292,15 @@ class ChatModelMixin:
                 if args is None and tool_call_state is None:
                     ignored_incomplete_tool_call = True
                     continue
-                call_id = f"call_{str(uuid.uuid4())}"
                 function_name: Optional[str] = func
                 include_metadata = True
-                if tool_call_state is not None:
+                if tool_call_state is None:
+                    call_id = f"call_{uuid.uuid4()}"
+                else:
                     call_ids = tool_call_state.setdefault("call_ids", {})
-                    call_id = call_ids.setdefault(tool_call_index, call_id)
+                    call_id = call_ids.get(tool_call_index)
+                    if call_id is None:
+                        call_id = call_ids[tool_call_index] = f"call_{uuid.uuid4()}"
                     sent_names = tool_call_state.setdefault("sent_names", set())
                     if tool_call_index in sent_names:
                         function_name = None
@@ -1294,11 +1313,13 @@ class ChatModelMixin:
                     if include_metadata:
                         sent_metadata.add(tool_call_index)
 
-                function_delta: Dict[str, Any] = {
-                    "arguments": (
+                if isinstance(args, ToolArgumentsDelta):
+                    arguments = args.value
+                else:
+                    arguments = (
                         "" if args is None else json.dumps(args, ensure_ascii=False)
                     )
-                }
+                function_delta: Dict[str, Any] = {"arguments": arguments}
                 if function_name is not None:
                     function_delta["name"] = function_name
                 tool_call_delta: Dict[str, Any] = {
