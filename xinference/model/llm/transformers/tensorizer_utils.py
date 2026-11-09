@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ....constants import XINFERENCE_TENSORIZER_DIR, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import get_available_device
+from ....utils import dependency_import_guard
 
 logger = logging.getLogger(__name__)
 
@@ -88,15 +89,8 @@ def load_from_tensorizer(
     **kwargs,
 ):
     kwargs = _filter_kwargs(kwargs)
-    try:
+    with dependency_import_guard("transformers"):
         from transformers import AutoConfig, AutoModel
-    except ImportError:
-        error_message = "Failed to import module 'transformers'"
-        installation_guide = [
-            "Please make sure 'transformers' is installed. ",
-            "You can install it by `pip install transformers`\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     model_class = model_class or AutoModel
     config_class = config_class or AutoConfig
@@ -139,14 +133,8 @@ def _load_pretrained_from_tensorizer(
 ):
     logger.debug(f"Loading components from tensorizer: {component_class} {kwargs}")
 
-    try:
+    with dependency_import_guard("tensorizer"):
         from tensorizer import stream_io
-    except ImportError:
-        error_message = "Failed to import module 'tensorizer'"
-        installation_guide = [
-            "Please make sure 'tensorizer' is installed.\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     _read_stream = partial(stream_io.open_stream, mode="rb")
 
@@ -187,34 +175,14 @@ def _load_model_from_tensorizer(
 
     import time
 
-    try:
+    with dependency_import_guard("torch"):
         import torch
-    except ImportError:
-        error_message = "Failed to import module 'torch'"
-        installation_guide = [
-            "Please make sure 'torch' is installed.\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
-    try:
+    with dependency_import_guard("transformers"):
         from transformers import PretrainedConfig
-    except ImportError:
-        error_message = "Failed to import module 'transformers'"
-        installation_guide = [
-            "Please make sure 'transformers' is installed. ",
-            "You can install it by `pip install transformers`\n",
-        ]
 
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
-    try:
+    with dependency_import_guard("tensorizer"):
         from tensorizer import TensorDeserializer, stream_io, utils
-    except ImportError:
-        error_message = "Failed to import module 'tensorizer'"
-        installation_guide = [
-            "Please make sure 'tensorizer' is installed.\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     if model_prefix is None:
         model_prefix = "model"
@@ -287,14 +255,8 @@ def _tensorizer_serialize_model(
     force: Optional[bool] = False,
     **kwargs,
 ):
-    try:
+    with dependency_import_guard("tensorizer"):
         from tensorizer import TensorSerializer, stream_io
-    except ImportError:
-        error_message = "Failed to import module 'tensorizer'"
-        installation_guide = [
-            "Please make sure 'tensorizer' is installed.\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     tensorizer_dir = get_tensorizer_dir(model_path)
     tensor_path: str = f"{tensorizer_dir}/{model_prefix}.tensors"
@@ -317,14 +279,8 @@ def _tensorizer_serialize_model(
 def _tensorizer_serialize_pretrained(
     model_path: str, component, prefix: str = "pretrained"
 ):
-    try:
+    with dependency_import_guard("tensorizer"):
         from tensorizer import stream_io
-    except ImportError:
-        error_message = "Failed to import module 'tensorizer'"
-        installation_guide = [
-            "Please make sure 'tensorizer' is installed.\n",
-        ]
-        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
     tensorizer_dir = get_tensorizer_dir(model_path)
     save_path: str = f"{tensorizer_dir.rstrip('/')}/{prefix}.zip"

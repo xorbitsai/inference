@@ -22,6 +22,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ....types import LoRA
+from ....utils import dependency_import_guard
 from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
@@ -163,19 +164,11 @@ class VLLMDiffusionModel:
         return self._abilities
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "vllm_omni",
+            install_hint="Install vllm-omni alongside a matching vLLM release.",
+        ):
             from vllm_omni.entrypoints.omni import Omni
-        except ImportError as e:
-            error_message = f"Failed to import module 'vllm_omni': {e}"
-            installation_guide = [
-                "Please make sure 'vllm-omni' is installed and that the installed ",
-                "'vllm' shares the same major.minor version (e.g. vllm-omni 0.28.x ",
-                "requires vllm 0.28.x). You can install a matching pair by ",
-                "`pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'`\n",
-            ]
-            raise ImportError(
-                f"{error_message}\n\n{''.join(installation_guide)}"
-            ) from e
 
         logger.debug(
             "Loading vLLM-Omni diffusion model from %s, kwargs: %s",

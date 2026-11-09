@@ -21,7 +21,8 @@ try:
 
     if not getattr(vllm, "__version__", None):
         raise ImportError(
-            "vllm not installed properly, or wrongly be found in sys.path"
+            f"Module 'vllm' loaded from {getattr(vllm, '__file__', None)!r} "
+            "has no __version__ value."
         )
 
     VLLM_INSTALLED = True
@@ -31,6 +32,8 @@ except ImportError:
     VLLM_VERSION = None
 
 from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from ....utils import dependency_import_guard
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -89,16 +92,12 @@ class Mineru2_5Model:
         vllm_async_llm = None
         if backend in ["transformers", "vllm-async-engine"]:
             if backend == "transformers":
-                try:
+                with dependency_import_guard("transformers"):
                     from transformers import (
                         AutoProcessor,
                         Qwen2VLForConditionalGeneration,
                     )
                     from transformers import __version__ as transformers_version
-                except ImportError:
-                    raise ImportError(
-                        "Please install transformers to use the transformers backend."
-                    )
 
                 if version.parse(transformers_version) >= version.parse("4.56.0"):
                     dtype_key = "dtype"
@@ -119,15 +118,11 @@ class Mineru2_5Model:
                     enable_custom_logits_processors,
                 )
 
-                try:
+                with dependency_import_guard("vllm"):
                     from vllm.engine.arg_utils import AsyncEngineArgs
                     from vllm.v1.engine.async_llm import AsyncLLM
 
                     from ....thirdparty.mineru_vl_utils import MinerULogitsProcessor
-                except ImportError:
-                    raise ImportError(
-                        "Please install vllm to use the vllm-async-engine backend."
-                    )
                 if "gpu_memory_utilization" not in self._kwargs:
                     self._kwargs["gpu_memory_utilization"] = 0.5
                 if "model" not in self._kwargs:

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from ...core.exceptions import InvalidAudioInputError
 from ...device_utils import get_available_device, is_device_available
+from ...utils import dependency_import_guard
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -141,16 +142,8 @@ class FunASRModel:
         return output
 
     def load(self):
-        try:
+        with dependency_import_guard("funasr"):
             from funasr import AutoModel
-        except ImportError:
-            error_message = "Failed to import module 'funasr'"
-            installation_guide = [
-                "Please make sure 'funasr' is installed. ",
-                "You can install it by `pip install funasr`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         if self._device is None:
             self._device = get_available_device()
@@ -173,7 +166,8 @@ class FunASRModel:
                 )
             except ImportError as exc:
                 raise ImportError(
-                    "Nano realtime requires FunASR with DynamicStreamingVAD support"
+                    "Nano realtime requires FunASR with DynamicStreamingVAD support. "
+                    f"Import failed: {type(exc).__name__}: {exc}"
                 ) from exc
             kwargs.setdefault("vad_model", "fsmn-vad")
         logger.debug("Loading FunASR model with kwargs: %s", kwargs)

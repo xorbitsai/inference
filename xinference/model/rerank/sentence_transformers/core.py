@@ -26,7 +26,7 @@ import torch
 from xoscar import extensible
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
-from ....utils import make_hashable
+from ....utils import dependency_import_guard, make_hashable
 from ...batch import BatchMixin
 from ...utils import (
     allow_trust_remote_code,
@@ -107,15 +107,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             return
 
         if self.model_family.model_name.lower() == "jina-reranker-m0":
-            try:
+            with dependency_import_guard(
+                "transformers",
+                install_hint="Install with `pip install 'transformers>=4.47.3'`.",
+            ):
                 from transformers import AutoModel
-            except ImportError:
-                error_message = "Failed to import module 'transformers'"
-                installation_guide = [
-                    "Please make sure 'transformers>=4.47.3' is installed. ",
-                    "You can install it by `pip install 'transformers>=4.47.3'`\n",
-                ]
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             if not allow_trust_remote_code(self.model_family):
                 raise ValueError(
@@ -152,7 +148,10 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
 
             neutralize_broken_torchcodec()
 
-            try:
+            with dependency_import_guard(
+                "sentence_transformers",
+                install_hint="Install with `pip install sentence-transformers`.",
+            ):
                 import sentence_transformers
                 from sentence_transformers.cross_encoder import CrossEncoder
 
@@ -162,20 +161,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                         "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
                         "https://github.com/UKPLab/sentence-transformers"
                     )
-            except ImportError as e:
-                error_message = "Failed to import module 'sentence-transformers'"
-                installation_guide = [
-                    "Please make sure 'sentence-transformers' is installed. ",
-                    "You can install it by `pip install sentence-transformers`\n",
-                ]
-
-                # Preserve the original exception so that the real root cause is
-                # not swallowed. A common case is a torch/torchvision version
-                # mismatch (e.g. "operator torchvision::nms does not exist"),
-                # which is unrelated to sentence-transformers being missing.
-                raise ImportError(
-                    f"{error_message}: {e}\n\n{''.join(installation_guide)}"
-                ) from e
             self._model = CrossEncoder(
                 self._model_path,
                 device=self._device,
@@ -192,16 +177,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             # Qwen3-style yes/no scoring applied to jina-reranker-v3. Note
             # that "jina-reranker-v3" is a substring of "jina-reranker-v3.5",
             # so this branch must precede the jina-reranker-v3 one.
-            try:
+            with dependency_import_guard("transformers"):
                 from transformers import AutoModel, AutoTokenizer
-            except ImportError:
-                error_message = "Failed to import module 'transformers'"
-                installation_guide = [
-                    "Please make sure 'transformers' is installed. ",
-                    "You can install it by `pip install transformers`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             if not allow_trust_remote_code(self.model_family):
                 raise ValueError(
@@ -227,16 +204,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             # qwen3-reranker (also covers R3-rerank, fine-tuned from Qwen3-Reranker)
             # now we use transformers
             # TODO: support engines for rerank models
-            try:
+            with dependency_import_guard("transformers"):
                 from transformers import AutoModelForCausalLM, AutoTokenizer
-            except ImportError:
-                error_message = "Failed to import module 'transformers'"
-                installation_guide = [
-                    "Please make sure 'transformers' is installed. ",
-                    "You can install it by `pip install transformers`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
@@ -297,7 +266,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
 
             self._tokenizer = tokenizer
         else:
-            try:
+            with dependency_import_guard("FlagEmbedding"):
                 if self.model_family.type == "LLM-based":
                     from FlagEmbedding import FlagLLMReranker as FlagReranker
                 elif self.model_family.type == "LLM-based layerwise":
@@ -306,14 +275,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                     raise RuntimeError(
                         f"Unsupported Rank model type: {self.model_family.type}"
                     )
-            except ImportError:
-                error_message = "Failed to import module 'FlagEmbedding'"
-                installation_guide = [
-                    "Please make sure 'FlagEmbedding' is installed. ",
-                    "You can install it by `pip install FlagEmbedding`\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
             self._tokenizer = self._model.tokenizer
         # Note: In sentence-transformers 5.x, token tracking via wrapper is complex

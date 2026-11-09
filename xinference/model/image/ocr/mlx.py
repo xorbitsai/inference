@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import PIL.Image
 
+from ....utils import dependency_import_guard
 from .deepseek_ocr import DeepSeekOCRModel
 
 logger = logging.getLogger(__name__)
@@ -55,15 +56,8 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
     def load(self):
         if sys.platform != "darwin" or platform.processor() != "arm":
             raise RuntimeError("MLX OCR engine only works on Apple silicon Macs.")
-        try:
+        with dependency_import_guard("mlx_vlm"):
             from mlx_vlm import load
-        except ImportError:
-            error_message = "Failed to import module 'mlx_vlm'"
-            installation_guide = [
-                "Please make sure 'mlx_vlm' is installed. ",
-                "You can install it by `pip install mlx_vlm`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         try:
             import mlx.core as mx
@@ -291,13 +285,8 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
         return (input_ids, pixel_values, mask, extra)
 
     def _generate_text(self, image: PIL.Image.Image, prompt: str, **kwargs) -> str:
-        try:
+        with dependency_import_guard("mlx_vlm"):
             from mlx_vlm.generate import generate_step
-        except ImportError:
-            raise ImportError(
-                "Failed to import mlx_vlm.generate.generate_step. "
-                "Please make sure mlx_vlm is installed."
-            )
 
         input_ids, pixel_values, mask, extra = self._prepare_inputs(image, prompt)
         stop_token_ids = kwargs.pop("stop_token_ids", [])

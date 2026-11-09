@@ -19,6 +19,7 @@ import PIL.Image
 import PIL.ImageOps
 
 from ....types import Image
+from ....utils import dependency_import_guard
 from ..core import FlexibleModel, FlexibleModelSpec
 
 
@@ -32,17 +33,11 @@ class ImageRemoveBackgroundModel(FlexibleModel):
             raise ValueError("No image found to remove background")
         image = base64.b64decode(b64_image)
 
-        try:
+        with dependency_import_guard(
+            "rembg",
+            install_hint="See https://github.com/danielgatis/rembg#installation for platform-specific installation.",
+        ):
             from rembg import remove
-        except ImportError:
-            error_message = "Failed to import module 'rembg'"
-            installation_guide = [
-                "Please make sure 'rembg' is installed. ",
-                "You can install it by visiting the installation section of the git repo:\n",
-                "https://github.com/danielgatis/rembg?tab=readme-ov-file#installation",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         im = PIL.Image.open(BytesIO(image))
         om = remove(im, only_mask=only_mask, **kwargs)

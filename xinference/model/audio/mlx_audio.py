@@ -21,7 +21,7 @@ import wave
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from ...utils import make_hashable
+from ...utils import dependency_import_guard, make_hashable
 from .batch import AudioRequestBatcher
 from .utils import MLXModelThreadMixin
 
@@ -98,12 +98,10 @@ class MLXAudioSTTModel(MLXModelThreadMixin):
         self._run_on_mlx_thread(self._load)
 
     def _load(self):
-        try:
+        with dependency_import_guard(
+            "mlx_audio", install_hint='Install with `pip install "mlx-audio[stt]"`.'
+        ):
             from mlx_audio.stt.utils import load
-        except ImportError as exc:
-            raise ImportError(
-                "Failed to import 'mlx_audio'. Please install mlx-audio[stt]."
-            ) from exc
 
         logger.info("Loading mlx-audio STT model from %s", self._model_path)
         self._model = load(self._model_path, **self._kwargs)
@@ -304,12 +302,10 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
         self._run_on_mlx_thread(self._load)
 
     def _load(self):
-        try:
+        with dependency_import_guard(
+            "mlx_audio", install_hint='Install with `pip install "mlx-audio[tts]"`.'
+        ):
             from mlx_audio.tts.utils import load
-        except ImportError as exc:
-            raise ImportError(
-                "Failed to import 'mlx_audio'. Please install mlx-audio[tts]."
-            ) from exc
 
         logger.info("Loading mlx-audio TTS model from %s", self._model_path)
         self._model = load(self._model_path, **self._kwargs)

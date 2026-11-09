@@ -16,6 +16,7 @@
 
 from typing import Any, Optional
 
+from ...utils import dependency_import_message
 from .minimax_music3 import MiniMaxMusic3Model
 from .utils import MLXModelThreadMixin
 
@@ -28,7 +29,14 @@ class MLXMiniMaxMusic3Model(MLXModelThreadMixin, MiniMaxMusic3Model):
         try:
             from mlx_audio.music import load
         except ImportError as exc:
-            raise ImportError("MiniMax-Music3 MLX requires mlx-audio==0.5.0.") from exc
+            detail = dependency_import_message(
+                "mlx_audio",
+                exc,
+                install_hint="Install with `pip install mlx-audio==0.5.0`.",
+            )
+            raise ImportError(
+                f"MiniMax-Music3 MLX requires mlx-audio==0.5.0. {detail}"
+            ) from exc
         self._model = load(self._model_path, **self._kwargs)
 
     def speech(

@@ -69,6 +69,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ....utils import dependency_import_guard, dependency_import_message
 from ...utils import allow_trust_remote_code
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..context_length import (
@@ -110,19 +111,8 @@ _PYTORCH_QUANTIZATION_UNSUPPORTED_REASON = (
 )
 
 if TYPE_CHECKING:
+    from vllm.executor.executor_base import ExecutorBase
     from vllm.outputs import RequestOutput
-
-    # Handle ExecutorBase type import for different vLLM versions
-    # vLLM >= 0.11.1: from vllm.v1.executor import Executor
-    # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
-    try:
-        from vllm.v1.executor import Executor as ExecutorBase
-    except ImportError:
-        try:
-            from vllm.executor.executor_base import ExecutorBase
-        except ImportError:
-            # If vLLM is not installed, define a placeholder for type checking
-            ExecutorBase = Any  # type: ignore
 
 
 VLLMMultimodalLimit = Union[int, Dict[str, Any]]
@@ -204,6 +194,7 @@ class VLLMMultimodalPreflightResult(TypedDict):
     effective_max_tokens: Optional[int]
 
 
+_VLLM_IMPORT_ERROR: Optional[str] = None
 try:
     if is_vacc_available():
         import vllm_vacc  # noqa: F401
@@ -212,14 +203,16 @@ try:
 
     if not getattr(vllm, "__version__", None):
         raise ImportError(
-            "vllm not installed properly, or wrongly be found in sys.path"
+            f"Module 'vllm' loaded from {getattr(vllm, '__file__', None)!r} "
+            "has no __version__ value."
         )
 
     VLLM_INSTALLED = True
     VLLM_VERSION = version.parse(vllm.__version__)
-except ImportError:
+except ImportError as exc:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
+    _VLLM_IMPORT_ERROR = dependency_import_message("vllm", exc)
 
 
 def _get_transformers_version() -> Optional[version.Version]:
@@ -1251,31 +1244,16 @@ class VLLMModel(WeightCachedModel, LLM):
         return envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
 
     def load(self):
-        try:
+        with dependency_import_guard("vllm"):
             import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.lora.request import LoRARequest
 
-            # Handle ExecutorBase import for different vLLM versions
-            # vLLM >= 0.11.1: from vllm.v1.executor import Executor
-            # vLLM < 0.11.1: from vllm.executor.executor_base import ExecutorBase
-            try:
-                from vllm.v1.executor import Executor as ExecutorBase
-            except ImportError:
-                from vllm.executor.executor_base import ExecutorBase
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-
         if not getattr(vllm, "__version__", None):
             raise ImportError(
-                "vllm not installed properly, or wrongly be found in sys.path"
+                f"Module 'vllm' loaded from {getattr(vllm, '__file__', None)!r} "
+                "has no __version__ value."
             )
         global VLLM_INSTALLED, VLLM_VERSION
         VLLM_INSTALLED = True
@@ -1524,7 +1502,7 @@ class VLLMModel(WeightCachedModel, LLM):
                                 @classmethod
                                 def _get_executor_cls(
                                     cls, engine_config: VllmConfig
-                                ) -> Type[ExecutorBase]:
+                                ) -> Type["ExecutorBase"]:
                                     return partial(  # type: ignore
                                         XinferenceDistributedExecutor,
                                         pool_addresses=worker_addresses,
@@ -2273,7 +2251,7 @@ class VLLMModel(WeightCachedModel, LLM):
         if "generate" not in llm_family.model_ability:
             return False, "vLLM base engine requires generate ability"
         if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
-            return False, "vLLM library is not installed"
+            return False, _VLLM_IMPORT_ERROR or "vLLM could not be loaded"
         return True
 
     @staticmethod
@@ -2523,16 +2501,8 @@ class VLLMModel(WeightCachedModel, LLM):
             ) != "priority":
                 raise ValueError(VLLM_PRIORITY_DISABLED)
         cache_salt = validate_cache_salt((generate_config or {}).get("cache_salt"))
-        try:
+        with dependency_import_guard("vllm"):
             from vllm.sampling_params import SamplingParams
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         use_native_cache_salt = False
         if cache_salt is not None:
@@ -3211,7 +3181,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if "chat" not in llm_family.model_ability:
             return False, "vLLM chat engine requires chat ability"
         if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
-            return False, "vLLM library is not installed"
+            return False, _VLLM_IMPORT_ERROR or "vLLM could not be loaded"
         return True
 
     def _sanitize_chat_config(
@@ -3510,7 +3480,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         # time. Hardware/OS checks above stay unconditional because virtualenv
         # cannot add a GPU or change the OS.
         if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
-            return False, "vLLM library is not installed"
+            return False, _VLLM_IMPORT_ERROR or "vLLM could not be loaded"
         return True
 
     @staticmethod

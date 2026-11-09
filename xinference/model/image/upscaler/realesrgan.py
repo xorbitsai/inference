@@ -20,6 +20,7 @@ from torch.hub import download_url_to_file
 
 from ....constants import XINFERENCE_CACHE_DIR
 from ....device_utils import get_available_device
+from ....utils import dependency_import_guard
 from ..utils import make_valid_filename
 
 
@@ -48,10 +49,8 @@ class RealESRGANmodel:
     def load(self):
         # Spandrel loads the same RealESRGAN weights without BasicSR's dependency
         # on torchvision.transforms.functional_tensor (removed in torchvision).
-        try:
+        with dependency_import_guard("spandrel"):
             from spandrel import ImageModelDescriptor, ModelLoader
-        except ImportError as exc:
-            raise ImportError("RealESRGAN requires `pip install spandrel`") from exc
 
         urls = {
             "R-ESRGAN 4x+": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",

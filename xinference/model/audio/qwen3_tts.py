@@ -17,7 +17,7 @@ import os
 import tempfile
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from ...utils import make_hashable
+from ...utils import dependency_import_guard, make_hashable
 from ..utils import is_flash_attn_available, resolve_media_seed
 from .batch import AudioRequestBatcher
 
@@ -57,17 +57,11 @@ class Qwen3TTSModel:
         return self._model_spec.model_ability
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "qwen_tts", install_hint="Install with `pip install qwen-tts`."
+        ):
             import torch
             from qwen_tts import Qwen3TTSModel
-        except ImportError:
-            error_message = "Failed to import module 'qwen-tts'"
-            installation_guide = [
-                "Please make sure 'qwen-tts' is installed. ",
-                "You can install it by `pip install qwen-tts`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         if is_flash_attn_available():
             self._model = Qwen3TTSModel.from_pretrained(

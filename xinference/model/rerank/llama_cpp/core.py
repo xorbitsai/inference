@@ -25,6 +25,7 @@ from typing import Any, List, Optional
 from packaging import version
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
+from ....utils import dependency_import_guard
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 logger = logging.getLogger(__name__)
@@ -103,7 +104,7 @@ class XllamaCppRerankModel(RerankModel):
         return sys.platform.startswith("linux")
 
     def load(self):
-        try:
+        with dependency_import_guard("xllamacpp"):
             from xllamacpp import (
                 CommonParams,
                 Server,
@@ -121,11 +122,6 @@ class XllamaCppRerankModel(RerankModel):
                     )
             except version.InvalidVersion:
                 pass  # If the version parse failed, we just skip the version check.
-        except ImportError:
-            error_message = "Failed to import module 'xllamacpp'"
-            installation_guide = ["Please make sure 'xllamacpp' is installed. "]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # handle legacy cache.
         if (

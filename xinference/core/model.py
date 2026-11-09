@@ -47,6 +47,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LAUNCH_MODEL_RETRY,
 )
+from ..utils import dependency_import_guard
 
 if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
@@ -372,17 +373,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             isinstance(self._model, (EmbeddingModel, RerankModel))
             and self._model._model_spec.model_format == "pytorch"
         ):
-            try:
+            with dependency_import_guard("torch"):
                 import gc
 
                 import torch  # noqa: F401
-            except ImportError:
-                error_message = "Failed to import module 'torch'"
-                installation_guide = [
-                    "Please make sure 'torch' is installed.\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
             del self._model
             gc.collect()

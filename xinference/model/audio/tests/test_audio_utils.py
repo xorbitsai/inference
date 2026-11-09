@@ -27,8 +27,21 @@ def test_audio_stream_generator_reports_missing_torchcodec(monkeypatch):
     monkeypatch.setitem(sys.modules, "torchcodec", None)
     monkeypatch.setitem(sys.modules, "torchcodec.encoders", None)
 
-    with pytest.raises(ImportError, match="Failed to import 'torchcodec'"):
+    with pytest.raises(ImportError, match="ModuleNotFoundError") as exc_info:
         list(audio_utils.audio_stream_generator("mp3", 24000, iter(()), lambda x: x))
+
+    assert "Install a TorchCodec build" in str(exc_info.value)
+
+
+def test_audio_stream_generator_reports_broken_torchcodec(monkeypatch):
+    monkeypatch.setitem(sys.modules, "torchaudio", ModuleType("torchaudio"))
+    monkeypatch.setitem(sys.modules, "torchcodec", ModuleType("torchcodec"))
+    monkeypatch.delitem(sys.modules, "torchcodec.encoders", raising=False)
+
+    with pytest.raises(ImportError, match="cannot import name 'encoders'") as exc_info:
+        list(audio_utils.audio_stream_generator("mp3", 24000, iter(()), lambda x: x))
+
+    assert "Install a TorchCodec build" not in str(exc_info.value)
 
 
 def test_audio_stream_generator_uses_torchcodec_and_flushes_tail(monkeypatch):

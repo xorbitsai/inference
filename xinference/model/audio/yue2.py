@@ -121,9 +121,7 @@ class YuE2Model:
             from yue2 import YuE2Pipeline
         except ImportError as e:
             raise ImportError(
-                "YuE2 requires the official yue2 runtime. Enable the model "
-                "virtual environment or install the dependencies declared in "
-                "its built-in model specification."
+                f"Failed to import the YuE2 runtime: {type(e).__name__}: {e}"
             ) from e
 
         if (

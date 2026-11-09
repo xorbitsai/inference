@@ -3,6 +3,8 @@
 
 from typing import Any, Dict, List, Optional
 
+from ....utils import dependency_import_message
+
 
 class ReasoningBudgetLogitsProcessor:
     """Close thinking at its token budget while leaving answer tokens available."""
@@ -77,7 +79,11 @@ class JSONLogitsProcessor:
             from llguidance.hf import from_tokenizer
         except ImportError as exc:
             raise NotImplementedError(
-                "MLX structured output requires llguidance; install xinference[mlx]"
+                dependency_import_message(
+                    "llguidance",
+                    exc,
+                    install_hint='Install with `pip install "xinference[mlx]"`.',
+                )
             ) from exc
 
         from transformers import PreTrainedTokenizerFast

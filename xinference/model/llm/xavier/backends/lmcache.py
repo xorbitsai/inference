@@ -45,7 +45,8 @@ def check_lmcache_available() -> None:
         from lmcache.v1.distributed.storage_manager import StorageManager  # noqa: F401
     except (ImportError, OSError) as error:
         raise RuntimeError(
-            "Xavier LMCache requires a compatible LMCache storage manager build"
+            "Xavier LMCache requires a compatible LMCache storage manager build. "
+            f"Import failed: {type(error).__name__}: {error}"
         ) from error
 
 
@@ -90,7 +91,8 @@ class _LMCacheStorage:
                 )
             except (ImportError, OSError) as error:
                 raise RuntimeError(
-                    "Xavier LMCache filesystem storage requires the native FS extension"
+                    "Xavier LMCache filesystem storage requires the native FS extension. "
+                    f"Import failed: {type(error).__name__}: {error}"
                 ) from error
             self._disk_path = Path(config["disk_path"]) / namespace
             adapter = FSNativeL2AdapterConfig(
@@ -107,7 +109,8 @@ class _LMCacheStorage:
             except (ImportError, OSError) as error:
                 raise RuntimeError(
                     "Xavier LMCache Mooncake storage requires LMCache built with "
-                    "BUILD_MOONCAKE=1 and compatible Mooncake headers/libraries"
+                    "BUILD_MOONCAKE=1 and compatible Mooncake headers/libraries. "
+                    f"Import failed: {type(error).__name__}: {error}"
                 ) from error
             adapter = MooncakeStoreL2AdapterConfig(
                 setup_config=config["mooncake_config"]
