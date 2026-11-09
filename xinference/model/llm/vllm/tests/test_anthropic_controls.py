@@ -241,6 +241,23 @@ def test_forced_named_tool_schema_restricts_name_arguments_and_count():
     assert messages == [{"role": "user", "content": "Delete the file"}]
 
 
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_forced_tools_accept_one_shot_tool_iterables(choice):
+    # pydantic yields OpenAI ``Iterable[...]`` tools as a list_iterator; it used
+    # to be exhausted by enumerate() before json.dumps() raised TypeError.
+    prepared, generated = prepare_forced_tools(
+        [], {"tools": iter(tools()), "tool_choice": choice}
+    )
+    expected = tools() if choice == "required" else tools()[:1]
+    assert prepared[0]["content"].endswith(json.dumps(expected, ensure_ascii=False))
+    variants = generated["response_format"]["json_schema"]["schema"]["items"]["oneOf"]
+    assert [v["properties"]["name"]["const"] for v in variants] == [
+        t["function"]["name"] for t in expected
+    ]
+
+
 def test_required_choice_preserves_alternatives_and_rejects_unknown_names():
     _, generated = prepare_forced_tools(
         [], {"tools": tools(), "tool_choice": "required"}

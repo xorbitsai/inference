@@ -724,12 +724,18 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         config = copy.deepcopy(config or {})
         messages = copy.deepcopy(messages)
-        if is_forced_tool_choice(config):
+        # Render the same prompt async_chat would: only Anthropic requests use
+        # the constrained forced-tool prompt (_forced_tool_chat); OpenAI requests
+        # keep native tool rendering even for tool_choice="required".
+        anthropic = config.pop("_anthropic_request", False)
+        if anthropic and is_forced_tool_choice(config):
             messages, config = prepare_forced_tools(messages, config)
-        else:
-            self._normalize_tool_choice_for_prompt(config)
+        config.pop("parallel_tool_calls", None)
+        self._normalize_tool_choice_for_prompt(config)
         prompt, _tools, context, config = await prepare_inputs(messages, config)
         config = config or {}
+        if anthropic:
+            config["_anthropic_request"] = True
         prompt = self._prepare_structured_reasoning_prompt(prompt, config, context)
         lora = next(
             (

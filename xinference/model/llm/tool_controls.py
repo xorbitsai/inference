@@ -30,7 +30,9 @@ def prepare_forced_tools(
     messages: List[Dict[str, Any]], config: Dict[str, Any]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     config = copy.deepcopy(dict(config))
-    tools = config.pop("tools", [])
+    # Callers may pass any iterable (e.g. the one-shot iterator pydantic yields
+    # for OpenAI ``Iterable[...]`` fields); it is enumerated and serialized below.
+    tools = list(config.pop("tools", None) or [])
     choice = config.pop("tool_choice")
     parallel = config.pop("parallel_tool_calls", True)
     selected = tools
