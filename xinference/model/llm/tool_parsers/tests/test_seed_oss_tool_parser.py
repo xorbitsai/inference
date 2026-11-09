@@ -215,11 +215,16 @@ async def test_call_cut_off_before_its_closing_tag_keeps_length(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("reasoning_content", [None, False, True])
 @pytest.mark.parametrize("respond", RESPONSE_MODES)
-async def test_a_call_from_output_without_reasoning_is_emitted(respond):
+async def test_a_call_from_output_without_reasoning_is_emitted(
+    respond, reasoning_content
+):
     # thinking_budget=0 closes reasoning in the prompt, so the output has no tag.
     text = _call("get_weather", location="Beijing")
-    content, calls, finish_reason = await respond(_model(False), text, "stop")
+    content, calls, finish_reason = await respond(
+        _model(reasoning_content), text, "stop"
+    )
     assert calls == [("get_weather", {"location": "Beijing"})]
     assert finish_reason == "tool_calls"
     assert "seed:think" not in content

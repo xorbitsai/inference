@@ -29,7 +29,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
 from .reasoning_controls import normalize_reasoning_controls
-from .reasoning_parser import KimiK3ReasoningParser, ReasoningParser
+from .reasoning_parser import (
+    KimiK3ReasoningParser,
+    ReasoningParser,
+    SeedOssReasoningParser,
+)
 from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
@@ -529,12 +533,11 @@ class LLM(abc.ABC):
             return
         # Seed-OSS writes its own start tag, and thinking_budget=0 closes reasoning
         # in the prompt, so a missing tag means there is no reasoning.
-        auto_insert_start_tag = (
-            "hybrid" not in abilities
-            and self.model_family.reasoning_start_tag != "<seed:think>"
-        )
+        seed_oss = self.model_family.reasoning_start_tag == "<seed:think>"
+        auto_insert_start_tag = "hybrid" not in abilities and not seed_oss
         # Initialize reasoning parser if model has reasoning ability
-        self.reasoning_parser = ReasoningParser(  # type: ignore
+        parser_class = SeedOssReasoningParser if seed_oss else ReasoningParser
+        self.reasoning_parser = parser_class(  # type: ignore
             reasoning_content,
             self.model_family.reasoning_start_tag,  # type: ignore
             self.model_family.reasoning_end_tag,  # type: ignore

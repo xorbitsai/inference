@@ -672,6 +672,35 @@ class ReasoningParser:
         return chunks
 
 
+class SeedOssReasoningParser(ReasoningParser):
+    """Seed-OSS writes its own start tag. With thinking_budget=0 its chat
+    template closes reasoning in the prompt, so output without the start tag
+    has no reasoning and is all content.
+    """
+
+    def extract_reasoning_content(
+        self, model_output: Union[str, CompletionChoice]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if not isinstance(model_output, str):
+            model_output = model_output["text"]
+        if self.reasoning_start_tag not in model_output:
+            return None, model_output
+        return super().extract_reasoning_content(model_output)
+
+    def extract_reasoning_content_streaming(
+        self,
+        previous_text: str,
+        current_text: str,
+        delta_text: str,
+    ) -> ChatCompletionChunkDelta:
+        # The start tag is one token, so it arrives whole.
+        if self.reasoning_start_tag not in current_text:
+            return ChatCompletionChunkDelta(content=delta_text, reasoning_content=None)
+        return super().extract_reasoning_content_streaming(
+            previous_text, current_text, delta_text
+        )
+
+
 class KimiK3ReasoningParser(ReasoningParser):
     """Split Kimi-K3 XTML think/response channels.
 
