@@ -94,6 +94,20 @@ class XavierEngine:
                     "Xavier GPU hybrid prefixes require async_scheduling=False"
                 )
             engine_args.async_scheduling = False
+            if (
+                getattr(engine_args, "prefix_match_unit", None) is None
+                and getattr(engine_args, "nnodes", 1) == 1
+            ):
+                backend = getattr(engine_args, "distributed_executor_backend", None)
+                executor = {
+                    None: "XavierHybridUniProcExecutor",
+                    "uni": "XavierHybridUniProcExecutor",
+                    "mp": "XavierHybridMultiprocExecutor",
+                }.get(backend)
+                if executor is not None:
+                    engine_args.distributed_executor_backend = (
+                        f"{__package__}.prefix_executor.{executor}"
+                    )
             connectors.append(
                 dict(
                     kv_connector="XavierHybridGPUConnector",

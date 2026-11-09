@@ -62,6 +62,7 @@ def hybrid(monkeypatch, connector_module):
     connector._session_phases = {}
     connector._attempted = set()
     connector._requests_need_load = {}
+    connector._mappings = {}
     connector._rank = 1
     connector._block_size = 16
     connector._identity = "model"
@@ -191,3 +192,102 @@ def test_tracker_combined_lookup_keeps_legacy_return_shape():
         None,
         {"agent": "waiting"},
     )
+
+
+@pytest.mark.parametrize(
+    ("refs", "owned", "expected_tokens"),
+    [(0, False, 24), (1, True, 24), (1, False, 16), (2, True, 16)],
+)
+def test_partial_checkpoint_requires_a_stable_source(
+    hybrid, refs, owned, expected_tokens
+):
+    _, connector, tracker, _, transfer = hybrid
+    manager = connector._kv_cache_manager
+    pool = manager.block_pool
+    pool.hash_block_size = 8
+    head, tail, full_state, partial_state = pool.blocks[:4]
+    partial_state.ref_cnt = refs
+    null = SimpleNamespace(block_id=7, is_null=True)
+    manager.coordinator.find_longest_cache_hit.side_effect = [
+        (([head, tail], [null, partial_state]), 24, None),
+        (([head], [full_state]), 16, None),
+    ]
+    request = _request(tokens=25)
+    request.block_hashes = [b"eight", b"sixteen", b"twenty-four"]
+    finished = (
+        [head.block_id, tail.block_id],
+        [partial_state.block_id] if owned else [],
+    )
+    connector.request_finished_all_groups(request, finished)
+
+    offer = tracker.query_gpu_prefix(
+        2, [], fine_prefix=("model", 8, 0, request.block_hashes)
+    )
+    assert offer[2] == expected_tokens
+    # A different suffix can still hit the whole block on this peer.
+    divergent = [*request.block_hashes[:2], b"different"]
+    assert (
+        tracker.query_gpu_prefix(2, [], fine_prefix=("model", 8, 0, divergent))[2] == 16
+    )
+    if expected_tokens == 24:
+        ticket = offer[1]
+        transfer.register_shared_prefix_v1.assert_any_await(
+            ticket,
+            {
+                "attention": [head.block_id, tail.block_id],
+                "recurrent": [partial_state.block_id],
+            },
+        )
+        connector._on_reuse(partial_state)
+        transfer.revoke_shared_prefix_v1.assert_awaited_once_with(ticket)
+        assert (
+            tracker.query_gpu_prefix(
+                2, [], fine_prefix=("model", 8, 0, request.block_hashes)
+            )[2]
+            == 16
+        )
+
+
+def test_partial_resume_matches_exact_hash_and_maps_both_cache_groups(hybrid):
+    _, connector, tracker, _, _ = hybrid
+    connector._kv_cache_manager.block_pool.hash_block_size = 8
+    tracker.publish_gpu_prefix(2, ("model", b"tail"), "ticket", 24, [[1, 2], [0, 3]])
+    tracker.publish_gpu_prefix(
+        3, ("other-model", b"tail"), "other", 24, [[6, 7], [0, 8]]
+    )
+    request = _request(tokens=32)
+    request.block_hashes = [b"first", b"full", b"different", b"tail"]
+    assert connector.get_num_new_matched_tokens(request, 16) == (0, False)
+    request.block_hashes[2] = b"tail"
+    assert connector.get_num_new_matched_tokens(request, 16) == (8, True)
+    blocks = SimpleNamespace(
+        blocks=(
+            [SimpleNamespace(block_id=i, is_null=False) for i in (4, 5)],
+            [
+                SimpleNamespace(block_id=0, is_null=True),
+                SimpleNamespace(block_id=6, is_null=False),
+            ],
+        )
+    )
+    connector.update_state_after_alloc(request, blocks, 8)
+    load = connector._mappings[request.request_id]
+    assert load.lease == "ticket"
+    assert load.local_transfers_by_group == {0: {2: {2: 5}}, 1: {2: {3: 6}}}
+
+
+def test_full_checkpoint_lookup_skips_earlier_partial_boundaries(hybrid):
+    _, connector, _, _, _ = hybrid
+    manager = connector._kv_cache_manager
+    manager.block_pool.hash_block_size = 8
+    lookup = manager.coordinator.find_longest_cache_hit
+    head, full_state = manager.block_pool.blocks[:2]
+    whole_groups = ([head], [full_state])
+    lookup.side_effect = [((), 40, None), ((), 24, None), (whole_groups, 16, None)]
+    connector._can_borrow_partial = Mock(return_value=False)
+    connector._publish_checkpoint = Mock()
+    request = _request(tokens=41)
+    request.num_computed_tokens = 40
+    connector._publish(request)
+
+    assert [call.args[1] for call in lookup.call_args_list] == [40, 32, 16]
+    connector._publish_checkpoint.assert_called_once_with(request, whole_groups, 16)

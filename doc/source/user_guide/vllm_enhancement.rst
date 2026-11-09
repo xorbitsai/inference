@@ -94,6 +94,8 @@ For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share at
 
 Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``.
 
+With vLLM's single-process or multiprocessing executor on one node, Xavier automatically chooses finer prefix matching when the hybrid cache layout supports it. An explicit ``prefix_match_unit`` takes precedence. Other executors use vLLM's normal defaults. Whole-block checkpoints are still available when finer checkpoints cannot be reused.
+
 Legacy V0 adapter
 ^^^^^^^^^^^^^^^^^
 
