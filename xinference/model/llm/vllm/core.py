@@ -87,6 +87,7 @@ from ..tool_controls import (
     single_tool_completion,
     single_tool_stream,
     stream_forced_completion,
+    validate_forced_tool_choice,
 )
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -726,10 +727,15 @@ class VLLMModel(WeightCachedModel, LLM):
         messages = copy.deepcopy(messages)
         # Render the same prompt async_chat would: only Anthropic requests use
         # the constrained forced-tool prompt (_forced_tool_chat); OpenAI requests
-        # keep native tool rendering even for tool_choice="required".
+        # keep native tool rendering even for tool_choice="required", but still
+        # reject a forced choice without a matching declared tool before the
+        # choice is dropped below.
         anthropic = config.pop("_anthropic_request", False)
-        if anthropic and is_forced_tool_choice(config):
-            messages, config = prepare_forced_tools(messages, config)
+        if is_forced_tool_choice(config):
+            if anthropic:
+                messages, config = prepare_forced_tools(messages, config)
+            else:
+                validate_forced_tool_choice(config)
         config.pop("parallel_tool_calls", None)
         self._normalize_tool_choice_for_prompt(config)
         prompt, _tools, context, config = await prepare_inputs(messages, config)

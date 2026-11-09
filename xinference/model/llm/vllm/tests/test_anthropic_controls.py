@@ -13,6 +13,7 @@ from ...tool_controls import (
     convert_forced_completion,
     prepare_forced_tools,
     single_tool_stream,
+    validate_forced_tool_choice,
 )
 from .. import core
 
@@ -256,6 +257,33 @@ def test_forced_tools_accept_one_shot_tool_iterables(choice):
     assert [v["properties"]["name"]["const"] for v in variants] == [
         t["function"]["name"] for t in expected
     ]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"tool_choice": "required"},
+        {"tool_choice": "required", "tools": []},
+        {
+            "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            "tools": iter(tools()),
+        },
+    ],
+    ids=["required-without-tools", "required-empty-tools", "named-not-declared"],
+)
+def test_native_forced_choice_validation_rejects_unmatched_tools(config):
+    with pytest.raises(ValueError, match="requires a declared tool"):
+        validate_forced_tool_choice(config)
+
+
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_native_forced_choice_validation_keeps_tools_for_rendering(choice):
+    config = {"tools": iter(tools()), "tool_choice": choice}
+    validate_forced_tool_choice(config)
+    # Validation only checks the choice; the one-shot iterator stays usable.
+    assert config == {"tools": tools(), "tool_choice": choice}
 
 
 def test_required_choice_preserves_alternatives_and_rejects_unknown_names():

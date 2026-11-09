@@ -26,6 +26,30 @@ def is_forced_tool_choice(config: Mapping[str, Any]) -> bool:
     return choice == "required" or isinstance(choice, dict)
 
 
+def _select_forced_tools(
+    tools: List[Dict[str, Any]], choice: Any
+) -> List[Dict[str, Any]]:
+    selected = tools
+    if isinstance(choice, dict):
+        name = choice.get("function", {}).get("name")
+        selected = [t for t in tools if t["function"]["name"] == name]
+    if not selected:
+        raise ValueError("Forced tool_choice requires a declared tool")
+    return selected
+
+
+def validate_forced_tool_choice(config: Dict[str, Any]) -> None:
+    """Reject a forced tool choice without a matching declared tool.
+
+    For requests that keep native tool rendering. ``config["tools"]`` is
+    materialized into a list so that any one-shot iterator stays usable.
+    """
+    tools = list(config.get("tools", None) or [])
+    if "tools" in config:
+        config["tools"] = tools
+    _select_forced_tools(tools, config.get("tool_choice"))
+
+
 def prepare_forced_tools(
     messages: List[Dict[str, Any]], config: Dict[str, Any]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
@@ -35,12 +59,7 @@ def prepare_forced_tools(
     tools = list(config.pop("tools", None) or [])
     choice = config.pop("tool_choice")
     parallel = config.pop("parallel_tool_calls", True)
-    selected = tools
-    if isinstance(choice, dict):
-        name = choice.get("function", {}).get("name")
-        selected = [t for t in tools if t["function"]["name"] == name]
-    if not selected:
-        raise ValueError("Forced tool_choice requires a declared tool")
+    selected = _select_forced_tools(tools, choice)
 
     definitions = {}
     variants = []

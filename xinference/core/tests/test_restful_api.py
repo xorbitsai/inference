@@ -2020,6 +2020,69 @@ async def test_chat_completion_preflight_with_required_tool_choice(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_request",
+    [
+        {"tool_choice": "required"},
+        {
+            "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "describe_image",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            ],
+        },
+    ],
+    ids=["required-without-tools", "named-choice-not-declared"],
+)
+async def test_chat_completion_preflight_rejects_unmatched_forced_tool_choice(
+    monkeypatch, tool_request
+):
+    from fastapi import HTTPException
+
+    from ...model.llm.vllm import core as vllm_core
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend._context_length = 512
+    backend._explicit_limit_mm_per_prompt = None
+    backend.model_family = SimpleNamespace(model_ability=["vision"])
+    backend.lora_requests = []
+    backend._prepare_chat_inputs = AsyncMock(
+        side_effect=AssertionError("Invalid tool choices must not be rendered")
+    )
+    model.preflight_multimodal_request.side_effect = (
+        backend.async_preflight_multimodal_request
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "max_tokens": 128,
+                    **tool_request,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [{"type": "image", "image": "unused"}],
+                        }
+                    ],
+                }
+            )
+        )
+
+    assert error.value.status_code == 400
+    backend._prepare_chat_inputs.assert_not_awaited()
+    model.chat.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
 async def test_pd_chat_completion_uses_conservative_default_multimodal_limit(
     monkeypatch, stream
