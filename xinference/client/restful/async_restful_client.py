@@ -372,6 +372,10 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/variations"
+        if isinstance(image, list):
+            image = [await self._read_image(img) for img in image]
+        else:
+            image = await self._read_image(image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -446,8 +450,16 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
                 await _release_response(response)
         except (aiohttp.ClientError, asyncio.TimeoutError) as error:
             raise RuntimeError(
-                f"Failed to download an image for editing, detail: {error}"
+                f"Failed to download an image, detail: {error}"
             ) from error
+
+    async def _read_image(self, image: Any) -> Any:
+        """Return the upload content of an image URL, local file path or bytes."""
+        image = await self._download_if_url(image)
+        if isinstance(image, str):
+            with open(image, "rb") as f:
+                return f.read()
+        return image
 
     async def image_edit(
         self,
@@ -656,6 +668,8 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/inpainting"
+        image = await self._read_image(image)
+        mask_image = await self._read_image(mask_image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -690,6 +704,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
+        image = await self._read_image(image)
         # aiohttp does not understand requests-style (key, (filename, value))
         # tuples; build a proper multipart form instead.
         form = aiohttp.FormData()

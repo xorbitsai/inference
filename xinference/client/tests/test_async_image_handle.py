@@ -80,6 +80,19 @@ async def test_async_inpainting_sends_multipart_form():
     assert fields["mask_image"] == ["mask"]
 
 
+async def test_async_image_to_image_and_inpainting_read_paths(tmp_path):
+    path = tmp_path / "local.png"
+    path.write_bytes(b"from-disk")
+    async with _image_handle() as handle:
+        fields = await handle.image_to_image([str(path), b"raw"], "a cat")
+        single = await handle.image_to_image(str(path), "a cat")
+        inpainted = await handle.inpainting(str(path), str(path), "a cat")
+
+    assert fields["image"] == ["from-disk", "raw"]
+    assert single["image"] == ["from-disk"]
+    assert inpainted["image"] == inpainted["mask_image"] == ["from-disk"]
+
+
 @asynccontextmanager
 async def _edit_server():
     """Serves /a.png and echoes /v1/images/edits; records what reached each."""
@@ -432,3 +445,26 @@ async def test_async_image_edit_stalled_download_fails_without_uploading(host, w
     assert host.stalled.is_set()  # the client got as far as the stalled body
     assert elapsed < _STALL_SECONDS / 2, f"waited {elapsed:.1f}s on a stalled download"
     assert host.uploads == []
+
+
+def test_sync_image_to_image_inpainting_and_ocr_read_paths_and_urls(tmp_path):
+    path = tmp_path / "local.png"
+    path.write_bytes(b"from-disk")
+    server = _sync_edit_handle()
+    url = "https://example.com/a.png"
+
+    server.handle.image_to_image([str(path), url, b"raw"], "a cat")
+    server.handle.inpainting(str(path), url, "a cat")
+    server.handle.ocr(str(path))
+
+    uploads = [
+        [(name, data) for name, data in parts if isinstance(data, bytes)]
+        for _, _, parts in server.uploads
+    ]
+    assert uploads == [
+        [("image", b"from-disk"), ("image", b"downloaded"), ("image", b"raw")],
+        [("image", b"from-disk"), ("mask_image", b"downloaded")],
+        [("image", b"from-disk")],
+    ]
+    # The Xinference credentials never reach the image host.
+    assert [kwargs.get("headers") for _, kwargs in server.downloads] == [None, None]

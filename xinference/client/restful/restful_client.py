@@ -327,6 +327,10 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/variations"
+        if isinstance(image, list):
+            image = [self._read_image(img) for img in image]
+        else:
+            image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -377,8 +381,16 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             return response.content
         except requests.RequestException as error:
             raise RuntimeError(
-                f"Failed to download an image for editing, detail: {error}"
+                f"Failed to download an image, detail: {error}"
             ) from error
+
+    def _read_image(self, image: Any) -> Any:
+        """Return the upload content of an image URL, local file path or bytes."""
+        image = self._download_if_url(image)
+        if isinstance(image, str):
+            with open(image, "rb") as f:
+                return f.read()
+        return image
 
     def image_edit(
         self,
@@ -567,6 +579,8 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/inpainting"
+        image = self._read_image(image)
+        mask_image = self._read_image(mask_image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -594,6 +608,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
+        image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
