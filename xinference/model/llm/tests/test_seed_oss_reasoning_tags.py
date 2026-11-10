@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..core import LLM
+from ..core import LLM, chat_context_var
 from ..llm_family import BUILTIN_LLM_FAMILIES
 from ..reasoning_parser import ReasoningParser
 from ..utils import ChatModelMixin
@@ -64,38 +64,77 @@ def _completion(text, finish_reason):
     }
 
 
-@pytest.mark.parametrize("stream", [False, True])
-def test_seed_oss_answer_without_reasoning_is_content(stream):
-    # With thinking_budget=0 the chat template closes reasoning in the prompt,
-    # so the answer has no reasoning tag.
+def _family_parser():
     family = SimpleNamespace(
         model_family=next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "seed-oss")
     )
     LLM.prepare_parse_reasoning_content(family, True)
-    parser = family.reasoning_parser
-    answer = ["It", " is", " 4."]
+    return family.reasoning_parser
 
-    if not stream:
-        message = ChatModelMixin._to_chat_completion(
-            _completion("".join(answer), "stop"), parser
-        )["choices"][0]["message"]
-        assert message["content"] == "It is 4."
-        assert message.get("reasoning_content") is None
-        return
 
-    async def chunks():
-        for delta in answer:
-            yield _completion(delta, None)
-        yield _completion("", "stop")
+def _respond(parser, output, stream, context):
+    """Return (reasoning, content) from the chat response or the stream."""
+    token = chat_context_var.set(context)
+    try:
+        if not stream:
+            message = ChatModelMixin._to_chat_completion(
+                _completion("".join(output), "stop"), parser
+            )["choices"][0]["message"]
+            return message.get("reasoning_content") or "", message["content"] or ""
 
-    async def collect():
-        return [
-            c
-            async for c in ChatModelMixin._async_to_chat_completion_chunks(
-                chunks(), parser
-            )
-        ]
+        async def chunks():
+            for delta in output:
+                yield _completion(delta, None)
+            yield _completion("", "stop")
 
-    deltas = [c["choices"][0]["delta"] for c in asyncio.run(collect())]
-    assert "".join(d.get("content") or "" for d in deltas) == "It is 4."
-    assert not "".join(d.get("reasoning_content") or "" for d in deltas)
+        async def collect():
+            return [
+                c
+                async for c in ChatModelMixin._async_to_chat_completion_chunks(
+                    chunks(), parser
+                )
+            ]
+
+        deltas = [c["choices"][0]["delta"] for c in asyncio.run(collect())]
+        return (
+            "".join(d.get("reasoning_content") or "" for d in deltas),
+            "".join(d.get("content") or "" for d in deltas),
+        )
+    finally:
+        chat_context_var.reset(token)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_seed_oss_answer_without_reasoning_is_content(stream):
+    # With thinking_budget=0 the chat template closes reasoning in the prompt,
+    # so the answer has no reasoning tag.
+    assert _respond(
+        _family_parser(), ["It", " is", " 4."], stream, {"thinking_budget": 0}
+    ) == ("", "It is 4.")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "context", [{}, {"enable_thinking": True, "thinking_budget": 4}]
+)
+def test_seed_oss_start_tag_from_the_prompt_keeps_reasoning(stream, context):
+    # An engine can append <seed:think> to the prompt (MLX thinking budgets,
+    # structured output with thinking), so only the end tag is generated.
+    output = ["Two", " plus two.", "</seed:think>", "It", " is 4."]
+    assert _respond(_family_parser(), output, stream, context) == (
+        "Two plus two.",
+        "It is 4.",
+    )
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_seed_oss_budget_zero_with_a_prompt_start_tag_keeps_the_split(stream):
+    # MLX appends the start tag even with thinking_budget=0, and the budget then
+    # ends reasoning at once.
+    output = ["</seed:think>", "It", " is 4."]
+    assert _respond(
+        _family_parser(),
+        output,
+        stream,
+        {"enable_thinking": True, "thinking_budget": 0},
+    ) == ("", "It is 4.")

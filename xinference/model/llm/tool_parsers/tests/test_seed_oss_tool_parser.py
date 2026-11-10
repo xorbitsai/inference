@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ...core import LLM
+from ...core import LLM, chat_context_var
 from ...llm_family import BUILTIN_LLM_FAMILIES
 from ...utils import QWEN_TOOL_CALL_FAMILY, ChatModelMixin
 from .. import TOOL_PARSERS
@@ -222,9 +222,13 @@ async def test_a_call_from_output_without_reasoning_is_emitted(
 ):
     # thinking_budget=0 closes reasoning in the prompt, so the output has no tag.
     text = _call("get_weather", location="Beijing")
-    content, calls, finish_reason = await respond(
-        _model(reasoning_content), text, "stop"
-    )
+    token = chat_context_var.set({"thinking_budget": 0})
+    try:
+        content, calls, finish_reason = await respond(
+            _model(reasoning_content), text, "stop"
+        )
+    finally:
+        chat_context_var.reset(token)
     assert calls == [("get_weather", {"location": "Beijing"})]
     assert finish_reason == "tool_calls"
     assert "seed:think" not in content
