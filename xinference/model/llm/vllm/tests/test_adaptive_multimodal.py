@@ -234,6 +234,96 @@ async def test_count_tokens_omits_tools_disabled_by_tool_choice(model):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("anthropic", [False, True])
+async def test_forced_tool_preflight_counts_the_generation_prompt(
+    model, monkeypatch, anthropic
+):
+    from .....types import CreateChatCompletion
+
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "describe_image",
+            "parameters": {
+                "type": "object",
+                "properties": {"caption": {"type": "string"}},
+            },
+        },
+    }
+    # Build kwargs exactly like the REST handler: pydantic dumps the OpenAI
+    # ``Iterable[...]`` tools field as a one-shot list_iterator, not a list.
+    body = CreateChatCompletion.parse_obj(
+        {
+            "model": "test",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe it"},
+                        {"type": "image_url", "image_url": {"url": "unused"}},
+                    ],
+                }
+            ],
+            "tools": [tool],
+            "tool_choice": "required",
+            "max_tokens": 64,
+        }
+    )
+    messages = list(body.messages)
+    config = body.dict(exclude_unset=True, exclude={"model", "messages"})
+    if anthropic:
+        config["_anthropic_request"] = True
+    forced = Mock(side_effect=core.prepare_forced_tools)
+    monkeypatch.setattr(core, "prepare_forced_tools", forced)
+    observed = {}
+
+    async def prepare_inputs(messages, config):
+        observed["messages"] = copy.deepcopy(messages)
+        # Mirrors VLLMMultiModel._prepare_chat_inputs.
+        observed["tools"] = list(config.pop("tools", []))
+        observed["config"] = copy.deepcopy(config)
+        prompt = {"prompt": "rendered", "multi_modal_data": {"image": [object()]}}
+        return prompt, observed["tools"], {}, config
+
+    structured = Mock(side_effect=lambda prompt, config, context: prompt)
+    model._prepare_chat_inputs = prepare_inputs
+    model._prepare_structured_reasoning_prompt = structured
+    model._get_tokenizer = AsyncMock(return_value=object())
+    model._gen_tokens_prompt = AsyncMock(
+        return_value={
+            "prompt_token_ids": list(range(100)),
+            "multi_modal_data": {"image": [object()]},
+        }
+    )
+    model._count_prompt_tokens = AsyncMock(return_value=100)
+    model._context_length = 512
+
+    result = await model.async_preflight_multimodal_request(messages, config)
+
+    assert result["input_tokens"] == 100
+    assert result["effective_max_tokens"] == 64
+    assert "tool_choice" not in observed["config"]
+    # The private marker is restored for prompt post-processing only, as in
+    # async_chat, and never reaches template rendering.
+    assert "_anthropic_request" not in observed["config"]
+    assert structured.call_args.args[1].get("_anthropic_request", False) is anthropic
+    if anthropic:
+        # Anthropic generation goes through _forced_tool_chat: constrained JSON
+        # output with tool definitions injected into the system prompt.
+        forced.assert_called_once()
+        assert observed["tools"] == []
+        assert observed["messages"][0]["role"] == "system"
+        assert "describe_image" in observed["messages"][0]["content"]
+        assert observed["config"]["response_format"]["type"] == "json_schema"
+    else:
+        # OpenAI generation renders tools natively, even for "required".
+        forced.assert_not_called()
+        assert observed["tools"] == [tool]
+        assert observed["messages"] == messages
+        assert "response_format" not in observed["config"]
+
+
+@pytest.mark.asyncio
 async def test_processor_options_survive_tokenization(model, monkeypatch):
     monkeypatch.setitem(sys.modules, "vllm", SimpleNamespace(TokensPrompt=dict))
     model._tokenize = Mock(return_value=[1, 2])

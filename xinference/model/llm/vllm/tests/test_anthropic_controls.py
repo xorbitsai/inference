@@ -13,6 +13,7 @@ from ...tool_controls import (
     convert_forced_completion,
     prepare_forced_tools,
     single_tool_stream,
+    validate_forced_tool_choice,
 )
 from .. import core
 
@@ -239,6 +240,50 @@ def test_forced_named_tool_schema_restricts_name_arguments_and_count():
     assert "tool definitions" in prepared[0]["content"]
     assert config == original
     assert messages == [{"role": "user", "content": "Delete the file"}]
+
+
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_forced_tools_accept_one_shot_tool_iterables(choice):
+    # pydantic yields OpenAI ``Iterable[...]`` tools as a list_iterator; it used
+    # to be exhausted by enumerate() before json.dumps() raised TypeError.
+    prepared, generated = prepare_forced_tools(
+        [], {"tools": iter(tools()), "tool_choice": choice}
+    )
+    expected = tools() if choice == "required" else tools()[:1]
+    assert prepared[0]["content"].endswith(json.dumps(expected, ensure_ascii=False))
+    variants = generated["response_format"]["json_schema"]["schema"]["items"]["oneOf"]
+    assert [v["properties"]["name"]["const"] for v in variants] == [
+        t["function"]["name"] for t in expected
+    ]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"tool_choice": "required"},
+        {"tool_choice": "required", "tools": []},
+        {
+            "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            "tools": iter(tools()),
+        },
+    ],
+    ids=["required-without-tools", "required-empty-tools", "named-not-declared"],
+)
+def test_native_forced_choice_validation_rejects_unmatched_tools(config):
+    with pytest.raises(ValueError, match="requires a declared tool"):
+        validate_forced_tool_choice(config)
+
+
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_native_forced_choice_validation_keeps_tools_for_rendering(choice):
+    config = {"tools": iter(tools()), "tool_choice": choice}
+    validate_forced_tool_choice(config)
+    # Validation only checks the choice; the one-shot iterator stays usable.
+    assert config == {"tools": tools(), "tool_choice": choice}
 
 
 def test_required_choice_preserves_alternatives_and_rejects_unknown_names():

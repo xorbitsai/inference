@@ -5149,6 +5149,12 @@ class RESTfulAPI(CancelMixin):
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+        # pydantic validates the OpenAI ``Iterable[...]`` tools field lazily:
+        # ``body.tools`` and the dumped value share one single-use iterator.
+        # Materialize it once and use only ``kwargs`` from here on.
+        if kwargs.get("tools") is not None:
+            kwargs["tools"] = list(kwargs["tools"])
+        has_tools = bool(kwargs.get("tools"))
         request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
 
         enable_thinking = raw_body.get("enable_thinking")
@@ -5384,7 +5390,7 @@ class RESTfulAPI(CancelMixin):
             desc.get("model_engine"),
             is_vllm_backend,
             stream=bool(body.stream),
-            tools=bool(body.tools),
+            tools=has_tools,
         )
 
         total_call_family = (
@@ -5398,7 +5404,7 @@ class RESTfulAPI(CancelMixin):
             | MINICPM5_TOOL_CALL_FAMILY
         )
         if model_family not in total_call_family:
-            if body.tools:
+            if has_tools:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Only {total_call_family} support tool calls",

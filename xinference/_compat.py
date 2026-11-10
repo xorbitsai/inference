@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 from typing import Dict, Iterable, List, Literal, Optional, Union
 
 from pydantic.version import VERSION as PYDANTIC_VERSION
@@ -65,11 +66,23 @@ from openai.types.shared_params.response_format_json_object import (
 )
 from openai.types.shared_params.response_format_text import ResponseFormatText
 
-OpenAIChatCompletionStreamOptionsParam = create_model_from_typeddict(
+
+def _create_model_from_openai_typeddict(typeddict_cls):
+    model = create_model_from_typeddict(typeddict_cls)
+    # Python 3.14 defers annotation evaluation (PEP 649), so pydantic v1 leaves
+    # the TypedDict fields as unresolved ForwardRefs; resolve them in the
+    # namespace of the module that defines the TypedDict.
+    model.update_forward_refs(**vars(sys.modules[typeddict_cls.__module__]))
+    return model
+
+
+OpenAIChatCompletionStreamOptionsParam = _create_model_from_openai_typeddict(
     ChatCompletionStreamOptionsParam
 )
-OpenAIChatCompletionToolParam = create_model_from_typeddict(ChatCompletionToolParam)
-OpenAIChatCompletionNamedToolChoiceParam = create_model_from_typeddict(
+OpenAIChatCompletionToolParam = _create_model_from_openai_typeddict(
+    ChatCompletionToolParam
+)
+OpenAIChatCompletionNamedToolChoiceParam = _create_model_from_openai_typeddict(
     ChatCompletionNamedToolChoiceParam
 )
 from openai._types import Body
