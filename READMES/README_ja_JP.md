@@ -81,7 +81,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 | **CPU / GPU / Apple Metal** | ![対応][compare-supported] | ![対応][compare-supported] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] |
 | **llama.cpp / vLLM / SGLang** | ![対応][compare-supported] | ![対応][compare-supported] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] |
 | **CUDA と Metal をまたぐ Prefill/Decode** | ![対応][compare-supported] | ![公式文書に対応の記載なし][compare-undocumented] | ![公式文書に対応の記載なし][compare-undocumented] | ![公式文書に対応の記載なし][compare-undocumented] |
-| **同一モデル ID に異なるエンジンのレプリカを混在** | ![対応][compare-supported] | ![公式文書に対応の記載なし][compare-undocumented] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] |
+| **同一モデル ID に異なるエンジンのレプリカを混在** | ![対応][compare-supported] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] |
 | **GPU 上の重みを再利用したレプリカの順次再設定** | ![対応][compare-supported] | ![公式文書に対応の記載なし][compare-undocumented] | ![公式文書に対応の記載なし][compare-undocumented] | ![公式文書に対応の記載なし][compare-undocumented] |
 | モデルカタログ | ![対応][compare-supported] 300+ | ![対応][compare-supported] | ![一部対応または追加連携が必要][compare-partial] | ![一部対応または追加連携が必要][compare-partial] |
 | Web UI からモデルをデプロイ | ![対応][compare-supported] | ![対応][compare-supported] | ![一部対応または追加連携が必要][compare-partial] | ![公式文書に対応の記載なし][compare-undocumented] |
@@ -96,7 +96,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 
 オープンソース版の公式文書に記載された機能を比較しています。エンジンとハードウェアの対応はモデルによって異なります。CUDA と Metal 間の P/D 分離には、対応するモデルとエンジンの組み合わせが必要です。
 
-Xinference では、同一モデル ID の新しいレプリカにエンジンを指定できます。KServe と Dynamo は別々のデプロイ間でリクエストをルーティングできます。GPU 上の重みの再利用は対応する vLLM と SGLang の構成が対象です。
+Xinference では、同一モデル ID の下で異なるエンジンのレプリカを同時に稼働させることができます。LocalAI では、単一のモデル名に優先順位付きのフェイルオーバーチェーンを設定し、最初に利用できる宛先へリクエストを送ります。KServe と Dynamo は別々のデプロイ間でリクエストをルーティングできます。GPU 上の重みの再利用は対応する vLLM と SGLang の構成が対象です。
 
 - **Xinference** · [モデルカタログ](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [バックエンド](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [分散推論](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [CUDA と Metal 間のクロスエンジン P/D](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [レプリカのエンジン指定](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [順次再設定](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
 - **LocalAI** · [モデルとデプロイ](https://localai.io/docs/features/index.html) · [エンジンとハードウェア](https://localai.io/docs/reference/index.print.html) · [分散モード](https://localai.io/docs/features/distributed-mode/) · [エイリアスとフェイルオーバー](https://localai.io/docs/features/model-failover/index.html)

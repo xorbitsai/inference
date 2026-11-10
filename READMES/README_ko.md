@@ -81,7 +81,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 | **CPU / GPU / Apple Metal** | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
 | **llama.cpp / vLLM / SGLang** | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
 | **CUDA와 Metal 간 프리필 및 디코드** | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
-| **하나의 모델 ID에서 서로 다른 엔진의 레플리카 혼용** | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
+| **하나의 모델 ID에서 서로 다른 엔진의 레플리카 혼용** | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
 | **GPU 가중치를 재사용하며 레플리카 설정을 순차 변경** | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
 | 모델 카탈로그 | ![지원][compare-supported] 300+ | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
 | Web UI에서 모델 배포 | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
@@ -96,7 +96,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 
 오픈 소스 릴리스의 공식 문서에 명시된 기능을 비교합니다. 엔진과 하드웨어 지원은 모델에 따라 다릅니다. CUDA와 Metal 간 P/D 분리에는 호환되는 모델과 엔진 조합이 필요합니다.
 
-Xinference는 같은 모델 ID의 새 레플리카에 엔진을 지정할 수 있습니다. KServe와 Dynamo는 별도 배포 사이에서 요청을 라우팅할 수 있습니다. GPU 가중치 재사용은 지원되는 vLLM 및 SGLang 구성에 적용됩니다.
+Xinference는 같은 모델 ID에서 서로 다른 엔진의 레플리카를 동시에 운영할 수 있습니다. LocalAI는 하나의 모델 이름에 우선순위가 있는 장애 조치 체인을 구성하고 첫 번째로 사용 가능한 대상으로 요청을 보냅니다. KServe와 Dynamo는 별도 배포 사이에서 요청을 라우팅할 수 있습니다. GPU 가중치 재사용은 지원되는 vLLM 및 SGLang 구성에 적용됩니다.
 
 - **Xinference** · [모델 카탈로그](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [백엔드](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [분산 추론](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [CUDA와 Metal 간 교차 엔진 P/D](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [레플리카 엔진 지정](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [순차 재설정](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
 - **LocalAI** · [모델 및 배포 기능](https://localai.io/docs/features/index.html) · [엔진 및 하드웨어](https://localai.io/docs/reference/index.print.html) · [분산 모드](https://localai.io/docs/features/distributed-mode/) · [별칭 및 장애 조치](https://localai.io/docs/features/model-failover/index.html)

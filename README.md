@@ -81,7 +81,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 | **CPU / GPU / Apple Metal** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
 | **llama.cpp / vLLM / SGLang** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
 | **CUDA ↔ Metal prefill/decode** | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] |
-| **Mixed engines under one model ID** | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
+| **Mixed engines under one model ID** | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
 | **Rolling reconfiguration with GPU weight reuse** | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] |
 | Model catalog | ![Supported][compare-supported] 300+ | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
 | Model deployment Web UI | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![No documented support][compare-undocumented] |
@@ -96,7 +96,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 
 Based on documented features in the open-source releases. Engine and hardware support varies by model. CUDA ↔ Metal prefill/decode requires a compatible model and engine pair.
 
-Xinference can set an engine for new replicas under the same model ID. KServe and Dynamo can route across separate deployments. GPU weight reuse applies to supported vLLM and SGLang configurations.
+Xinference can serve replicas with different engines concurrently under one model ID. LocalAI uses an ordered failover chain under one model name and sends requests to the first available target. KServe and Dynamo can route across separate deployments. GPU weight reuse applies to supported vLLM and SGLang configurations.
 
 - **Xinference** · [Model catalog](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [Backends](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [Distributed inference](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [Cross-engine P/D on CUDA and Metal](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [Replica engine overrides](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [Rolling reconfiguration](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
 - **LocalAI** · [Model and deployment features](https://localai.io/docs/features/index.html) · [Backends and hardware](https://localai.io/docs/reference/index.print.html) · [Distributed mode](https://localai.io/docs/features/distributed-mode/) · [Model aliases and failover](https://localai.io/docs/features/model-failover/index.html)

@@ -82,7 +82,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 | **CPU / GPU / Apple Metal** | ![支持][compare-supported] | ![支持][compare-supported] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] |
 | **llama.cpp / vLLM / SGLang** | ![支持][compare-supported] | ![支持][compare-supported] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] |
 | **CUDA ↔ Metal 异构 P/D** | ![支持][compare-supported] | ![官方文档未列出支持][compare-undocumented] | ![官方文档未列出支持][compare-undocumented] | ![官方文档未列出支持][compare-undocumented] |
-| **同一模型 ID 混用不同引擎的副本** | ![支持][compare-supported] | ![官方文档未列出支持][compare-undocumented] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] |
+| **同一模型 ID 混用不同引擎的副本** | ![支持][compare-supported] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] |
 | **复用 GPU 权重逐副本更新配置** | ![支持][compare-supported] | ![官方文档未列出支持][compare-undocumented] | ![官方文档未列出支持][compare-undocumented] | ![官方文档未列出支持][compare-undocumented] |
 | 模型目录 | ![支持][compare-supported] 300+ | ![支持][compare-supported] | ![部分支持或需集成][compare-partial] | ![部分支持或需集成][compare-partial] |
 | 模型部署 Web UI | ![支持][compare-supported] | ![支持][compare-supported] | ![部分支持或需集成][compare-partial] | ![官方文档未列出支持][compare-undocumented] |
@@ -97,7 +97,7 @@ curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
 
 按开源版本的官方文档对比。具体引擎和硬件支持取决于模型。CUDA ↔ Metal 异构 P/D 需要兼容的模型和引擎组合。
 
-Xinference 可在同一模型 ID 下为新增副本指定引擎。KServe 和 Dynamo 可以在多个独立部署间路由。GPU 权重复用适用于受支持的 vLLM 和 SGLang 配置。
+Xinference 支持不同引擎的副本在同一模型 ID 下同时提供服务。LocalAI 在同一模型名下配置有序的故障转移链，将请求发给第一个可用目标。KServe 和 Dynamo 可以在多个独立部署间路由。GPU 权重复用适用于受支持的 vLLM 和 SGLang 配置。
 
 - **Xinference** · [模型目录](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [推理后端](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [分布式部署](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [CUDA 与 Metal 跨引擎 P/D](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [新增副本指定引擎](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [逐副本更新配置](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
 - **LocalAI** · [模型与部署能力](https://localai.io/docs/features/index.html) · [引擎与硬件](https://localai.io/docs/reference/index.print.html) · [分布式部署](https://localai.io/docs/features/distributed-mode/) · [模型别名与故障转移](https://localai.io/docs/features/model-failover/index.html)
