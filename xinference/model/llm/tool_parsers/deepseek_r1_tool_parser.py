@@ -181,7 +181,18 @@ class DeepseekR1ToolParser(ToolParser):
                 name is not None
                 for _, name, _ in self._parse_streaming_block(text[wrapper:body])
             )
-        return ArgumentStart(match[1], match.end(), preceding_calls=preceding)
+        return ArgumentStart(
+            match[1],
+            match.end(),
+            preceding_calls=preceding,
+            json_suffix="```" + self.tool_call_end_token,
+        )
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        events = stream_delimited_calls(
+            self, text, "", self._WRAPPER_START, self._WRAPPER_END, finished=True
+        )
+        return events[0][0] if events else None
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
@@ -201,7 +212,10 @@ class DeepseekR1ToolParser(ToolParser):
             try:
                 arguments = json.loads(raw)
             except json.JSONDecodeError:
+                events.append((raw, None, None))
                 continue
             if isinstance(arguments, dict):
                 events.append((None, name, arguments))
+            else:
+                events.append((raw, None, None))
         return events or [(block, None, None)]

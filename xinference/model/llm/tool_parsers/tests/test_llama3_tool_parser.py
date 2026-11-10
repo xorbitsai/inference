@@ -165,7 +165,7 @@ def test_streaming_python_literal_tool_call():
     parser = Llama3ToolParser()
     first = "{'name': 'write', 'parameters': {'append':"
     rest = " True}}"
-    assert parser.extract_tool_calls_streaming([""], first, first) == []
+    assert parser.extract_tool_calls_streaming([""], first, first) is None
     assert parser.extract_tool_calls_streaming([first], first + rest, rest) == [
         (None, "write", {"append": True})
     ]

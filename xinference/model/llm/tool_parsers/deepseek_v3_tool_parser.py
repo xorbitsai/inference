@@ -118,9 +118,13 @@ class DeepseekV3ToolParser(ToolParser):
             start += len("```json")
             end = text.find("```", start)
             if end == -1:
-                return json_argument_start(text, start)
+                return json_argument_start(text, start, "parameters")
             position = end + 3
         return None
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        events = stream_delimited_calls(self, text, "", "```json", "```", finished=True)
+        return events[0][0] if events else None
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

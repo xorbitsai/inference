@@ -127,7 +127,11 @@ class DeepseekV3_1ToolParser(ToolParser):
         if wrapper is None or body is None or body < wrapper:
             return None
         match = self._ARGUMENT_OPEN.match(text, body)
-        return ArgumentStart(match[1], match.end()) if match else None
+        if match is None:
+            return None
+        return ArgumentStart(
+            match[1].strip(), match.end(), json_suffix="<｜tool▁call▁end｜>"
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

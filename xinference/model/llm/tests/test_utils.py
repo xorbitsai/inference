@@ -4626,13 +4626,9 @@ async def test_qwen_xml_truncated_stream_never_completes_tool_arguments(finish_r
     assert "partial" in args
     with pytest.raises(json.JSONDecodeError):
         json.loads(args)
-    if finish_reason == "length":
-        assert (await anext(stream))["choices"][0]["finish_reason"] == "length"
-        with pytest.raises(StopAsyncIteration):
-            await anext(stream)
-    else:
-        with pytest.raises(ValueError, match="ended before completing"):
-            await anext(stream)
+    assert (await anext(stream))["choices"][0]["finish_reason"] == "length"
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
 
 
 async def test_qwen_xml_stream_rejects_rewritten_arguments():
@@ -4645,11 +4641,19 @@ async def test_qwen_xml_stream_rejects_rewritten_arguments():
         yield _qwen_xml_completion(
             "</parameter><parameter=body>second</parameter></function></tool_call>"
         )
+        yield _qwen_xml_completion("", "stop")
 
     stream = model._async_to_tool_completion_chunks(source(), tools=_QWEN_XML_TOOLS)
-    await anext(stream)
-    with pytest.raises(ValueError, match="changed after streaming"):
-        await anext(stream)
+    choices = [chunk["choices"][0] async for chunk in stream]
+    assert choices[-1]["finish_reason"] == "length"
+    fragments = [
+        call["function"]["arguments"]
+        for choice in choices
+        for call in choice["delta"].get("tool_calls", [])
+    ]
+    assert "first" in "".join(fragments)
+    with pytest.raises(json.JSONDecodeError):
+        json.loads("".join(fragments))
 
 
 async def test_qwen_xml_argument_stream_closes_its_source_on_cancel():

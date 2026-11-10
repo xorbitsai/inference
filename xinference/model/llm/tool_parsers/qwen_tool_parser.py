@@ -619,27 +619,39 @@ class QwenToolParser(ToolParser):
             elif parsed:
                 events.append(parsed)
 
-        for index, event in enumerate(events):
-            if len(event) != 4:
+        # The legacy parser can expose the name before it has confirmed
+        # arguments. Hold it until we have a safe fragment or a complete call.
+        completed: List[_StreamingEvent] = []
+        for event in events:
+            if len(event) == 3:
+                completed.append(event)
                 continue
             content, name, arguments, call_index = event
-            if arguments is None or call_index not in sent_arguments:
+            if arguments is None:
                 continue
-            sent = sent_arguments.pop(call_index)
+            sent = sent_arguments.get(call_index)
+            if sent is None:
+                completed.append(event)
+                continue
             if isinstance(sent, ArgumentReader):
                 assert name is not None
-                fragment = sent.finish(name, arguments, current)
+                fragment = (
+                    sent.finish(name, arguments, current)
+                    if isinstance(arguments, dict)
+                    else None
+                )
             else:
                 prefix = sent.serialized
                 final = json.dumps(arguments, ensure_ascii=False)
-                if not final.startswith(prefix):
-                    raise ValueError("Qwen tool arguments changed after streaming")
-                fragment = final[len(prefix) :]
-            events[index] = (content, name, ToolArgumentsDelta(fragment), call_index)
+                fragment = final[len(prefix) :] if final.startswith(prefix) else None
+            if fragment is None:
+                logger.debug("Qwen tool call %d could not be reconciled", call_index)
+                continue
+            del sent_arguments[call_index]
+            completed.append((content, name, ToolArgumentsDelta(fragment), call_index))
+        events = completed
 
         if finish_reason is not None:
-            if finish_reason in ("stop", "tool_calls") and sent_arguments:
-                raise ValueError("Qwen tool call ended before completing its arguments")
             return events
         if self.tool_call_start_token not in current:
             return events
@@ -654,7 +666,10 @@ class QwenToolParser(ToolParser):
             previous is None
             and (
                 start := json_argument_start(
-                    current, partial + len(self.tool_call_start_token)
+                    current,
+                    partial + len(self.tool_call_start_token),
+                    "arguments",
+                    allow_control_chars=True,
                 )
             )
             and requested_tool(start.name)
@@ -676,18 +691,12 @@ class QwenToolParser(ToolParser):
                 return events
             prefix = previous.serialized if previous else ""
             if not candidate.serialized.startswith(prefix):
-                raise ValueError("Qwen tool arguments changed after streaming")
+                return events
             sent_arguments[call_index] = candidate
             name = candidate.function
             fragment = candidate.serialized[len(prefix) :]
 
-        delta = (None, name, ToolArgumentsDelta(fragment), call_index)
-        # The legacy parser can discover the tool identity in this same
-        # chunk. Send it together with the argument fragment once.
-        if events and events[-1] == (None, name, None, call_index):
-            events[-1] = delta
-        else:
-            events.append(delta)
+        events.append((None, name, ToolArgumentsDelta(fragment), call_index))
         return events
 
     def _xml_argument_prefix(

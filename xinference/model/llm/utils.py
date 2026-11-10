@@ -1241,15 +1241,18 @@ class ChatModelMixin:
                     and tool_call_state is not None
                     and tools
                 ):
+                    prefixes = tool_call_state.setdefault("argument_prefixes", {})
                     tool_result = (
                         self.tool_parser.extract_tool_calls_with_argument_deltas(
                             previous_texts[-1],
                             current_text,
-                            tool_call_state.setdefault("argument_prefixes", {}),
+                            prefixes,
                             finish_reason=finish_reason,
                         )
                         or None
                     )
+                    if finish_reason is not None and prefixes:
+                        finish_reason = "length"
                 elif (
                     tool_call_state is not None
                     and tools
@@ -1273,12 +1276,25 @@ class ChatModelMixin:
                         )
                         or None
                     )
+                    if finish_reason is not None and stream.incomplete:
+                        finish_reason = "length"
                 else:
                     tool_result = self.tool_parser.extract_tool_calls_streaming(
                         previous_texts,
                         current_text,
                         delta_text,
                     )
+                if finish_reason is not None and (
+                    flush := getattr(self.tool_parser, "flush_streaming_content", None)
+                ):
+                    suffix = flush(current_text)
+                    if suffix:
+                        if isinstance(tool_result, list):
+                            tool_result.append((suffix, None, None))
+                        elif tool_result:
+                            tool_result = [tool_result, (suffix, None, None)]
+                        else:
+                            tool_result = (suffix, None, None)
                 previous_texts[-1] = current_text
         finally:
             request_tools_var.reset(token)

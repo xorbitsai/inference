@@ -202,6 +202,10 @@ class GemmaToolParser(ToolParser):
             events.append((current_text[position:end], None, None))
         return events[0] if len(events) == 1 else events
 
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        tail = text[self._settled_length(text) :]
+        return tail if self.tool_call_start_token.startswith(tail) else None
+
     def _settled_length(self, text: str) -> int:
         """Return the length of the prefix of ``text`` that holds no unclosed
         tool call block."""

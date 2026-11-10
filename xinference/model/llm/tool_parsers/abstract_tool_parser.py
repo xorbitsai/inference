@@ -49,6 +49,10 @@ class ToolParser:
             "implemented!"
         )
 
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        """Release any plain text withheld at the end of a stream."""
+        return None
+
     @staticmethod
     def _is_string_parameter(function_name: Optional[str], parameter_name: str) -> bool:
         """

@@ -1,11 +1,12 @@
 import ast
 import json
 import logging
+import tokenize
+from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
-from .argument_stream import ArgumentStart, json_argument_start
 
 logger = logging.getLogger(__name__)
 
@@ -62,32 +63,67 @@ class Llama3ToolParser(ToolParser):
         except (KeyError, TypeError):
             return [(model_output, None, None)]
 
-    @staticmethod
-    def flush_streaming_content(text: str) -> Optional[str]:
-        # A leading brace might be ordinary text or a JSON/Python tool call.
-        # If no call was found, release the buffered content at the end.
-        if not text.strip() or text.lstrip().startswith("{"):
+    def _leading_call(self, text: str) -> Tuple[int, List[Tuple]]:
+        leading = len(text) - len(text.lstrip())
+        candidate = text[leading:]
+        if not candidate.startswith("{") or "}" not in candidate:
+            return 0, []
+        try:
+            _, end = json.JSONDecoder().raw_decode(candidate)
+        except json.JSONDecodeError:
+            # A Python literal can use single quotes and non-JSON scalars.
+            # Tokenize only to find its boundary and let literal_eval validate.
+            depth = 0
+            try:
+                for token in tokenize.generate_tokens(StringIO(candidate).readline):
+                    if token.type != tokenize.OP:
+                        continue
+                    if token.string == "{":
+                        depth += 1
+                    elif token.string == "}":
+                        depth -= 1
+                        if depth == 0:
+                            row, column = token.end
+                            end = (
+                                sum(
+                                    len(line)
+                                    for line in candidate.splitlines(keepends=True)[
+                                        : row - 1
+                                    ]
+                                )
+                                + column
+                            )
+                            break
+                else:
+                    return 0, []
+            except (tokenize.TokenError, IndentationError):
+                return 0, []
+        result = self.extract_tool_calls(candidate[:end])
+        _, name, arguments = result[0]
+        if isinstance(name, str) and name and isinstance(arguments, dict):
+            return leading + end, result
+        return 0, []
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        if not text.strip():
+            return text
+        if text.lstrip().startswith("{") and not self._leading_call(text)[0]:
             return text
         return None
 
-    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
-        if text.rstrip().endswith("}"):
-            return None
-        return json_argument_start(text, 0)
-
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> List[Tuple]:
-        if not current_text.strip():
-            return []
-        if not current_text.lstrip().startswith("{"):
-            previous = previous_text[-1] if previous_text else ""
-            return [(delta_text if previous.strip() else current_text, None, None)]
+    ) -> Optional[List[Tuple]]:
+        if not delta_text or not current_text.strip():
+            return None
         previous = previous_text[-1] if previous_text else ""
-        if (
-            not current_text.rstrip().endswith("}")
-            or current_text.strip() == previous.strip()
-        ):
-            return []
-        result = self.extract_tool_calls(current_text)
-        return result if result[0][1] else []
+        if not current_text.lstrip().startswith("{"):
+            return [(delta_text if previous.strip() else current_text, None, None)]
+
+        previous_end, _ = self._leading_call(previous)
+        if previous_end:
+            return [(delta_text, None, None)]
+        end, events = self._leading_call(current_text)
+        if end and current_text[end:]:
+            events.append((current_text[end:], None, None))
+        return events or None

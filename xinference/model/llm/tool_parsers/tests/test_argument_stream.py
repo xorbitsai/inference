@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from ...tool_controls import single_tool_chunks
 from ...utils import ChatModelMixin
 from .. import TOOL_PARSERS
 
@@ -130,7 +131,7 @@ def test_matrix_covers_every_registered_parser():
 
 @pytest.mark.parametrize("parser_name", CALLS)
 @pytest.mark.parametrize("size", (1, 17))
-def test_streams_arguments_before_call_closes(parser_name, size):
+def test_streams_tool_calls(parser_name, size):
     opening, closing, value = CALLS[parser_name]
     model = ChatModelMixin()
     model.tool_parser = TOOL_PARSERS[parser_name]()
@@ -145,9 +146,12 @@ def test_streams_arguments_before_call_closes(parser_name, size):
 
     step(opening + value)
     before_close = "".join(call["function"]["arguments"] for call in calls)
-    assert "404" in before_close
-    with pytest.raises(json.JSONDecodeError):
-        json.loads(before_close)
+    if parser_name in ("llama3", "minimax_m3"):
+        assert not before_close
+    else:
+        assert "404" in before_close
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(before_close)
 
     step(closing)
     assert {call["index"] for call in calls} == {0}
@@ -170,7 +174,8 @@ def test_truncation_does_not_close_arguments(parser_name):
     model = ChatModelMixin()
     model.tool_parser = TOOL_PARSERS[parser_name]()
     history, state = [""], {}
-    assert deltas(feed(model, opening + value, history, state))
+    partial = deltas(feed(model, opening + value, history, state))
+    assert bool(partial) == (parser_name not in ("llama3", "minimax_m3"))
     chunk = feed(model, "", history, state, "length")
     assert not deltas(chunk)
     assert chunk["choices"][0]["finish_reason"] == "length"
@@ -219,7 +224,7 @@ def test_multiple_invokes_in_one_wrapper(parser_name, wrapper_start, wrapper_end
     ]
     for i, part in enumerate(parts):
         events = deltas(feed(model, part, history, state))
-        if i in (0, 2):
+        if i in (0, 2) and parser_name != "minimax_m3":
             assert "404" in events[-1]["function"]["arguments"]
             assert events[-1]["index"] == i // 2
         for event in events:
@@ -257,7 +262,7 @@ def test_native_string_wrappers(parser_name, opening, value, closing, expected):
     history, state, fragments = [""], {}, []
     for char in opening + value:
         fragments.extend(deltas(feed(model, char, history, state)))
-    assert fragments
+    assert bool(fragments) == (parser_name == "minicpm5")
     fragments.extend(deltas(feed(model, closing, history, state)))
     assert json.loads("".join(call["function"]["arguments"] for call in fragments)) == {
         "code": expected
@@ -332,3 +337,165 @@ def test_gemma_streams_string_after_nested_parameter():
     assert json.loads(
         first["function"]["arguments"] + last["function"]["arguments"]
     ) == {"options": {"line": 7}, "code": CODE}
+
+
+@pytest.mark.parametrize("parts", [("a\n", "b\t"), ("a", "\nb\t")])
+def test_qwen_literal_control_characters_are_escaped(parts):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["qwen"]()
+    history, state = [""], {}
+    prefix = '<tool_call>{"name":"write","arguments":{"code":"'
+    (early,) = deltas(feed(model, prefix + parts[0], history, state))
+    (final,) = deltas(feed(model, parts[1] + '"}}</tool_call>', history, state))
+    assert json.loads(
+        early["function"]["arguments"] + final["function"]["arguments"]
+    ) == {"code": "".join(parts)}
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "tool_calls"
+    )
+
+
+@pytest.mark.parametrize("parser_name", ["qwen", "deepseek-v3"])
+def test_wrong_argument_key_does_not_start_a_tool_call(parser_name):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS[parser_name]()
+    history, state = [""], {}
+    opening, closing, value = CALLS[parser_name]
+    opening = (
+        opening.replace('"arguments"', '"parameters"')
+        if parser_name == "qwen"
+        else opening.replace('"parameters"', '"arguments"')
+    )
+    assert not deltas(feed(model, opening + value, history, state))
+    assert not deltas(feed(model, closing, history, state))
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"] == "stop"
+    )
+
+
+@pytest.mark.parametrize("suffix_in_same_chunk", [False, True])
+def test_llama_python_literal_and_text_after_call(suffix_in_same_chunk):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["llama3"]()
+    history, state = [""], {}
+    suffix = "\nDone."
+    first = '{"name":"write","parameters":{"enabled":True,"line":None'
+    assert not deltas(feed(model, first, history, state))
+    chunk = feed(model, "}}" + (suffix if suffix_in_same_chunk else ""), history, state)
+    (call,) = deltas(chunk)
+    assert call["index"] == 0
+    assert json.loads(call["function"]["arguments"]) == {"enabled": True, "line": None}
+    if not suffix_in_same_chunk:
+        chunk = feed(model, suffix, history, state)
+        assert not deltas(chunk)
+    assert chunk["choices"][0]["delta"]["content"] == suffix
+    final = feed(model, "", history, state, "stop")
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+    assert not deltas(final)
+
+
+@pytest.mark.parametrize(
+    ("parser_name", "tail"),
+    [
+        ("gemma", "<"),
+        ("gemma", "<|"),
+        ("deepseek-r1", "<"),
+        ("deepseek-v3", chr(96)),
+        ("deepseek-v3", chr(96) * 3),
+        ("deepseek-v3", chr(96) * 3 + "j"),
+    ],
+)
+@pytest.mark.parametrize("after_call", [False, True])
+def test_partial_opening_marker_is_flushed_at_finish(parser_name, tail, after_call):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS[parser_name]()
+    history, state = [""], {}
+    if after_call:
+        opening, closing, value = CALLS[parser_name]
+        assert deltas(feed(model, opening + value + closing, history, state))
+    text = feed(model, "text" + tail, history, state)
+    assert text["choices"][0]["delta"]["content"] == "text"
+    final = feed(model, "", history, state, "stop")
+    assert final["choices"][0]["delta"]["content"] == tail
+
+
+def test_malformed_deepseek_call_cannot_consume_later_call():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3.1"]()
+    history, state = [""], {}
+    opening, closing, value = CALLS["deepseek-v3.1"]
+    (bad,) = deltas(feed(model, opening + value, history, state))
+    assert bad["index"] == 0
+    close = "<｜tool▁call▁end｜>"
+    malformed = ",}" + close
+    second = opening.removeprefix("<｜tool▁calls▁begin｜>") + value + closing
+    (good,) = deltas(feed(model, malformed + second, history, state))
+    assert good["index"] == 1 and good["id"] != bad["id"]
+    assert json.loads(good["function"]["arguments"]) == {"code": CODE, "line": 7}
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "length"
+    )
+
+
+@pytest.mark.parametrize("raw", ["hello <b>world</b>", "if a<b"])
+def test_minimax_m3_literal_angle_bracket_agrees_with_nonstream(raw):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["minimax_m3"]()
+    history, state = [""], {}
+    opening = '<minimax:tool_call><invoke name="write"><code>'
+    closing = "</code></invoke></minimax:tool_call>"
+    assert not deltas(feed(model, opening + raw.split("<", 1)[0], history, state))
+    ((_, expected_name, expected_args),) = model.tool_parser.extract_tool_calls(
+        opening + raw + closing
+    )
+    (call,) = deltas(feed(model, "<" + raw.split("<", 1)[1] + closing, history, state))
+    assert call["function"]["name"] == expected_name
+    assert json.loads(call["function"]["arguments"]) == expected_args
+
+
+@pytest.mark.parametrize("parser_name", ["minimax", "minimax_m3", "seed-oss"])
+def test_typed_first_invoke_wins_when_parallel_tool_calls_disabled(parser_name):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS[parser_name]()
+    history, state = [""], {}
+    opening, closing, value = CALLS[parser_name]
+    invoke = (
+        "<function=write><parameter=line>1</parameter></function>"
+        if parser_name == "seed-oss"
+        else '<invoke name="write"><parameter name="line">1</parameter></invoke>'
+    )
+    pos = opening.index(">") + 1
+    parts = [opening[:pos] + invoke + opening[pos:] + value, closing]
+    first, last = [feed(model, piece, history, state) for piece in parts]
+    assert not deltas(first)
+    (filtered,) = single_tool_chunks(chunk for chunk in (last,))
+    (call,) = deltas(filtered)
+    assert call["index"] == 0
+    assert json.loads(call["function"]["arguments"]) == {"line": 1}
+
+
+def test_r1_preserves_invalid_call_content_next_to_valid_call():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-r1"]()
+    history, state = [""], {}
+    opening, closing, value = CALLS["deepseek-r1"]
+    wrapper = "<｜tool▁calls▁begin｜>"
+    wrapper_end = "<｜tool▁calls▁end｜>"
+    malformed = opening + value + ",}\n" + chr(96) * 3 + "<｜tool▁call▁end｜>"
+    valid = opening.removeprefix(wrapper) + value + closing
+    chunk = feed(model, malformed + valid, history, state)
+    (call,) = deltas(chunk)
+    assert json.loads(call["function"]["arguments"]) == {"code": CODE, "line": 7}
+    assert chunk["choices"][0]["delta"]["content"] == '{"code":' + value + ",}"
+    assert wrapper_end in valid
+
+
+def test_deepseek_v3_deduplicates_by_values_not_only_keys():
+    parser = TOOL_PARSERS["deepseek-v3"]()
+    opening, closing, _ = CALLS["deepseek-v3"]
+    first = opening + '"a"' + closing
+    second = opening + '"b"' + closing
+    events = parser.extract_tool_calls("\n".join((first, second, first)))
+    assert [args["code"] for _, _, args in events] == ["a", "b"]

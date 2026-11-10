@@ -80,5 +80,5 @@ msgid "Clients may send ``priority_hint: -1`` in chat requests when the running 
 msgstr "実行中のモデルの説明に ``supports_chat_priority`` がある場合、クライアントはチャットリクエストに ``priority_hint: -1`` を指定できます。選択されたレプリカは、エンジンのスケジューラまたは Xinference の優先度キューでヒントを適用します。prefill/decode を分離した構成では、両方の段階が優先度に対応している必要があります。明示的に指定した ``priority`` が優先されます。 このヒントは ``/v1/chat/completions`` でのみ使われます。整数の ``-1`` 以外の値は無視されます。Anthropic Messages と OpenAI Responses ではこのヒントは無視されます。"
 
 #: ../../source/user_guide/client_api.rst:139
-msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Parse the assembled JSON and execute the tool only after its call has finished."
-msgstr "``stream=True`` の場合は、ツール呼び出しのインデックスごとに ``delta.tool_calls[].function.arguments`` の断片を連結します。呼び出しが完了してから、連結した JSON を解析してツールを実行してください。"
+msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
+msgstr "``stream=True`` の場合は、ツール呼び出しのインデックスごとに ``delta.tool_calls[].function.arguments`` の断片を連結します。``finish_reason=\"tool_calls\"`` を待ち、連結した JSON を検証してからツールを実行してください。``finish_reason=\"length\"`` の場合、呼び出しに ID と名前があっても、引数は不完全なことがあります。その応答の呼び出しは実行しないでください。"

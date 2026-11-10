@@ -1,11 +1,14 @@
 """Stream confirmed arguments while the existing parser validates completed calls."""
 
 import json
+import logging
 import re
 from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, List, Optional, Pattern, Tuple
 
 from .abstract_tool_parser import ToolArgumentsDelta, ToolParser, request_tools_var
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -18,6 +21,8 @@ class ArgumentStart:
     trim: bool = False
     call_position: Optional[int] = None
     preceding_calls: int = 0
+    allow_control_chars: bool = False
+    json_suffix: str = ""
 
 
 class ArgumentReader:
@@ -32,10 +37,14 @@ class ArgumentReader:
         self.in_string = False
         self.escaped = False
 
-    def _json_end(self, text: str) -> int:
+    def _read_json(
+        self, text: str, end: int, *, final: bool = False
+    ) -> Tuple[int, str]:
         # Scan only new characters and leave the outer object open. The legacy
         # parser validates the complete JSON and the enclosing tool syntax.
-        for offset in range(self.position, len(text)):
+        start = self.position
+        pieces = []
+        for offset in range(start, end):
             char = text[offset]
             if self.in_string:
                 if self.escaped:
@@ -44,16 +53,22 @@ class ArgumentReader:
                     self.escaped = True
                 elif char == '"':
                     self.in_string = False
+                elif self.start.allow_control_chars and ord(char) < 0x20:
+                    pieces.append(text[start:offset])
+                    pieces.append(json.dumps(char)[1:-1])
+                    start = offset + 1
             elif char == '"':
                 self.in_string = True
             elif char == "{":
                 self.depth += 1
             elif char == "}":
                 self.depth -= 1
-                if self.depth == 0:
+                if self.depth == 0 and not final:
                     self.closed = True
-                    return offset
-        return len(text)
+                    end = offset
+                    break
+        pieces.append(text[start:end])
+        return end, "".join(pieces)
 
     def _string_end(self, text: str, start: ArgumentStart) -> int:
         end = text.find(start.terminator, self.position)
@@ -73,21 +88,29 @@ class ArgumentReader:
                 end -= 1
         return end
 
-    def finish(self, name: str, arguments: Dict[str, Any], text: str) -> str:
+    def finish(self, name: str, arguments: Dict[str, Any], text: str) -> Optional[str]:
         start = self.start
         if start.name != name:
-            raise ValueError("Tool name changed after streaming arguments")
-        serialized = "".join(self.fragments)
+            return None
         if not start.terminator:
             raw = text[start.position :]
-            value, length = json.JSONDecoder().raw_decode(raw)
-            if value != arguments:
-                raise ValueError("Tool arguments changed after streaming")
-            return raw[len(serialized) : length]
+            try:
+                decoder = json.JSONDecoder(strict=not start.allow_control_chars)
+                value, length = decoder.raw_decode(raw)
+            except json.JSONDecodeError:
+                return None
+            if value != arguments or (
+                start.json_suffix
+                and not raw[length:].lstrip().startswith(start.json_suffix)
+            ):
+                return None
+            end = start.position + length
+            if self.closed:
+                return text[self.position : end]
+            return self._read_json(text, end, final=True)[1]
         final = json.dumps(arguments, ensure_ascii=False)
-        if not final.startswith(serialized):
-            raise ValueError("Tool arguments changed after streaming")
-        return final[len(serialized) :]
+        serialized = "".join(self.fragments)
+        return final[len(serialized) :] if final.startswith(serialized) else None
 
     def resume(self, start: ArgumentStart) -> bool:
         # Move to the next confirmed string field in this same invocation.
@@ -109,14 +132,13 @@ class ArgumentReader:
         start = self.start
         if self.closed:
             return ""
-        end = (
-            self._string_end(text, start) if start.terminator else self._json_end(text)
-        )
+        if start.terminator:
+            end = self._string_end(text, start)
+            fragment = json.dumps(text[self.position : end], ensure_ascii=False)[1:-1]
+        else:
+            end, fragment = self._read_json(text, len(text))
         if end <= self.position:
             return ""
-        fragment = text[self.position : end]
-        if start.terminator:
-            fragment = json.dumps(fragment, ensure_ascii=False)[1:-1]
         if self.position == start.position:
             fragment = start.prefix + fragment
         self.position = end
@@ -131,6 +153,7 @@ class ArgumentStream:
         self.index = 0
         self.readers: Dict[int, ArgumentReader] = {}
         self.active: Optional[int] = None
+        self.incomplete = False
 
     def advance(
         self,
@@ -148,21 +171,26 @@ class ArgumentStream:
             if not name:
                 events.append(event)
                 continue
-            reader = self.readers.pop(self.index, None)
-            if reader is not None and reader.fragments:
-                args = ToolArgumentsDelta(reader.finish(name, args, text))
+            while (reader := self.readers.pop(self.index, None)) is not None:
+                if not reader.fragments:
+                    break
+                fragment = (
+                    reader.finish(name, args, text) if isinstance(args, dict) else None
+                )
+                if fragment is not None:
+                    args = ToolArgumentsDelta(fragment)
+                    break
+                # The legacy parser can skip malformed calls. Keep the
+                # abandoned index reserved and deliver later valid calls with
+                # fresh indices. Never send a closing brace for an invalid call.
+                self.incomplete = True
+                logger.debug("Tool call %d could not be reconciled", self.index)
+                self.index += 1
             events.append((content, name, args, self.index))
             self.index += 1
 
         if finish_reason is not None:
-            if finish_reason in ("stop", "tool_calls") and any(
-                reader.fragments for reader in self.readers.values()
-            ):
-                raise ValueError("Tool call ended before completing its arguments")
-            if not self.index and not self.readers:
-                flush = getattr(parser, "flush_streaming_content", None)
-                if flush and (content := flush(text)):
-                    events.append((content, None, None))
+            self.incomplete |= any(reader.fragments for reader in self.readers.values())
             return events
 
         reader = self.readers.get(self.active) if self.active is not None else None
@@ -179,6 +207,13 @@ class ArgumentStream:
         if start is None or not requested_tool(start.name):
             return events
         index = self.index + start.preceding_calls
+        # A later invoke must never appear before the first one. The
+        # single-tool stream filters on the first index it sees.
+        if any(
+            not self.readers.get(i) or not self.readers[i].fragments
+            for i in range(self.index, index)
+        ):
+            return events
         existing = self.readers.get(index)
         if existing is not None:
             if not existing.resume(start):
@@ -209,9 +244,8 @@ def tagged_string_start(
     """Find the open string parameter and serialize already completed fields."""
     body_start = position
     while match := parameter.match(text, position):
-        tag = match.groupdict().get("tag")
-        key = (match["key"] or tag or "").strip()
-        close = f"</{tag}>" if tag else terminator
+        key = match["key"].strip()
+        close = terminator
         value_close = close
         value_trim = trim
         value_boundaries = boundaries
@@ -268,15 +302,21 @@ def open_block(text: str, opening: str, closing: str) -> Optional[int]:
 
 _JSON_HEADER = re.compile(
     r'\s*\{\s*"name"\s*:\s*("(?:[^"\\]|\\.)*")\s*,\s*'
-    r'"(?:arguments|parameters)"\s*:\s*(?=\{)'
+    r'"(arguments|parameters)"\s*:\s*(?=\{)'
 )
 
 
-def json_argument_start(text: str, position: int) -> Optional[ArgumentStart]:
+def json_argument_start(
+    text: str, position: int, key: str, *, allow_control_chars: bool = False
+) -> Optional[ArgumentStart]:
     match = _JSON_HEADER.match(text, position)
-    if match:
+    if match and match[2] == key:
         try:
-            return ArgumentStart(json.loads(match[1]), match.end())
+            return ArgumentStart(
+                json.loads(match[1]),
+                match.end(),
+                allow_control_chars=allow_control_chars,
+            )
         except json.JSONDecodeError:
             pass
     return None
@@ -322,6 +362,7 @@ def stream_delimited_calls(
     closing: str,
     *,
     parse_block: Optional[Callable[[str], List[Tuple]]] = None,
+    finished: bool = False,
 ) -> List[Tuple]:
     """Stream text around delimited blocks and parse each newly closed block."""
     previous_end = len(text) - len(delta)
@@ -351,7 +392,7 @@ def stream_delimited_calls(
                 parser._partial_marker_length(text[:previous_end], (opening,)),
             )
             content = text[previous_end - held : previous_end] + content
-        held = parser._partial_marker_length(content, (opening,))
+        held = 0 if finished else parser._partial_marker_length(content, (opening,))
         if len(content) > held:
             events.append((content[: len(content) - held], None, None))
     return events
