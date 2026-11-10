@@ -859,7 +859,7 @@ class TransferActor(
                 else:
                     shards[shard] = owner
                 if getattr(self, "_local_read_tasks_v1", None) is None:
-                    self._local_read_tasks_v1 = set()
+                    self._local_read_tasks_v1: Set[asyncio.Task[Any]] = set()
             return owner.metadata()
         except OSError:
             if owner is not None:
