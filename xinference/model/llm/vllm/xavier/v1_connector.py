@@ -29,6 +29,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Union,
 )
@@ -79,6 +80,11 @@ _MAX_SHARD_STAGE_BYTES = _MAX_EXPORT_BYTES
 # How long a staged shard waits for its peers before it may be staged again,
 # for example after the incomplete block was evicted.
 _SHARD_STAGE_GRACE_SECONDS = 5.0
+# Same-host buffers one TP worker owns for handing blocks to its actor, and how
+# long the worker trusts that a block it handed over is still in the store.
+_SHARD_STAGE_BUFFERS = 8
+_SHARD_STAGE_COPIES = 2
+_SHARD_STAGE_TRUST_SECONDS = 5.0
 _EXPORT_REFRESH_SECONDS = 1.0
 _MAX_HASH_CACHE_TOKENS = 128 * 1024
 _MAX_HASH_CACHE_ENTRIES = 128
@@ -145,6 +151,48 @@ class XavierLoadRequest:
     )
     remote_blocks_by_group: List[List[int]] = field(default_factory=list)
     local_hit_tokens: int = 0
+
+
+@dataclass
+class _ShardRows:
+    """One TP rank's part of a block as a packed row.
+
+    The rank's cache tensors are many and small. Xavier stores, publishes and
+    transfers one row per block that holds the bytes of all of them, so every
+    step outside this worker handles blocks rather than blocks times layers.
+    """
+
+    layer: str  # The name under which the rows are stored and read.
+    caches: Dict[str, torch.Tensor]
+    # (cache name, block shape, dtype, offset in the row, bytes) in row order.
+    layout: List[Tuple[str, Tuple[int, ...], torch.dtype, int, int]]
+    row_bytes: int
+
+
+@dataclass
+class _ShardStage:
+    """One TP worker's same-host handover of its rows to the replica's actor."""
+
+    free: List[Any] = field(default_factory=list)
+    buffers: List[Any] = field(default_factory=list)
+    # Rows on their way off the device:
+    # (keys, host rows, copy event, owners, page-locked slot).
+    copies: List[
+        Tuple[List[int], torch.Tensor, Any, List[Any], Optional[torch.Tensor]]
+    ] = field(default_factory=list)
+    # Page-locked host memory for those copies, allocated with the first one:
+    # locking pages for every request would cost more than the copy.
+    pinned: Optional[List[torch.Tensor]] = None
+    # (task, [(buffer, lease)], staged keys, checked keys) awaiting the actor.
+    jobs: List[Tuple[Any, List[Tuple[Any, bytes]], List[int], List[int]]] = field(
+        default_factory=list
+    )
+    # Keys in ``copies`` or ``jobs``.
+    pending: Set[int] = field(default_factory=set)
+    # Blocks whose row the actor confirmed, and until when that is trusted.
+    known: Dict[int, float] = field(default_factory=dict)
+    # Blocks to ask the actor about with the next request.
+    check: List[int] = field(default_factory=list)
 
 
 @dataclass
@@ -331,6 +379,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._local_read_checked = False
 
     def shutdown(self):
+        XavierConnector._close_shard_stage(self)
         local_read = getattr(self, "_local_read", None)
         if local_read is not None:
             local_read.close()
@@ -441,6 +490,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def get_finished(self, finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
         sent = set()
         self._poll_ipc_exports()
+        if getattr(self, "_shard_stage", None) is not None:
+            self._poll_shard_stages()
         if self._direct_handoff and self._is_producer and self._direct_sends:
             assert self._transfer_ref is not None
             sent = self._call(self._transfer_ref.poll_direct_gpu_v1())
@@ -567,6 +618,34 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for layer, cache in self._registered_kv_caches.items()
             for name, tensor in self._iter_kv_tensors(layer, cache)
         }
+        if self._tp_size > 1 and schema:
+            # A TP rank exposes its caches as one packed row per block. The
+            # row's name carries the layout, so replicas whose ranks pack
+            # different caches never exchange rows.
+            caches = {
+                name: block_major_view(tensor, self._num_cache_blocks)
+                for layer, cache in self._registered_kv_caches.items()
+                for name, tensor in self._iter_kv_tensors(layer, cache)
+            }
+            layout = []
+            row_bytes = 0
+            for name, tensor in caches.items():
+                shape = tuple(tensor.shape[1:])
+                nbytes = math.prod(shape) * tensor.element_size()
+                layout.append((name, shape, tensor.dtype, row_bytes, nbytes))
+                row_bytes += nbytes
+            digest = xxhash.xxh64(
+                repr(
+                    [
+                        (self._base_layer_name(name), shape, str(dtype))
+                        for name, shape, dtype, _, _ in layout
+                    ]
+                ).encode()
+            ).hexdigest()
+            self._shard_rows = _ShardRows(
+                self._shard_layer_name(f"rows-{digest}"), caches, layout, row_bytes
+            )
+            schema = {self._shard_rows.layer: ((row_bytes,), torch.uint8)}
 
         self._kv_schema = XavierKVSchema(self._block_size, schema, self._cache_dtype)
         if not self._has_recurrent_cache:
@@ -639,6 +718,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         pending = metadata.store_requests
         if not pending:
             return
+        if getattr(self, "_tp_size", 1) > 1:
+            # The replica has no schema, and its snapshot backend may not
+            # exist, until every rank has registered its shard. Blocks skipped
+            # here are staged when a later request repeats them.
+            if not getattr(self, "_kv_schema_complete", False) and not self._call(
+                self._register_kv_schema()
+            ):
+                return
+            if self._save_shard_blocks(pending):
+                return
         self._poll_ipc_exports()
         keys = {key for request in pending for key in request.block_hashes}
         pending_keys = {
@@ -1205,15 +1294,32 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 uid=f"{TransferActor.default_uid()}-{self._rank}",
             )
             await ref.configure_snapshots_v1(self._num_cache_blocks)
-            if self._kv_schema is not None:
-                await ref.configure_kv_schema_v1(
+            self._transfer_ref = ref
+            try:
+                await self._register_kv_schema()
+            except BaseException:
+                self._transfer_ref = None  # Register again with the next call.
+                raise
+        return self._transfer_ref
+
+    async def _register_kv_schema(self) -> bool:
+        """Register this worker's schema; True once the replica's is complete."""
+        if self._kv_schema is None:
+            return False
+        transfer = await self._get_transfer_ref()
+        if not getattr(self, "_kv_schema_complete", False):
+            # Idempotent for the actor. A TP rank repeats it until its peers
+            # have registered their shards too.
+            self._kv_schema_complete = (
+                await transfer.configure_kv_schema_v1(
                     self._kv_schema.block_size,
                     self._kv_schema.layers,
                     self._kv_schema.cache_dtype,
                     *self._shard_args(),
                 )
-            self._transfer_ref = ref
-        return self._transfer_ref
+                is not False
+            )
+        return self._kv_schema_complete
 
     async def _release_history_request(self, lease):
         transfer = await self._get_transfer_ref()
@@ -1380,19 +1486,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return torch.cat(blocks, dim=0)
 
     async def _read_request_payload(self, transfer, rank, reads, *, pin_memory):
-        local = self._local_read
-        if local is not None and not local.valid():
-            local.close()
-            self._local_read = None
-            self._local_read_checked = False
-        if sys.platform == "linux" and not self._local_read_checked:
-            from ...xavier.backends.torch.local_read import LocalReadBuffer
-
-            self._local_read = LocalReadBuffer.attach(
-                await transfer.get_local_read_metadata_v1(*self._shard_args()[:1])
-            )
-            self._local_read_checked = True
-        local = self._local_read
+        local = await self._attach_local_read(transfer)
         if local is not None:
             lease = await transfer.read_request_blocks_local_v1(
                 rank, reads, local.token
@@ -1412,6 +1506,18 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             batch_reads,
             unpack_reads,
         )
+
+        if getattr(self, "_shard_rows", None) is not None:
+            self._call(self._load_shard_rows(request))
+            logger.debug(
+                "Loaded Xavier V1 snapshots: request=%s, rank=%s, tp_rank=%s, "
+                "from_ranks=%s",
+                request.request_id,
+                self._rank,
+                self._tp_rank,
+                list(request.transfers),
+            )
+            return
 
         caches = {
             name: block_major_view(tensor, self._num_cache_blocks)
@@ -1512,6 +1618,105 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             list(request.transfers),
         )
 
+    async def _load_shard_rows(self, request: XavierLoadRequest) -> None:
+        """Read this TP rank's rows from the peers and scatter them."""
+        from ...xavier.backends.torch.request_transfer import LayerRead, batch_reads
+
+        rows = self._shard_rows
+        transfer = await self._get_transfer_ref()
+        local = await self._attach_local_read(transfer)
+        devices = {cache.device for cache in rows.caches.values()}
+        # Upload the packed rows once when the caches share a device.
+        device = next(iter(devices)) if len(devices) == 1 else torch.device("cpu")
+        indices: Dict[Tuple[torch.device, Tuple[int, ...]], torch.Tensor] = {}
+
+        def index(target: torch.device, values: List[int]) -> torch.Tensor:
+            key = (target, tuple(values))
+            if key not in indices:
+                indices[key] = torch.tensor(values, dtype=torch.long, device=target)
+            return indices[key]
+
+        for rank in request.transfers:
+            # Caches of different cache groups may map a block to different
+            # destinations, or skip it; one read still fetches each row once.
+            mappings = {
+                name: self._get_local_transfer_map(request, name, rank)
+                for name in rows.caches
+            }
+            keys = list(dict.fromkeys(key for m in mappings.values() for key in m))
+            if not keys:
+                continue
+            read = LayerRead(
+                rows.layer,
+                keys,
+                list(range(len(keys))),
+                (rows.row_bytes,),
+                torch.uint8,
+                torch.uint8,
+            )
+            offset = 0
+            # The same-host buffer of a rank holds several messages' worth.
+            for batch in batch_reads([read], local.capacity if local else None):
+                count = sum(len(part.keys) for part in batch)
+                batch_keys = keys[offset : offset + count]
+                offset += count
+                with profile_stage(
+                    "load_rpc",
+                    request_id=request.request_id,
+                    rank=self._rank,
+                    nbytes=count * rows.row_bytes,
+                    blocks=count,
+                ):
+                    payload = await self._read_shard_rows(transfer, rank, batch, device)
+                payload = payload.view(count, rows.row_bytes)
+                for name, shape, dtype, start, nbytes in rows.layout:
+                    cache = rows.caches[name]
+                    mapping = mappings[name]
+                    selected = [i for i, key in enumerate(batch_keys) if key in mapping]
+                    if not selected:
+                        continue
+                    blocks = payload[:, start : start + nbytes].to(cache.device)
+                    if len(selected) != count:
+                        blocks = blocks[index(cache.device, selected)]
+                    cache[
+                        index(cache.device, [mapping[batch_keys[i]] for i in selected])
+                    ] = (blocks.contiguous().view(dtype).view(len(selected), *shape))
+
+    async def _attach_local_read(self, transfer):
+        local = self._local_read
+        if local is not None and not local.valid():
+            local.close()
+            self._local_read = None
+            self._local_read_checked = False
+        if sys.platform == "linux" and not self._local_read_checked:
+            from ...xavier.backends.torch.local_read import LocalReadBuffer
+
+            self._local_read = LocalReadBuffer.attach(
+                await transfer.get_local_read_metadata_v1(*self._shard_args()[:1])
+            )
+            self._local_read_checked = True
+        return self._local_read
+
+    async def _read_shard_rows(self, transfer, rank, reads, device) -> torch.Tensor:
+        """One batch of rows on ``device``, owned by the caller."""
+        nbytes = sum(read.nbytes for read in reads)
+        local = await self._attach_local_read(transfer)
+        if local is not None:
+            lease = await transfer.read_request_blocks_local_v1(
+                rank, reads, local.token
+            )
+            if lease is not None:
+                try:
+                    # Copy straight off the leased buffer: page-locking an
+                    # intermediate copy would cost more than this upload.
+                    shared = local.view(lease, nbytes)
+                    return (
+                        shared.to(device) if device.type == "cuda" else shared.clone()
+                    )
+                finally:
+                    await transfer.release_local_read_v1(lease)
+        return (await transfer.read_request_blocks_v1(rank, reads)).to(device)
+
     def _load_layer_blocks(
         self,
         layer_name: str,
@@ -1583,6 +1788,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             self._call(self._stage_gpu_requests(requests))
             return
         if not self._registered_kv_caches:
+            return
+        if getattr(self, "_shard_rows", None) is not None:
+            self._call(self._stage_shard_rows(requests))
             return
 
         self._call(self._stage_cpu_requests(requests))
@@ -1851,6 +2059,280 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for key in request.block_hashes
         )
         return admitted
+
+    def _shard_stage_state(self) -> Optional[_ShardStage]:
+        state = self.__dict__.get("_shard_stage")
+        if state is None:
+            state = self._shard_stage = _ShardStage()
+            rows = getattr(self, "_shard_rows", None)
+            if sys.platform == "linux" and rows is not None:
+                from ...xavier.backends.torch.local_read import SharedReadBuffer
+
+                try:
+                    for _ in range(_SHARD_STAGE_BUFFERS):
+                        state.buffers.append(SharedReadBuffer(reserve=True))
+                except OSError:
+                    logger.warning(
+                        "Xavier cannot reserve shared memory for TP shard "
+                        "staging; staging through actor RPCs instead",
+                        exc_info=True,
+                    )
+                    self._close_shard_stage()
+                if state.buffers and state.buffers[0].capacity < rows.row_bytes:
+                    self._close_shard_stage()  # One row does not fit a buffer.
+                state.free = list(state.buffers)
+        return state if state.buffers else None
+
+    def _close_shard_stage(self) -> None:
+        state = self.__dict__.get("_shard_stage")
+        if state is None:
+            return
+        for task, _, _, _ in state.jobs:
+            task.cancel()
+        for _, _, event, _, _ in state.copies:
+            if event is not None:
+                event.synchronize()  # The copy still writes its host buffer.
+        state.jobs.clear()
+        state.copies.clear()
+        state.pending.clear()
+        state.check.clear()
+        state.free.clear()
+        for buffer in state.buffers:
+            try:
+                buffer.close()
+            except BufferError:
+                logger.debug("Xavier shard staging buffer is still referenced")
+        state.buffers.clear()
+
+    def _save_shard_blocks(self, pending: List[XavierStoreRequest]) -> bool:
+        """Hand this TP rank's rows of new blocks to the actor without waiting.
+
+        The step only starts the copy of the rows off the device. A later step
+        moves the finished copy into same-host buffers this worker owns and
+        sends the actor a request it does not wait for; the actor copies the
+        rows, publishes a block once every rank has delivered its row, and
+        its reply frees the buffers. Nothing here waits for the device or for
+        another process.
+
+        Returns False when the buffers are unavailable: the caller then stages
+        through actor RPCs.
+        """
+        state = self._shard_stage_state()
+        if state is None:
+            return False
+        self._poll_shard_stages()
+        if not state.buffers:
+            return False  # The actor could not attach: buffers were closed.
+        now = time.monotonic()
+        known = state.known
+        skip = set(state.pending)
+        for request in pending:
+            for key in request.block_hashes:
+                until = known.get(key)
+                if until is None or key in skip:
+                    continue
+                skip.add(key)
+                if until <= now:
+                    # Ask the actor again, with the next request and without
+                    # waiting: the store may have evicted the block.
+                    state.check.append(key)
+                    known[key] = now + _SHARD_STAGE_TRUST_SECONDS
+        missing = self._missing_store_requests(pending, skip)
+        if missing and len(state.copies) < _SHARD_STAGE_COPIES:
+            keys, sources = self._shard_row_sources(missing, _MAX_SHARD_STAGE_BYTES)
+            if keys:
+                state.copies.append(
+                    (keys, *self._copy_shard_rows(state, sources, len(keys)))
+                )
+                state.pending.update(keys)
+        self._poll_shard_stages()
+        return True
+
+    def _shard_row_sources(
+        self, requests: List[XavierStoreRequest], max_bytes: int
+    ) -> Tuple[List[int], Dict[str, List[int]]]:
+        """Leading blocks of the requests, and where each cache holds them."""
+        rows = self._shard_rows
+        keys: List[int] = []
+        sources: Dict[str, List[int]] = {name: [] for name in rows.caches}
+        for request in requests:
+            layer_ids = {
+                name: self._get_source_block_ids(request, name) for name in rows.caches
+            }
+            count = min(
+                len(request.block_hashes),
+                len(request.block_ids),
+                *(len(ids) for ids in layer_ids.values()),
+            )
+            keys.extend(request.block_hashes[:count])
+            for name, ids in layer_ids.items():
+                sources[name].extend(ids[:count])
+        # Every rank sees the same requests and row sizes, so the ranks keep
+        # the same leading blocks when a step offers more than the budget.
+        # Blocks left out are staged when a later request repeats them.
+        total = min(len(keys), max(1, max_bytes // rows.row_bytes))
+        return keys[:total], {name: ids[:total] for name, ids in sources.items()}
+
+    def _gather_shard_rows(
+        self, sources: Dict[str, List[int]], count: int
+    ) -> Tuple[torch.Tensor, List[Any]]:
+        """One row per block on the caches' device: every cache's bytes."""
+        rows = self._shard_rows
+        parts = []
+        owners: List[Any] = []  # Pinned indices outlive their uploads.
+        for name, tensor in rows.caches.items():
+            index = torch.tensor(sources[name], dtype=torch.long)
+            if tensor.is_cuda:
+                owners.append(index.pin_memory())
+                index = owners[-1].to(tensor.device, non_blocking=True)
+            parts.append(
+                tensor.index_select(0, index).reshape(count, -1).view(torch.uint8)
+            )
+        if len({part.device for part in parts}) > 1:
+            parts = [part.cpu() for part in parts]
+        return (parts[0] if len(parts) == 1 else torch.cat(parts, dim=1)), owners
+
+    def _copy_shard_rows(
+        self, state: _ShardStage, sources: Dict[str, List[int]], count: int
+    ) -> Tuple[torch.Tensor, Any, List[Any], Optional[torch.Tensor]]:
+        """Start copying the rows to host memory; the event marks completion."""
+        gathered, owners = self._gather_shard_rows(sources, count)
+        if not gathered.is_cuda:
+            return gathered, None, owners, None
+        if state.pinned is None:
+            state.pinned = [
+                torch.empty(_MAX_SHARD_STAGE_BYTES, dtype=torch.uint8).pin_memory()
+                for _ in range(_SHARD_STAGE_COPIES)
+            ]
+        slot = None
+        if state.pinned and state.pinned[-1].numel() >= gathered.numel():
+            slot = state.pinned.pop()
+            host = slot[: gathered.numel()].view(gathered.shape)
+        else:
+            host = torch.empty_like(gathered, device="cpu", pin_memory=True)
+        stream = self._cpu_export_streams.get(gathered.device)
+        if stream is None:
+            stream = torch.cuda.Stream(device=gathered.device)
+            self._cpu_export_streams[gathered.device] = stream
+        # The gather is ordered before later writes on the model stream. Only
+        # its immutable result crosses to the copy stream, so the following
+        # forward passes do not wait for the copy.
+        stream.wait_stream(torch.cuda.current_stream(gathered.device))
+        event = torch.cuda.Event()
+        with torch.cuda.stream(stream):
+            host.copy_(gathered, non_blocking=True)
+            event.record(stream)
+        owners.append(gathered)
+        return host, event, owners, slot
+
+    async def _send_shard_stage(self, stages, check):
+        transfer = await self._get_transfer_ref()
+        rows = self._shard_rows
+        return await transfer.stage_shard_blocks_v1(
+            self._tp_rank,
+            [(buffer.metadata(), lease, keys) for buffer, lease, keys in stages],
+            rows.layer,
+            rows.row_bytes,
+            check,
+            self._xavier_config.get("block_tracker_address"),
+            self._xavier_config.get("block_tracker_uid"),
+        )
+
+    def _poll_shard_stages(self) -> None:
+        state = self.__dict__.get("_shard_stage")
+        if state is None or not (state.jobs or state.copies or state.check):
+            return
+        if state.jobs:
+            self._call(asyncio.sleep(0))
+            now = time.monotonic()
+            for job in [job for job in state.jobs if job[0].done()]:
+                task, leases, staged, check = job
+                state.jobs.remove(job)
+                state.pending.difference_update(staged)
+                for buffer, lease in leases:
+                    buffer.release(lease)
+                    state.free.append(buffer)
+                try:
+                    present = task.result()
+                except Exception:
+                    logger.warning(
+                        "Optional Xavier shard staging failed; future requests "
+                        "can stage the blocks again",
+                        exc_info=True,
+                    )
+                    present = ()
+                if present is None:
+                    # The actor cannot attach the buffers. Use its RPCs.
+                    self._close_shard_stage()
+                    return
+                confirmed = set(present)
+                for key in (*staged, *check):
+                    if key in confirmed:
+                        state.known[key] = now + _SHARD_STAGE_TRUST_SECONDS
+                    else:
+                        state.known.pop(key, None)
+            if len(state.known) > max(4096, 2 * self._num_cache_blocks):
+                # The store cannot hold more blocks; forget stale ones.
+                for key in [k for k, until in state.known.items() if until <= now]:
+                    del state.known[key]
+        # Move finished copies into free buffers, oldest first.
+        rows = self._shard_rows
+        per_buffer = state.buffers[0].capacity // rows.row_bytes
+        submitted = False
+        while state.copies:
+            keys, host, event, _, slot = state.copies[0]
+            if event is not None and not event.query():
+                break
+            if len(state.free) * per_buffer < len(keys):
+                break
+            state.copies.pop(0)
+            stages = []
+            for offset in range(0, len(keys), per_buffer):
+                count = min(per_buffer, len(keys) - offset)
+                buffer = state.free.pop()
+                lease, payload = buffer.acquire(count * rows.row_bytes)
+                payload.view(count, rows.row_bytes).copy_(host[offset : offset + count])
+                stages.append((buffer, lease, keys[offset : offset + count]))
+            self._submit_shard_stage(state, stages, keys)
+            submitted = True
+            if slot is not None and state.pinned is not None:
+                state.pinned.append(slot)  # The rows left the page-locked slot.
+        if state.check and not state.copies:
+            self._submit_shard_stage(state, [], [])
+            submitted = True
+        if submitted:
+            # Send the requests; a later step collects the replies.
+            self._call(asyncio.sleep(0))
+
+    def _submit_shard_stage(self, state: _ShardStage, stages, keys) -> None:
+        if self._loop is None:
+            self._loop = acquire_actor_loop()
+        check, state.check = state.check, []
+        task = self._loop.create_task(self._send_shard_stage(stages, check))
+        state.jobs.append(
+            (task, [(buffer, lease) for buffer, lease, _ in stages], list(keys), check)
+        )
+
+    async def _stage_shard_rows(self, requests: List[XavierStoreRequest]) -> None:
+        """Without same-host buffers, send the rows to the actor and wait."""
+        rows = self._shard_rows
+        transfer = await self._get_transfer_ref()
+        keys, sources = self._shard_row_sources(requests, _MAX_SHARD_STAGE_BYTES)
+        per_call = max(1, _MAX_EXPORT_BYTES // rows.row_bytes)
+        for offset in range(0, len(keys), per_call):
+            count = min(per_call, len(keys) - offset)
+            part = {name: ids[offset : offset + count] for name, ids in sources.items()}
+            gathered, _ = self._gather_shard_rows(part, count)
+            await transfer.stage_layer_batches_v1(
+                [
+                    (
+                        rows.layer,
+                        keys[offset : offset + count],
+                        gathered.cpu().reshape(-1),
+                    )
+                ],
+                [((count, rows.row_bytes), torch.uint8)],
+            )
 
     def _admit_cpu_exports(
         self, requests: List[XavierStoreRequest]

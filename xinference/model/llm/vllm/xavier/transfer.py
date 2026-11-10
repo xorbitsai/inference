@@ -244,6 +244,12 @@ class TransferActor(
                 read_buffer.close()
             self._local_read_buffer_v1 = None
             self.__dict__.pop("_local_read_shard_buffers_v1", None)
+            executor = self.__dict__.pop("_shard_stage_pool_v1", None)
+            if executor is not None:
+                executor.shutdown(wait=True)
+            for name in ("_shard_stage_readers_v1", "_shared_pack_writers_v1"):
+                for attached in self.__dict__.pop(name, {}).values():
+                    attached.close()
             if getattr(self, "_snapshot_export_jobs_v1", None):
                 await asyncio.gather(
                     *self._snapshot_export_jobs_v1.values(), return_exceptions=True
@@ -331,7 +337,11 @@ class TransferActor(
             for (name, keys, blocks), (shape, dtype) in zip(entries, metadata)
         ]
         store = self._snapshot_store
-        assert store is not None
+        if store is None:
+            # The backend waits for the replica's complete schema. Snapshots
+            # are optional: a later request stages these blocks again.
+            logger.debug("Xavier snapshot store is not ready; skipping staging")
+            return
         batch_keys = set(key for _, ids, _ in entries for key in ids)
         if store.can_stage(batch_keys):
             # All batch keys can stay resident across layers, even if staging
@@ -357,12 +367,87 @@ class TransferActor(
                         self, "batch", name, [key], blocks[i : i + 1]
                     )
 
+    async def stage_shard_blocks_v1(
+        self, shard, stages, layer, row_bytes, check_keys, tracker_address, tracker_uid
+    ):
+        """Take one TP rank's rows from its worker's same-host buffers.
+
+        ``stages`` lists ``(buffer metadata, lease, keys)`` with one row of
+        ``row_bytes`` per key, stored as ``layer``. The reply names the staged
+        and checked keys whose row is in the store afterwards. It is None when
+        a buffer cannot be attached, and the worker then sends tensors instead.
+        """
+        from ...xavier.backends.torch.local_read import LocalReadBuffer
+        from ...xavier.backends.torch.snapshot import KVSnapshotStore
+
+        store = self._snapshot_store
+        if store is None or self._kv_schema_v1 is None:
+            return []  # Not ready: the worker stages again with a later request.
+        readers = self.__dict__.setdefault("_shard_stage_readers_v1", {})
+        keys = list(check_keys)
+        for metadata, lease, staged in stages:
+            token = metadata["token"]
+            reader = readers.get(token)
+            if reader is None or not reader.valid():
+                if reader is not None:
+                    reader.close()
+                reader = LocalReadBuffer.attach(metadata)
+                if reader is None:
+                    readers.pop(token, None)
+                    return None
+                readers[token] = reader
+            packed = reader.view(lease, len(staged) * row_bytes)
+            # This actor shares its process with the model's request handling.
+            # Copy the rows on one dedicated thread, each into storage of its
+            # own, and leave only the bookkeeping to the event loop. The
+            # worker reuses the buffer once this call returns.
+            rows = await asyncio.get_running_loop().run_in_executor(
+                TransferActor._shard_stage_executor_v1(self),
+                lambda: [
+                    row.clone() for row in packed.view(len(staged), row_bytes).unbind(0)
+                ],
+            )
+            if type(store).stage is KVSnapshotStore.stage:
+                store.stage_owned(layer, staged, rows, torch.uint8)
+            else:
+                store.stage(layer, staged, torch.stack(rows), torch.uint8)
+            keys.extend(staged)
+        # Published blocks count as present even if a backend moved them out
+        # of the resident set; asking also refreshes their recency.
+        ready = set(store.ready_keys(keys))
+        present = [
+            key for key in keys if key in ready or layer in store.blocks.get(key, ())
+        ]
+        # Publication waits for every shard and stays off the worker's step:
+        # the worker does not wait for this reply before it returns to vLLM.
+        async with self._snapshot_export_lock_v1:
+            tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
+            self._snapshot_tracker_v1 = tracker
+            available, evicted = self.publish_blocks_v1(keys, ())
+            if evicted:
+                await tracker.unregister_blocks(0, self._rank, evicted)
+            if available:
+                await tracker.register_snapshot_blocks(0, available, self._rank)
+        return present
+
+    def _shard_stage_executor_v1(self):
+        executor = self.__dict__.get("_shard_stage_pool_v1")
+        if executor is None:
+            from concurrent.futures import ThreadPoolExecutor
+
+            executor = self._shard_stage_pool_v1 = ThreadPoolExecutor(
+                1, thread_name_prefix="xavier-shard-stage"
+            )
+        return executor
+
     def publish_blocks_v1(self, keys, layers):
         if getattr(self, "_kv_schema_num_shards_v1", 1) > 1:
             # One TP worker stages only its shard. A block becomes readable
             # once the layers of every shard are present.
             schema = self._kv_schema_v1
             layers = schema[1] if schema is not None else ()
+        if self._snapshot_store is None:
+            return [], []
         available = self._snapshot_store.publish(keys, set(layers))
         evicted = self._snapshot_store.take_evicted()
         return available, evicted
@@ -390,6 +475,12 @@ class TransferActor(
         shard: Optional[int] = None,
         num_shards: int = 1,
     ):
+        """Register a KV schema; True once the replica's schema is complete.
+
+        A TP worker registers only its shard. Until every rank has, the
+        replica has no schema: the snapshot backend may not exist yet, and
+        workers must neither stage nor publish.
+        """
         schema = (block_size, dict(layers), cache_dtype)
         if shard is not None and num_shards > 1:
             shards = self.__dict__.setdefault("_kv_schema_shards_v1", {})
@@ -398,7 +489,7 @@ class TransferActor(
             shards[shard] = schema
             self._kv_schema_num_shards_v1 = num_shards
             if len(shards) < num_shards:
-                return
+                return self._kv_schema_v1 is not None
             merged: dict = {}
             for _, shard_layers, _ in shards.values():
                 if merged.keys() & shard_layers.keys():
@@ -417,6 +508,7 @@ class TransferActor(
         capacity = getattr(self, "_snapshot_capacity", None)
         if capacity is not None:
             self.configure_snapshots_v1(capacity)
+        return True
 
     def register_snapshot_export_source_v1(self, source, metadata):
         from torch.multiprocessing.reductions import rebuild_cuda_tensor
@@ -834,10 +926,66 @@ class TransferActor(
 
         task.add_done_callback(completed)
 
+    async def pack_request_blocks_shared_v1(self, to_rank, metadata, lease, reads):
+        """Fill a same-host peer's leased receive buffer without Gloo.
+
+        False tells the peer that the buffer is not reachable from here, for
+        example on another host, and that it has to receive over Gloo.
+        """
+        from ...xavier.backends.torch.gpu_transfer import finish_before_cancel
+        from ...xavier.backends.torch.local_read import LocalReadBuffer
+        from ...xavier.backends.torch.request_transfer import (
+            collect_reads,
+            pack_reads,
+            write_reads,
+        )
+
+        writers = self.__dict__.setdefault("_shared_pack_writers_v1", {})
+        token = metadata["token"]
+        writer = writers.get(token)
+        if writer is None or not writer.valid():
+            if writer is not None:
+                writer.close()
+            writer = LocalReadBuffer.attach(metadata, writable=True)
+            if writer is None:
+                writers.pop(token, None)
+                return False
+            writers[token] = writer
+        # Validate and hold the blocks on the actor loop, where the store is
+        # mutated; the copy into the peer's buffer leaves the loop, so TP ranks
+        # are served in parallel.
+        nbytes = sum(read.nbytes for read in reads)
+        sources = collect_reads(self._snapshot_store, reads)
+        payload = (
+            None if sources is not None else pack_reads(self._snapshot_store, reads)
+        )
+        logger.debug(
+            "Xavier V1 send snapshots: rank=%s, to_rank=%s, layers=%s, blocks=%s, "
+            "bytes=%s",
+            getattr(self, "_rank", None),
+            to_rank,
+            len(reads),
+            sum(len(read.keys) for read in reads),
+            nbytes,
+        )
+        target = writer.view(lease, nbytes)
+
+        def write():
+            if payload is None:
+                write_reads(sources, reads, target)
+            else:
+                target.copy_(payload)
+
+        # The thread keeps writing after a cancellation: do not return, and let
+        # the peer reuse its buffer, before the copy has finished.
+        await finish_before_cancel(asyncio.create_task(asyncio.to_thread(write)))
+        return True
+
     def get_local_read_metadata_v1(self, shard: Optional[int] = None):
         if sys.platform != "linux":
             return None
         from ...xavier.backends.torch.local_read import SharedReadBuffer
+        from ...xavier.backends.torch.request_transfer import MAX_SHARED_BUFFER_BYTES
 
         # TP workers read concurrently: one leased buffer per shard keeps each
         # of them on the same-host path instead of contending for one lease.
@@ -853,7 +1001,13 @@ class TransferActor(
         )
         try:
             if owner is None:
-                owner = SharedReadBuffer()
+                # A rank's rows arrive in few large reads; reserve the pages so
+                # that a small /dev/shm fails here and not on a later write.
+                owner = (
+                    SharedReadBuffer()
+                    if shards is None
+                    else SharedReadBuffer(MAX_SHARED_BUFFER_BYTES, reserve=True)
+                )
                 if shards is None:
                     self._local_read_buffer_v1 = owner
                 else:
@@ -883,6 +1037,32 @@ class TransferActor(
         if acquired is None:
             return None  # Busy or oversized messages use the ordinary RPC path.
         lease, payload = acquired
+        shared = owner in self.__dict__.get("_local_read_shard_buffers_v1", {}).values()
+        direct = self.__dict__.setdefault("_shared_pack_ranks_v1", {})
+        if shared and direct.get(from_rank, True):
+            # A peer on this host writes the blocks into the leased buffer
+            # itself. TP ranks then read in parallel instead of queueing for
+            # Gloo, which pairs sends and receives between two ranks in order.
+            task = asyncio.create_task(
+                self._read_request_blocks_shared_v1(from_rank, reads, owner, lease)
+            )
+            self._local_read_tasks_v1.add(task)
+            try:
+                packed = await finish_before_cancel(task)
+            except BaseException:
+                if task.done() and not task.cancelled() and task.exception() is None:
+                    owner.release(lease)  # Only the caller was cancelled.
+                else:
+                    # The peer may still be writing: never lease this buffer
+                    # again. Its consumer attaches to a fresh one.
+                    del acquired, payload
+                    self._retire_local_read_buffer_v1(owner)
+                raise
+            finally:
+                self._local_read_tasks_v1.discard(task)
+            if packed:
+                return lease
+            direct[from_rank] = False
         task = asyncio.create_task(
             self.read_request_blocks_v1(from_rank, reads, _buffer=payload)
         )
@@ -896,6 +1076,26 @@ class TransferActor(
         finally:
             self._local_read_tasks_v1.discard(task)
         return lease
+
+    async def _read_request_blocks_shared_v1(self, from_rank, reads, owner, lease):
+        sender = await xo.actor_ref(
+            address=self._world_addresses[from_rank],
+            uid=f"{TransferActor.default_uid()}-{from_rank}",
+        )
+        return await sender.pack_request_blocks_shared_v1(
+            self._rank, owner.metadata(), lease, reads
+        )
+
+    def _retire_local_read_buffer_v1(self, owner):
+        shards = self.__dict__.get("_local_read_shard_buffers_v1", {})
+        for shard in [shard for shard, buffer in shards.items() if buffer is owner]:
+            del shards[shard]
+        try:
+            owner.close()
+        except BufferError:
+            # A view is still alive. The mapping is released with it; the
+            # buffer is already unreachable for new leases.
+            logger.debug("Retired Xavier receive buffer is still referenced")
 
     def release_local_read_v1(self, lease):
         for owner in _local_read_owners(self):

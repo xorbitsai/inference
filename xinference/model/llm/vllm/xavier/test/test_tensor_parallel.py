@@ -102,18 +102,30 @@ def test_workers_register_rank_qualified_shards(connector_module, shared_config)
     scheduler = connector_module.XavierConnector(shared_config, None, caches)
     try:
         schemas = {i: w.get_handshake_metadata() for i, w in enumerate(workers)}
-        assert [list(s.layers) for s in schemas.values()] == [
+        # A rank keeps its caches under rank-qualified names and exposes them
+        # to the replica as one packed row per block.
+        assert [list(w._registered_kv_caches) for w in workers] == [
             ["layer@tp0"],
             ["layer@tp1"],
         ]
+        rows = [w._shard_rows for w in workers]
+        assert [list(s.layers) for s in schemas.values()] == [
+            [rows[0].layer],
+            [rows[1].layer],
+        ]
+        assert rows[0].layer.endswith("@tp0") and rows[1].layer.endswith("@tp1")
+        # Ranks that pack the same caches agree on the row's name and size.
+        assert rows[0].layer[:-1] == rows[1].layer[:-1]
+        assert rows[1].row_bytes == 2 * 4 * 4
+        assert rows[1].layout == [("layer@tp1", (2, 4), torch.float32, 0, 32)]
         assert workers[1]._get_layer_group_id("layer@tp1") == 0
         assert workers[1]._shard_args() == (1, 2)
         # The scheduler has no TP rank and addresses the whole replica.
         assert scheduler._shard_args() == ()
         scheduler.set_xfer_handshake_metadata(schemas)
         assert scheduler._kv_schema.layers == {
-            "layer@tp0": ((2, 4), torch.float32),
-            "layer@tp1": ((2, 4), torch.float32),
+            rows[0].layer: ((32,), torch.uint8),
+            rows[1].layer: ((32,), torch.uint8),
         }
         with pytest.raises(ValueError, match="one worker per TP rank"):
             scheduler.set_xfer_handshake_metadata({0: schemas[0]})
@@ -452,6 +464,8 @@ async def test_each_shard_reads_through_its_own_shared_buffer():
             _buffer.fill_(from_rank)
 
         actor.read_request_blocks_v1 = read
+        # This peer is not on the same host: the buffers receive over Gloo.
+        actor._shared_pack_ranks_v1 = {7: False}
         reads = [LayerRead("K", [1], [0], (2,), torch.float32)]
         # Both shards hold a lease at once; neither falls back to tensor RPC.
         leases = [
@@ -498,6 +512,9 @@ def test_tp_workers_stage_their_shard_through_host_memory(
             return pending
 
         staged = []
+        # Without same-host buffers the worker stages through actor RPCs.
+        worker._save_shard_blocks = lambda pending: False
+        worker._kv_schema_complete = True  # Every rank has registered.
         worker._filter_store_requests = filter_requests
         worker._stage_missing_registered_layers = staged.append
         worker._register_blocks = AsyncMock()
@@ -530,3 +547,421 @@ def test_tp_workers_stage_their_shard_through_host_memory(
         assert [request.block_hashes for request in admitted] == [[11, 12]]
     finally:
         worker.shutdown()
+
+
+def test_rank_loads_peer_rows_into_its_caches(connector_module, shared_config):
+    shared_config.parallel_config.tensor_parallel_size = 2
+    groups = _groups((["a", "b"], _spec()))
+    values = {
+        "a": torch.arange(64, dtype=torch.float32).reshape(8, 2, 4),
+        "b": torch.arange(24, dtype=torch.int16).reshape(8, 3),
+    }
+    producer = _worker(connector_module, shared_config, groups, 1, values)
+    consumer = _worker(
+        connector_module,
+        shared_config,
+        groups,
+        1,
+        {name: torch.zeros_like(value) for name, value in values.items()},
+    )
+    try:
+        rows = consumer._shard_rows
+        assert rows.layer == producer._shard_rows.layer
+        assert rows.row_bytes == 2 * 4 * 4 + 3 * 2
+        stored = {44: 4, 66: 6}  # Content key -> block on the producer.
+        reads = []
+
+        async def read(transfer, rank, batch, device):
+            reads.append((rank, [(part.layer, part.keys) for part in batch]))
+            keys = [key for part in batch for key in part.keys]
+            sources = {name: [stored[k] for k in keys] for name in rows.caches}
+            return producer._gather_shard_rows(sources, len(keys))[0].reshape(-1)
+
+        async def transfer_ref():
+            return None
+
+        async def attach(transfer):
+            return None  # No same-host buffer: rows arrive as tensors.
+
+        consumer._read_shard_rows = read
+        consumer._attach_local_read = attach
+        consumer._get_transfer_ref = transfer_ref
+        consumer._load_request_blocks(
+            connector_module.XavierLoadRequest(
+                "r",
+                {2: {66: 0, 44: 1}},
+                local_transfers_by_group={0: {2: {66: 1, 44: 3}}},
+            )
+        )
+        # One read fetched each row once, for every cache of the rank.
+        assert reads == [(2, [(rows.layer, [66, 44])])]
+        for name, value in values.items():
+            loaded = consumer._registered_kv_caches[f"{name}@tp1"]
+            assert torch.equal(loaded[[1, 3]], value[[6, 4]])
+            assert not loaded[[0, 2, 4, 5, 6, 7]].any()
+    finally:
+        producer.shutdown()
+        consumer.shutdown()
+
+
+def _shard_actor(tracker, monkeypatch, shards=2):
+    from .. import transfer as transfer_module
+
+    async def actor_ref(**kwargs):
+        return tracker
+
+    monkeypatch.setattr(transfer_module.xo, "actor_ref", actor_ref)
+    actor = _actor(
+        _snapshot_store=KVSnapshotStore(8),
+        _snapshot_export_lock_v1=asyncio.Lock(),
+        _rank=1,
+    )
+    actor.publish_blocks_v1 = TransferActor.publish_blocks_v1.__get__(actor)
+    return actor
+
+
+def _close_shard_actor(actor):
+    pool = actor.__dict__.pop("_shard_stage_pool_v1", None)
+    if pool is not None:
+        pool.shutdown()
+    for reader in actor.__dict__.get("_shard_stage_readers_v1", {}).values():
+        reader.close()
+
+
+def _handover(connector_module, config, actor, tp_rank, values):
+    """A TP worker whose actor calls reach ``actor`` on the worker's loop."""
+    caches = _groups((["layer"], _spec()))
+    worker = _worker(connector_module, config, caches, tp_rank, {"layer": values})
+    calls = []
+
+    class Ref:
+        async def stage_shard_blocks_v1(self, *args):
+            calls.append(args)
+            return await TransferActor.stage_shard_blocks_v1(actor, *args)
+
+    async def transfer_ref():
+        return Ref()
+
+    schema = worker._kv_schema
+    TransferActor.configure_kv_schema_v1(
+        actor, schema.block_size, schema.layers, schema.cache_dtype, tp_rank, 2
+    )
+    worker._kv_schema_complete = True  # The test registers every rank up front.
+    worker._tp_rank = tp_rank
+    worker._get_transfer_ref = transfer_ref
+    worker._stage_missing_registered_layers = Mock(
+        side_effect=AssertionError("staged through actor RPCs")
+    )
+    return worker, calls
+
+
+def _settle(worker):
+    """Wait for the actor's replies, then let the worker collect them."""
+    jobs = worker._shard_stage.jobs
+    if jobs:
+        worker._call(asyncio.wait([job[0] for job in jobs]))
+    worker.get_finished(set())
+
+
+def _store_step(connector_module, worker, *requests):
+    worker._get_connector_metadata = lambda: connector_module.XavierConnectorMetadata(
+        store_requests=list(requests)
+    )
+    worker.wait_for_save()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
+def test_tp_workers_hand_their_shard_over_without_waiting(
+    connector_module, shared_config, monkeypatch
+):
+    shared_config.parallel_config.tensor_parallel_size = 2
+    tracker = SimpleNamespace(
+        unregister_blocks=AsyncMock(), register_snapshot_blocks=AsyncMock()
+    )
+    actor = _shard_actor(tracker, monkeypatch)
+    values = [
+        torch.arange(64, dtype=torch.float32).reshape(8, 2, 4) + 100 * rank
+        for rank in (0, 1)
+    ]
+    workers = [
+        _handover(connector_module, shared_config, actor, rank, values[rank])
+        for rank in (0, 1)
+    ]
+    request = connector_module.XavierStoreRequest("r", [4, 6], [44, 66], [[4, 6]])
+    store = actor._snapshot_store
+    try:
+        (first, first_calls), (second, second_calls) = workers
+        _store_step(connector_module, first, request)
+        # The request was submitted, and the step did not wait for its reply.
+        state = first._shard_stage
+        assert len(first_calls) == 1 and len(state.jobs) == 1
+        assert state.pending == {44, 66}
+        assert len(state.free) == connector_module._SHARD_STAGE_BUFFERS - 1
+        # A chunked prefill repeats the blocks while the reply is pending.
+        _store_step(connector_module, first, request)
+        assert len(first_calls) == 1
+
+        _settle(first)
+        assert not state.jobs and not state.pending
+        assert len(state.free) == connector_module._SHARD_STAGE_BUFFERS
+        assert set(state.known) == {44, 66}
+        # One shard alone is not readable, and nothing reached the tracker.
+        assert not store.reserve("2:r", [44])
+        tracker.register_snapshot_blocks.assert_not_awaited()
+
+        _store_step(connector_module, second, request)
+        _settle(second)
+        tracker.register_snapshot_blocks.assert_awaited_once_with(0, [44, 66], 1)
+        assert store.reserve("2:r", [44, 66])
+        for rank, (worker, _) in enumerate(workers):
+            stored = store.read(worker._shard_rows.layer, [44, 66])
+            assert torch.equal(
+                stored.view(torch.float32).view(2, 2, 4), values[rank][[4, 6]]
+            )
+
+        # Confirmed blocks cost nothing until the trust in them expires. Then
+        # the worker only asks, again without waiting.
+        _store_step(connector_module, first, request)
+        assert len(first_calls) == 1
+        later = time.monotonic() + 60
+        monkeypatch.setattr(connector_module.time, "monotonic", lambda: later)
+        _store_step(connector_module, first, request)
+        assert first_calls[-1][1] == [] and first_calls[-1][4] == [44, 66]
+        _settle(first)
+        assert set(state.known) == {44, 66}
+
+        # A block the store evicted is staged again by the next request.
+        later += 60
+        store.release("2:r")
+        while store._evict_one(set()):
+            pass
+        _store_step(connector_module, first, request)
+        _settle(first)
+        assert not state.known
+        _store_step(connector_module, first, request)
+        assert [keys for _, _, keys in first_calls[-1][1]] == [[44, 66]]
+    finally:
+        for worker, _ in workers:
+            worker.shutdown()
+        _close_shard_actor(actor)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
+def test_shard_handover_is_bounded_and_falls_back(
+    connector_module, shared_config, monkeypatch
+):
+    shared_config.parallel_config.tensor_parallel_size = 2
+    tracker = SimpleNamespace(
+        unregister_blocks=AsyncMock(), register_snapshot_blocks=AsyncMock()
+    )
+    actor = _shard_actor(tracker, monkeypatch)
+    worker, calls = _handover(
+        connector_module, shared_config, actor, 0, torch.zeros(8, 2, 4)
+    )
+    TransferActor.configure_kv_schema_v1(
+        actor, 16, {"rows@tp1": ((32,), torch.uint8)}, "auto", 1, 2
+    )
+    try:
+        # Every rank takes the same leading blocks of an oversized step.
+        row_bytes = 2 * 4 * 4
+        monkeypatch.setattr(connector_module, "_MAX_SHARD_STAGE_BYTES", 3 * row_bytes)
+        first = connector_module.XavierStoreRequest("a", [1, 2], [11, 12], [[1, 2]])
+        second = connector_module.XavierStoreRequest(
+            "b", [3, 4, 5], [13, 14, 15], [[3, 4, 5]]
+        )
+        _store_step(connector_module, worker, first, second)
+        assert [keys for _, _, keys in calls[-1][1]] == [[11, 12, 13]]
+        _settle(worker)
+        _store_step(connector_module, worker, first, second)
+        assert [keys for _, _, keys in calls[-1][1]] == [[14, 15]]
+        _settle(worker)
+
+        # An actor that cannot attach the buffers gets tensors instead.
+        from ....xavier.backends.torch import local_read
+
+        for reader in actor.__dict__.pop("_shard_stage_readers_v1").values():
+            reader.close()
+        monkeypatch.setattr(
+            local_read.LocalReadBuffer,
+            "attach",
+            classmethod(lambda cls, metadata, **kwargs: None),
+        )
+        third = connector_module.XavierStoreRequest("c", [6], [16], [[6]])
+        _store_step(connector_module, worker, third)
+        _settle(worker)
+        assert not worker._shard_stage.buffers
+
+        async def filter_requests(pending):
+            return pending
+
+        staged = []
+        worker._filter_store_requests = filter_requests
+        worker._stage_missing_registered_layers = staged.append
+        worker._register_blocks = AsyncMock()
+        _store_step(connector_module, worker, third)
+        assert [request.block_hashes for request in staged[0]] == [[16]]
+    finally:
+        worker.shutdown()
+        _close_shard_actor(actor)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
+@pytest.mark.asyncio
+async def test_same_host_peer_fills_a_shard_buffer_directly(monkeypatch):
+    from ....xavier.backends.torch.local_read import LocalReadBuffer
+    from .. import transfer as transfer_module
+
+    store = KVSnapshotStore(4)
+    store.stage("K@tp0", [5, 6], torch.tensor([[1.0, 2.0], [3.0, 4.0]]))
+    store.publish([5, 6], {"K@tp0"})
+    producer = _actor(_snapshot_store=store, _rank=1)
+    reachable = True
+
+    class Peer:
+        async def pack_request_blocks_shared_v1(self, *args):
+            if not reachable:
+                return False
+            return await TransferActor.pack_request_blocks_shared_v1(producer, *args)
+
+    async def actor_ref(**kwargs):
+        return Peer()
+
+    monkeypatch.setattr(transfer_module.xo, "actor_ref", actor_ref)
+    consumer = SimpleNamespace(_rank=2, _world_addresses={1: "producer"})
+    for name in ("_read_request_blocks_shared_v1", "_retire_local_read_buffer_v1"):
+        setattr(
+            consumer,
+            name,
+            getattr(TransferActor, name).__get__(consumer),
+        )
+    consumer.read_request_blocks_v1 = AsyncMock()
+    reads = [LayerRead("K@tp0", [6, 5], [0, 1], (2,), torch.float32)]
+    local = None
+    try:
+        metadata = TransferActor.get_local_read_metadata_v1(consumer, 0)
+        local = LocalReadBuffer.attach(metadata)
+        lease = await TransferActor.read_request_blocks_local_v1(
+            consumer, 1, reads, metadata["token"]
+        )
+        # The peer wrote the blocks itself: no Gloo receive was needed.
+        consumer.read_request_blocks_v1.assert_not_awaited()
+        payload = local.copy(lease, reads[0].nbytes, pin_memory=False)
+        assert payload.view(torch.float32).tolist() == [3.0, 4.0, 1.0, 2.0]
+        TransferActor.release_local_read_v1(consumer, lease)
+
+        # A peer that cannot reach the buffer is remembered and uses Gloo.
+        reachable = False
+        for _ in range(2):
+            lease = await TransferActor.read_request_blocks_local_v1(
+                consumer, 1, reads, metadata["token"]
+            )
+            TransferActor.release_local_read_v1(consumer, lease)
+        assert consumer.read_request_blocks_v1.await_count == 2
+        assert consumer._shared_pack_ranks_v1 == {1: False}
+
+        # After a failed write the peer may still own the buffer: retire it.
+        consumer._shared_pack_ranks_v1.clear()
+        reachable = True
+        store.release_consumer(2)
+        reads = [LayerRead("K@tp0", [7], [0], (2,), torch.float32)]
+        with pytest.raises(KeyError):
+            await TransferActor.read_request_blocks_local_v1(
+                consumer, 1, reads, metadata["token"]
+            )
+        assert not consumer._local_read_shard_buffers_v1
+        assert not local.valid()
+        assert TransferActor.get_local_read_metadata_v1(consumer, 0) != metadata
+    finally:
+        if local is not None:
+            local.close()
+        for owner in getattr(consumer, "_local_read_shard_buffers_v1", {}).values():
+            owner.close()
+        for writer in producer.__dict__.get("_shared_pack_writers_v1", {}).values():
+            writer.close()
+
+
+def test_ranks_do_not_stage_before_every_shard_is_registered(
+    connector_module, shared_config, monkeypatch
+):
+    # A backend such as LMCache is created from the replica's complete schema.
+    # The rank that reaches its first save before its peer has registered must
+    # neither stage into the missing store nor publish.
+    from ....xavier.backends.torch import backend as backend_module
+    from .. import transfer as transfer_module
+
+    shared_config.parallel_config.tensor_parallel_size = 2
+    monkeypatch.setattr(
+        backend_module,
+        "create_snapshot_backend",
+        lambda capacity, *args, **kwargs: KVSnapshotStore(capacity),
+    )
+    tracker = SimpleNamespace(
+        unregister_blocks=AsyncMock(), register_snapshot_blocks=AsyncMock()
+    )
+    actor = _actor(
+        _snapshot_store=None,
+        _snapshot_capacity=None,
+        _cache_backend={"name": "lmcache"},
+        _snapshot_export_lock_v1=asyncio.Lock(),
+        _rank=1,
+    )
+    actor.configure_snapshots_v1 = TransferActor.configure_snapshots_v1.__get__(actor)
+    actor.publish_blocks_v1 = TransferActor.publish_blocks_v1.__get__(actor)
+
+    class Ref:
+        def __getattr__(self, name):
+            method = getattr(TransferActor, name)
+
+            async def call(*args, **kwargs):
+                result = method(actor, *args, **kwargs)
+                return await result if asyncio.iscoroutine(result) else result
+
+            return call
+
+    async def actor_ref(address=None, uid=None):
+        is_transfer = uid is not None and uid.startswith(TransferActor.default_uid())
+        return Ref() if is_transfer else tracker
+
+    monkeypatch.setattr(transfer_module.xo, "actor_ref", actor_ref)
+    request = connector_module.XavierStoreRequest("r", [4], [44], [[4]])
+    workers = [
+        _worker(
+            connector_module,
+            shared_config,
+            _groups((["layer"], _spec())),
+            rank,
+            {"layer": torch.full((8, 2, 4), float(rank + 1))},
+        )
+        for rank in (0, 1)
+    ]
+    try:
+        for worker in workers:
+            # Stage through actor RPCs on every platform.
+            worker._save_shard_blocks = lambda pending: False
+        first, second = workers
+        _store_step(connector_module, first, request)
+        assert actor._snapshot_store is None and actor._kv_schema_v1 is None
+        tracker.register_snapshot_blocks.assert_not_awaited()
+
+        # The second rank completes the schema, which creates the backend.
+        _store_step(connector_module, second, request)
+        store = actor._snapshot_store
+        assert store is not None and not store.ready
+        row = store.blocks[44][second._shard_rows.layer]
+        assert row.view(torch.float32).eq(2).all()
+
+        # The first rank stages its shard with the next request for the block.
+        _store_step(connector_module, first, request)
+        assert store.reserve("2:r", [44])
+        row = store.read(first._shard_rows.layer, [44])
+        assert row.view(torch.float32).eq(1).all()
+    finally:
+        for worker in workers:
+            worker.shutdown()
+
+
+def test_actor_skips_staging_without_a_store():
+    actor = _actor(_snapshot_store=None, _kv_schema_num_shards_v1=2)
+    entries = [("layer@tp0", [44], torch.zeros(8, dtype=torch.uint8))]
+    TransferActor.stage_layer_batches_v1(actor, entries, [((2,), torch.float32)])
+    assert TransferActor.publish_blocks_v1(actor, [44], {"layer@tp0"}) == ([], [])
