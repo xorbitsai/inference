@@ -76,6 +76,9 @@ _MAX_EXPORT_BYTES = 32 * 1024 * 1024
 _MAX_PENDING_EXPORT_BYTES = 8 * _MAX_EXPORT_BYTES
 # A TP worker stages its shard synchronously: one export batch per engine step.
 _MAX_SHARD_STAGE_BYTES = _MAX_EXPORT_BYTES
+# How long a staged shard waits for its peers before it may be staged again,
+# for example after the incomplete block was evicted.
+_SHARD_STAGE_GRACE_SECONDS = 5.0
 _EXPORT_REFRESH_SECONDS = 1.0
 _MAX_HASH_CACHE_TOKENS = 128 * 1024
 _MAX_HASH_CACHE_ENTRIES = 128
@@ -1812,6 +1815,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         admit the same leading blocks and those blocks become complete.
         Skipped blocks remain eligible when a later request repeats them.
         """
+        # A block this worker staged is unpublished until its peers stage
+        # theirs, and a chunked prefill asks for it again in the next step.
+        # Staging it twice would spend the step's budget on nothing and leave
+        # this rank behind its peers on the new blocks.
+        now = time.monotonic()
+        staged = self.__dict__.setdefault("_shard_staged", {})
+        for key in [key for key, expiry in staged.items() if expiry <= now]:
+            del staged[key]
+        requests = self._missing_store_requests(requests, set(staged))
         count = sum(len(request.block_hashes) for request in requests)
         if not count:
             return []
@@ -1833,6 +1845,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 max_blocks -= take
             if not max_blocks:
                 break
+        staged.update(
+            (key, now + _SHARD_STAGE_GRACE_SECONDS)
+            for request in admitted
+            for key in request.block_hashes
+        )
         return admitted
 
     def _admit_cpu_exports(

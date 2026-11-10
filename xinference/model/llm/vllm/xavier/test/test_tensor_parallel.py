@@ -4,6 +4,7 @@
 import asyncio
 import sys
 import threading
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -516,5 +517,16 @@ def test_tp_workers_stage_their_shard_through_host_memory(
         admitted = worker._admit_shard_stages([first, second])
         assert [request.block_hashes for request in admitted] == [[11, 12], [13]]
         assert admitted[1].block_ids_by_group == [[3]]
+
+        # A chunked prefill repeats blocks that still wait for peer shards.
+        # They do not use the next step's budget, so this rank keeps up.
+        admitted = worker._admit_shard_stages([first, second])
+        assert [request.block_hashes for request in admitted] == [[14, 15]]
+        assert worker._admit_shard_stages([first, second]) == []
+        # If the peers never completed a block, it becomes eligible again.
+        later = time.monotonic() + 60
+        monkeypatch.setattr(connector_module.time, "monotonic", lambda: later)
+        admitted = worker._admit_shard_stages([first])
+        assert [request.block_hashes for request in admitted] == [[11, 12]]
     finally:
         worker.shutdown()
