@@ -144,9 +144,18 @@ async def realtime_session(api, websocket: WebSocket, model_uid: str) -> None:
                     await websocket.close(code=backend.close_code or 1011)
 
                 tasks = [asyncio.create_task(upload()), asyncio.create_task(download())]
-                done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    task.result()
+                try:
+                    done, _ = await asyncio.wait(
+                        tasks, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    for task in done:
+                        task.result()
+                finally:
+                    # Settle forwarding before closing the backend socket.
+                    for task in tasks:
+                        if not task.done():
+                            task.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
     except HTTPException:
         # Before upgrade, ASGI close rejects the handshake. Never send an
         # HTTP-only Response via a WebSocket route.
