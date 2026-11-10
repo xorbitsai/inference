@@ -788,10 +788,13 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             "gte" in self.model_family.model_name.lower()
             and "qwen2" in self.model_family.model_name.lower()
         ):
+            # Default to the query prompt, but let a request choose its own
+            # (the model card encodes documents with no prompt).
+            if "prompt" not in kwargs:
+                kwargs.setdefault("prompt_name", "query")
             all_embeddings, all_token_nums, token_counts = encode(
                 self._model,
                 sentences,
-                prompt_name="query",
                 convert_to_numpy=False,
                 **kwargs,
             )
