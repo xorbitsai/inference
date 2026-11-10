@@ -5338,6 +5338,7 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
         from ..model.llm.reasoning_controls import (
+            TEMPLATE_THINKING_BUDGET_FAMILIES,
             ReasoningEffortConfig,
             has_reasoning_controls,
             normalize_reasoning_controls,
@@ -5368,6 +5369,8 @@ class RESTfulAPI(CancelMixin):
                 kwargs = normalize_reasoning_controls(
                     control_config,
                     ReasoningEffortConfig.parse_obj(capability) if capability else None,
+                    template_zero_budget=desc.get("model_family")
+                    in TEMPLATE_THINKING_BUDGET_FAMILIES,
                 )
                 raw_kwargs.pop("reasoning_effort", None)
                 raw_kwargs.pop("thinking_budget", None)

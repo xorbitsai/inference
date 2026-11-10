@@ -129,8 +129,8 @@ def test_seed_oss_start_tag_from_the_prompt_keeps_reasoning(stream, context):
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_seed_oss_budget_zero_with_a_prompt_start_tag_keeps_the_split(stream):
-    # MLX appends the start tag even with thinking_budget=0, and the budget then
-    # ends reasoning at once.
+    # No engine appends the start tag for thinking_budget=0, but if a prompt
+    # still opens reasoning, the generated end tag must keep the split.
     output = ["</seed:think>", "It", " is 4."]
     assert _respond(
         _family_parser(),

@@ -1187,7 +1187,8 @@ class MLXModel(LLM, ChatModelMixin):
             or {}
         )
         budget = context.get("thinking_budget")
-        if budget is None or not context.get("enable_thinking"):
+        # 0 is a template-level budget (Seed-OSS), never an engine budget.
+        if not budget or not context.get("enable_thinking"):
             return
         parser = self.reasoning_parser
         if parser is None or not (

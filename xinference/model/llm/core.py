@@ -28,7 +28,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
-from .reasoning_controls import normalize_reasoning_controls
+from .reasoning_controls import (
+    TEMPLATE_THINKING_BUDGET_FAMILIES,
+    normalize_reasoning_controls,
+)
 from .reasoning_parser import (
     KimiK3ReasoningParser,
     ReasoningParser,
@@ -49,6 +52,12 @@ def get_llm_version_infos():
     import copy
 
     return copy.deepcopy(LLM_VERSION_INFOS)
+
+
+def _template_zero_budget(model: Any) -> bool:
+    family = getattr(model, "model_family", None)
+    name = getattr(family, "model_family", None) or getattr(family, "model_name", None)
+    return name in TEMPLATE_THINKING_BUDGET_FAMILIES
 
 
 class LLM(abc.ABC):
@@ -173,10 +182,13 @@ class LLM(abc.ABC):
     def prepare_reasoning_request(self, config: Dict) -> Dict:
         """Preflight explicit OpenAI thinking budgets before opening a stream."""
         config = normalize_reasoning_controls(
-            config, self._reasoning_effort_capability()
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
         )
         context = config.get("chat_template_kwargs") or {}
-        if context.get("thinking_budget") is None:
+        # A template-level 0 is for the chat template, not the engine.
+        if not context.get("thinking_budget"):
             return config
         parser = self.reasoning_parser
         apply_budget = getattr(self, "_apply_thinking_budget", None)
@@ -216,7 +228,9 @@ class LLM(abc.ABC):
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
         config = normalize_reasoning_controls(
-            config, self._reasoning_effort_capability()
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
         )
         from ...api.protocols.anthropic_capabilities import plan_anthropic_compatibility
 
