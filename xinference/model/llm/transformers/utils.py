@@ -229,7 +229,11 @@ class _IncrementalDecoder:
         if not text.endswith("�"):
             context_offset = max(0, count - self._CONTEXT_TOKENS)
             context_text = self._decode(tokens[context_offset:count])
-            if len(context_text) >= self._MIN_CONTEXT_CHARS or not context_offset:
+            # Keep the context only if it is the end of the full text: space
+            # cleanup can change depending on where a decode starts.
+            if text.endswith(context_text) and (
+                len(context_text) >= self._MIN_CONTEXT_CHARS or not context_offset
+            ):
                 self._text = text
                 self._context_offset = context_offset
                 self._context_text = context_text

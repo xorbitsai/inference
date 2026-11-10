@@ -75,3 +75,14 @@ def test_incremental_decoder_falls_back_without_byte_level_decoder():
     decoder = _IncrementalDecoder(Tokenizer())
     assert not decoder._incremental
     assert decoder.decode([1, 2, 3], 2) == "12"
+
+
+def test_incremental_decoder_context_must_be_suffix_of_full_text():
+    # Space cleanup of runs like "' ' ' " depends on where a decode starts, so
+    # the context decoded on its own can differ from the end of the full text.
+    tokenizer = _byte_level_tokenizer()
+    decoder = _IncrementalDecoder(tokenizer)
+    text = "Example: " + "' " * 5
+    tokens = [t for c in text for t in tokenizer.encode(c, add_special_tokens=False)]
+    for count in range(1, len(tokens) + 1):
+        assert decoder.decode(tokens, count) == _full_decode(tokenizer, tokens[:count])
