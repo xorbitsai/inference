@@ -1244,7 +1244,19 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                     req.completion = results
                     continue
 
-                if req.stream:
-                    self.handle_chat_result_streaming(req)
-                else:
-                    self.handle_chat_result_non_streaming(req)
+                # Batch prefill leaves the last request's chat-template context
+                # set, so format each request with its own (reasoning parsers
+                # read enable_thinking and thinking_budget from it).
+                token = chat_context_var.set(
+                    self._get_chat_template_kwargs_from_generate_config(
+                        req.generate_config, self.reasoning_parser
+                    )
+                    or {}
+                )
+                try:
+                    if req.stream:
+                        self.handle_chat_result_streaming(req)
+                    else:
+                        self.handle_chat_result_non_streaming(req)
+                finally:
+                    chat_context_var.reset(token)
