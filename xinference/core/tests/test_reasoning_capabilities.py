@@ -1,10 +1,12 @@
 # CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
+import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import xoscar as xo
 
 from .. import supervisor as supervisor_module
 from ..rpc_context import actor_call
@@ -111,6 +113,88 @@ async def test_pd_description_probes_router_without_selecting_a_replica(monkeypa
     assert description["supports_thinking_budget"] is True
     assert description["supports_chat_priority"] is True
     assert "supports_chat_session_affinity" not in description
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pd", [False, True])
+async def test_description_does_not_wait_for_stalled_capability_probes(monkeypatch, pd):
+    from xoscar.backends.context import IndigenActorContext
+    from xoscar.backends.message import CancelMessage, ResultMessage
+
+    loop = asyncio.get_running_loop()
+    cancellations = []
+    release_cancellation = asyncio.Event()
+
+    def stalled_call(method, result):
+        # The replica never acknowledges cancellation until released.
+        reply = loop.create_future()
+
+        class StalledContext(IndigenActorContext):
+            async def _call(self, address, message, **kwargs):
+                if isinstance(message, CancelMessage):
+                    cancellations.append(method)
+                    await release_cancellation.wait()
+                    reply.set_result(ResultMessage(message.message_id, result=result))
+                    return ResultMessage(message.message_id, result=True)
+                return reply
+
+        return StalledContext().send(
+            xo.ActorRef("stalled:1234", "model-rep0"), (method, 0, (), {})
+        )
+
+    model = SimpleNamespace(
+        get_reasoning_capabilities=lambda **_: stalled_call(
+            "get_reasoning_capabilities", {"supports_thinking_budget": True}
+        ),
+        supports_chat_priority=lambda **_: stalled_call("supports_chat_priority", True),
+        supports_agent_cache_lifecycle=lambda: stalled_call(
+            "supports_agent_cache_lifecycle", True
+        ),
+    )
+    tracker = SimpleNamespace(
+        get_cache_sessions=lambda _: stalled_call("get_cache_sessions", {})
+    )
+    monkeypatch.setattr(supervisor_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    owner = SupervisorActor.__new__(SupervisorActor)
+    owner.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_ability": ["chat"]}
+    )
+    # P/D models skip the agent cache probe.
+    owner._block_tracker_mapping = {"model": tracker}
+    owner._pd_model_mapping = {"model": model} if pd else {}
+    owner._iter_active_replica_model_uids = lambda _: ["rep0"]
+    owner._replica_model_uid_to_worker = {"rep0": object()}
+    monkeypatch.setattr(
+        supervisor_module, "call_worker_route", AsyncMock(return_value=model)
+    )
+    wait_for = asyncio.wait_for
+    monkeypatch.setattr(
+        supervisor_module.asyncio, "wait_for", lambda fut, timeout: wait_for(fut, 0.01)
+    )
+
+    expected = {"get_reasoning_capabilities", "supports_chat_priority"}
+    if not pd:
+        expected |= {"get_cache_sessions", "supports_agent_cache_lifecycle"}
+
+    task = asyncio.create_task(owner.describe_running_model("model"))
+    try:
+        done, _ = await asyncio.wait({task}, timeout=0.5)
+        assert task in done, "Model description waited for a stalled replica"
+        description = task.result()
+        assert description["supports_thinking_budget"] is False
+        assert "supports_chat_priority" not in description
+        assert "supports_agent_cache_lifecycle" not in description
+        # Every timed-out probe, tracker and replica alike, must be cancelled
+        # on its actor even though nothing acknowledges the cancellation.
+        for _ in range(50):
+            if expected <= set(cancellations):
+                break
+            await asyncio.sleep(0.01)
+        assert set(cancellations) == expected
+    finally:
+        release_cancellation.set()
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.sleep(0)
 
 
 @pytest.mark.asyncio

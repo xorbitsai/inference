@@ -7903,13 +7903,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return await model.supports_agent_cache_lifecycle()
 
         try:
-            results = await asyncio.wait_for(
-                asyncio.gather(
-                    tracker.get_cache_sessions([]),
-                    self._all_replicas_support(model_uid, probe, timeout=1),
-                    return_exceptions=True,
-                ),
-                timeout=1,
+            # Each probe keeps its own deadline: an outer timer would cancel the
+            # inner xo.wait_for() before it can send a CancelMessage.
+            results = await asyncio.gather(
+                xo.wait_for(tracker.get_cache_sessions([]), timeout=1),
+                self._all_replicas_support(model_uid, probe, timeout=1),
+                return_exceptions=True,
             )
             return isinstance(results[0], dict) and results[1] is True
         except Exception:
@@ -7966,10 +7965,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         try:
             router = self._pd_model_mapping.get(model_uid)
             if router is not None:
-                supported = await asyncio.wait_for(probe(router), timeout=timeout)
+                supported = await xo.wait_for(probe(router), timeout=timeout)
                 return supported and self._pd_model_mapping.get(model_uid) is router
             replica_uids = self._iter_active_replica_model_uids(model_uid)
-            results = await asyncio.wait_for(
+            results = await xo.wait_for(
                 asyncio.gather(
                     *(probe_replica(uid) for uid in replica_uids),
                     return_exceptions=True,
