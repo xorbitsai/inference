@@ -171,12 +171,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             if self._use_fp16:
                 self._model.model.half()
             self._tokenizer = self._model.tokenizer
-        elif "jina-reranker-v3.5" in self.model_family.model_name.lower():
-            # jina-reranker-v3.5 ships custom modeling code (JinaForRanking)
-            # with a native listwise `rerank()` API; use it instead of the
-            # Qwen3-style yes/no scoring applied to jina-reranker-v3. Note
-            # that "jina-reranker-v3" is a substring of "jina-reranker-v3.5",
-            # so this branch must precede the jina-reranker-v3 one.
+        elif "jina-reranker-v3" in self.model_family.model_name.lower():
+            # jina-reranker-v3 and v3.5 ship custom modeling code
+            # (JinaForRanking) and their model cards score with its native
+            # listwise `rerank()` API. The model has no yes/no scoring head,
+            # so the Qwen3-Reranker scoring below does not apply to it.
             with dependency_import_guard("transformers"):
                 from transformers import AutoModel, AutoTokenizer
 
@@ -192,13 +191,14 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             if enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
             model_kwargs.update(self._kwargs)
-            logger.debug("Loading jina-reranker-v3.5 with kwargs %s", model_kwargs)
+            logger.debug(
+                "Loading %s with kwargs %s", self.model_family.model_name, model_kwargs
+            )
             self._model = AutoModel.from_pretrained(
                 self._model_path, trust_remote_code=True, **model_kwargs
             ).eval()
         elif (
             "qwen3" in self.model_family.model_name.lower()
-            or "jina-reranker-v3" in self.model_family.model_name.lower()
             or "r3-rerank" in self.model_family.model_name.lower()
         ):
             # qwen3-reranker (also covers R3-rerank, fine-tuned from Qwen3-Reranker)
@@ -379,8 +379,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         **kwargs,
     ) -> List[Any]:
         # Pop batch offsets early so they are not forwarded to model APIs
-        # (predict, compute_score, rerank, etc.). Only the jina-reranker-v3.5
-        # branch uses this to preserve per-request isolation.
+        # (predict, compute_score, rerank, etc.). Only the jina-reranker-v3
+        # (and v3.5) branch uses this to preserve per-request isolation.
         batch_offsets = kwargs.pop("_batch_offsets", None)
         if self._vl_reranker is not None:
             return self._rerank_vl(
@@ -464,12 +464,12 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = similarity_scores.float()
-        elif "jina-reranker-v3.5" in self.model_family.model_name.lower():
+        elif "jina-reranker-v3" in self.model_family.model_name.lower():
             # Native listwise API: returns dicts sorted by score desc, each
             # carrying the original document index. Map back to input order
             # so the shared sorting logic below works unchanged.
             #
-            # Jina v3.5 is genuinely listwise: its native implementation
+            # Jina v3/v3.5 is genuinely listwise: its native implementation
             # computes query embeddings and block weights from the full
             # candidate set, so mixing documents from different requests
             # would change scores. Call rerank() once per original request
@@ -494,7 +494,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                         similarity_scores[int(r["index"])] = float(r["relevance_score"])
         elif (
             "qwen3" in self.model_family.model_name.lower()
-            or "jina-reranker-v3" in self.model_family.model_name.lower()
             or "r3-rerank" in self.model_family.model_name.lower()
         ):
 

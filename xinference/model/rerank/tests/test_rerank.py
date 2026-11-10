@@ -93,6 +93,66 @@ async def test_qwen3_reranker_return_len_counts_input_tokens():
     assert result["meta"]["tokens"] == {"input_tokens": 8, "output_tokens": 8}
 
 
+async def test_jina_reranker_v3_scores_with_its_native_rerank(monkeypatch):
+    # jina-reranker-v3's model card loads JinaForRanking through AutoModel
+    # with trust_remote_code and scores with its listwise ``rerank()``; it
+    # has no yes/no head for Qwen3-Reranker-style scoring.
+    import asyncio
+
+    import transformers
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    scores = {"coffee prices": 0.05, "green tea catechins": 0.30, "tea and brain": 0.19}
+
+    class NativeJinaRanking:
+        def __init__(self):
+            self.calls = []
+
+        def eval(self):
+            return self
+
+        def rerank(self, query, documents):
+            self.calls.append((query, list(documents)))
+            ranked = sorted(range(len(documents)), key=lambda i: -scores[documents[i]])
+            return [
+                {"index": i, "relevance_score": scores[documents[i]]} for i in ranked
+            ]
+
+    native = NativeJinaRanking()
+    auto_model_calls = []
+
+    def auto_model(path, **kwargs):
+        auto_model_calls.append(kwargs)
+        return native
+
+    def causal_lm(*args, **kwargs):
+        raise AssertionError("jina-reranker-v3 must not load as a causal LM")
+
+    monkeypatch.setattr(transformers.AutoModel, "from_pretrained", auto_model)
+    monkeypatch.setattr(transformers.AutoModelForCausalLM, "from_pretrained", causal_lm)
+    monkeypatch.setattr(
+        transformers.AutoTokenizer, "from_pretrained", lambda *a, **kw: object()
+    )
+
+    family = BUILTIN_RERANK_MODELS["jina-reranker-v3"][0].copy(deep=True)
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model.load()
+    documents = list(scores)
+    try:
+        result = await model.rerank(documents, "green tea", 2, None, True, False)
+    finally:
+        model._process_batch_task.cancel()
+        await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert auto_model_calls[0]["trust_remote_code"] is True
+    assert native.calls == [("green tea", documents)]
+    assert [r["index"] for r in result["results"]] == [1, 2]
+    assert [r["relevance_score"] for r in result["results"]] == [0.30, 0.19]
+    assert result["results"][0]["document"] == {"text": "green tea catechins"}
+
+
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
 @pytest.mark.parametrize(
     "model_engine",
