@@ -232,6 +232,20 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
 }
 
 
+async def _read_llm_request_body(request: Request) -> dict:
+    try:
+        raw_body = await request.json()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail="Request body must be valid JSON"
+        ) from exc
+    if not isinstance(raw_body, dict):
+        raise HTTPException(
+            status_code=400, detail="Request body must be a JSON object"
+        )
+    return raw_body
+
+
 def _parse_llm_request(schema, raw_body: dict):
     # Resolve/validate the raw salt after authorization, allowing provider overrides.
     try:
@@ -2724,7 +2738,7 @@ class RESTfulAPI(CancelMixin):
                 target["cache_salt"] = salt
 
     async def create_completion(self, request: Request) -> Response:
-        raw_body = await request.json()
+        raw_body = await _read_llm_request_body(request)
         body = _parse_llm_request(CreateCompletionRequest, raw_body)
         exclude = {
             "prompt",
@@ -5130,7 +5144,7 @@ class RESTfulAPI(CancelMixin):
     async def _create_chat_completion(
         self, request: Request, reservations: AsyncExitStack
     ) -> Response:
-        raw_body = await request.json()
+        raw_body = await _read_llm_request_body(request)
         routing_key = raw_body.pop("routing_key", None)
         cache_session = raw_body.pop("cache_session", None)
         priority_hint = raw_body.pop(CHAT_PRIORITY_HINT, None)
