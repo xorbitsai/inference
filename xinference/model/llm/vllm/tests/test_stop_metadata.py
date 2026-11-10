@@ -1,4 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# CI: linux
+
 import json
 import sys
 from types import SimpleNamespace
@@ -10,13 +12,14 @@ from xinference.api.protocols import anthropic_stream_events, openai_to_anthropi
 
 from ...core import chat_context_var
 from ...reasoning_parser import ReasoningParser
+from ...tool_parsers.glm5_tool_parser import Glm5ToolParser
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
 from .. import core
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("mode", ["plain", "reasoning", "tools", "openai"])
+@pytest.mark.parametrize("mode", ["plain", "reasoning", "tools", "glm5", "openai"])
 @pytest.mark.parametrize(
     "finish_reason,stop_reason,expected",
     [
@@ -44,27 +47,41 @@ async def test_native_stop_metadata_reaches_anthropic(
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.5.0"))
     model = object.__new__(core.VLLMChatModel)
     model.model_uid = "test"
-    model.model_family = SimpleNamespace(model_name="qwen3", model_ability=["chat"])
+    model.model_family = SimpleNamespace(
+        model_name="qwen3",
+        model_family=None,
+        model_ability=["chat"],
+        has_architecture=lambda _: False,
+    )
     model._nixl_config = model._xavier_config = None
     model._active_request_ids = set()
     model.reasoning_parser = (
         ReasoningParser(reasoning_content=True) if mode == "reasoning" else None
     )
-    model.tool_parser = QwenToolParser() if mode == "tools" else None
-    has_tool_call = mode == "tools" and expected == "stop_sequence"
-    text = (
-        '<tool_call>{"name":"lookup","arguments":{"city":"杭州"}}</tool_call>'
-        if has_tool_call
-        else "hello"
-    )
+    tool_mode = mode in ("tools", "glm5")
+    model.tool_parser = {"tools": QwenToolParser(), "glm5": Glm5ToolParser()}.get(mode)
+    has_tool_call = tool_mode and expected == "stop_sequence"
+    if has_tool_call and mode == "glm5":
+        prefix = "<tool_call>lookup<arg_key>city</arg_key><arg_value>杭"
+        text = prefix + "州</arg_value></tool_call>"
+    else:
+        text = (
+            '<tool_call>{"name":"lookup","arguments":{"city":"杭州"}}</tool_call>'
+            if has_tool_call
+            else "hello"
+        )
+        prefix = text[: len(text) // 2]
+    engine_finished = False
+    early_arguments = []
 
     async def generate(*args, **kwargs):
+        nonlocal engine_finished
         yield SimpleNamespace(
             prompt_token_ids=[1, 2, 3],
             finished=False,
             outputs=[
                 SimpleNamespace(
-                    text=text[: len(text) // 2],
+                    text=prefix,
                     token_ids=[4],
                     index=0,
                     finish_reason=None,
@@ -72,6 +89,7 @@ async def test_native_stop_metadata_reaches_anthropic(
                 )
             ],
         )
+        engine_finished = True
         yield SimpleNamespace(
             prompt_token_ids=[1, 2, 3],
             finished=True,
@@ -87,7 +105,20 @@ async def test_native_stop_metadata_reaches_anthropic(
         )
 
     async def prepare(messages, config):
-        return "prompt", ([{"type": "function"}] if mode == "tools" else []), {}, config
+        tools = (
+            [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "lookup",
+                        "parameters": {"properties": {"city": {"type": "string"}}},
+                    },
+                }
+            ]
+            if tool_mode
+            else []
+        )
+        return "prompt", tools, {}, config
 
     model._engine = SimpleNamespace(generate=generate)
     model._prepare_chat_inputs = prepare
@@ -112,6 +143,12 @@ async def test_native_stop_metadata_reaches_anthropic(
             async def capture():
                 async for chunk in response:
                     chunks.append(chunk)
+                    if not engine_finished:
+                        early_arguments.extend(
+                            call["function"]["arguments"]
+                            for choice in chunk["choices"]
+                            for call in choice["delta"].get("tool_calls", [])
+                        )
                     yield chunk
 
             events = [
@@ -142,6 +179,8 @@ async def test_native_stop_metadata_reaches_anthropic(
         if has_tool_call:
             expected = "tool_use"
             if stream:
+                if mode == "glm5":
+                    assert "杭" in "".join(early_arguments)
                 tool = next(
                     event["content_block"]
                     for event in events

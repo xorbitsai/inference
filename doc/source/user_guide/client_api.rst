@@ -136,6 +136,8 @@ With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by the n
 OpenAI Client Tool Calls
 ========================
 
+With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason="tool_calls"`` and validate the assembled JSON before executing any tool. With ``finish_reason="length"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response.
+
 .. code-block::
 
     import openai

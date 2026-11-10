@@ -2900,7 +2900,11 @@ class VLLMModel(WeightCachedModel, LLM):
                 total_tokens = usage["total_tokens"]
                 chunk["usage"] = usage
 
-                if tools:
+                if tools and not getattr(
+                    getattr(self, "tool_parser", None),
+                    "handles_tool_call_marker",
+                    False,
+                ):
                     """
                     The qwen2 tool call returns format like this:
                     <tool_call>

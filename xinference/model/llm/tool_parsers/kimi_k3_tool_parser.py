@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, tagged_string_start
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,46 @@ class KimiK3ToolParser(ToolParser):
         except Exception as exc:
             logger.error("Cannot parse Kimi-K3 tool output: %s", exc)
             return [(model_output, None, None)]
+
+    _CALL_OPEN = re.compile(
+        r"\s*" + _OPEN + r"\s*call\s+(" + _TEXT_UNTIL_SEP + r")" + _SEP
+    )
+    _CALL_CLOSE = re.compile(_CLOSE + r"\s*call\s*" + _SEP)
+    _ARGUMENT_CLOSE = re.compile(_CLOSE + r"\s*argument\s*" + _SEP)
+    _ARGUMENT_OPEN = re.compile(
+        r"\s*" + _OPEN + r'\s*argument\s+key="(?P<key>[^"&]+)"'
+        r'(?:\s+type="(?P<type>[^"]+)")?\s*' + _SEP
+    )
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        wrapper = self._tools_open_re.search(text)
+        if wrapper is None or self._tools_close_re.search(text, wrapper.end()):
+            return None
+        body = wrapper.end()
+        for close in self._CALL_CLOSE.finditer(text, body):
+            body = close.end()
+        match = self._CALL_OPEN.match(text, body)
+        if match is None:
+            return None
+        attrs = match[1]
+        name = self._attrs(attrs).get("tool")
+        if not name:
+            return None
+
+        def parse_completed(completed: str) -> Dict[str, Any]:
+            call = self._decode_call(attrs, completed)
+            return call[1] if call else {}
+
+        return tagged_string_start(
+            text,
+            match.end(),
+            name,
+            self._ARGUMENT_OPEN,
+            "<|close|>",
+            parse_completed,
+            explicitly_typed=True,
+            close_pattern=self._ARGUMENT_CLOSE,
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

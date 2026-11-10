@@ -15,6 +15,7 @@
 # CI: linux
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -25,7 +26,7 @@ from ..tool_parsers.deepseek_v4_tool_parser import DeepseekV4ToolParser
 from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
-from ..utils import ChatModelMixin
+from ..utils import ChatModelMixin, generate_completion_chunk
 
 
 @pytest.fixture(autouse=True)
@@ -4489,3 +4490,193 @@ def test_null_tool_content_does_not_retry_template_errors(tokenizer_template, er
         model.get_full_context(
             messages, None if tokenizer_template else template, tokenizer=tokenizer
         )
+
+
+_QWEN_XML_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "write_note",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "body": {"type": "string"},
+                    "count": {"type": "integer"},
+                },
+            },
+        },
+    }
+]
+
+
+def _qwen_xml_stream_model():
+    model = ChatModelMixin()
+    model.model_uid = "qwen"
+    model.model_family = None
+    model.tool_parser = QwenToolParser()
+    model.reasoning_parser = None
+    return model
+
+
+def _qwen_xml_completion(text, finish_reason=None):
+    return generate_completion_chunk(
+        text,
+        finish_reason,
+        chunk_id="qwen-xml-test",
+        model_uid="qwen",
+        prompt_tokens=7,
+        completion_tokens=8,
+        total_tokens=15,
+    )
+
+
+@pytest.mark.parametrize("stream_mode", ["async", "sync"])
+async def test_qwen_xml_arguments_arrive_before_the_tool_closes(stream_mode):
+    model = _qwen_xml_stream_model()
+    prefix = [
+        _qwen_xml_completion(text)
+        for text in (
+            "Preparing ",
+            "<tool",
+            "_call>\n<function=write_note>\n",
+            "<parameter=count>\n3\n</parameter>\n<parameter=body>\n",
+            '你好 "first"\n',
+            "second\n",
+            "</para",
+        )
+    ]
+    suffix = [
+        _qwen_xml_completion(text)
+        for text in (
+            "meter>\n</function>\n</tool_call>",
+            '<tool_call>{"name":"write_note","arguments":{"body":"404"}}</tool_call>',
+        )
+    ] + [_qwen_xml_completion("", "stop")]
+    seen = []
+
+    def sync_source():
+        yield from prefix
+        seen.append("closing")
+        yield from suffix
+
+    def collect(chunk):
+        seen.append(chunk["choices"][0])
+
+    if stream_mode == "async":
+
+        async def source():
+            for chunk in sync_source():
+                yield chunk
+
+        async for chunk in model._async_to_tool_completion_chunks(
+            source(), tools=_QWEN_XML_TOOLS
+        ):
+            collect(chunk)
+    else:
+        for chunk in model._to_tool_completion_chunks(
+            sync_source(), tools=_QWEN_XML_TOOLS
+        ):
+            collect(chunk)
+
+    boundary = seen.index("closing")
+    choices = [value for value in seen if isinstance(value, dict)]
+    assert "".join(c["delta"].get("content") or "" for c in choices) == "Preparing "
+    before = [
+        call for c in seen[:boundary] for call in c["delta"].get("tool_calls", ())
+    ]
+    assert len(before) >= 2
+    assert "first" in "".join(call["function"]["arguments"] for call in before)
+
+    calls = [
+        call for choice in choices for call in choice["delta"].get("tool_calls", ())
+    ]
+    assert [c["index"] for c in calls if "id" in c] == [0, 1]
+    assert len({c["id"] for c in calls if "id" in c}) == 2
+    assert [c["function"]["name"] for c in calls if "name" in c["function"]] == [
+        "write_note",
+        "write_note",
+    ]
+    assert json.loads(
+        "".join(c["function"]["arguments"] for c in calls if c["index"] == 0)
+    ) == {
+        "count": 3,
+        "body": '你好 "first"\nsecond',
+    }
+    assert json.loads(
+        "".join(c["function"]["arguments"] for c in calls if c["index"] == 1)
+    ) == {
+        "body": "404",
+    }
+    assert choices[-1]["finish_reason"] == "tool_calls"
+
+
+@pytest.mark.parametrize("finish_reason", ["length", "stop"])
+async def test_qwen_xml_truncated_stream_never_completes_tool_arguments(finish_reason):
+    model = _qwen_xml_stream_model()
+
+    async def source():
+        yield _qwen_xml_completion(
+            "<tool_call><function=write_note><parameter=body>partial"
+        )
+        yield _qwen_xml_completion("", finish_reason)
+
+    stream = model._async_to_tool_completion_chunks(source(), tools=_QWEN_XML_TOOLS)
+    partial = await anext(stream)
+    args = partial["choices"][0]["delta"]["tool_calls"][0]["function"]["arguments"]
+    assert "partial" in args
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(args)
+    assert (await anext(stream))["choices"][0]["finish_reason"] == "length"
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+
+
+async def test_qwen_xml_stream_reissues_rewritten_arguments_at_a_fresh_index():
+    model = _qwen_xml_stream_model()
+
+    async def source():
+        yield _qwen_xml_completion(
+            "<tool_call><function=write_note><parameter=body>first"
+        )
+        yield _qwen_xml_completion(
+            "</parameter><parameter=body>second</parameter></function></tool_call>"
+            '<tool_call>{"name":"write_note","arguments":{"body":"thi'
+        )
+        yield _qwen_xml_completion('rd"}}</tool_call>')
+        yield _qwen_xml_completion("", "stop")
+
+    stream = model._async_to_tool_completion_chunks(source(), tools=_QWEN_XML_TOOLS)
+    choices = [chunk["choices"][0] async for chunk in stream]
+    assert choices[-1]["finish_reason"] == "length"
+    calls = [
+        call for choice in choices for call in choice["delta"].get("tool_calls", [])
+    ]
+    assert [call["index"] for call in calls if "id" in call] == [0, 1, 2]
+    arguments = [
+        "".join(call["function"]["arguments"] for call in calls if call["index"] == i)
+        for i in range(3)
+    ]
+    assert "first" in arguments[0]
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(arguments[0])
+    assert json.loads(arguments[1]) == {"body": "second"}
+    assert json.loads(arguments[2]) == {"body": "third"}
+
+
+async def test_qwen_xml_argument_stream_closes_its_source_on_cancel():
+    model = _qwen_xml_stream_model()
+    closed = asyncio.Event()
+
+    async def source():
+        try:
+            yield _qwen_xml_completion(
+                "<tool_call><function=write_note><parameter=body>partial"
+            )
+            await asyncio.Event().wait()
+        finally:
+            closed.set()
+
+    stream = model._async_to_tool_completion_chunks(source(), tools=_QWEN_XML_TOOLS)
+    assert (await anext(stream))["choices"][0]["delta"]["tool_calls"]
+    await stream.aclose()
+    assert closed.is_set()

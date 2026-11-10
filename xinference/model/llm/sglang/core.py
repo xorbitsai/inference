@@ -1628,7 +1628,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         # Keep terminal metadata without replacing buffered tool text.
                         continue
                     chunk = new_chunk
-                    if tools:
+                    if tools and not getattr(
+                        getattr(self, "tool_parser", None),
+                        "handles_tool_call_marker",
+                        False,
+                    ):
                         """
                         The qwen2 tool call returns format like this:
                         <tool_call>

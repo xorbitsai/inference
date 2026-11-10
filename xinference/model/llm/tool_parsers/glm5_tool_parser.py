@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block, tagged_string_start
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,26 @@ class Glm5ToolParser(ToolParser):
             current_text, delta_text, [self.tool_call_start_token]
         )
         return (content, None, None) if content else None
+
+    _ARGUMENT_OPEN = re.compile(r"\s*<arg_key>(?P<key>[^<]+)</arg_key>\s*<arg_value>")
+    handles_tool_call_marker = True
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        body = open_block(text, self.tool_call_start_token, self.tool_call_end_token)
+        if body is None:
+            return None
+        start = text.find("<arg_key>", body)
+        if start == -1:
+            return None
+        name = text[body:start].strip()
+        return tagged_string_start(
+            text,
+            start,
+            name,
+            self._ARGUMENT_OPEN,
+            "</arg_value>",
+            lambda completed: self._parse_xml_function_call(name + completed)[2] or {},
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
