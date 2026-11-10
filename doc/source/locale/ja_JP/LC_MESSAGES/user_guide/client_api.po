@@ -82,3 +82,7 @@ msgstr "実行中のモデルの説明に ``supports_chat_priority`` がある�
 #: ../../source/user_guide/client_api.rst:139
 msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
 msgstr "``stream=True`` の場合は、ツール呼び出しのインデックスごとに ``delta.tool_calls[].function.arguments`` の断片を連結します。``finish_reason=\"tool_calls\"`` を待ち、連結した JSON を検証してからツールを実行してください。``finish_reason=\"length\"`` の場合、呼び出しに ID と名前があっても、引数は不完全なことがあります。その応答の呼び出しは実行しないでください。"
+
+#: source/user_guide/client_api.rst:570
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "リクエスト本文が有効な JSON でない場合、または有効な JSON でもオブジェクトでない場合（``[]`` や ``null`` など）、``/v1/chat/completions`` と ``/v1/completions`` は HTTP 400 を返します。このチェックは、モデルの検索やストリーミングの開始より前に行われます。リクエストスキーマの検証に失敗した JSON オブジェクトは HTTP 422 を返します。"

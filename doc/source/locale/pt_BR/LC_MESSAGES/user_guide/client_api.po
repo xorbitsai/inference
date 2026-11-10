@@ -241,6 +241,10 @@ msgid "Before streaming starts, system-message ordering errors on strict templat
 msgstr "Antes do início do streaming, erros na ordem de mensagens de sistema em templates estritos e violações detectadas dos limites multimodais do vLLM por prompt retornam HTTP 400. Se os limites atuais não puderem ser consultados, a validação é delegada ao processo de trabalho."
 
 #: ../../source/user_guide/client_api.rst
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "``/v1/chat/completions`` e ``/v1/completions`` retornam HTTP 400 quando o corpo da requisição não é um JSON válido, ou é um JSON válido mas não um objeto, como ``[]`` ou ``null``. Essa verificação ocorre antes de o modelo ser localizado ou de o streaming começar. Um objeto JSON que não passa na validação do esquema da requisição retorna HTTP 422."
+
+#: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
 msgstr "Em solicitações sem streaming, excessos reconhecidos de comprimento de contexto e erros conhecidos de validação de mídia ou de cache-salt retornam HTTP 400; limites de taxa retornam HTTP 429. As mensagens descrevem a falha sem expor detalhes do processo de trabalho. Falhas não reconhecidas retornam HTTP 500."
 
