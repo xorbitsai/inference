@@ -274,7 +274,8 @@ def _prepare_modelscope_jina_clip_v2(
     _patch_json_file(os.path.join(text_model_path, "config.json"), patch_text_config)
 
 
-# jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
+# jina-embeddings-v3: the model card encodes with ``task=task, prompt_name=task``;
+# ``task`` selects the LoRA adapter in forward(), ``prompt_name`` the instruction.
 # v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
 JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "retrieval.passage": "retrieval.passage",
@@ -323,7 +324,8 @@ def _resolve_jina_task(
 
     Returns:
         (prompt_name, task_passthrough)
-        - v3: (prompt_name, None) — uses prompt_name to look up prompt template
+        - v3: (prompt_name, prompt_name) — prompt template plus the LoRA adapter
+              of the same name, passed to model.forward()
         - v4: (None, task) — passes task directly to model.forward()
         - v5: (prompt_name_or_None, task) — passes task directly to model.encode();
               v5 models reject a missing task, so default to ``retrieval`` when the
@@ -344,7 +346,9 @@ def _resolve_jina_task(
             raise ValueError(
                 f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
             )
-        return prompt_name, None
+        # The task also selects v3's LoRA adapter in model.forward(); the
+        # prompt alone runs the model without it.
+        return prompt_name, prompt_name
     elif "jina-embeddings-v4" in model_lower:
         if task not in JINA_V4_VALID_TASKS:
             valid = sorted(JINA_V4_VALID_TASKS)
@@ -572,7 +576,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
             self._model_name, task
         )
-        # v4: put task back into kwargs for model.forward() to consume
+        # v3/v4: put task back into kwargs for model.forward() to consume
         if jina_task_passthrough is not None:
             kwargs["task"] = jina_task_passthrough
 

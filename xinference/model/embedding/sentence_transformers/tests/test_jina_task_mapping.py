@@ -12,17 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 """
 Tests for Jina embeddings v3/v4/v5 task parameter mapping.
 
 Verifies that the Jina-style ``task`` parameter is correctly resolved:
-- v3: maps to SentenceTransformer ``prompt_name`` (dot-notation keys)
+- v3: maps to SentenceTransformer ``prompt_name`` (dot-notation keys) and
+      passes the same name to ``model.forward()`` as the LoRA ``task``
 - v4: passes task through to ``model.forward()``
 - v5: passes task through to ``model.encode()`` and additionally maps
       query/document aliases to v5 ``prompt_name``
 """
 
+import asyncio
+
 import pytest
+import torch
 
 from ..core import (
     JINA_V3_TASK_TO_PROMPT_NAME,
@@ -74,40 +80,40 @@ class TestResolveJinaTaskV4:
 
 
 class TestResolveJinaTaskV3:
-    """Tests for v3: returns (prompt_name, None) — uses prompt_name mechanism."""
+    """Tests for v3: returns (prompt_name, prompt_name) — prompt and LoRA task."""
 
     def test_retrieval_passage(self):
         prompt_name, task = _resolve_jina_task(
             "jina-embeddings-v3", "retrieval.passage"
         )
         assert prompt_name == "retrieval.passage"
-        assert task is None
+        assert task == prompt_name
 
     def test_retrieval_query(self):
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "retrieval.query")
         assert prompt_name == "retrieval.query"
-        assert task is None
+        assert task == prompt_name
 
     def test_retrieval_backward_compat(self):
         """Plain 'retrieval' maps to 'retrieval.passage' for v3."""
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "retrieval")
         assert prompt_name == "retrieval.passage"
-        assert task is None
+        assert task == prompt_name
 
     def test_passage_alias(self):
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "passage")
         assert prompt_name == "retrieval.passage"
-        assert task is None
+        assert task == prompt_name
 
     def test_query_alias(self):
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "query")
         assert prompt_name == "retrieval.query"
-        assert task is None
+        assert task == prompt_name
 
     def test_document(self):
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "document")
         assert prompt_name == "document"
-        assert task is None
+        assert task == prompt_name
 
     def test_invalid_task_raises(self):
         with pytest.raises(ValueError, match="Invalid task"):
@@ -140,7 +146,7 @@ class TestResolveJinaTaskGeneral:
     def test_case_insensitive_model_name_v3(self):
         prompt_name, task = _resolve_jina_task("Jina-Embeddings-V3", "retrieval.query")
         assert prompt_name == "retrieval.query"
-        assert task is None
+        assert task == "retrieval.query"
 
 
 # ---------------------------------------------------------------------------
@@ -271,3 +277,75 @@ class TestResolveJinaTaskV5:
         prompt_name, task = _resolve_jina_task("jina-embeddings-v5-omni-nano", None)
         assert prompt_name is None
         assert task == "retrieval"
+
+
+# ---------------------------------------------------------------------------
+# Request path
+# ---------------------------------------------------------------------------
+
+
+class _V3Encoder:
+    """Stands in for jina-embeddings-v3 loaded by SentenceTransformer."""
+
+    device = torch.device("cpu")
+    # prompts from the model's config_sentence_transformers.json
+    prompts = {
+        "retrieval.query": "Represent the query for retrieving evidence documents: ",
+        "retrieval.passage": "Represent the document for retrieval: ",
+    }
+    default_prompt_name = None
+    truncate_dim = None
+
+    def __init__(self):
+        self.tokenized = []
+        self.forward_kwargs = []
+
+    def eval(self):
+        pass
+
+    def tokenize(self, sentences):
+        self.tokenized.extend(sentences)
+        return {
+            "input_ids": torch.ones((len(sentences), 4), dtype=torch.long),
+            "attention_mask": torch.ones((len(sentences), 4), dtype=torch.long),
+        }
+
+    def forward(self, features, **kwargs):
+        self.forward_kwargs.append(kwargs)
+        rows = features["attention_mask"].shape[0]
+        return {"sentence_embedding": torch.ones((rows, 3))}
+
+
+@pytest.mark.parametrize(
+    "task,adapter",
+    [
+        ("retrieval.query", "retrieval.query"),
+        ("retrieval.passage", "retrieval.passage"),
+        ("passage", "retrieval.passage"),
+        (None, None),
+    ],
+)
+async def test_v3_request_task_selects_lora_adapter_and_prompt(task, adapter):
+    # The jina-embeddings-v3 model card encodes with
+    # ``model.encode(texts, task=task, prompt_name=task)``: ``task`` reaches
+    # the custom Transformer.forward() and selects the LoRA adapter.
+    from ...embed_family import BUILTIN_EMBEDDING_MODELS
+    from ..core import SentenceTransformerEmbeddingModel
+
+    family = BUILTIN_EMBEDDING_MODELS["jina-embeddings-v3"][0]
+    model = SentenceTransformerEmbeddingModel("test", "/unused", family)
+    model._model = encoder = _V3Encoder()
+    kwargs = {"model_uid": "jina"}
+    if task is not None:
+        kwargs["task"] = task
+    try:
+        result = await model.create_embedding(["Berlin weather"], **kwargs)
+    finally:
+        model._process_batch_task.cancel()
+        await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert len(result["data"]) == 1
+    prompt = encoder.prompts[adapter] if adapter else ""
+    # encode() also tokenizes the prompt alone to measure its length
+    assert encoder.tokenized[-1] == prompt + "Berlin weather"
+    assert encoder.forward_kwargs == [{"task": adapter} if adapter else {}]
