@@ -220,6 +220,10 @@ msgid "Before streaming starts, system-message ordering errors on strict templat
 msgstr "串流回應開始前，嚴格範本的系統訊息順序錯誤及偵測到的 vLLM 單次提示多模態數量超限會傳回 HTTP 400。如果無法查詢目前的限制，則由工作程序執行驗證。"
 
 #: ../../source/user_guide/client_api.rst
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "當請求本文不是有效的 JSON，或雖是有效的 JSON 但不是物件（例如 ``[]`` 或 ``null``）時，``/v1/chat/completions`` 與 ``/v1/completions`` 會回傳 HTTP 400。此檢查會在查找模型或開始串流回應之前進行。未通過請求結構描述驗證的 JSON 物件會回傳 HTTP 422。"
+
+#: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
 msgstr "非串流請求中，已識別的上下文長度超限，以及已知的媒體或 cache-salt 驗證錯誤會傳回 HTTP 400；限流錯誤會傳回 HTTP 429。錯誤訊息會說明原因，同時避免揭露工作程序的內部資訊。無法識別的工作程序錯誤會傳回 HTTP 500。"
 
