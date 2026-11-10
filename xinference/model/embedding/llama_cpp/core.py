@@ -104,10 +104,9 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         return sys.platform.startswith("linux")
 
     def _configure_params(self, params: Any) -> None:
-        from xllamacpp import llama_pooling_type
-
         params.n_parallel = min(8, os.cpu_count() or 1)
-        params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+        # Leave pooling_type unspecified so llama.cpp uses the pooling the GGUF
+        # declares (e.g. CLS for bge-m3, last-token for Qwen3-Embedding).
 
     def load(self):
         # add truncate_dim args hint

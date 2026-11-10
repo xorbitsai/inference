@@ -15,6 +15,7 @@
 # CI: linux
 
 import shutil
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -113,6 +114,37 @@ def test_embedding_model_raises_xllamacpp_error(nested):
         model._create_embedding("")
 
     assert str(exc_info.value) == message
+
+
+@pytest.mark.parametrize(
+    "config,expected",
+    [
+        # GGUF embedding models declare their pooling (e.g. bge-m3 CLS,
+        # nomic-embed MEAN, Qwen3-Embedding LAST); llama.cpp applies it when
+        # pooling_type is left unspecified.
+        ({}, "UNSPECIFIED"),
+        ({"pooling_type": 2}, "CLS"),
+    ],
+)
+def test_load_keeps_gguf_pooling_unless_configured(monkeypatch, config, expected):
+    xllamacpp = pytest.importorskip("xllamacpp")
+    server = MagicMock()
+    monkeypatch.setattr(xllamacpp, "Server", server)
+    model = XllamaCppEmbeddingModel(
+        "mock",
+        "/unused",
+        TEST_MODEL_SPEC,
+        quantization="Q8_0",
+        n_gpu_layers=0,
+        **config,
+    )
+    model.load()
+    model._executor.shutdown()
+
+    params = server.call_args.args[0]
+    assert int(params.pooling_type) == int(
+        getattr(xllamacpp.llama_pooling_type, f"LLAMA_POOLING_TYPE_{expected}")
+    )
 
 
 async def test_embedding_model_with_xllamacpp():
