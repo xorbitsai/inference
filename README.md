@@ -1,58 +1,121 @@
-<div align="center">
-<img src="./assets/xorbits-logo.png" width="180px" alt="xorbits" />
+# ![Xinference](assets/xinference-banner-platform-types.webp)
 
-# Xorbits Inference: Model Serving Made Easy 🤖
+**Xinference (Xorbits Inference) is an open-source distributed inference platform.**
 
-<p align="center">
-  <a href="https://xinference.co">Xinference Enterprise</a> ·
-  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">Self-hosting</a> ·
-  <a href="https://inference.readthedocs.io/">Documentation</a>
-</p>
+Deploy and run models on heterogeneous hardware, from a local machine to a distributed cluster. Xinference includes 300+ built-in models for language, vision, embeddings, reranking, image, audio, video, and experimental world generation. Register your own models, including traditional ML models through the Flexible type. Manage deployments in the Web UI and use models through OpenAI-compatible APIs, the Python SDK, or the CLI.
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
-[![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
-[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
-[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
-[![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
+[Quick start](#quick-start) · [Key features](#key-features) · [Comparison](#how-xinference-compares) · [Self-hosting](https://inference.readthedocs.io/en/latest/getting_started/installation.html) · [Documentation](https://inference.readthedocs.io/en/latest/) · [Model catalog](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [Releases](https://github.com/xorbitsai/inference/releases) · [Xinference Enterprise](https://xinference.co/enterprise.html)
 
-<p align="center">
-  <a href="./README.md"><img alt="English" src="https://img.shields.io/badge/English-454545?style=for-the-badge"></a>
-  <a href="./READMES/README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_fr.md"><img alt="Français" src="https://img.shields.io/badge/Français-d9d9d9?style=for-the-badge"></a>
-  <br>
-  <a href="./READMES/README_es.md"><img alt="Español" src="https://img.shields.io/badge/Español-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_it.md"><img alt="Italiano" src="https://img.shields.io/badge/Italiano-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_pt_BR.md"><img alt="Português" src="https://img.shields.io/badge/Português-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_zh_TW.md"><img alt="繁體中文" src="https://img.shields.io/badge/繁體中文-d9d9d9?style=for-the-badge"></a>
-  <a href="./READMES/README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
-</p>
-</div>
-<br />
+[![GitHub release](https://img.shields.io/github/v/release/xorbitsai/inference?logo=github&label=release&style=flat-square)](https://github.com/xorbitsai/inference/releases)
+[![PyPI version](https://img.shields.io/pypi/v/xinference?logo=pypi&style=flat-square)](https://pypi.org/project/xinference/)
+[![Docker tag](https://img.shields.io/docker/v/xprobe/xinference?sort=semver&logo=docker&label=docker%20tag&style=flat-square)](https://hub.docker.com/r/xprobe/xinference/tags)
+[![Python versions](https://img.shields.io/pypi/pyversions/xinference?logo=python&style=flat-square)](https://pypi.org/project/xinference/)
+[![Python CI](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&label=CI&style=flat-square)](https://github.com/xorbitsai/inference/actions/workflows/python.yaml)
 
+[![Apache 2.0 license](https://img.shields.io/github/license/xorbitsai/inference?label=license&style=flat-square)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/xorbitsai/inference?logo=github&label=stars&style=flat-square)](https://github.com/xorbitsai/inference/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/xorbitsai/inference?logo=github&label=forks&style=flat-square)](https://github.com/xorbitsai/inference/forks)
+[![Contributors](https://img.shields.io/github/contributors/xorbitsai/inference?style=flat-square)](https://github.com/xorbitsai/inference/graphs/contributors)
+[![Docker pulls](https://img.shields.io/docker/pulls/xprobe/xinference?logo=docker&label=docker%20pulls&style=flat-square)](https://hub.docker.com/r/xprobe/xinference)
+[![Discord community](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/Xw9tszSkr5)
+[![Telegram community](https://img.shields.io/badge/Telegram-join-26A5E4?logo=telegram&logoColor=white&style=flat-square)](https://t.me/+nCNpwmySwk9iYmI1)
+[![Follow Xinference on X](https://img.shields.io/badge/X-follow-171717?logo=x&logoColor=white&style=flat-square)](https://x.com/Xinference_ai)
 
-Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language, 
-speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy 
-and serve your or state-of-the-art built-in models using just a single command. Whether you are a 
-researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full 
-potential of cutting-edge AI models.
+**Languages** · **English** · [日本語](./READMES/README_ja_JP.md) · [한국어](./READMES/README_ko.md) · [Deutsch](./READMES/README_de.md) · [Français](./READMES/README_fr.md) · [Español](./READMES/README_es.md) · [Italiano](./READMES/README_it.md) · [Português](./READMES/README_pt_BR.md) · [繁體中文](./READMES/README_zh_TW.md) · [简体中文](./READMES/README_zh_CN.md)
 
-<div align="center">
-<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">Join our Telegram group!</a></i>
-</div>
+## Quick start
 
-## 🔥 Hot Topics
-### Framework Enhancements
-- Xinference 4.0.0 is available with multi-engine Xavier, heterogeneous P/D, and runtime model reconfiguration: [Release Notes](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
-- Agent-native Serving: Xinference integrates with [Xagent](https://github.com/xorbitsai/xagent) to enable dynamic planning, tool use, and autonomous multi-step reasoning — moving beyond static pipelines.
-- Auto batch: Multiple concurrent requests are automatically batched, significantly improving throughput: [#4197](https://github.com/xorbitsai/inference/pull/4197)
-- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): New llama.cpp Python binding, maintained by Xinference team, supports continuous batching and is more production-ready.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
-- Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
-- VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
-### New Models
+### 1. Start the server
+
+Xinference downloads the model and installs any needed engine dependencies on the first launch.
+
+```bash
+pip install xinference
+xinference-local --host 127.0.0.1
+```
+
+Open [http://127.0.0.1:9997](http://127.0.0.1:9997). On a fresh instance, use the setup token printed in the server log to create an administrator account, then sign in. [First-run setup](https://inference.readthedocs.io/en/latest/user_guide/auth_system.html#initial-admin-account)
+
+### 2. Launch a chat model
+
+In **Launch Model**, search for `qwen3.5` and open its launch form. Click **Recommend configuration** to fill in settings for your hardware. Review the recommendation and click **Deploy**.
+
+![Full Qwen3.5 launch form with the recommended configuration applied](assets/guide-launch-recommend-auto.webp)
+
+### 3. Make your first request
+
+Open the deployed model in **Running Models** to try a prompt in the Web UI. The first instance uses `qwen3.5` as its Model UID. If your instance shows a different UID, use that value for `model` below. Create a key under **API Key Management** to call the API.
+
+```bash
+export XINFERENCE_API_KEY="<your-api-key>"
+curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
+  -H "Authorization: Bearer $XINFERENCE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3.5",
+    "messages": [{"role": "user", "content": "Translate this sentence into Spanish: The model is ready."}],
+    "enable_thinking": false,
+    "max_tokens": 96
+  }'
+```
+
+![The qwen3.5 chat playground showing a completed response](assets/guide-chat-en.webp)
+
+## Key features
+
+| Area | What Xinference supports |
+| --- | --- |
+| Model catalog | 300+ built-in models across language, vision, embeddings, reranking, images, audio, video, and experimental world generation. Register your own models, including Flexible models for traditional ML. [Model catalog](https://inference.readthedocs.io/en/latest/models/builtin/index.html) |
+| Engines and hardware | Choose vLLM, SGLang, TRT-LLM, Transformers, llama.cpp, or MLX for supported LLMs. Hardware support varies by engine and includes CPU, GPUs, Apple Silicon, and supported MLU configurations. [Backends](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [MLU support](https://github.com/xorbitsai/inference/pull/3693) |
+| Distributed serving | Run on one machine, add workers and replicas, or run a large model across workers with a supported engine. Compatible deployments support heterogeneous prefill/decode separation. [Distributed inference](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [P/D separation](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html) |
+| APIs and tools | OpenAI- and Anthropic-compatible endpoints, with streaming and tool calling where supported. Deploy and manage models through the Web UI, CLI, or Python SDK. [Client guide](https://inference.readthedocs.io/en/latest/user_guide/client_api.html) · [Tool calling](https://inference.readthedocs.io/en/latest/models/model_abilities/tools.html) |
+| Performance and operations | Benchmark running chat models in the Web UI. Supported deployments can share prefix caches with Xavier, change selected runtime settings, and reload replicas one at a time. [Performance tests](https://inference.readthedocs.io/en/latest/user_guide/benchmarks.html) · [Runtime configuration](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-without-reloading-weights) |
+| Languages | Use the Web UI in English, Simplified Chinese, Traditional Chinese, Japanese, or Korean. The README is available in ten languages. |
+
+## How Xinference compares
+
+| Capability | **Xinference** | LocalAI | KServe | NVIDIA Dynamo |
+| --- | :---: | :---: | :---: | :---: |
+| **Standalone (no Kubernetes)** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![Supported][compare-supported] |
+| **Multi-node inference** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Supported][compare-supported] |
+| **CPU / GPU / Apple Metal** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
+| **llama.cpp / vLLM / SGLang** | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
+| **CUDA ↔ Metal prefill/decode** | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] |
+| **Mixed engines under one model ID** | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
+| **Rolling reconfiguration with GPU weight reuse** | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] | ![No documented support][compare-undocumented] |
+| Model catalog | ![Supported][compare-supported] 300+ | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![Partial or via integration][compare-partial] |
+| Model deployment Web UI | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Partial or via integration][compare-partial] | ![No documented support][compare-undocumented] |
+| Embeddings and reranking | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Supported][compare-supported] | ![Supported][compare-supported] |
+| Image and video generation | ![Supported][compare-supported] | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![Supported][compare-supported] |
+| Speech recognition and synthesis | ![Supported][compare-supported] | ![Supported][compare-supported] | ![No documented support][compare-undocumented] | ![Partial or via integration][compare-partial] |
+
+![][compare-supported] Supported · ![][compare-partial] Partial or via integration · ![][compare-undocumented] No documented support
+
+<details>
+<summary>Scope and sources</summary>
+
+Based on documented features in the open-source releases. Engine and hardware support varies by model. CUDA ↔ Metal prefill/decode requires a compatible model and engine pair.
+
+Xinference can serve replicas with different engines concurrently under one model ID. LocalAI uses an ordered failover chain under one model name and sends requests to the first available target. KServe and Dynamo can route across separate deployments. GPU weight reuse applies to supported vLLM and SGLang configurations.
+
+- **Xinference** · [Model catalog](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [Backends](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [Distributed inference](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [Cross-engine P/D on CUDA and Metal](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [Replica engine overrides](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [Rolling reconfiguration](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
+- **LocalAI** · [Model and deployment features](https://localai.io/docs/features/index.html) · [Backends and hardware](https://localai.io/docs/reference/index.print.html) · [Distributed mode](https://localai.io/docs/features/distributed-mode/) · [Model aliases and failover](https://localai.io/docs/features/model-failover/index.html)
+- **KServe** · [Deployment and hardware](https://kserve.github.io/website/docs/intro) · [Built-in generative runtimes](https://kserve.github.io/website/docs/model-serving/generative-inference/overview) · [Kubeflow model catalog](https://www.kubeflow.org/docs/components/hub/installation/) · [Kubeflow Web UI](https://www.kubeflow.org/docs/ecosystem/kserve/webapp/) · [Canary deployments](https://kserve.github.io/website/docs/model-serving/generative-inference/llmisvc/canary-rollout-observability)
+- **NVIDIA Dynamo** · [Deployment, hardware, and engines](https://docs.dynamo.nvidia.com/dynamo) · [Deployment recipes](https://docs.dynamo.nvidia.com/dynamo/recipes/browse) · [Image, video, and speech generation](https://docs.dynamo.nvidia.com/dynamo/diffusion/overview) · [Embedding and reranking support](https://docs.dynamo.nvidia.com/dynamo/reference/releases/v1-6-0) · [Multi-deployment routing](https://docs.dynamo.nvidia.com/dynamo/reference/components/global-router-configuration)
+
+</details>
+
+[compare-supported]: assets/compare-supported.svg
+[compare-partial]: assets/compare-partial.svg
+[compare-undocumented]: assets/compare-undocumented.svg
+
+## Recent updates
+
+[Read the v4.2.0 release notes](https://github.com/xorbitsai/inference/releases/tag/v4.2.0)
+
+<details>
+<summary>Built-in models added in the last two releases (v4.1 and v4.2)</summary>
+
 - Built-in support for [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b): [#6003](https://github.com/xorbitsai/inference/pull/6003)
 - Built-in support for [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0): [#5916](https://github.com/xorbitsai/inference/pull/5916)
 - Built-in support for [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3): [#5914](https://github.com/xorbitsai/inference/pull/5914)
@@ -69,138 +132,46 @@ potential of cutting-edge AI models.
 - Built-in support for GLM-5.3 series ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)): [#5666](https://github.com/xorbitsai/inference/pull/5666)
 - Built-in support for [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo): [#5665](https://github.com/xorbitsai/inference/pull/5665)
 - Built-in support for [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash): [#5661](https://github.com/xorbitsai/inference/pull/5661)
-### Integrations
-- [Xagent](https://github.com/xorbitsai/xagent): an enterprise agent platform for building and running AI agents with planning, memory, and tool use — not limited to rigid workflows.
-- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
-- [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
-- [RAGFlow](https://github.com/infiniflow/ragflow): is an open-source RAG engine based on deep document understanding.
-- [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Brain, it is a powerful and easy-to-use AI assistant that integrates Retrieval-Augmented Generation (RAG) pipelines, supports robust workflows, and provides advanced MCP tool-use capabilities.
 
+</details>
 
-## Key Features
-🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech 
-recognition, and multimodal models. You can set up and deploy your models
-for experimentation and production with a single command.
+## Model performance tests
 
-⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single 
-command. Inference provides access to state-of-the-art open-source models!
+Open **Performance Tests**, pick a running chat model, and set the concurrency levels you want to test. Compare throughput, time to first token, and time per output token before choosing a serving configuration. [Benchmark guide](https://inference.readthedocs.io/en/latest/user_guide/benchmarks.html)
 
-🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware resources with
-[ggml](https://github.com/ggerganov/ggml). Xorbits Inference intelligently utilizes heterogeneous
-hardware, including GPUs and CPUs, to accelerate your model inference tasks.
+![Web UI benchmark charts comparing throughput and latency at different concurrency levels](assets/guide-benchmark-en.webp)
 
-⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for interacting
-with your models, supporting OpenAI compatible RESTful API (including Function Calling API), RPC, CLI 
-and WebUI for seamless model management and interaction.
-
-🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, 
-allowing the seamless distribution of model inference across multiple devices or machines.
-
-🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
-with popular third-party libraries including [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference), [LlamaIndex](https://developers.llamaindex.ai/python/framework/integrations/llm/xinference_local_deployment/), [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference), and [Chatbox](https://chatboxai.app/).
-
-## Why Xinference
-| Feature                                        | Xinference | FastChat | OpenLLM | RayLLM |
-|------------------------------------------------|------------|----------|---------|--------|
-| OpenAI-Compatible RESTful API                  | ✅ | ✅ | ✅ | ✅ |
-| vLLM Integrations                              | ✅ | ✅ | ✅ | ✅ |
-| More Inference Engines (GGML, TensorRT)        | ✅ | ❌ | ✅ | ✅ |
-| More Platforms (CPU, Metal)                    | ✅ | ✅ | ❌ | ❌ |
-| Multi-node Cluster Deployment                  | ✅ | ❌ | ❌ | ✅ |
-| Image Models (Text-to-Image)                   | ✅ | ✅ | ❌ | ❌ |
-| Text Embedding Models                          | ✅ | ❌ | ❌ | ❌ |
-| Multimodal Models                              | ✅ | ❌ | ❌ | ❌ |
-| Audio Models                                   | ✅ | ❌ | ❌ | ❌ |
-| More OpenAI Functionalities (Function Calling) | ✅ | ❌ | ❌ | ❌ |
+*Example from a local Qwen3.5-0.8B run. Performance depends on the hardware, engine, and workload.*
 
 ## Using Xinference
 
-- **Self-hosting Xinference Community Edition</br>**
-Quickly get Xinference running in your environment with this [starter guide](#getting-started).
-Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
+| If you want to… | Start here |
+| --- | --- |
+| Install on Linux, macOS, or Windows | [One-command installer](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Installation guide](https://inference.readthedocs.io/en/latest/getting_started/installation.html) |
+| Run in a container or on Kubernetes | [Docker](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) · [Kubernetes](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html) |
+| Register your own model | [Custom models](https://inference.readthedocs.io/en/latest/models/custom.html) |
+| Connect an application | [OpenAI-compatible APIs](https://inference.readthedocs.io/en/latest/user_guide/client_api.html#openai-client) · [Xagent](https://github.com/xorbitsai/xagent) · [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference) |
 
-- **Xinference for enterprise / organizations</br>**
-**Xinference Enterprise** is the commercial edition for teams running models in production. Deploy it in your own cloud or data centre, or choose a managed dedicated deployment with **Xinference Cloud**. The hosted **Model API** gives you access to supported models through an OpenAI-compatible API without managing inference infrastructure. Learn more at [xinference.co](https://xinference.co).
-For enterprise enquiries, [email us](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry).
+**Apps and frameworks** · [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference) · [LlamaIndex](https://developers.llamaindex.ai/python/framework/integrations/llm/xinference_local_deployment/) · [FastGPT](https://doc.fastgpt.io/en/self-host/custom-models/xinference) · [RAGFlow](https://github.com/infiniflow/ragflow) · [MaxKB](https://github.com/1Panel-dev/MaxKB) · [Chatbox](https://chatboxai.app/)
 
-## Staying Ahead
+### Xinference Enterprise
 
-Star Xinference on GitHub and be instantly notified of new releases.
+Deploy Xinference Enterprise in your own cloud or data center. Xinference Cloud offers managed dedicated deployments, and the Model API provides hosted model endpoints. [Enterprise overview](https://xinference.co/enterprise.html)
 
-![star-us](assets/stay_ahead.gif)
-
-## Getting Started
-
-* [Docs](https://inference.readthedocs.io/en/latest/index.html)
-* [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
-* [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
-* [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-
-### Quick Start
-
-**pip**
-
-```bash
-pip install xinference
-xinference-local
-```
-
-**One-command installer**
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-[Installation guide](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Usage guide](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
-
-### Docker
-
-Nvidia GPU users can start Xinference server using [Xinference Docker Image](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Prior to executing the installation command, ensure that both [Docker](https://docs.docker.com/get-docker/) and [CUDA](https://developer.nvidia.com/cuda-downloads) are set up on your system.
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s via helm
-
-Ensure that you have GPU support in your Kubernetes cluster, then install as follows.
-
-```
-# add repo
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# update indexes and query xinference versions
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# install xinference
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-For more customized installation methods on K8s, please refer to the [documentation](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html).
-
-![web UI](assets/screenshot.png)
+**Business enquiries** · [info@xinference.co](mailto:info@xinference.co?subject=%5BGitHub%5DBusiness%20License%20Inquiry)
 
 ## Getting involved
 
-| Platform                                                                                        | Purpose                                     |
-|-------------------------------------------------------------------------------------------------|---------------------------------------------|
-| [Github Issues](https://github.com/xorbitsai/inference/issues)                                  | Reporting bugs and filing feature requests. |
-| [Discord](https://discord.gg/Xw9tszSkr5) | Collaborating with other Xinference users.  |
-| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                                       | Chatting with other Xinference users.       |
-| [Twitter](https://twitter.com/xorbitsio)                                                        | Staying up-to-date on new features.         |
+| Platform | What it's for |
+| --- | --- |
+| [GitHub Issues](https://github.com/xorbitsai/inference/issues) | Report bugs and request features. |
+| [Discord](https://discord.gg/Xw9tszSkr5) | Ask questions and discuss Xinference with other users. |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1) | Chat with the Xinference community. |
+| [X](https://x.com/Xinference_ai) | Follow project news and releases. |
 
 ## Citation
 
-If this work is helpful, please kindly cite as:
+If you use Xinference in your research, please cite [Xinference: Making Large Model Serving Easy](https://aclanthology.org/2024.emnlp-demo.30/).
 
 ```bibtex
 @inproceedings{lu2024xinference,
@@ -218,10 +189,6 @@ If this work is helpful, please kindly cite as:
 
 ## Contributors
 
-<a href="https://github.com/xorbitsai/inference/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
-</a>
+Thank you to everyone who helps build Xinference. Open your first pull request to add a model, improve the docs, or fix a bug. [Read the contribution guide](https://inference.readthedocs.io/en/latest/development/contributing_codebase.html).
 
-## Star History
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)
+[![Xinference contributor avatar wall](https://contrib.rocks/image?repo=xorbitsai/inference)](https://github.com/xorbitsai/inference/graphs/contributors)
