@@ -768,3 +768,53 @@ async def test_vllm_terminal_error_reaches_http_or_sse_error(monkeypatch, stream
         for call in api._report_error_event.await_args_list
     )
     assert not engine_model._active_request_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_completion_reports_the_model_error_when_generation_cannot_start(
+    monkeypatch, stream
+):
+    import json
+
+    import httpx
+    from fastapi import FastAPI
+
+    from ...core.model import ModelActor
+
+    backend = SimpleNamespace(
+        generate=MagicMock(), model_family=SimpleNamespace(to_description=dict)
+    )
+    model = ModelActor("supervisor", "worker", backend, "completion-model-0")
+    # A failed reload leaves the actor here; _require_ready raises RuntimeError.
+    model._model_state = "error"
+    model.record_metrics = AsyncMock()
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    api = _new_api()
+    api.handle_request_limit_error = restful_api.RESTfulAPI.handle_request_limit_error
+    api._get_supervisor_ref = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    app = FastAPI()
+    app.add_api_route("/v1/completions", api.create_completion, methods=["POST"])
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/completions",
+            json={"model": "completion-model", "prompt": "hello", "stream": stream},
+        )
+
+    if stream:
+        assert response.status_code == 200
+        events = [
+            json.loads(line[len("data:") :])
+            for line in response.text.splitlines()
+            if line.startswith("data:")
+        ]
+        assert events == [{"error": "Model is in error state"}]
+    else:
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Model is in error state"}
+    backend.generate.assert_not_called()
