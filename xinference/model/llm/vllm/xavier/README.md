@@ -38,6 +38,22 @@ Recurrent history reuse is currently disabled, even when a history budget is con
 
 In the legacy V0 path, prefill replicas release only the requested completed sequence; ordinary hybrid and decode replicas retain automatic cleanup.
 
+### Tensor-parallel and multimodal replicas
+
+Ordinary replicas that share CPU snapshots (`xavier_gpu_cache_bytes` and `xavier_cache_bytes` unset, no P/D roles) support TP>1 and multimodal prompts. P/D handoff, engine-mapped GPU caches, recurrent models and the specialized connectors (`PrefixConnector`, `CrossEngineConnector`, `XavierHybridGPUConnector`) keep one text-only worker per replica and reject these configurations at launch.
+
+With TP>1 Xavier lets vLLM start its multiprocessing executor. Every TP worker has its own connector and KV tensors, while the scheduler connector and the replica's TransferActor remain single. Each worker qualifies its layer names with its rank (`layer@tp2`), so one snapshot store holds all shards of a block under the same content key. Workers register their shard schemas separately; the replica schema, publication and reads wait until every rank has registered. A block is published to the tracker only when the layers of all shards are staged, whichever worker reports last. Consumers load the shard with their own rank, so replicas must use the same TP size: a different size is a schema mismatch and therefore a miss.
+
+TP workers copy their shard to host memory themselves and stage the bytes in the TransferActor; they do not use the CUDA IPC export path of single-GPU replicas. With CUDA IPC the single actor would wait on the exporting GPU, and a rank that has started its forward holds its GPU in the collective until every peer joins. A peer still waiting for the actor to answer its KV read could then never join. Staging is synchronous in the step that computed the blocks, so each worker stages at most 32 MiB of leading blocks per step; every rank admits the same blocks, and skipped blocks remain eligible when a later request repeats them.
+
+A worker releases only its shard of a read lease; the lease is released once every shard has, and the scheduler still releases it when the request finishes. Gloo pairs sends and receives between two ranks in order, so reads from one peer are serialized per replica. Each shard has its own same-host receive buffer.
+
+Only cache groups that vLLM marks prefix-cacheable are stored and loaded. Per-request state, such as DeepSeek-V4.1 compressor ring buffers and replayed sliding windows, is neither content-addressed nor block-aligned; vLLM rebuilds it by replaying the tail of the hit. The scheduler may accept fewer tokens than offered when it aligns a hit; only blocks inside the accepted range are loaded. With TP>1 or multimodal models all shared groups must use one block size, and models that mix block sizes are rejected. Layers that alias another layer's cache tensor are transferred once.
+
+Blocks covering multimodal placeholders add each overlapping item's identifier and block-relative offset to the content key, as vLLM's own block hashes do. Placeholder tokens alone would make different images share a key.
+
+Snapshot capacity is still counted in engine blocks, but one block now holds every TP shard: host memory can approach the KV cache of all GPUs in the replica.
+
 ## Request routing and lifecycle
 
 The PD router issues a one-output-token prefill subrequest without changing the decoder's generation settings. Routing becomes available only after the replicas and transfer components are ready. Aborts reach both roles. Deployment termination also removes the PD router and Xavier's rank-zero coordinator, collective manager and block tracker.

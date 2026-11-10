@@ -231,6 +231,46 @@ def test_unsafe_parallelism_and_lora_fail_before_engine_creation(engine, field, 
     factory.assert_not_called()
 
 
+def test_tensor_parallel_replicas_share_cpu_snapshots(engine):
+    module, factory = engine
+    args = SimpleNamespace(
+        tensor_parallel_size=4,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=False),
+    )
+    module.XavierEngine.from_engine_args(
+        args, xavier_config={"role": "hybrid", "rank": 1}
+    )
+    factory.assert_called_once()
+    assert args.kv_transfer_config.kv_connector == "XavierConnector"
+    assert args.kv_transfer_config.kv_role == "kv_both"
+
+
+@pytest.mark.parametrize(
+    "xavier_config,recurrent",
+    [
+        ({"role": "decode"}, False),
+        ({"role": "hybrid", "gpu_cache_bytes": 0}, False),
+        ({"role": "hybrid", "gpu_cache_bytes": 1024}, False),
+        ({"role": "hybrid", "cpu_prefix_cache": {"capacity_bytes": 1}}, False),
+        ({"role": "hybrid", "shared_prefix": True}, False),
+        ({"role": "hybrid", "heterogeneous": True}, False),
+        ({"role": "hybrid"}, True),
+    ],
+)
+def test_tensor_parallel_requires_shared_cpu_snapshots(
+    engine, xavier_config, recurrent
+):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        tensor_parallel_size=2,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=recurrent),
+    )
+    with pytest.raises(ValueError, match="TP"):
+        module.XavierEngine.from_engine_args(args, xavier_config=xavier_config)
+    factory.assert_not_called()
+
+
 def test_gpu_path_rejects_legacy_before_engine_start(engine):
     module, factory = engine
     module.VLLM_VERSION = "0.7.3"

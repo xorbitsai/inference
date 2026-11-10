@@ -149,6 +149,13 @@ async def _copy_snapshot_to_cpu(
     return await finish_before_cancel(task)
 
 
+def _local_read_owners(actor) -> list:
+    """Same-host receive buffers of an actor: the replica's and each TP shard's."""
+    owner = getattr(actor, "_local_read_buffer_v1", None)
+    shards = getattr(actor, "_local_read_shard_buffers_v1", None) or {}
+    return ([] if owner is None else [owner]) + list(shards.values())
+
+
 class TransferActor(
     xo.StatelessActor, BufferTransferMixin, CollectiveRank, GPUTransferMixin
 ):
@@ -183,6 +190,12 @@ class TransferActor(
         self._cache_backend = dict(cache_backend or {})
         self._snapshot_capacity: Optional[int] = None
         self._kv_schema_v1: Optional[Tuple[int, dict, str]] = None
+        # TP workers each register the layers of their own shard. The replica
+        # schema, and with it publication and reads, waits for every shard.
+        self._kv_schema_shards_v1: Dict[int, Tuple[int, dict, str]] = {}
+        self._kv_schema_num_shards_v1 = 1
+        self._shard_releases_v1: Dict[str, Set[int]] = {}
+        self._read_locks_v1: Dict[int, asyncio.Lock] = {}
         self._schema_mismatch_warnings: Set[Tuple[str, str]] = set()
         self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
         self._snapshot_export_jobs_v1: Dict[str, asyncio.Task] = {}
@@ -227,10 +240,10 @@ class TransferActor(
         try:
             if getattr(self, "_local_read_tasks_v1", None):
                 await asyncio.gather(*self._local_read_tasks_v1, return_exceptions=True)
-            read_buffer = getattr(self, "_local_read_buffer_v1", None)
-            if read_buffer is not None:
+            for read_buffer in _local_read_owners(self):
                 read_buffer.close()
-                self._local_read_buffer_v1 = None
+            self._local_read_buffer_v1 = None
+            self.__dict__.pop("_local_read_shard_buffers_v1", None)
             if getattr(self, "_snapshot_export_jobs_v1", None):
                 await asyncio.gather(
                     *self._snapshot_export_jobs_v1.values(), return_exceptions=True
@@ -345,6 +358,11 @@ class TransferActor(
                     )
 
     def publish_blocks_v1(self, keys, layers):
+        if getattr(self, "_kv_schema_num_shards_v1", 1) > 1:
+            # One TP worker stages only its shard. A block becomes readable
+            # once the layers of every shard are present.
+            schema = self._kv_schema_v1
+            layers = schema[1] if schema is not None else ()
         available = self._snapshot_store.publish(keys, set(layers))
         evicted = self._snapshot_store.take_evicted()
         return available, evicted
@@ -364,8 +382,34 @@ class TransferActor(
             await tracker.register_snapshot_blocks(0, available, self._rank)
             return available, evicted
 
-    def configure_kv_schema_v1(self, block_size: int, layers: dict, cache_dtype: str):
+    def configure_kv_schema_v1(
+        self,
+        block_size: int,
+        layers: dict,
+        cache_dtype: str,
+        shard: Optional[int] = None,
+        num_shards: int = 1,
+    ):
         schema = (block_size, dict(layers), cache_dtype)
+        if shard is not None and num_shards > 1:
+            shards = self.__dict__.setdefault("_kv_schema_shards_v1", {})
+            if shards.get(shard, schema) != schema or not 0 <= shard < num_shards:
+                raise ValueError("Xavier registered KV schema changed")
+            shards[shard] = schema
+            self._kv_schema_num_shards_v1 = num_shards
+            if len(shards) < num_shards:
+                return
+            merged: dict = {}
+            for _, shard_layers, _ in shards.values():
+                if merged.keys() & shard_layers.keys():
+                    raise ValueError("Xavier TP shards registered overlapping layers")
+                merged.update(shard_layers)
+            if any(
+                (size, dtype) != (block_size, cache_dtype)
+                for size, _, dtype in shards.values()
+            ):
+                raise ValueError("Xavier TP shards registered different KV schemas")
+            schema = (block_size, merged, cache_dtype)
         previous = self._kv_schema_v1
         if previous is not None and previous != schema:
             raise ValueError("Xavier registered KV schema changed")
@@ -565,7 +609,18 @@ class TransferActor(
                     return_exceptions=True,
                 )
 
-    async def release_remote_blocks_v1(self, lease, transfers):
+    async def release_remote_blocks_v1(
+        self, lease, transfers, shard: Optional[int] = None, num_shards: int = 1
+    ):
+        pending = self.__dict__.setdefault("_shard_releases_v1", {})
+        if shard is not None and num_shards > 1:
+            # Other TP workers of this replica may still be reading the lease.
+            released = pending.setdefault(lease, set())
+            released.add(shard)
+            if len(released) < num_shards:
+                return
+        pending.pop(lease, None)
+
         async def release(rank):
             ref = await xo.actor_ref(
                 address=self._world_addresses[rank],
@@ -747,6 +802,15 @@ class TransferActor(
 
         # Validate and retain the complete payload before acknowledging the send.
         payload = pack_reads(self._snapshot_store, reads)
+        logger.debug(
+            "Xavier V1 send snapshots: rank=%s, to_rank=%s, layers=%s, blocks=%s, "
+            "bytes=%s",
+            getattr(self, "_rank", None),
+            to_rank,
+            len(reads),
+            sum(len(read.keys) for read in reads),
+            payload.numel(),
+        )
 
         def send():
             # The thread owns payload even if its asyncio wrapper is cancelled.
@@ -770,28 +834,50 @@ class TransferActor(
 
         task.add_done_callback(completed)
 
-    def get_local_read_metadata_v1(self):
+    def get_local_read_metadata_v1(self, shard: Optional[int] = None):
         if sys.platform != "linux":
             return None
         from ...xavier.backends.torch.local_read import SharedReadBuffer
 
-        owner = getattr(self, "_local_read_buffer_v1", None)
+        # TP workers read concurrently: one leased buffer per shard keeps each
+        # of them on the same-host path instead of contending for one lease.
+        shards = (
+            None
+            if shard is None
+            else self.__dict__.setdefault("_local_read_shard_buffers_v1", {})
+        )
+        owner = (
+            getattr(self, "_local_read_buffer_v1", None)
+            if shards is None
+            else shards.get(shard)
+        )
         try:
             if owner is None:
-                owner = self._local_read_buffer_v1 = SharedReadBuffer()
-                self._local_read_tasks_v1 = set()
+                owner = SharedReadBuffer()
+                if shards is None:
+                    self._local_read_buffer_v1 = owner
+                else:
+                    shards[shard] = owner
+                if getattr(self, "_local_read_tasks_v1", None) is None:
+                    self._local_read_tasks_v1 = set()
             return owner.metadata()
         except OSError:
             if owner is not None:
                 owner.close()
-                self._local_read_buffer_v1 = None
+                if shards is None:
+                    self._local_read_buffer_v1 = None
+                else:
+                    shards.pop(shard, None)
             return None
 
     async def read_request_blocks_local_v1(self, from_rank, reads, token):
         from ...xavier.backends.torch.gpu_transfer import finish_before_cancel
 
-        owner = getattr(self, "_local_read_buffer_v1", None)
-        if owner is None or owner.token != token:
+        owner = next(
+            (owner for owner in _local_read_owners(self) if owner.token == token),
+            None,
+        )
+        if owner is None:
             return None
         acquired = owner.acquire(sum(read.nbytes for read in reads))
         if acquired is None:
@@ -812,9 +898,8 @@ class TransferActor(
         return lease
 
     def release_local_read_v1(self, lease):
-        owner = getattr(self, "_local_read_buffer_v1", None)
-        if owner is not None:
-            owner.release(lease)
+        for owner in _local_read_owners(self):
+            owner.release(lease)  # Only the buffer holding this lease reacts.
 
     async def read_request_blocks_v1(self, from_rank, reads, *, _buffer=None):
         from xoscar.collective import xoscar_pygloo as xp
@@ -829,12 +914,6 @@ class TransferActor(
             if _buffer is None
             else _buffer
         )
-        with profile_stage("actor_control", **fields):
-            sender = await xo.actor_ref(
-                address=self._world_addresses[from_rank],
-                uid=f"{TransferActor.default_uid()}-{from_rank}",
-            )
-            await sender.start_send_request_blocks_v1(self._rank, reads)
 
         def recv(buffer):
             # Cancellation stops the await, not the native thread. Keep ownership
@@ -848,8 +927,40 @@ class TransferActor(
                     from_rank,
                 )
 
-        with profile_stage("actor_receive", **fields):
-            await asyncio.to_thread(recv, payload)
+        async def transfer():
+            with profile_stage("actor_control", **fields):
+                sender = await xo.actor_ref(
+                    address=self._world_addresses[from_rank],
+                    uid=f"{TransferActor.default_uid()}-{from_rank}",
+                )
+                await sender.start_send_request_blocks_v1(self._rank, reads)
+            with profile_stage("actor_receive", **fields):
+                await asyncio.to_thread(recv, payload)
+
+        # Gloo pairs sends and receives between two ranks in order, without
+        # message tags. TP workers of one replica read concurrently, so each
+        # send/receive pair is exclusive. The pair runs in its own task: a
+        # cancelled caller returns at once while the native receive finishes
+        # and only then admits the next read.
+        lock = self.__dict__.setdefault("_read_locks_v1", {}).setdefault(
+            from_rank, asyncio.Lock()
+        )
+
+        async def exclusive():
+            async with lock:
+                await transfer()
+
+        task = asyncio.create_task(exclusive())
+        tasks = self.__dict__.setdefault("_read_tasks_v1", set())
+        tasks.add(task)
+
+        def completed(future):
+            tasks.discard(future)
+            if not future.cancelled():
+                future.exception()  # Observed here if the caller was cancelled.
+
+        task.add_done_callback(completed)
+        await asyncio.shield(task)
         return payload
 
     @staticmethod

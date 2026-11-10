@@ -70,10 +70,16 @@ V1 connector
 
 .. versionadded:: v3.4.0
 
-The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only
-models and no LoRA. Multimodal and prompt-embedding inputs are unsupported.
+The V1 connector requires vLLM >= ``0.21.0``, PP=1 and no LoRA.
+Prompt-embedding inputs are unsupported.
 Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent
 model requirements and GPU history settings.
+
+.. versionchanged:: v4.3.0
+
+   Ordinary replicas that share CPU snapshots (``xavier_gpu_cache_bytes`` and ``xavier_cache_bytes`` unset) can span several GPUs with tensor parallelism and serve multimodal models. Give every replica the same ``tensor_parallel_size`` and ``n_gpu``. Each TP rank stores and loads its own shard of a block; a block is shared once all of its shards are stored. Blocks that cover image placeholders are keyed by the image content. Only the cache groups that vLLM itself reuses for prefix hits are shared; vLLM rebuilds per-request state such as sliding windows. These cache groups must use one block size, so models that mix block sizes are rejected with TP>1 or multimodal inputs. P/D roles, ``xavier_gpu_cache_bytes``, ``xavier_cache_bytes`` and recurrent models still require TP=1 and text-only prompts.
+
+   With TP>1, do not set ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; Xavier starts vLLM's multiprocessing executor itself.
 
 The vLLM GPU transfer path requires NVIDIA GPUs.
 

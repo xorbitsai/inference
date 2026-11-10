@@ -80,6 +80,8 @@ class CrossEngineMetadata(KVConnectorMetadata):
 
 
 class CrossEngineConnector(XavierConnector):
+    _shards_snapshots = False
+
     def __init__(self, vllm_config, role, kv_cache_config):
         super().__init__(vllm_config, role, kv_cache_config)
         self.contract = KVCacheContract.from_dict(self._xavier_config["contract"])

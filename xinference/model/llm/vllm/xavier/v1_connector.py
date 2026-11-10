@@ -35,6 +35,7 @@ from typing import (
 
 import torch
 import xoscar as xo
+import xxhash
 from vllm.distributed.kv_transfer.kv_connector.v1.base import (
     KVConnectorBase_V1,
     KVConnectorHandshakeMetadata,
@@ -73,9 +74,13 @@ _MAX_READ_BYTES = 1024 * 1024
 _MAX_READ_BLOCKS = 64
 _MAX_EXPORT_BYTES = 32 * 1024 * 1024
 _MAX_PENDING_EXPORT_BYTES = 8 * _MAX_EXPORT_BYTES
+# A TP worker stages its shard synchronously: one export batch per engine step.
+_MAX_SHARD_STAGE_BYTES = _MAX_EXPORT_BYTES
 _EXPORT_REFRESH_SECONDS = 1.0
 _MAX_HASH_CACHE_TOKENS = 128 * 1024
 _MAX_HASH_CACHE_ENTRIES = 128
+# Suffix that qualifies a layer name with the TP rank owning that shard.
+_TP_SHARD_SEPARATOR = "@tp"
 
 
 @dataclass
@@ -150,6 +155,9 @@ class XavierConnectorMetadata(KVConnectorMetadata):
 class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
     _none_hash = -1
+    # Connectors with their own cache keys or transport keep one text-only
+    # worker; they opt out of TP shards and multimodal block identities.
+    _shards_snapshots = True
 
     def __init__(
         self,
@@ -205,21 +213,46 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         "Xavier recurrent handoff requires mamba_cache_mode=none"
                     )
         parallel = vllm_config.parallel_config
-        if parallel.tensor_parallel_size != 1 or parallel.pipeline_parallel_size != 1:
-            raise ValueError("Xavier V1 currently requires TP=1 and PP=1")
-        if vllm_config.lora_config is not None or (
-            vllm_config.model_config.is_multimodal_model
-            and not getattr(
-                getattr(vllm_config.model_config, "multimodal_config", None),
-                "language_model_only",
-                False,
-            )
-        ):
-            raise ValueError(
-                "Xavier V1 requires text-only models or language_model_only=True, without LoRA"
-            )
         self._direct_handoff = uses_direct_handoff(self._xavier_config)
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
+        # Ordinary replicas publish content-addressed CPU snapshots. Only this
+        # mode shards snapshots by TP rank and keys blocks by multimodal items;
+        # request-scoped handoff and engine-mapped GPU caches assume one worker.
+        self._shared_snapshots = (
+            self._shards_snapshots
+            and not self._direct_handoff
+            and not self._has_recurrent_cache
+            and not shared_recurrent_prefix
+        )
+        self._tp_size = int(parallel.tensor_parallel_size)
+        self._tp_rank: Optional[int] = None
+        if parallel.pipeline_parallel_size != 1:
+            raise ValueError("Xavier V1 currently requires PP=1")
+        if self._tp_size != 1 and not (
+            self._shared_snapshots and self._gpu_budget is None
+        ):
+            raise ValueError(
+                "Xavier V1 supports TP>1 only for full-attention replicas sharing "
+                "CPU snapshots; P/D handoff, recurrent models and "
+                "xavier_gpu_cache_bytes require TP=1"
+            )
+        multimodal = vllm_config.model_config.is_multimodal_model and not getattr(
+            getattr(vllm_config.model_config, "multimodal_config", None),
+            "language_model_only",
+            False,
+        )
+        if vllm_config.lora_config is not None:
+            raise ValueError("Xavier V1 does not support LoRA")
+        if multimodal and not self._shared_snapshots:
+            raise ValueError(
+                "Xavier V1 supports multimodal prompts only for full-attention "
+                "replicas sharing snapshots; P/D handoff and recurrent models "
+                "require text-only models or language_model_only=True"
+            )
+        self._store_group_ids = self._resolve_store_group_ids(kv_cache_config)
+        self._block_size = self._resolve_block_size(
+            kv_cache_config, strict=self._tp_size > 1 or multimodal
+        )
         if (
             self._direct_handoff
             and len(kv_cache_config.kv_cache_groups) != 1
@@ -263,6 +296,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             {}
         )
         self._request_cache_salts: Dict[str, str] = {}
+        self._request_mm_keys: Dict[str, Tuple[Tuple[int, int, str], ...]] = {}
         self._chunked_prefill: Dict[str, Tuple[List[List[int]], List[int]]] = {}
         self._layer_group_ids = self._build_layer_group_index()
         self._tracker_ref: Optional[xo.ActorRefType["VLLMBlockTracker"]] = None
@@ -283,7 +317,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._gpu_export_registered = False
         self._gpu_export_fence: Optional[torch.cuda.Event] = None
         self._hash_cache: OrderedDict[
-            Tuple[int, int, Tuple[int, ...], Optional[str]], Tuple[Tuple[int, int], ...]
+            Tuple[int, int, Tuple[int, ...], Optional[str], tuple],
+            Tuple[Tuple[int, int], ...],
         ] = OrderedDict()
         self._hash_cache_tokens = 0
         self._local_directory: Optional["LocalBlockDirectory"] = None
@@ -440,11 +475,42 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def register_kv_caches(
         self, kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]]
     ):
-        self._registered_kv_caches = dict(kv_caches)
+        if self._tp_size > 1:
+            self._tp_rank = self._current_tp_rank()
+        # Every TP rank owns one shard of each block. Shard-qualified layer
+        # names keep the ranks apart in the replica's snapshot store, and a
+        # block is published only once all of its shards have been staged.
+        # Caches rebuilt by vLLM after a prefix hit (ring buffers, replayed
+        # sliding windows) are not content-addressed and stay local.
+        kv_caches = self._registered_kv_caches = {
+            self._shard_layer_name(layer): cache
+            for layer, cache in kv_caches.items()
+            if self._is_store_group(self._layer_group_ids.get(layer, 0))
+        }
+        if self._shared_snapshots:
+            # Layers that share another layer's cache alias the same tensor.
+            # Transfer each tensor once, under the name its cache group lists.
+            unique: Dict[int, str] = {}
+            for name, cache in kv_caches.items():
+                if isinstance(cache, torch.Tensor):
+                    listed = self._base_layer_name(name) in self._layer_group_ids
+                    if id(cache) not in unique or (
+                        listed
+                        and self._base_layer_name(unique[id(cache)])
+                        not in self._layer_group_ids
+                    ):
+                        unique[id(cache)] = name
+            kept = set(unique.values())
+            kv_caches = self._registered_kv_caches = {
+                name: cache
+                for name, cache in kv_caches.items()
+                if not isinstance(cache, torch.Tensor) or name in kept
+            }
         if (
             sys.platform == "linux"
             and self._gpu_budget is None
             and not self._direct_handoff
+            and self._tp_size == 1
         ):
             devices = {
                 tensor.device
@@ -507,19 +573,42 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for layer_name in self._registered_kv_caches
         }
         logger.debug(
-            "Xavier V1 registered KV caches: rank=%s, layers=%s, groups=%s",
+            "Xavier V1 registered KV caches: rank=%s, tp_rank=%s/%s, layers=%s, "
+            "groups=%s, store_groups=%s, block_size=%s",
             self._rank,
+            self._tp_rank,
+            self._tp_size,
             list(self._registered_kv_caches),
             cache_groups,
+            "all" if self._store_group_ids is None else sorted(self._store_group_ids),
+            self._block_size,
         )
 
     def get_handshake_metadata(self):
         return self._kv_schema
 
     def set_xfer_handshake_metadata(self, metadata):
-        if len(metadata) != 1:
-            raise ValueError("Xavier KV schema requires one worker (TP=1)")
-        self._kv_schema = next(iter(metadata.values()))
+        if len(metadata) != self._tp_size or any(
+            schema is None for schema in metadata.values()
+        ):
+            raise ValueError(
+                f"Xavier KV schema requires one worker per TP rank; expected "
+                f"{self._tp_size}, got {len(metadata)}"
+            )
+        schemas = list(metadata.values())
+        first = schemas[0]
+        if len(schemas) == 1:
+            self._kv_schema = first
+            return
+        layers: Dict[str, Tuple[Tuple[int, ...], torch.dtype]] = {}
+        for schema in schemas:
+            if (schema.block_size, schema.cache_dtype) != (
+                first.block_size,
+                first.cache_dtype,
+            ) or layers.keys() & schema.layers.keys():
+                raise ValueError("Inconsistent Xavier KV schemas across TP ranks")
+            layers.update(schema.layers)
+        self._kv_schema = XavierKVSchema(first.block_size, layers, first.cache_dtype)
 
     def save_kv_layer(
         self,
@@ -617,6 +706,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if self._ipc_export_jobs:
             self._poll_ipc_exports(wait=True)
             missing = self._call(self._filter_store_requests(pending))
+        if missing and self._tp_size > 1:
+            missing = self._admit_shard_stages(missing)
         if missing:
             self._stage_missing_registered_layers(missing)
         # Re-publish all requested keys, including reused snapshots. This
@@ -629,13 +720,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request: "Request",
         num_computed_tokens: int,
     ) -> tuple[int | None, bool]:
+        mm_keys = self._mm_hash_keys(getattr(request, "mm_features", None))
         if (
             getattr(request, "lora_request", None)
-            or getattr(request, "mm_features", None)
             or getattr(request, "prompt_embeds", None) is not None
+            or (mm_keys and not self._shared_snapshots)
         ):
             raise ValueError(
-                "Xavier V1 does not support LoRA, multimodal or embedding prompts"
+                "Xavier V1 does not support LoRA or embedding prompts; multimodal "
+                "prompts require replicas sharing snapshots"
             )
         if self._direct_handoff:
             params = getattr(request, "kv_transfer_params", None) or {}
@@ -690,6 +783,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     request.request_id,
                     {self._rank: {key: start + i for i, key in enumerate(matched)}},
                     lease=lease,
+                    local_hit_tokens=num_computed_tokens,
                 )
                 return (
                     min(len(matched) * self._block_size, tokens - num_computed_tokens),
@@ -774,7 +868,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             external_token_count, (local_hit_blocks + 1) * self._block_size
         )
         hashes = self._build_xavier_hashes(
-            token_ids[:probe_tokens], getattr(request, "cache_salt", None)
+            token_ids[:probe_tokens],
+            getattr(request, "cache_salt", None),
+            *((mm_keys,) if mm_keys else ()),
         )
         if not hashes:
             return 0, False
@@ -800,7 +896,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return 0, False
         if probe_tokens < external_token_count:
             hashes = self._build_xavier_hashes(
-                token_ids[:external_token_count], getattr(request, "cache_salt", None)
+                token_ids[:external_token_count],
+                getattr(request, "cache_salt", None),
+                *((mm_keys,) if mm_keys else ()),
             )
             query_hashes = hashes[local_hit_blocks:]
             remainder = self._call(
@@ -822,6 +920,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             request_id=request.request_id,
             transfers=transfers,
             lease=f"{self._rank}:{uuid.uuid4().hex}",
+            local_hit_tokens=num_computed_tokens,
         )
         if not self._call(self._reserve_load_request(load)):
             return 0, False
@@ -843,6 +942,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             if not hasattr(self, "_request_cache_salts"):
                 self._request_cache_salts = {}
             self._request_cache_salts[request.request_id] = salt
+        mm_keys = self._mm_hash_keys(getattr(request, "mm_features", None))
+        if mm_keys:
+            if not hasattr(self, "_request_mm_keys"):
+                self._request_mm_keys = {}
+            self._request_mm_keys[request.request_id] = mm_keys
         if not self._is_consumer or num_external_tokens <= 0:
             return
 
@@ -859,8 +963,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for index, block in enumerate(group)
             if block.is_null
         }
+        # The scheduler may accept fewer tokens than were offered, for example
+        # when it aligns a hit before replaying its tail. Blocks beyond the
+        # accepted range are computed locally and may not be allocated yet.
+        accepted_blocks = -(
+            -(load_request.local_hit_tokens + num_external_tokens) // self._block_size
+        )
         local_transfers_by_group: Dict[int, Dict[int, Dict[int, int]]] = {}
         for group_id, group_block_ids in enumerate(block_ids_by_group):
+            if not self._is_store_group(group_id):
+                continue
+            limit = min(accepted_blocks, len(group_block_ids))
             updated: Dict[int, Dict[int, int]] = {}
             for from_rank, remote_to_placeholder in load_request.transfers.items():
                 if load_request.remote_blocks_by_group:
@@ -886,7 +999,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 updated[from_rank] = {
                     remote_block_id: group_block_ids[placeholder]
                     for remote_block_id, placeholder in remote_to_placeholder.items()
-                    if (group_id, placeholder) not in null_positions
+                    if placeholder < limit
+                    and (group_id, placeholder) not in null_positions
                 }
             local_transfers_by_group[group_id] = updated
 
@@ -926,6 +1040,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         block_ids_by_group: Optional[Tuple[List[int], ...]] = None,
     ) -> tuple[bool, dict[str, Any] | None]:
         getattr(self, "_request_cache_salts", {}).pop(request.request_id, None)
+        getattr(self, "_request_mm_keys", {}).pop(request.request_id, None)
         if self._direct_handoff:
             pending = self._requests_need_load.get(request.request_id)
             if pending is not None and pending.lease.startswith("history:"):
@@ -1054,7 +1169,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 i for i in range(len(block_ids)) if i not in self._recurrent_groups
             )
             return self.request_finished(request, block_ids[full_group], block_ids)
-        return self.request_finished(request, block_ids[0] if block_ids else [])
+        group_id = min(getattr(self, "_store_group_ids", None) or {0})
+        return self.request_finished(
+            request, block_ids[group_id] if group_id < len(block_ids) else []
+        )
 
     def take_events(self) -> Iterable:
         return ()
@@ -1089,6 +1207,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     self._kv_schema.block_size,
                     self._kv_schema.layers,
                     self._kv_schema.cache_dtype,
+                    *self._shard_args(),
                 )
             self._transfer_ref = ref
         return self._transfer_ref
@@ -1111,7 +1230,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     next(iter(request.transfers)), request.lease
                 )
         else:
-            await transfer.release_remote_blocks_v1(request.lease, request.transfers)
+            # A TP worker gives up only its own shard: peers may still read.
+            # The scheduler passes no shard and releases the lease outright.
+            await transfer.release_remote_blocks_v1(
+                request.lease, request.transfers, *self._shard_args()
+            )
 
     async def _query_remote_blocks(
         self,
@@ -1184,7 +1307,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         [request.block_ids[i] for i in indices],
                         [request.block_hashes[i] for i in indices],
                         [
-                            [group[i] for i in indices]
+                            # Groups that are not shared carry no block IDs.
+                            [group[i] for i in indices] if group else []
                             for group in request.block_ids_by_group
                         ],
                     )
@@ -1262,7 +1386,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             from ...xavier.backends.torch.local_read import LocalReadBuffer
 
             self._local_read = LocalReadBuffer.attach(
-                await transfer.get_local_read_metadata_v1()
+                await transfer.get_local_read_metadata_v1(*self._shard_args()[:1])
             )
             self._local_read_checked = True
         local = self._local_read
@@ -1377,6 +1501,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             )
 
         self._call(load())
+        logger.debug(
+            "Loaded Xavier V1 snapshots: request=%s, rank=%s, tp_rank=%s, from_ranks=%s",
+            request.request_id,
+            self._rank,
+            getattr(self, "_tp_rank", None),
+            list(request.transfers),
+        )
 
     def _load_layer_blocks(
         self,
@@ -1656,8 +1787,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         )
 
     def _can_queue_ipc_export(self, requests: List[XavierStoreRequest]) -> bool:
+        # TP workers copy their shard to host memory themselves. A CUDA IPC
+        # export would make the single TransferActor wait on a GPU that may be
+        # held in a collective by a rank still waiting for this actor's reads.
         return (
             sys.platform == "linux"
+            and getattr(self, "_tp_size", 1) == 1
             and self._gpu_budget is None
             and bool(self._registered_kv_caches)
             and all(
@@ -1667,6 +1802,38 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
             and self._cpu_export_size(requests) <= self._ipc_export_budget
         )
+
+    def _admit_shard_stages(
+        self, requests: List[XavierStoreRequest]
+    ) -> List[XavierStoreRequest]:
+        """Bound what one TP worker stages synchronously in a step.
+
+        Every rank sees the same requests and block sizes, so all of them
+        admit the same leading blocks and those blocks become complete.
+        Skipped blocks remain eligible when a later request repeats them.
+        """
+        count = sum(len(request.block_hashes) for request in requests)
+        if not count:
+            return []
+        max_blocks = _MAX_SHARD_STAGE_BYTES // (
+            self._cpu_export_size(requests) // count
+        )
+        admitted = []
+        for request in requests:
+            take = min(len(request.block_hashes), max_blocks)
+            if take:
+                admitted.append(
+                    XavierStoreRequest(
+                        request.request_id,
+                        request.block_ids[:take],
+                        request.block_hashes[:take],
+                        [group[:take] for group in request.block_ids_by_group],
+                    )
+                )
+                max_blocks -= take
+            if not max_blocks:
+                break
+        return admitted
 
     def _admit_cpu_exports(
         self, requests: List[XavierStoreRequest]
@@ -2203,26 +2370,35 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             external_token_count = (
                 min(external_token_count, num_tokens) // self._block_size
             ) * self._block_size
+        mm_keys = getattr(self, "_request_mm_keys", {}).get(request_id)
         hashes = self._build_xavier_hashes(
             token_ids[:external_token_count],
             getattr(self, "_request_cache_salts", {}).get(request_id),
+            *((mm_keys,) if mm_keys else ()),
         )
         if not hashes:
             return
         if not block_ids_by_group:
             return
-        group_lengths = [len(block_ids) for block_ids in block_ids_by_group]
+        store_groups = [
+            group_id
+            for group_id in range(len(block_ids_by_group))
+            if self._is_store_group(group_id)
+        ]
+        if not store_groups:
+            return
+        group_lengths = [len(block_ids_by_group[i]) for i in store_groups]
         num_blocks = min(len(hashes), *group_lengths)
         if num_blocks <= 0:
             return
-        block_ids = block_ids_by_group[0]
+        block_ids = block_ids_by_group[store_groups[0]]
         request = XavierStoreRequest(
             request_id=request_id,
             block_ids=list(block_ids[:num_blocks]),
             block_hashes=[content_hash for content_hash, _ in hashes[:num_blocks]],
             block_ids_by_group=[
-                list(group_block_ids[:num_blocks])
-                for group_block_ids in block_ids_by_group
+                list(group_block_ids[:num_blocks]) if group_id in store_groups else []
+                for group_id, group_block_ids in enumerate(block_ids_by_group)
             ],
         )
         meta.store_requests.append(request)
@@ -2244,7 +2420,86 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     @staticmethod
     def _base_layer_name(layer_name: str) -> str:
-        return layer_name.split("#", 1)[0]
+        return layer_name.split("#", 1)[0].split(_TP_SHARD_SEPARATOR, 1)[0]
+
+    def _shard_layer_name(self, layer_name: str) -> str:
+        if getattr(self, "_tp_rank", None) is None:
+            return layer_name
+        return f"{layer_name}{_TP_SHARD_SEPARATOR}{self._tp_rank}"
+
+    def _shard_args(self) -> Tuple[int, ...]:
+        """Identify a TP worker to the replica's TransferActor."""
+        tp_rank = getattr(self, "_tp_rank", None)
+        return () if tp_rank is None else (tp_rank, self._tp_size)
+
+    @staticmethod
+    def _current_tp_rank() -> int:
+        from vllm.distributed.parallel_state import get_tp_group
+
+        return int(get_tp_group().rank_in_group)
+
+    def _resolve_store_group_ids(
+        self, kv_cache_config: "KVCacheConfig"
+    ) -> Optional[frozenset[int]]:
+        """Cache groups addressed by content hashes; None means every group."""
+        groups = list(getattr(kv_cache_config, "kv_cache_groups", None) or [])
+        if not self._shared_snapshots or not groups:
+            return None
+        cacheable = frozenset(
+            i
+            for i, group in enumerate(groups)
+            if getattr(group.kv_cache_spec, "prefix_cacheable", True)
+        )
+        if not cacheable:
+            raise ValueError("Xavier V1 requires a prefix-cacheable KV cache group")
+        return None if len(cacheable) == len(groups) else cacheable
+
+    def _is_store_group(self, group_id: int) -> bool:
+        store_groups = getattr(self, "_store_group_ids", None)
+        return store_groups is None or group_id in store_groups
+
+    def _resolve_block_size(
+        self, kv_cache_config: "KVCacheConfig", *, strict: bool
+    ) -> int:
+        """Tokens per shared block, common to every content-addressed group.
+
+        TP shards and multimodal keys require it; single-GPU text replicas keep
+        the engine's configured block size as before.
+        """
+        if not self._shared_snapshots:
+            return self._block_size
+        sizes = {
+            size
+            for i, group in enumerate(
+                getattr(kv_cache_config, "kv_cache_groups", None) or []
+            )
+            if self._is_store_group(i)
+            and (size := getattr(group.kv_cache_spec, "block_size", None)) is not None
+        }
+        if len(sizes) > 1:
+            if strict:
+                raise ValueError(
+                    "Xavier V1 with TP>1 or multimodal prompts requires one block "
+                    f"size across prefix-cacheable KV cache groups; got {sorted(sizes)}"
+                )
+            return self._block_size
+        return sizes.pop() if sizes else self._block_size
+
+    @staticmethod
+    def _mm_hash_keys(mm_features: Any) -> Tuple[Tuple[int, int, str], ...]:
+        """Placeholder ranges and content identifiers of multimodal items.
+
+        Placeholder tokens are identical for every image; the identifier
+        makes blocks covering them specific to the encoded content.
+        """
+        keys = []
+        for feature in mm_features or ():
+            position = getattr(feature, "mm_position", None)
+            identifier = getattr(feature, "identifier", None)
+            if position is None or identifier is None:
+                raise ValueError("Xavier V1 requires identified multimodal items")
+            keys.append((int(position.offset), int(position.length), str(identifier)))
+        return tuple(sorted(keys))
 
     def _get_layer_group_id(self, layer_name: str) -> int:
         return self._layer_group_ids.get(self._base_layer_name(layer_name), 0)
@@ -2308,11 +2563,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return dict(group_transfers.get(from_rank, {}))
 
     def _build_xavier_hashes(
-        self, token_ids: List[int], cache_salt: Optional[str] = None
+        self,
+        token_ids: List[int],
+        cache_salt: Optional[str] = None,
+        mm_keys: Tuple[Tuple[int, int, str], ...] = (),
     ) -> List[Tuple[int, int]]:
+        # Items starting beyond the hashed prefix cannot affect it.
+        mm_keys = tuple(key for key in mm_keys if key[0] < len(token_ids))
         cacheable = len(token_ids) <= _MAX_HASH_CACHE_TOKENS
         cache_key = (
-            (self._block_size, self._none_hash, tuple(token_ids), cache_salt)
+            (self._block_size, self._none_hash, tuple(token_ids), cache_salt, mm_keys)
             if cacheable
             else None
         )
@@ -2325,11 +2585,23 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             chunk = token_ids[start : start + self._block_size]
             if not chunk:
                 continue
+            extra_hash = self._none_hash
+            if mm_keys:
+                # As in vLLM's block hashes: every item overlapping the block,
+                # with its offset relative to the block start.
+                end = start + len(chunk)
+                overlapping = [
+                    (identifier, offset - start)
+                    for offset, length, identifier in mm_keys
+                    if offset < end and offset + length > start
+                ]
+                if overlapping:
+                    extra_hash = xxhash.xxh64_intdigest(repr(overlapping).encode())
             content_hash = hash_block_tokens(
                 block_idx == 0,
                 self._none_hash if block_idx == 0 else prev_hash,
                 chunk,
-                self._none_hash,
+                extra_hash,
                 self._none_hash,
                 cache_salt if block_idx == 0 else None,
             )

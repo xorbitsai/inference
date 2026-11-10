@@ -154,7 +154,7 @@ Xavier (default)
 
    vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
 
-Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models and prompt embeddings are not supported. See :ref:`xavier-cache-isolation` for request-scoped cache isolation.
+Xavier P/D requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models and prompt embeddings are not supported. Ordinary replicas sharing CPU snapshots do support TP>1 and multimodal models; see :ref:`xavier-vllm`. See :ref:`xavier-cache-isolation` for request-scoped cache isolation.
 
 Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. Allow additional host memory for transfers when sizing your deployment.
 
