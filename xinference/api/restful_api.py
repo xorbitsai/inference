@@ -2795,6 +2795,7 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
+                        raise
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
