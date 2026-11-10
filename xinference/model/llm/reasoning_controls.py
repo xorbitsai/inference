@@ -7,6 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ..._compat import BaseModel, Field, validator
 
+# Families whose chat template reads thinking_budget itself. For Seed-OSS, 0
+# closes reasoning in the prompt; it is never an engine token budget.
+TEMPLATE_THINKING_BUDGET_FAMILIES = frozenset({"seed-oss"})
+
 
 class ReasoningEffortConfig(BaseModel):
     values: List[str]
@@ -59,7 +63,9 @@ class ReasoningEffortConfig(BaseModel):
 
 
 def normalize_reasoning_controls(
-    config: Dict[str, Any], capability: Optional[ReasoningEffortConfig]
+    config: Dict[str, Any],
+    capability: Optional[ReasoningEffortConfig],
+    template_zero_budget: bool = False,
 ) -> Dict[str, Any]:
     """Validate explicit controls without deriving effort from token limits."""
     config = copy.deepcopy(config)
@@ -99,8 +105,10 @@ def normalize_reasoning_controls(
         if "thinking_budget" in context and context["thinking_budget"] != budget:
             raise ValueError("Conflicting thinking_budget values")
         context["thinking_budget"] = budget
-    if "thinking_budget" in context:
-        budget = context["thinking_budget"]
+    budget = context.get("thinking_budget")
+    # A template-level 0 is kept for the chat template only.
+    template_zero = template_zero_budget and type(budget) is int and budget == 0
+    if "thinking_budget" in context and not template_zero:
         if type(budget) is not int or budget < 1:
             raise ValueError("thinking_budget must be a positive integer")
         maximum = config.get("max_tokens")

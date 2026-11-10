@@ -28,8 +28,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
-from .reasoning_controls import normalize_reasoning_controls
-from .reasoning_parser import KimiK3ReasoningParser, ReasoningParser
+from .reasoning_controls import (
+    TEMPLATE_THINKING_BUDGET_FAMILIES,
+    normalize_reasoning_controls,
+)
+from .reasoning_parser import (
+    KimiK3ReasoningParser,
+    ReasoningParser,
+    SeedOssReasoningParser,
+)
 from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
@@ -45,6 +52,12 @@ def get_llm_version_infos():
     import copy
 
     return copy.deepcopy(LLM_VERSION_INFOS)
+
+
+def _template_zero_budget(model: Any) -> bool:
+    family = getattr(model, "model_family", None)
+    name = getattr(family, "model_family", None) or getattr(family, "model_name", None)
+    return name in TEMPLATE_THINKING_BUDGET_FAMILIES
 
 
 class LLM(abc.ABC):
@@ -169,10 +182,13 @@ class LLM(abc.ABC):
     def prepare_reasoning_request(self, config: Dict) -> Dict:
         """Preflight explicit OpenAI thinking budgets before opening a stream."""
         config = normalize_reasoning_controls(
-            config, self._reasoning_effort_capability()
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
         )
         context = config.get("chat_template_kwargs") or {}
-        if context.get("thinking_budget") is None:
+        # A template-level 0 is for the chat template, not the engine.
+        if not context.get("thinking_budget"):
             return config
         parser = self.reasoning_parser
         apply_budget = getattr(self, "_apply_thinking_budget", None)
@@ -212,7 +228,9 @@ class LLM(abc.ABC):
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
         config = normalize_reasoning_controls(
-            config, self._reasoning_effort_capability()
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
         )
         from ...api.protocols.anthropic_capabilities import plan_anthropic_compatibility
 
@@ -529,12 +547,11 @@ class LLM(abc.ABC):
             return
         # Seed-OSS writes its own start tag, and thinking_budget=0 closes reasoning
         # in the prompt, so a missing tag means there is no reasoning.
-        auto_insert_start_tag = (
-            "hybrid" not in abilities
-            and self.model_family.reasoning_start_tag != "<seed:think>"
-        )
+        seed_oss = self.model_family.reasoning_start_tag == "<seed:think>"
+        auto_insert_start_tag = "hybrid" not in abilities and not seed_oss
         # Initialize reasoning parser if model has reasoning ability
-        self.reasoning_parser = ReasoningParser(  # type: ignore
+        parser_class = SeedOssReasoningParser if seed_oss else ReasoningParser
+        self.reasoning_parser = parser_class(  # type: ignore
             reasoning_content,
             self.model_family.reasoning_start_tag,  # type: ignore
             self.model_family.reasoning_end_tag,  # type: ignore

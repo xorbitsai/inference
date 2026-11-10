@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -325,3 +326,81 @@ def test_stop_strings_use_earliest_match(monkeypatch, stream, stop, suffix):
     chunks = [chunk for chunk in request.completion if isinstance(chunk, dict)]
     assert "".join(chunk["choices"][0]["text"] for chunk in chunks) == "hello"
     assert request.finish_reason == "stop"
+
+
+def _chunk(text):
+    return {
+        "id": "test",
+        "object": "text_completion",
+        "created": 0,
+        "model": "seed-oss",
+        "choices": [
+            {"index": 0, "text": text, "finish_reason": None, "logprobs": None}
+        ],
+        "usage": None,
+    }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("zero_budget_first", [True, False])
+def test_chat_batch_formats_each_request_with_its_own_reasoning_context(
+    stream, zero_budget_first
+):
+    from ... import BUILTIN_LLM_FAMILIES
+    from ...core import LLM, chat_context_var
+    from ..core import PytorchChatModel
+
+    model = object.__new__(PytorchChatModel)
+    model.model_family = next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == "seed-oss"
+    )
+    model.model_uid = "seed-oss"
+    model._tokenizer = None
+    model._context_length = 8192
+    LLM.prepare_parse_reasoning_content(model, True)
+
+    def request(chat_template_kwargs, output):
+        messages = [{"role": "user", "content": "What is 2 + 2?"}]
+        req = InferenceRequest(
+            messages,
+            None,
+            True,
+            "chat",
+            {"stream": stream, "chat_template_kwargs": chat_template_kwargs},
+        )
+        req.sanitized_generate_config = {"max_tokens": 16, "stream_interval": 1}
+        req.output = output
+        return req
+
+    # With thinking_budget=0 the template closes reasoning, so the answer has
+    # no tag; without a budget the model writes its own <seed:think>.
+    zero = request({"thinking_budget": 0}, ["It", " is 4."])
+    default = request(
+        {}, ["<seed:think>", "Two plus two.", "</seed:think>", "It", " is 4."]
+    )
+    batch = [zero, default] if zero_budget_first else [default, zero]
+    token = chat_context_var.set({})
+    try:
+        model.prepare_batch_inference(batch)
+        for req in batch:
+            assert req.error_msg is None
+            if stream:
+                req.completion = ["<bos_stream>"] + [_chunk(t) for t in req.output]
+            else:
+                req.completion = [_chunk("".join(req.output))]
+        model.handle_batch_inference_results(batch)
+    finally:
+        chat_context_var.reset(token)
+
+    def split(req):
+        if not stream:
+            message = req.completion[0]["choices"][0]["message"]
+            return message.get("reasoning_content") or "", message["content"] or ""
+        deltas = [c["choices"][0]["delta"] for c in req.completion]
+        return (
+            "".join(d.get("reasoning_content") or "" for d in deltas),
+            "".join(d.get("content") or "" for d in deltas),
+        )
+
+    assert split(zero) == ("", "It is 4.")
+    assert split(default) == ("Two plus two.", "It is 4.")

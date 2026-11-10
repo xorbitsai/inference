@@ -1,6 +1,7 @@
 # CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import copy
+import sys
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -289,3 +290,113 @@ def test_runtime_budget_capability_checks_mlx_without_generating():
     model._xavier = None
     model.reasoning_parser = None
     assert model.get_reasoning_capabilities() == {"supports_thinking_budget": False}
+
+
+@pytest.mark.parametrize(
+    "request_",
+    [
+        {"thinking_budget": 0},
+        {"chat_template_kwargs": {"thinking_budget": 0, "reasoning_content": True}},
+        {"chat_template_kwargs": '{"thinking_budget": 0}'},
+    ],
+)
+def test_seed_oss_zero_budget_closes_reasoning_in_its_template(request_):
+    seed = family("seed-oss")
+    config = normalize_reasoning_controls(request_, None, template_zero_budget=True)
+    context = config["chat_template_kwargs"]
+    assert context["thinking_budget"] == 0
+    assert "enable_thinking" not in context
+    render = ChatModelMixin()._build_from_raw_template
+    messages = [{"role": "user", "content": "hello"}]
+    assert render(messages, seed.chat_template).endswith("assistant\n")
+    assert render(messages, seed.chat_template, **context).endswith(
+        "assistant\n<seed:think>\n<seed:cot_budget_reflect>The current thinking "
+        "budget is 0, so I will directly start answering the question."
+        "</seed:cot_budget_reflect>\n</seed:think>"
+    )
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"thinking_budget": False},
+        {"thinking_budget": -1},
+        {"thinking_budget": 0.0},
+        {"thinking_budget": "0"},
+        {"thinking_budget": 10, "max_tokens": 10},
+        {"thinking_budget": 10, "chat_template_kwargs": {"enable_thinking": False}},
+    ],
+)
+def test_template_budget_families_keep_the_other_budget_rules(config):
+    with pytest.raises(ValueError):
+        normalize_reasoning_controls(config, None, template_zero_budget=True)
+
+
+def test_zero_budget_preflight_needs_no_native_budget():
+    from ..transformers.core import PytorchChatModel
+
+    model = object.__new__(PytorchChatModel)
+    model.reasoning_parser = None
+    request = {"chat_template_kwargs": {"thinking_budget": 0}, "max_tokens": 30}
+    custom = family("seed-oss").copy(deep=True)
+    custom.model_family = "seed-oss"
+    custom.model_name = "local-seed"
+    for seed in (family("seed-oss"), custom):
+        model.model_family = seed
+        assert model.prepare_reasoning_request(request) == request
+    model.model_family = family("qwen3")
+    with pytest.raises(ValueError, match="positive integer"):
+        model.prepare_reasoning_request(request)
+
+
+@pytest.mark.parametrize(
+    "engine,native",
+    [
+        ("vllm", "thinking_token_budget"),
+        ("sglang", "max_thinking_tokens"),
+        ("mlx", "_mlx_thinking_budget"),
+    ],
+)
+def test_template_zero_budget_is_never_an_engine_budget(monkeypatch, engine, native):
+    from ..mlx.core import MLXChatModel
+    from ..reasoning_parser import SeedOssReasoningParser
+    from ..sglang.core import SGLANGChatModel
+    from ..vllm.core import VLLMChatModel
+
+    def sampling(*, thinking_token_budget=None):
+        pass
+
+    monkeypatch.setitem(sys.modules, "vllm", SimpleNamespace(SamplingParams=sampling))
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.managers.io_struct",
+        SimpleNamespace(
+            GenerateReqInput=SimpleNamespace(
+                __dataclass_fields__={"max_thinking_tokens": None}
+            )
+        ),
+    )
+    seed = family("seed-oss")
+    model = object.__new__(
+        {"vllm": VLLMChatModel, "sglang": SGLANGChatModel, "mlx": MLXChatModel}[engine]
+    )
+    model.reasoning_parser = SeedOssReasoningParser(
+        True, seed.reasoning_start_tag, seed.reasoning_end_tag
+    )
+    model._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            reasoning_config=SimpleNamespace(
+                reasoning_start_str=seed.reasoning_start_tag,
+                reasoning_end_str=seed.reasoning_end_tag,
+            )
+        )
+    )
+    model._model_config = {"enable_strict_thinking": True}
+    model._tokenizer = SimpleNamespace(
+        encode=lambda text, **kw: list(text.encode()), unk_token_id=None, eos_token_id=0
+    )
+    # Generation applies the budget again, after chat_template_kwargs gained
+    # the parser's enable_thinking default.
+    config = {"chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 0}}
+    model._apply_thinking_budget(config)
+    assert native not in config

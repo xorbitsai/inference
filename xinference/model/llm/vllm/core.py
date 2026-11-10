@@ -688,7 +688,8 @@ class VLLMModel(WeightCachedModel, LLM):
             or {}
         )
         budget = context.get("thinking_budget")
-        if budget is None or not context.get("enable_thinking"):
+        # 0 is a template-level budget (Seed-OSS), never an engine budget.
+        if not budget or not context.get("enable_thinking"):
             return
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
