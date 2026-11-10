@@ -2139,7 +2139,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     known[key] = now + _SHARD_STAGE_TRUST_SECONDS
         missing = self._missing_store_requests(pending, skip)
         if missing and len(state.copies) < _SHARD_STAGE_COPIES:
-            keys, sources = self._shard_row_sources(missing, _MAX_SHARD_STAGE_BYTES)
+            # A step's rows have to fit the pool, which shrinks when retired
+            # buffers cannot be replaced.
+            rows = self._shard_rows
+            pool = len(state.buffers) * (state.buffers[0].capacity // rows.row_bytes)
+            keys, sources = self._shard_row_sources(
+                missing, min(_MAX_SHARD_STAGE_BYTES, pool * rows.row_bytes)
+            )
             if keys:
                 state.copies.append(
                     (keys, *self._copy_shard_rows(state, sources, len(keys)))
@@ -2291,8 +2297,18 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             keys, host, event, _, slot = state.copies[0]
             if event is not None and not event.query():
                 break
+            if len(state.buffers) * per_buffer < len(keys):
+                # Buffers were retired after this copy was sized and not all
+                # of them could be replaced: it no longer fits the pool, free
+                # or not. Send it through the actor's RPCs instead of waiting
+                # forever; later copies are sized for the surviving pool.
+                state.copies.pop(0)
+                self._stage_copied_shard_rows(state, keys, host)
+                if slot is not None and state.pinned is not None:
+                    state.pinned.append(slot)
+                continue
             if len(state.free) * per_buffer < len(keys):
-                break
+                break  # Temporary: replies will free the buffers.
             state.copies.pop(0)
             stages = []
             for offset in range(0, len(keys), per_buffer):
@@ -2312,6 +2328,41 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if submitted:
             # Send the requests; a later step collects the replies.
             self._call(asyncio.sleep(0))
+
+    def _stage_copied_shard_rows(
+        self, state: _ShardStage, keys: List[int], host: torch.Tensor
+    ) -> None:
+        """Send rows already copied off the device through actor RPCs."""
+        rows = self._shard_rows
+
+        async def send():
+            transfer = await self._get_transfer_ref()
+            per_call = max(1, _MAX_EXPORT_BYTES // rows.row_bytes)
+            for offset in range(0, len(keys), per_call):
+                part = host[offset : offset + per_call]
+                await transfer.stage_layer_batches_v1(
+                    [(rows.layer, keys[offset : offset + len(part)], part.reshape(-1))],
+                    [((len(part), rows.row_bytes), torch.uint8)],
+                )
+            await transfer.refresh_snapshot_blocks_v1(
+                keys,
+                {rows.layer},
+                self._xavier_config.get("block_tracker_address"),
+                self._xavier_config.get("block_tracker_uid"),
+            )
+
+        state.pending.difference_update(keys)
+        try:
+            self._call(send())
+        except Exception:
+            logger.warning(
+                "Optional Xavier shard staging failed; future requests can "
+                "stage the blocks again",
+                exc_info=True,
+            )
+            return
+        until = time.monotonic() + _SHARD_STAGE_TRUST_SECONDS
+        state.known.update((key, until) for key in keys)
 
     @staticmethod
     def _retire_shard_buffers(state: _ShardStage, buffers: List[Any]) -> None:

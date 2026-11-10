@@ -894,6 +894,98 @@ def test_buffers_of_an_unacknowledged_handover_are_never_reused(
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
+def test_copies_that_no_longer_fit_the_surviving_pool_use_actor_rpcs(
+    connector_module, shared_config, monkeypatch
+):
+    # Lost replies retire buffers, and /dev/shm may have no room to replace
+    # them. A copy sized for the old pool must not wait forever for buffers
+    # that no longer exist, and later copies have to fit the smaller pool.
+    import errno
+
+    from ....xavier.backends.torch import local_read
+
+    shared_config.parallel_config.tensor_parallel_size = 2
+    worker = _worker(
+        connector_module,
+        shared_config,
+        _groups((["layer"], _spec())),
+        0,
+        {"layer": torch.arange(64, dtype=torch.float32).reshape(8, 2, 4)},
+    )
+    worker._kv_schema_complete = True
+    row_bytes = worker._shard_rows.row_bytes
+    monkeypatch.setattr(connector_module, "_MAX_SHARD_STAGE_BYTES", 6 * row_bytes)
+    lost = []
+    handovers = []
+    rpc_rows = []
+    disconnect = asyncio.Event()
+
+    class Ref:
+        async def stage_shard_blocks_v1(self, shard, stages, *args):
+            keys = [key for _, _, staged in stages for key in staged]
+            if len(lost) < 2:
+                lost.append(keys)
+                await disconnect.wait()
+                raise ConnectionError("connection closed")
+            handovers.append([staged for _, _, staged in stages])
+            return keys
+
+        async def stage_layer_batches_v1(self, entries, metadata):
+            rpc_rows.extend(key for _, keys, _ in entries for key in keys)
+
+        refresh_snapshot_blocks_v1 = AsyncMock(return_value=([], []))
+
+    async def transfer_ref():
+        return Ref()
+
+    worker._get_transfer_ref = transfer_ref
+
+    def request(first_key):
+        return connector_module.XavierStoreRequest(
+            "r", list(range(6)), list(range(first_key, first_key + 6)), [list(range(6))]
+        )
+
+    try:
+        state = worker._shard_stage_state()
+        for buffer in state.buffers:
+            buffer.close()
+        # Eight slots of two rows each: a step of six rows takes three.
+        state.buffers = [local_read.SharedReadBuffer(2 * row_bytes) for _ in range(8)]
+        state.free = list(state.buffers)
+        _store_step(connector_module, worker, request(100))
+        _store_step(connector_module, worker, request(200))
+        assert len(state.jobs) == 2 and len(state.free) == 2
+        # The third step's copy waits: only two slots are free for now.
+        _store_step(connector_module, worker, request(300))
+        assert len(state.copies) == 1 and len(state.jobs) == 2 and not rpc_rows
+
+        def no_space(*args, **kwargs):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+        monkeypatch.setattr(local_read, "SharedReadBuffer", no_space)
+        disconnect.set()
+        _settle(worker)
+        # Both replies were lost and nothing could be replaced: two slots are
+        # left, fewer than the waiting copy needs. It went through the RPCs.
+        assert lost == [list(range(100, 106)), list(range(200, 206))]
+        assert len(state.buffers) == 2 == len(state.free)
+        assert not state.copies and not state.pending
+        assert rpc_rows == list(range(300, 306))
+        Ref.refresh_snapshot_blocks_v1.assert_awaited_once()
+        assert set(state.known) == set(range(300, 306))
+
+        # New steps are sized for the surviving pool and use it again.
+        _store_step(connector_module, worker, request(400))
+        _settle(worker)
+        assert handovers == [[[400, 401], [402, 403]]] or handovers == [
+            [[402, 403], [400, 401]]
+        ]
+        assert set(range(400, 404)) <= set(state.known)
+    finally:
+        worker.shutdown()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
 @pytest.mark.asyncio
 async def test_same_host_peer_fills_a_shard_buffer_directly(monkeypatch):
     from ....xavier.backends.torch.local_read import LocalReadBuffer
