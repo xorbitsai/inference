@@ -384,16 +384,21 @@ class TransferActor(
         if store is None or self._kv_schema_v1 is None:
             return []  # Not ready: the worker stages again with a later request.
         readers = self.__dict__.setdefault("_shard_stage_readers_v1", {})
+        copies = self.__dict__.setdefault("_shard_stage_copies_v1", set())
+        copies.difference_update([copy for copy in copies if copy.done()])
+        if not copies:
+            # A worker replaces buffers it retired. Unmap those only while no
+            # copy runs: one may still be reading a retired buffer, also after
+            # the request that started it was cancelled.
+            for stale in [t for t, r in readers.items() if not r.valid()]:
+                readers.pop(stale).close()
         keys = list(check_keys)
         for metadata, lease, staged in stages:
             token = metadata["token"]
             reader = readers.get(token)
-            if reader is None or not reader.valid():
-                if reader is not None:
-                    reader.close()
+            if reader is None:
                 reader = LocalReadBuffer.attach(metadata)
                 if reader is None:
-                    readers.pop(token, None)
                     return None
                 readers[token] = reader
             packed = reader.view(lease, len(staged) * row_bytes)
@@ -401,12 +406,21 @@ class TransferActor(
             # Copy the rows on one dedicated thread, each into storage of its
             # own, and leave only the bookkeeping to the event loop. The
             # worker reuses the buffer once this call returns.
-            rows = await asyncio.get_running_loop().run_in_executor(
-                TransferActor._shard_stage_executor_v1(self),
+            copy = TransferActor._shard_stage_executor_v1(self).submit(
                 lambda: [
                     row.clone() for row in packed.view(len(staged), row_bytes).unbind(0)
-                ],
+                ]
             )
+            copies.add(copy)
+            rows = await asyncio.wrap_future(copy)
+            try:
+                # The copy is only valid if the worker held the lease all the
+                # way through it. A worker that lost this request's reply may
+                # have retired the buffer, or leased it to another request.
+                reader.view(lease, len(staged) * row_bytes)
+            except RuntimeError:
+                logger.debug("Xavier shard staging lease changed; dropping its rows")
+                continue
             if type(store).stage is KVSnapshotStore.stage:
                 store.stage_owned(layer, staged, rows, torch.uint8)
             else:

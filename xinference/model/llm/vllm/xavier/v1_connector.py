@@ -2249,18 +2249,23 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 task, leases, staged, check = job
                 state.jobs.remove(job)
                 state.pending.difference_update(staged)
-                for buffer, lease in leases:
-                    buffer.release(lease)
-                    state.free.append(buffer)
                 try:
                     present = task.result()
-                except Exception:
+                except (Exception, asyncio.CancelledError):
                     logger.warning(
                         "Optional Xavier shard staging failed; future requests "
                         "can stage the blocks again",
                         exc_info=True,
                     )
                     present = ()
+                    # The outcome is unknown: the actor may still be copying
+                    # these buffers. Never write to them again.
+                    self._retire_shard_buffers(state, [b for b, _ in leases])
+                else:
+                    # Only an acknowledged request frees its buffers.
+                    for buffer, lease in leases:
+                        buffer.release(lease)
+                        state.free.append(buffer)
                 if present is None:
                     # The actor cannot attach the buffers. Use its RPCs.
                     self._close_shard_stage()
@@ -2275,6 +2280,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 # The store cannot hold more blocks; forget stale ones.
                 for key in [k for k, until in state.known.items() if until <= now]:
                     del state.known[key]
+        if not state.buffers:
+            self._close_shard_stage()  # Every buffer was retired: use RPCs.
+            return
         # Move finished copies into free buffers, oldest first.
         rows = self._shard_rows
         per_buffer = state.buffers[0].capacity // rows.row_bytes
@@ -2292,6 +2300,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 buffer = state.free.pop()
                 lease, payload = buffer.acquire(count * rows.row_bytes)
                 payload.view(count, rows.row_bytes).copy_(host[offset : offset + count])
+                del payload  # A retired buffer can then be unmapped.
                 stages.append((buffer, lease, keys[offset : offset + count]))
             self._submit_shard_stage(state, stages, keys)
             submitted = True
@@ -2303,6 +2312,25 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if submitted:
             # Send the requests; a later step collects the replies.
             self._call(asyncio.sleep(0))
+
+    @staticmethod
+    def _retire_shard_buffers(state: _ShardStage, buffers: List[Any]) -> None:
+        """Drop buffers a peer may still read, replacing them where possible."""
+        from ...xavier.backends.torch.local_read import SharedReadBuffer
+
+        for buffer in buffers:
+            state.buffers.remove(buffer)
+            try:
+                # Closing invalidates the buffer for the actor's next attach.
+                buffer.close()
+            except BufferError:
+                logger.debug("Retired Xavier staging buffer is still referenced")
+            try:
+                fresh = SharedReadBuffer(reserve=True)
+            except OSError:
+                continue  # Fewer buffers; without any, the worker uses RPCs.
+            state.buffers.append(fresh)
+            state.free.append(fresh)
 
     def _submit_shard_stage(self, state: _ShardStage, stages, keys) -> None:
         if self._loop is None:

@@ -806,6 +806,94 @@ def test_shard_handover_is_bounded_and_falls_back(
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
+def test_buffers_of_an_unacknowledged_handover_are_never_reused(
+    connector_module, shared_config, monkeypatch
+):
+    # The worker loses the reply while the actor still copies the buffer. A
+    # second request must not land in that buffer, or the actor would store
+    # its row under the first request's key.
+    from concurrent.futures import ThreadPoolExecutor
+
+    shared_config.parallel_config.tensor_parallel_size = 2
+    tracker = SimpleNamespace(
+        unregister_blocks=AsyncMock(), register_snapshot_blocks=AsyncMock()
+    )
+    actor = _shard_actor(tracker, monkeypatch)
+    values = torch.arange(64, dtype=torch.float32).reshape(8, 2, 4)
+    worker, _ = _handover(connector_module, shared_config, actor, 0, values)
+    TransferActor.configure_kv_schema_v1(
+        actor, 16, {"rows@tp1": ((32,), torch.uint8)}, "auto", 1, 2
+    )
+    gate = threading.Event()
+    pool = ThreadPoolExecutor(1)
+
+    class Held:
+        def submit(self, fn, *args):
+            return pool.submit(lambda: (gate.wait(), fn(*args))[1])
+
+    monkeypatch.setattr(
+        TransferActor, "_shard_stage_executor_v1", lambda self: Held(), raising=False
+    )
+    copies = []
+
+    class Ref:
+        async def stage_shard_blocks_v1(self, *args):
+            copy = asyncio.ensure_future(
+                TransferActor.stage_shard_blocks_v1(actor, *args)
+            )
+            copies.append(copy)
+            if len(copies) == 1:
+                await asyncio.sleep(0)  # The actor takes its view of the buffer.
+                raise ConnectionError("connection closed")
+            return await copy
+
+    async def transfer_ref():
+        return Ref()
+
+    worker._get_transfer_ref = transfer_ref
+    store = actor._snapshot_store
+    layer = worker._shard_rows.layer
+    try:
+        state = worker._shard_stage_state()
+        buffers = list(state.buffers)
+        _store_step(
+            connector_module,
+            worker,
+            connector_module.XavierStoreRequest("a", [2], [44], [[2]]),
+        )
+        (job,) = state.jobs
+        used = job[1][0][0]
+        worker._call(asyncio.wait([job[0]]))
+        worker.get_finished(set())
+        # The buffer left the pool for good and a fresh one took its place.
+        assert used not in state.buffers and used not in state.free
+        assert len(state.buffers) == len(buffers) == len(state.free)
+        assert 44 not in state.known
+
+        _store_step(
+            connector_module,
+            worker,
+            connector_module.XavierStoreRequest("b", [3], [66], [[3]]),
+        )
+        gate.set()
+        worker._call(asyncio.wait(copies))
+        _settle(worker)
+        assert torch.equal(
+            store.blocks[66][layer].view(torch.float32).view(2, 4), values[3]
+        )
+        # The first request's key holds its own row or nothing at all.
+        block = store.blocks.get(44)
+        assert block is None or torch.equal(
+            block[layer].view(torch.float32).view(2, 4), values[2]
+        )
+    finally:
+        gate.set()
+        pool.shutdown()
+        worker.shutdown()
+        _close_shard_actor(actor)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires /dev/shm")
 @pytest.mark.asyncio
 async def test_same_host_peer_fills_a_shard_buffer_directly(monkeypatch):
     from ....xavier.backends.torch.local_read import LocalReadBuffer
