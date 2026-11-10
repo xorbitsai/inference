@@ -321,6 +321,18 @@ M3_CALL = (
     f"{NS}</invoke>\n"
     f"{NS}</tool_call>"
 )
+# Only namespaced tags are markup, so raw tags in an argument are text.
+M3_CALL_WITH_RAW_INVOKE = (
+    f"{NS}<tool_call>\n"
+    f'{NS}<invoke name="write_file">'
+    f"{NS}<code><invoke>hello</invoke>{NS}</code>"
+    f"{NS}</invoke>\n"
+    f"{NS}</tool_call>"
+)
+M3_CALLS = [
+    (M3_CALL, ("get_weather", {"city": "Beijing", "days": 3})),
+    (M3_CALL_WITH_RAW_INVOKE, ("write_file", {"code": "<invoke>hello</invoke>"})),
+]
 
 
 def _m3_family():
@@ -341,7 +353,11 @@ def test_tool_call_rendered_by_the_m3_template_is_parsed(parser):
         model_ability=family.model_ability,
         chat_template=family.chat_template,
     )
-    arguments = {"code": "if a < b and c > d: x = '&lt;' & y", "cities": ["A", "B"]}
+    arguments = {
+        "code": "if a < b and c > d: x = '&lt;' & y",
+        "cities": ["A", "B"],
+        "markup": '<invoke>hello</invoke> <invoke name="other">x</invoke>',
+    }
     prompt = mixin.get_full_context(
         [
             {"role": "user", "content": "Run it"},
@@ -391,9 +407,10 @@ def _completion(text, finish_reason):
     }
 
 
-def test_m3_tool_call_reaches_the_chat_response():
+@pytest.mark.parametrize("call_text,expected", M3_CALLS)
+def test_m3_tool_call_reaches_the_chat_response(call_text, expected):
     result = _m3_model()._post_process_completion(
-        None, "test-model", _completion("Checking.\n" + M3_CALL, "stop")
+        None, "test-model", _completion("Checking.\n" + call_text, "stop")
     )
     choice = result["choices"][0]
 
@@ -401,15 +418,18 @@ def test_m3_tool_call_reaches_the_chat_response():
     assert [
         (call["function"]["name"], json.loads(call["function"]["arguments"]))
         for call in choice["message"]["tool_calls"]
-    ] == [("get_weather", {"city": "Beijing", "days": 3})]
+    ] == [expected]
     assert choice["finish_reason"] == "tool_calls"
 
 
 @pytest.mark.asyncio
-async def test_m3_tool_call_reaches_the_chat_stream():
+@pytest.mark.parametrize("call_text,expected", M3_CALLS)
+async def test_m3_tool_call_reaches_the_chat_stream(call_text, expected):
     # The namespace and the <tool_call> tags are single tokens and arrive whole.
     pieces = []
-    for part in re.split(r"(\]<\]minimax\[>\[|</?tool_call>)", "Checking.\n" + M3_CALL):
+    for part in re.split(
+        r"(\]<\]minimax\[>\[|</?tool_call>)", "Checking.\n" + call_text
+    ):
         if part.startswith((NS, "<tool_call>", "</tool_call>")):
             pieces.append(part)
         else:
@@ -431,5 +451,5 @@ async def test_m3_tool_call_reaches_the_chat_stream():
             finish_reason = choice["finish_reason"] or finish_reason
 
     assert content == "Checking.\n"
-    assert calls == [("get_weather", {"city": "Beijing", "days": 3})]
+    assert calls == [expected]
     assert finish_reason == "tool_calls"

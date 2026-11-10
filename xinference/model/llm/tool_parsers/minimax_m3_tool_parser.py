@@ -51,6 +51,15 @@ class MiniMaxM3ToolParser(ToolParser):
         self.param_regex = re.compile(
             r"<parameter\s+name=[\"']([^\"']+)[\"']>(.*?)</parameter>", re.DOTALL
         )
+        # In the namespaced format only tags after NAMESPACE are markup, so an
+        # argument may hold a raw <invoke>...</invoke> without ending the call.
+        self.namespaced_invoke_regex = re.compile(
+            re.escape(NAMESPACE)
+            + r"<invoke\s+name=[\"']([^\"']+)[\"']>(.*?)"
+            + re.escape(NAMESPACE)
+            + r"</invoke>",
+            re.DOTALL,
+        )
 
     def _parse_param_value(self, value: str, is_string: bool = False) -> Any:
         # A string value sits inline between the tags, so its whitespace is data.
@@ -146,7 +155,12 @@ class MiniMaxM3ToolParser(ToolParser):
 
     def _parse_invoke_calls(self, tool_block: str) -> List[Tuple[str, Dict[str, Any]]]:
         results = []
-        for name, body in self.invoke_regex.findall(tool_block):
+        regex = (
+            self.namespaced_invoke_regex
+            if NAMESPACE in tool_block
+            else self.invoke_regex
+        )
+        for name, body in regex.findall(tool_block):
             results.append((name, self._parse_invoke_args(name, body)))
         return results
 
