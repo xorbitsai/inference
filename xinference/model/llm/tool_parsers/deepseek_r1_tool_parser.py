@@ -184,9 +184,14 @@ class DeepseekR1ToolParser(ToolParser):
         return ArgumentStart(
             match[1],
             match.end(),
+            call_position=match.end(),
             preceding_calls=preceding,
+            close_frame=self._close_wrapper,
             json_suffix="```" + self.tool_call_end_token,
         )
+
+    def _close_wrapper(self, text: str, start: int) -> int:
+        return text.find(self._WRAPPER_END, start)
 
     def flush_streaming_content(self, text: str) -> Optional[str]:
         events = stream_delimited_calls(

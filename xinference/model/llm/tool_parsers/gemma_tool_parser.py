@@ -142,6 +142,7 @@ class GemmaToolParser(ToolParser):
         body = open_block(text, self.tool_call_start_token, self.tool_call_end_token)
         if body is None:
             return None
+        opening_tag = body - len(self.tool_call_start_token)
         while body < len(text) and text[body].isspace():
             body += 1
         header = self.call_header_regex.match(text, body)
@@ -170,9 +171,17 @@ class GemmaToolParser(ToolParser):
             if not prefix.endswith('""}'):
                 return None
             return ArgumentStart(
-                header[1], start, prefix[:-2], self.string_token, call_position=brace
+                header[1],
+                start,
+                prefix[:-2],
+                self.string_token,
+                call_position=opening_tag,
+                close_frame=self._close_call,
             )
         return None
+
+    def _close_call(self, text: str, start: int) -> int:
+        return text.find(self.tool_call_end_token, start)
 
     def extract_tool_calls_streaming(
         self,

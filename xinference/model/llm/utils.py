@@ -63,6 +63,7 @@ from .reasoning_parser import ReasoningParser
 from .tool_parsers.abstract_tool_parser import ToolArgumentsDelta, request_tools_var
 from .tool_parsers.argument_stream import ArgumentStream
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
+from .tool_parsers.llama3_tool_parser import Llama3StreamState, Llama3ToolParser
 from .tool_parsers.qwen_tool_parser import QwenToolParser
 
 logger = logging.getLogger(__name__)
@@ -1236,23 +1237,38 @@ class ChatModelMixin:
                 current_text = (
                     previous_texts[-1] + delta_text if previous_texts else delta_text
                 )
+                llama_state = None
                 if (
                     isinstance(self.tool_parser, QwenToolParser)
                     and tool_call_state is not None
                     and tools
                 ):
                     prefixes = tool_call_state.setdefault("argument_prefixes", {})
+                    fallbacks = tool_call_state.setdefault("argument_fallbacks", set())
                     tool_result = (
                         self.tool_parser.extract_tool_calls_with_argument_deltas(
                             previous_texts[-1],
                             current_text,
                             prefixes,
+                            fallbacks,
                             finish_reason=finish_reason,
                         )
                         or None
                     )
-                    if finish_reason is not None and prefixes:
+                    if finish_reason is not None and (prefixes or fallbacks):
                         finish_reason = "length"
+                elif (
+                    isinstance(self.tool_parser, Llama3ToolParser)
+                    and tool_call_state is not None
+                ):
+                    llama_state = tool_call_state.get("llama3_stream")
+                    if llama_state is None:
+                        llama_state = tool_call_state["llama3_stream"] = (
+                            Llama3StreamState()
+                        )
+                    tool_result = self.tool_parser.extract_tool_calls_streaming(
+                        previous_texts, current_text, delta_text, state=llama_state
+                    )
                 elif (
                     tool_call_state is not None
                     and tools
@@ -1284,8 +1300,14 @@ class ChatModelMixin:
                         current_text,
                         delta_text,
                     )
-                if finish_reason is not None and (
-                    flush := getattr(self.tool_parser, "flush_streaming_content", None)
+                if (
+                    finish_reason is not None
+                    and not (llama_state and llama_state.settled)
+                    and (
+                        flush := getattr(
+                            self.tool_parser, "flush_streaming_content", None
+                        )
+                    )
                 ):
                     suffix = flush(current_text)
                     if suffix:

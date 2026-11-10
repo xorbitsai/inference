@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolArgumentsDelta, ToolParser
@@ -596,6 +596,7 @@ class QwenToolParser(ToolParser):
         previous_text: str,
         current_text: str,
         sent_arguments: Dict[int, Union[_ArgumentPrefix, ArgumentReader]],
+        fallback_calls: Set[int],
         *,
         finish_reason: Optional[str],
     ) -> List[_StreamingEvent]:
@@ -629,9 +630,10 @@ class QwenToolParser(ToolParser):
             content, name, arguments, call_index = event
             if arguments is None:
                 continue
-            sent = sent_arguments.get(call_index)
+            wire_index = call_index + sum(i < call_index for i in fallback_calls)
+            sent = sent_arguments.pop(call_index, None)
             if sent is None:
-                completed.append(event)
+                completed.append((content, name, arguments, wire_index))
                 continue
             if isinstance(sent, ArgumentReader):
                 assert name is not None
@@ -646,9 +648,12 @@ class QwenToolParser(ToolParser):
                 fragment = final[len(prefix) :] if final.startswith(prefix) else None
             if fragment is None:
                 logger.debug("Qwen tool call %d could not be reconciled", call_index)
-                continue
-            del sent_arguments[call_index]
-            completed.append((content, name, ToolArgumentsDelta(fragment), call_index))
+                fallback_calls.add(call_index)
+                completed.append((content, name, arguments, wire_index + 1))
+            else:
+                completed.append(
+                    (content, name, ToolArgumentsDelta(fragment), wire_index)
+                )
         events = completed
 
         if finish_reason is not None:
@@ -696,7 +701,8 @@ class QwenToolParser(ToolParser):
             name = candidate.function
             fragment = candidate.serialized[len(prefix) :]
 
-        events.append((None, name, ToolArgumentsDelta(fragment), call_index))
+        wire_index = call_index + sum(i < call_index for i in fallback_calls)
+        events.append((None, name, ToolArgumentsDelta(fragment), wire_index))
         return events
 
     def _xml_argument_prefix(

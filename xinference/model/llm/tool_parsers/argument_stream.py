@@ -23,6 +23,7 @@ class ArgumentStart:
     preceding_calls: int = 0
     allow_control_chars: bool = False
     json_suffix: str = ""
+    close_frame: Optional[Callable[[str, int], int]] = None
 
 
 class ArgumentReader:
@@ -36,6 +37,7 @@ class ArgumentReader:
         self.depth = 0
         self.in_string = False
         self.escaped = False
+        self.wire_index: Optional[int] = None
 
     def _read_json(
         self, text: str, end: int, *, final: bool = False
@@ -151,6 +153,7 @@ class ArgumentStream:
 
     def __init__(self) -> None:
         self.index = 0
+        self.next_wire_index = 0
         self.readers: Dict[int, ArgumentReader] = {}
         self.active: Optional[int] = None
         self.incomplete = False
@@ -169,28 +172,56 @@ class ArgumentStream:
         for event in parsed if isinstance(parsed, list) else [parsed] if parsed else ():
             content, name, args = event[:3]
             if not name:
+                if content:
+                    # A rejected frame is sometimes returned as plain text.
+                    # Retire that reader before considering a valid sibling,
+                    # even if both events arrived in the same engine chunk.
+                    for index, rejected_reader in tuple(self.readers.items()):
+                        rejected = rejected_reader.start
+                        position = rejected.call_position
+                        if (
+                            position is not None
+                            and rejected.close_frame is not None
+                            and position + len(content) > rejected.position
+                            and text.startswith(content, position)
+                            and rejected.close_frame(text, rejected.position) != -1
+                        ):
+                            self.incomplete |= rejected_reader.wire_index is not None
+                            del self.readers[index]
                 events.append(event)
                 continue
-            while (reader := self.readers.pop(self.index, None)) is not None:
-                if not reader.fragments:
-                    break
+            # A source call consumes exactly its own reader. A failed match
+            # cannot consume the reader for the next call in the same block.
+            reader = self.readers.pop(self.index, None)
+            wire_index = None
+            if reader is not None and reader.wire_index is not None:
                 fragment = (
                     reader.finish(name, args, text) if isinstance(args, dict) else None
                 )
                 if fragment is not None:
                     args = ToolArgumentsDelta(fragment)
-                    break
-                # The legacy parser can skip malformed calls. Keep the
-                # abandoned index reserved and deliver later valid calls with
-                # fresh indices. Never send a closing brace for an invalid call.
-                self.incomplete = True
-                logger.debug("Tool call %d could not be reconciled", self.index)
-                self.index += 1
-            events.append((content, name, args, self.index))
+                    wire_index = reader.wire_index
+                else:
+                    self.incomplete = True
+                    logger.debug("Tool call %d could not be reconciled", self.index)
+            if wire_index is None:
+                wire_index = self.next_wire_index
+                self.next_wire_index += 1
+            events.append((content, name, args, wire_index))
             self.index += 1
 
+        # Some parsers return rejected frames as text, or skip them entirely.
+        # Once such a frame closes, its reader must not absorb the next frame.
+        for index, pending_reader in tuple(self.readers.items()):
+            close = pending_reader.start.close_frame
+            if close is not None and close(text, pending_reader.start.position) != -1:
+                self.incomplete |= pending_reader.wire_index is not None
+                del self.readers[index]
+
         if finish_reason is not None:
-            self.incomplete |= any(reader.fragments for reader in self.readers.values())
+            self.incomplete |= any(
+                reader.wire_index is not None for reader in self.readers.values()
+            )
             return events
 
         reader = self.readers.get(self.active) if self.active is not None else None
@@ -198,7 +229,12 @@ class ArgumentStream:
             fragment = reader.read(text)
             if fragment:
                 events.append(
-                    (None, reader.start.name, ToolArgumentsDelta(fragment), self.active)
+                    (
+                        None,
+                        reader.start.name,
+                        ToolArgumentsDelta(fragment),
+                        self._wire_index(reader),
+                    )
                 )
             if not reader.closed:
                 return events
@@ -210,7 +246,7 @@ class ArgumentStream:
         # A later invoke must never appear before the first one. The
         # single-tool stream filters on the first index it sees.
         if any(
-            not self.readers.get(i) or not self.readers[i].fragments
+            i not in self.readers or self.readers[i].wire_index is None
             for i in range(self.index, index)
         ):
             return events
@@ -224,8 +260,21 @@ class ArgumentStream:
         self.active = index
         fragment = reader.read(text)
         if fragment:
-            events.append((None, start.name, ToolArgumentsDelta(fragment), index))
+            events.append(
+                (
+                    None,
+                    start.name,
+                    ToolArgumentsDelta(fragment),
+                    self._wire_index(reader),
+                )
+            )
         return events
+
+    def _wire_index(self, reader: ArgumentReader) -> int:
+        if reader.wire_index is None:
+            reader.wire_index = self.next_wire_index
+            self.next_wire_index += 1
+        return reader.wire_index
 
 
 def tagged_string_start(
@@ -240,6 +289,7 @@ def tagged_string_start(
     boundaries: str = "",
     trim: bool = False,
     preceding_calls: int = 0,
+    close_pattern: Optional[Pattern] = None,
 ) -> Optional[ArgumentStart]:
     """Find the open string parameter and serialize already completed fields."""
     body_start = position
@@ -261,7 +311,12 @@ def tagged_string_start(
                 value_boundaries = ""
             elif cdata_open.startswith(text[start : start + len(cdata_open)]):
                 return None
-        end = text.find(value_close, start)
+        if close_pattern is not None:
+            close_match = close_pattern.search(text, start)
+            if close_match:
+                position = close_match.end()
+                continue
+        end = text.find(value_close, start) if close_pattern is None else -1
         if end != -1 and value_close != close:
             end = text.find(close, end + len(value_close))
             if end == -1:
@@ -363,11 +418,16 @@ def stream_delimited_calls(
     *,
     parse_block: Optional[Callable[[str], List[Tuple]]] = None,
     finished: bool = False,
+    find_close: Optional[Callable[[str, int], int]] = None,
+    deduplicate: bool = False,
 ) -> List[Tuple]:
     """Stream text around delimited blocks and parse each newly closed block."""
     previous_end = len(text) - len(delta)
     position = 0
     events: List[Tuple] = []
+    seen = set()
+    earlier_blocks: List[Tuple[int, int]] = []
+    parse = parse_block or parser.extract_tool_calls
     while (start := text.find(opening, position)) != -1:
         content_start = max(position, previous_end)
         if position <= previous_end:
@@ -377,13 +437,29 @@ def stream_delimited_calls(
             )
         if start > content_start:
             events.append((text[content_start:start], None, None))
-        end = text.find(closing, start + len(opening))
+        body = start + len(opening)
+        end = find_close(text, body) if find_close else text.find(closing, body)
         if end == -1:
+            if finished and not previous_end:
+                events.append((text[start:], None, None))
             return events
         position = end + len(closing)
-        if position > previous_end:
-            parse = parse_block or parser.extract_tool_calls
-            events.extend(parse(text[start:position]))
+        if position <= previous_end:
+            if deduplicate:
+                earlier_blocks.append((start, position))
+            continue
+        for event in parse(text[start:position]):
+            if deduplicate and event[1]:
+                for earlier_start, earlier_end in earlier_blocks:
+                    for _, name, args in parse(text[earlier_start:earlier_end]):
+                        if name:
+                            seen.add((name, json.dumps(args, sort_keys=True)))
+                earlier_blocks.clear()
+                key = (event[1], json.dumps(event[2], sort_keys=True))
+                if key in seen:
+                    continue
+                seen.add(key)
+            events.append(event)
     if position < len(text):
         content = text[max(position, previous_end) :]
         if position < previous_end:

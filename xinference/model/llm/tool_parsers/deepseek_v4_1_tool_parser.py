@@ -68,6 +68,12 @@ class DeepseekV41ToolParser(ToolParser):
     def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
         return dsml_argument_start(text, "calls", "｜DSML｜ ", self._parse_parameters)
 
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        if text.rfind(self._START) > text.rfind(self._END):
+            return None
+        length = self._partial_marker_length(text, self.tool_call_start_tokens)
+        return text[-length:] if length else None
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> Optional[List[ToolCall]]:

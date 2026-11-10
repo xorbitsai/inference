@@ -2,6 +2,7 @@ import ast
 import json
 import logging
 import tokenize
+from dataclasses import dataclass
 from io import StringIO
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -9,6 +10,11 @@ from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Llama3StreamState:
+    settled: bool = False
 
 
 @register_tool_parser("llama3")
@@ -56,7 +62,7 @@ class Llama3ToolParser(ToolParser):
                 # Unlike eval(), ast.literal_eval() only allows literal
                 # structures and cannot execute arbitrary code.
                 data = ast.literal_eval(model_output)
-            except (ValueError, SyntaxError):
+            except (ValueError, SyntaxError, TypeError):
                 return [(model_output, None, None)]
         try:
             return [(None, data["name"], data["parameters"])]
@@ -87,7 +93,7 @@ class Llama3ToolParser(ToolParser):
                             end = (
                                 sum(
                                     len(line)
-                                    for line in candidate.splitlines(keepends=True)[
+                                    for line in StringIO(candidate).readlines()[
                                         : row - 1
                                     ]
                                 )
@@ -112,18 +118,35 @@ class Llama3ToolParser(ToolParser):
         return None
 
     def extract_tool_calls_streaming(
-        self, previous_text: List[str], current_text: str, delta_text: str
+        self,
+        previous_text: List[str],
+        current_text: str,
+        delta_text: str,
+        *,
+        state: Optional[Llama3StreamState] = None,
     ) -> Optional[List[Tuple]]:
-        if not delta_text or not current_text.strip():
+        if not delta_text:
             return None
+        if state is not None and state.settled:
+            return [(delta_text, None, None)]
+        candidate = current_text.lstrip()
+        if not candidate:
+            return None
+
         previous = previous_text[-1] if previous_text else ""
-        if not current_text.lstrip().startswith("{"):
+        if not candidate.startswith("{"):
+            if state is not None:
+                state.settled = True
             return [(delta_text if previous.strip() else current_text, None, None)]
 
-        previous_end, _ = self._leading_call(previous)
-        if previous_end:
+        if state is None and self._leading_call(previous)[0]:
             return [(delta_text, None, None)]
+        if "}" not in delta_text:
+            return None
         end, events = self._leading_call(current_text)
-        if end and current_text[end:]:
-            events.append((current_text[end:], None, None))
+        if end:
+            if state is not None:
+                state.settled = True
+            if current_text[end:]:
+                events.append((current_text[end:], None, None))
         return events or None

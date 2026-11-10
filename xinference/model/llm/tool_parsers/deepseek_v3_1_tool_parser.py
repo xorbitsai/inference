@@ -130,8 +130,15 @@ class DeepseekV3_1ToolParser(ToolParser):
         if match is None:
             return None
         return ArgumentStart(
-            match[1].strip(), match.end(), json_suffix="<｜tool▁call▁end｜>"
+            match[1].strip(),
+            match.end(),
+            json_suffix="<｜tool▁call▁end｜>",
+            close_frame=self._close_call,
         )
+
+    @staticmethod
+    def _close_call(text: str, start: int) -> int:
+        return text.find("<｜tool▁call▁end｜>", start)
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

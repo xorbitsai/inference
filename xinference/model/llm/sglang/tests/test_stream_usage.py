@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from ...tool_parsers.glm5_tool_parser import Glm5ToolParser
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
 from ..core import SGLANGChatModel
 
@@ -167,10 +168,11 @@ async def test_nonterminal_finish_sentinels_preserve_logprobs(
 
 
 @pytest.mark.asyncio
-async def test_qwen_chat_streams_string_arguments_before_end(stream_model):
+@pytest.mark.parametrize("parser_type", [QwenToolParser, Glm5ToolParser])
+async def test_chat_streams_string_arguments_before_end(stream_model, parser_type):
     model, events = stream_model
     model.model_family = None
-    model.tool_parser = QwenToolParser()
+    model.tool_parser = parser_type()
     tools = [
         {
             "type": "function",
@@ -183,8 +185,12 @@ async def test_qwen_chat_streams_string_arguments_before_end(stream_model):
             },
         }
     ]
-    first = "<tool_call><function=Write><parameter=body>first"
-    full = first + " second</parameter></function></tool_call>"
+    if parser_type is QwenToolParser:
+        first = "<tool_call><function=Write><parameter=body>first"
+        full = first + " second</parameter></function></tool_call>"
+    else:
+        first = "<tool_call>Write<arg_key>body</arg_key><arg_value>first"
+        full = first + " second</arg_value></tool_call>"
     events.extend([event("<tool", 1), event(first, 2), event(full, 3, "stop")])
     config = {"stream": True, "stream_options": {"include_usage": True}}
     model._prepare_chat_inputs = AsyncMock(

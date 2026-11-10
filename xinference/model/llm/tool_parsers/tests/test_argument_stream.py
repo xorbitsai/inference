@@ -169,16 +169,19 @@ def test_streams_tool_calls(parser_name, size):
 
 
 @pytest.mark.parametrize("parser_name", CALLS)
-def test_truncation_does_not_close_arguments(parser_name):
+@pytest.mark.parametrize("finish_reason", ["stop", "length"])
+def test_truncation_does_not_close_arguments(parser_name, finish_reason):
     opening, _, value = CALLS[parser_name]
     model = ChatModelMixin()
     model.tool_parser = TOOL_PARSERS[parser_name]()
     history, state = [""], {}
     partial = deltas(feed(model, opening + value, history, state))
     assert bool(partial) == (parser_name not in ("llama3", "minimax_m3"))
-    chunk = feed(model, "", history, state, "length")
+    chunk = feed(model, "", history, state, finish_reason)
     assert not deltas(chunk)
-    assert chunk["choices"][0]["finish_reason"] == "length"
+    assert chunk["choices"][0]["finish_reason"] == (
+        "length" if partial else finish_reason
+    )
 
 
 def test_deepseek_streams_long_second_argument():
@@ -401,6 +404,8 @@ def test_llama_python_literal_and_text_after_call(suffix_in_same_chunk):
         ("gemma", "<"),
         ("gemma", "<|"),
         ("deepseek-r1", "<"),
+        ("deepseek-v4.1", "<"),
+        ("deepseek-v4.1", "<｜DSML｜"),
         ("deepseek-v3", chr(96)),
         ("deepseek-v3", chr(96) * 3),
         ("deepseek-v3", chr(96) * 3 + "j"),
@@ -498,4 +503,197 @@ def test_deepseek_v3_deduplicates_by_values_not_only_keys():
     first = opening + '"a"' + closing
     second = opening + '"b"' + closing
     events = parser.extract_tool_calls("\n".join((first, second, first)))
-    assert [args["code"] for _, _, args in events] == ["a", "b"]
+    assert [args["code"] for _, name, args in events if name] == ["a", "b"]
+
+
+@pytest.mark.parametrize("parser_name", ["deepseek-v3", "deepseek-v3.1"])
+def test_closed_rejected_frame_does_not_absorb_following_calls(parser_name):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS[parser_name]()
+    history, state = [""], {}
+    opening, closing, value = CALLS[parser_name]
+    prefix = opening + '"partial'
+    (first,) = deltas(feed(model, prefix, history, state))
+    assert first["index"] == 0
+    if parser_name == "deepseek-v3":
+        # The unescaped newline leaves the string invalid. The fence closes
+        # the rejected block and must be preserved as ordinary text.
+        end = "\n" + chr(96) * 3
+        rejected = feed(model, end, history, state)
+        assert rejected["choices"][0]["delta"]["content"] == prefix + end
+    else:
+        rejected = feed(
+            model, "<｜tool▁call▁end｜><｜tool▁calls▁end｜>", history, state
+        )
+    assert not deltas(rejected)
+
+    (later,) = deltas(feed(model, opening + value, history, state))
+    assert later["index"] == 1
+    assert later["id"] != first["id"]
+    (done,) = deltas(feed(model, closing, history, state))
+    assert done["index"] == 1
+    assert json.loads(
+        later["function"]["arguments"] + done["function"]["arguments"]
+    ) == {
+        "code": CODE,
+        "line": 7,
+    }
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "length"
+    )
+
+
+def test_failed_minimax_reconciliation_preserves_the_next_reader():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["minimax"]()
+    history, state = [""], {}
+    a = '<minimax:tool_call><invoke name="write"><parameter name="code">first'
+    duplicate = '</parameter><parameter name="code">rewritten</parameter></invoke>'
+    b = '<invoke name="write"><parameter name="code">other'
+    first = deltas(feed(model, a, history, state))
+    second = deltas(feed(model, duplicate + b, history, state))
+    final = deltas(
+        feed(model, "</parameter></invoke></minimax:tool_call>", history, state)
+    )
+    assert [call["index"] for call in first] == [0]
+    assert [call["index"] for call in second] == [1]
+    assert [call["index"] for call in final] == [2, 1]
+    assert json.loads(final[0]["function"]["arguments"]) == {"code": "rewritten"}
+    assert json.loads(
+        second[0]["function"]["arguments"] + final[1]["function"]["arguments"]
+    ) == {"code": "other"}
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "length"
+    )
+
+
+def test_deepseek_v3_preserves_markdown_and_ignores_fences_in_arguments():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3"]()
+    history, state = [""], {}
+    fence = chr(96) * 3
+    markdown = "Here:\n" + fence + 'json\n{"a":1}\n' + fence + "\n"
+    opening, closing, _ = CALLS["deepseek-v3"]
+    code = fence + "\ncode\n" + fence
+    content, calls = [], []
+    for char in markdown + opening + json.dumps(code) + closing:
+        chunk = feed(model, char, history, state)
+        if chunk:
+            content.append(chunk["choices"][0]["delta"]["content"])
+            calls.extend(deltas(chunk))
+    assert "".join(content) == markdown
+    assert json.loads("".join(call["function"]["arguments"] for call in calls)) == {
+        "code": code,
+        "line": 7,
+    }
+
+
+def test_deepseek_v3_stream_deduplicates_identical_calls_only():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3"]()
+    history, state = [""], {}
+    opening, closing, _ = CALLS["deepseek-v3"]
+    calls = []
+    for code in ("a", "a", "b"):
+        calls.extend(deltas(feed(model, opening + json.dumps(code), history, state)))
+        calls.extend(deltas(feed(model, closing, history, state)))
+    assert [call["index"] for call in calls if "id" in call] == [0, 1]
+    assert [
+        json.loads(
+            "".join(
+                call["function"]["arguments"] for call in calls if call["index"] == i
+            )
+        )["code"]
+        for i in range(2)
+    ] == ["a", "b"]
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "tool_calls"
+    )
+
+
+def test_kimi_whitespace_in_tag_boundaries_still_streams_arguments():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["kimi-k3"]()
+    history, state = [""], {}
+    wrapper = "<|open|> tools <|sep|>\n"
+    opening = '<|open|> call tool="write" <|sep|>\n<|open|> argument key="code" <|sep|>'
+    closing = "<|close|> argument <|sep|>\n<|close|> call <|sep|>"
+    for index, value in enumerate(("first", "second")):
+        prefix = wrapper if index == 0 else "\n"
+        (partial,) = deltas(feed(model, prefix + opening + value, history, state))
+        assert value in partial["function"]["arguments"]
+        assert partial["index"] == index
+        (complete,) = deltas(feed(model, closing, history, state))
+        assert json.loads(
+            partial["function"]["arguments"] + complete["function"]["arguments"]
+        ) == {"code": value}
+
+
+@pytest.mark.parametrize("special", ["\u2028", "\x0b", "\r"])
+def test_llama_python_literal_preserves_tokenizer_line_offsets(special):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["llama3"]()
+    history, state = [""], {}
+    first = "{'name': 'write', 'parameters': {'code': '''a" + special + "\nb''',"
+    assert not deltas(feed(model, first, history, state))
+    (call,) = deltas(feed(model, "'line': 7}}", history, state))
+    assert json.loads(call["function"]["arguments"]) == {
+        "code": ("a" + special + "\nb").replace("\r\n", "\n"),
+        "line": 7,
+    }
+
+
+def test_llama_malformed_python_literal_falls_back_to_text():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["llama3"]()
+    history, state = [""], {}
+    invalid = "{{1}: 2}"
+    assert not deltas(feed(model, invalid, history, state))
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["delta"]["content"]
+        == invalid
+    )
+
+
+def test_llama_only_checks_for_completion_on_new_braces(monkeypatch):
+    model = ChatModelMixin()
+    parser = model.tool_parser = TOOL_PARSERS["llama3"]()
+    calls = []
+    parse = parser._leading_call
+
+    def count(text):
+        calls.append(text)
+        return parse(text)
+
+    monkeypatch.setattr(parser, "_leading_call", count)
+    history, state = [""], {}
+    first = '{"name":"write","parameters":{"nested":{},"code":"'
+    assert not deltas(feed(model, first, history, state))
+    for _ in range(100):
+        assert not deltas(feed(model, "x", history, state))
+    assert deltas(feed(model, '"}}', history, state))
+    for _ in range(10):
+        assert not deltas(feed(model, " suffix", history, state))
+    assert len(calls) == 2
+
+
+def test_rejected_fence_does_not_match_identical_valid_sibling():
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3"]()
+    history, state = [""], {}
+    opening, closing, value = CALLS["deepseek-v3"]
+    prefix = opening + value
+    (partial,) = deltas(feed(model, prefix, history, state))
+    broken = ',"line":7}} trailing junk\n' + chr(96) * 3
+    chunk = feed(model, broken + opening + value + closing, history, state)
+    (valid,) = deltas(chunk)
+    assert valid["index"] == 1 and valid["id"] != partial["id"]
+    assert json.loads(valid["function"]["arguments"]) == {"code": CODE, "line": 7}
+    assert chunk["choices"][0]["delta"]["content"] == prefix + broken
+    assert (
+        feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
+        == "length"
+    )

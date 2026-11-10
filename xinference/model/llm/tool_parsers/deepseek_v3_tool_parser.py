@@ -1,13 +1,11 @@
 import json
-import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import replace
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 from .argument_stream import ArgumentStart, json_argument_start, stream_delimited_calls
-
-logger = logging.getLogger(__name__)
 
 
 @register_tool_parser("deepseek-v3")
@@ -20,113 +18,86 @@ class DeepseekV3ToolParser(ToolParser):
 
     """
 
-    def __init__(self):
-        """
-        Initialize the DeepSeek V3 tool parser.
-        """
-        super().__init__()
-        # Regex pattern to match JSON code blocks
-        self.tool_calls_regex = r"\s*```json\s*(.*?)\s*```"
+    _OPEN = "```json"
+    _CLOSE = "```"
+    # Backticks inside a JSON string are data, including an unfinished
+    # string. An unescaped newline terminates an invalid JSON string.
+    _STRING_OR_FENCE = re.compile(
+        r'"(?:[^"\\\n]|\\.)*(?:"|\\?(?=\n|\Z))|(?P<fence>```)'
+    )
 
-    def _parse_json_function_call(
-        self,
-        function_call_str: str,
-    ) -> str:
-        """
-        Parse JSON function call from string.
+    @classmethod
+    def _find_fence(cls, text: str, start: int) -> int:
+        if text.find(cls._CLOSE, start) == -1:
+            return -1
+        return next(
+            (
+                match.start()
+                for match in cls._STRING_OR_FENCE.finditer(text, start)
+                if match["fence"]
+            ),
+            -1,
+        )
 
-        Args:
-            function_call_str (str): The function call string to parse.
-
-        Returns:
-            str: Parsed result or original string if no match found.
-
-        """
-        match = self.tool_calls_regex.search(function_call_str)
-        if match:
-            result = match.group(1)
-            return result
-        return function_call_str
+    def _parse_block(self, block: str) -> List[Tuple]:
+        try:
+            call = json.loads(block[len(self._OPEN) : -len(self._CLOSE)])
+            name = call["name"]
+            parameters = call["parameters"]
+            if isinstance(name, str) and name and isinstance(parameters, dict):
+                return [(None, name, parameters)]
+        except (KeyError, TypeError, ValueError):
+            pass
+        return [(block, None, None)]
 
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        """
-        Extract tool calls from complete model output.
-
-        Parses the model output to find JSON code blocks containing tool calls
-        and extracts function names and parameters. Handles JSON parsing errors
-        gracefully and deduplicates identical tool calls.
-
-        Args:
-            model_output (str): The complete output string from the model.
-
-        Returns:
-            List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-            A list of tuples where each tuple contains:
-            - content (str or None): Raw content if parsing failed, None if successful
-            - function_name (str or None): Name of the function to call
-            - parameters (dict or None): Function parameters
-
-        Example:
-            >>> parser = DeepseekV3ToolParser()
-            >>> output = '```json\n{"name": "get_weather", "parameters": {"location": "Beijing"}}\n```'
-            >>> result = parser.extract_tool_calls(output)
-            >>> print(result)
-            [(None, 'get_weather', {'location': 'Beijing'})]
-        """
-        matches = re.findall(self.tool_calls_regex, model_output, re.DOTALL)
-
-        if not matches:
-            # No tool calls found, return the original output as content
-            return [(model_output, None, None)]
-
-        # Use set for deduplication of identical tool calls
-        tool_calls = set()
-        results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
-            []
-        )
-
-        for raw_json in matches:
-            event: Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
-            try:
-                call = json.loads(raw_json)
-                name = call["name"]
-                parameters = call["parameters"]
-                if not isinstance(name, str) or not isinstance(parameters, dict):
-                    raise ValueError("Expected a named tool with object arguments")
-                key: Union[str, Tuple[str, str]] = (
-                    name,
-                    json.dumps(parameters, sort_keys=True),
-                )
-                event = (None, name, parameters)
-            except (KeyError, TypeError, ValueError):
-                key = raw_json
-                event = (raw_json, None, None)
-
-            if key not in tool_calls:
-                tool_calls.add(key)
-                results.append(event)
-
-        return results
+        return self._stream_blocks(model_output, model_output, finished=True) or [
+            (model_output, None, None)
+        ]
 
     def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
-        # The opening marker also ends with three backticks, so look for
-        # closing fences only after a complete opening has been consumed.
         position = 0
-        while (start := text.find("```json", position)) != -1:
-            start += len("```json")
-            end = text.find("```", start)
+        prior_names = set()
+        while (opening := text.find(self._OPEN, position)) != -1:
+            body = opening + len(self._OPEN)
+            end = self._find_fence(text, body)
             if end == -1:
-                return json_argument_start(text, start, "parameters")
-            position = end + 3
+                start = json_argument_start(text, body, "parameters")
+                # A later call with the same name could be a duplicate. Wait
+                # for its full arguments before exposing a new tool index.
+                if start is not None and start.name not in prior_names:
+                    return replace(
+                        start, call_position=opening, close_frame=self._find_fence
+                    )
+                return None
+            position = end + len(self._CLOSE)
+            name = self._parse_block(text[opening:position])[0][1]
+            if name:
+                prior_names.add(name)
         return None
 
+    def _stream_blocks(
+        self, text: str, delta: str, *, finished: bool = False
+    ) -> List[Tuple]:
+        return stream_delimited_calls(
+            self,
+            text,
+            delta,
+            self._OPEN,
+            self._CLOSE,
+            parse_block=self._parse_block,
+            finished=finished,
+            find_close=self._find_fence,
+            deduplicate=True,
+        )
+
     def flush_streaming_content(self, text: str) -> Optional[str]:
-        events = stream_delimited_calls(self, text, "", "```json", "```", finished=True)
+        events = self._stream_blocks(text, "", finished=True)
         return events[0][0] if events else None
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> List[Tuple]:
-        return stream_delimited_calls(self, current_text, delta_text, "```json", "```")
+        return self._stream_blocks(current_text, delta_text)
