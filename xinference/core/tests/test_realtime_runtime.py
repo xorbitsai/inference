@@ -128,6 +128,27 @@ async def test_common_session(runtime, task):
     assert runtime.describe()["pid"] == os.getpid()
 
 
+@pytest.mark.parametrize("extra_bytes", [0, 1])
+async def test_media_frame_size_boundary(runtime, extra_bytes):
+    size = runtime.limits.max_frame_bytes + extra_bytes
+    async with aiohttp.ClientSession() as client:
+        ws = await connect(client, runtime)
+        assert (await ws.receive_json(timeout=2))["event"] == "session.started"
+        await ws.send_bytes(b"\x00" * size)
+        message = await ws.receive(timeout=2)
+        if extra_bytes == 0:
+            assert message.type == aiohttp.WSMsgType.TEXT
+            assert message.json()["data"] == {"received_bytes": size}
+            await ws.send_json({"event": "input.end"})
+            assert (await ws.receive_json(timeout=2))["data"]["done"]
+            assert (await ws.receive_json(timeout=2))["reason"] == "completed"
+        else:
+            assert message.type == aiohttp.WSMsgType.CLOSE
+            assert ws.close_code == 1009
+        await ws.close()
+    await wait_empty(runtime)
+
+
 async def test_internal_auth_replay_and_generation(runtime):
     async with aiohttp.ClientSession() as client:
         for headers in ({}, {"Authorization": "Bearer invalid"}):

@@ -245,7 +245,10 @@ class RealtimeRuntime:
         # No await between the authoritative local check and increment.
         self.active_count += 1
         ws = web.WebSocketResponse(
-            heartbeat=25, max_msg_size=self.limits.max_frame_bytes, compress=False
+            heartbeat=25,
+            # aiohttp treats max_msg_size as an exclusive limit.
+            max_msg_size=self.limits.max_frame_bytes + 1,
+            compress=False,
         )
         handler = asyncio.current_task()
         assert handler is not None
