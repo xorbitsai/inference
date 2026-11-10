@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block
 
 logger = logging.getLogger(__name__)
 
@@ -137,15 +138,48 @@ class GemmaToolParser(ToolParser):
 
         return results or [(model_output, None, None)]
 
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        body = open_block(text, self.tool_call_start_token, self.tool_call_end_token)
+        if body is None:
+            return None
+        while body < len(text) and text[body].isspace():
+            body += 1
+        header = self.call_header_regex.match(text, body)
+        if header is None:
+            return None
+        brace = text.find("{", header.end())
+        if brace == -1:
+            return None
+
+        position = brace
+        while (opening := text.find(self.string_token, position)) != -1:
+            start = opening + len(self.string_token)
+            closing = text.find(self.string_token, start)
+            if closing != -1:
+                position = closing + len(self.string_token)
+                continue
+            # Reuse the regular decoder for the prefix. A string nested in
+            # an unfinished object or array cannot be completed this way.
+            try:
+                args = self._parse_arguments(
+                    text[brace:start] + self.string_token + "}"
+                )
+            except ValueError:
+                return None
+            prefix = json.dumps(args, ensure_ascii=False)
+            if not prefix.endswith('""}'):
+                return None
+            return ArgumentStart(
+                header[1], start, prefix[:-2], self.string_token, call_position=brace
+            )
+        return None
+
     def extract_tool_calls_streaming(
         self,
         previous_texts: List[str],
         current_text: str,
         delta_text: str,
     ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
-        if self.tool_call_start_token not in current_text:
-            return (delta_text, None, None)
-
         prev_text = previous_texts[-1] if previous_texts else ""
         # Text after an unclosed start token belongs to a tool call that is
         # still streaming. Everything before it is settled: plain text and
@@ -179,7 +213,7 @@ class GemmaToolParser(ToolParser):
         while True:
             open_index = text.find(start_token, position)
             if open_index == -1:
-                return len(text)
+                return len(text) - self._partial_marker_length(text, (start_token,))
             close_index = text.find(end_token, open_index + len(start_token))
             if close_index == -1:
                 return open_index

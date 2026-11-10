@@ -88,7 +88,6 @@ from ..tool_controls import (
     single_tool_stream,
     stream_forced_completion,
 )
-from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -2883,8 +2882,10 @@ class VLLMModel(WeightCachedModel, LLM):
                 total_tokens = usage["total_tokens"]
                 chunk["usage"] = usage
 
-                if tools and not isinstance(
-                    getattr(self, "tool_parser", None), QwenToolParser
+                if tools and not getattr(
+                    getattr(self, "tool_parser", None),
+                    "handles_tool_call_marker",
+                    False,
                 ):
                     """
                     The qwen2 tool call returns format like this:

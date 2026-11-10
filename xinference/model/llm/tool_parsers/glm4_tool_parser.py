@@ -120,4 +120,4 @@ class Glm4ToolParser(ToolParser):
             logger.error("Can't parse glm output: %s", current_text)
             return (str(current_text), None, None)
         else:
-            return (str(current_text), None, None)
+            return (delta_text, None, None)

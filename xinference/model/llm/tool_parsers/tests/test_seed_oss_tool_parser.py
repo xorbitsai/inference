@@ -141,16 +141,27 @@ async def _stream_response(model, text, finish_reason):
                 yield _completion_fields({"text": piece, "finish_reason": None})
         yield _completion_fields({"text": "", "finish_reason": finish_reason})
 
-    content, calls, reason = "", [], None
+    content, reason = "", None
+    calls = {}
     async for chunk in model._async_to_tool_completion_chunks(chunks(), tools=TOOLS):
         for choice in chunk["choices"]:
             content += choice["delta"].get("content") or ""
-            calls += [
-                (call["function"]["name"], json.loads(call["function"]["arguments"]))
-                for call in choice["delta"].get("tool_calls") or []
-            ]
+            for call in choice["delta"].get("tool_calls") or []:
+                function = call["function"]
+                assembled = calls.setdefault(call["index"], {"arguments": ""})
+                if "name" in function:
+                    assembled["name"] = function["name"]
+                assembled["arguments"] += function["arguments"]
             reason = choice["finish_reason"] or reason
-    return content, calls, reason
+    complete = []
+    for call in calls.values():
+        try:
+            arguments = json.loads(call["arguments"])
+        except json.JSONDecodeError:
+            assert reason == "length"
+        else:
+            complete.append((call["name"], arguments))
+    return content, complete, reason
 
 
 RESPONSE_MODES = [_complete, _stream_response]

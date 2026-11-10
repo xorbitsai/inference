@@ -37,6 +37,10 @@ class SeedOssToolParser(MiniMaxToolParser):
             r"<parameter=([^>\s]+)>(.*?)</parameter>", re.DOTALL
         )
 
+    _INVOKE_END = "</function>"
+    _INVOKE_OPEN = re.compile(r"\s*<function=([^>\s]+)>")
+    _PARAMETER_OPEN = re.compile(r"\s*<parameter=(?P<key>[^>\s]+)>")
+
     def _tool_markup(self, text: str) -> str:
         """Blank reasoning, which may still be open, so tags quoted in it stay text."""
         parts = []

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block, tagged_string_start
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,40 @@ class MiniMaxM3ToolParser(ToolParser):
                 e,
             )
             return [(model_output, None, None)]
+
+    _INVOKE_OPEN = re.compile(r"""\s*<invoke\s+name=["']([^"']+)["']>""")
+    _PARAMETER_OPEN = re.compile(
+        r"""\s*(?:<parameter\s+name=["'](?P<key>[^"']+)["']>|<(?P<tag>[a-zA-Z_][\w.-]*)>)"""
+    )
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        body = open_block(text, self.tool_call_start_token, self.tool_call_end_token)
+        if body is None:
+            return None
+        invoke_start: int = body
+        preceding = 0
+        close = "</invoke>"
+        last_end = text.rfind(close, body)
+        if last_end != -1:
+            for complete in self.invoke_regex.finditer(
+                text, body, last_end + len(close)
+            ):
+                invoke_start = complete.end()
+                preceding += 1
+        match = self._INVOKE_OPEN.match(text, invoke_start)
+        if match is None:
+            return None
+        name = match[1]
+        return tagged_string_start(
+            text,
+            match.end(),
+            name,
+            self._PARAMETER_OPEN,
+            "</parameter>",
+            lambda completed: self._parse_invoke_args(name, completed),
+            boundaries="&<\r",
+            preceding_calls=preceding,
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

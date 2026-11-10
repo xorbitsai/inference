@@ -1,6 +1,4 @@
 # CI: linux
-import pytest
-
 from ..llama3_tool_parser import Llama3ToolParser
 
 
@@ -163,13 +161,14 @@ class TestLlama3ToolParserSafeParsing:
         assert result == [(model_output, None, None)]
 
 
-class TestLlama3ToolParserStreaming:
-    """Verify streaming raises NotImplementedError as expected."""
-
-    def test_streaming_not_supported(self):
-        parser = Llama3ToolParser()
-        with pytest.raises(NotImplementedError):
-            parser.extract_tool_calls_streaming(["prev"], "current", "delta")
+def test_streaming_python_literal_tool_call():
+    parser = Llama3ToolParser()
+    first = "{'name': 'write', 'parameters': {'append':"
+    rest = " True}}"
+    assert parser.extract_tool_calls_streaming([""], first, first) == []
+    assert parser.extract_tool_calls_streaming([first], first + rest, rest) == [
+        (None, "write", {"append": True})
+    ]
 
 
 def test_llama_3_3_instruct_parses_tool_calls_with_llama3_parser():

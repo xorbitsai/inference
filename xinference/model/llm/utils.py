@@ -61,6 +61,7 @@ from .core import chat_context_var
 from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
 from .tool_parsers.abstract_tool_parser import ToolArgumentsDelta, request_tools_var
+from .tool_parsers.argument_stream import ArgumentStream
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 from .tool_parsers.qwen_tool_parser import QwenToolParser
 
@@ -1246,6 +1247,29 @@ class ChatModelMixin:
                             current_text,
                             tool_call_state.setdefault("argument_prefixes", {}),
                             finish_reason=finish_reason,
+                        )
+                        or None
+                    )
+                elif (
+                    tool_call_state is not None
+                    and tools
+                    and (
+                        locate := getattr(
+                            self.tool_parser, "locate_argument_start", None
+                        )
+                    )
+                ):
+                    stream = tool_call_state.get("argument_stream")
+                    if stream is None:
+                        stream = tool_call_state["argument_stream"] = ArgumentStream()
+                    tool_result = (
+                        stream.advance(
+                            self.tool_parser,
+                            locate,
+                            previous_texts,
+                            current_text,
+                            delta_text,
+                            finish_reason,
                         )
                         or None
                     )

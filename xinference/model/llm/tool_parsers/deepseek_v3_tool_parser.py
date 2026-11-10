@@ -1,10 +1,11 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, json_argument_start, stream_delimited_calls
 
 logger = logging.getLogger(__name__)
 
@@ -87,59 +88,41 @@ class DeepseekV3ToolParser(ToolParser):
         )
 
         for raw_json in matches:
-            func_and_args = None
+            event: Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
             try:
-                # Parse JSON to extract function call information
-                func_and_args = json.loads(raw_json)
-                # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(func_and_args["parameters"])
-                tool_call_tuple = (
-                    None,  # No content error
-                    func_and_args["name"],
-                    func_and_args["parameters"],
+                call = json.loads(raw_json)
+                name = call["name"]
+                parameters = call["parameters"]
+                if not isinstance(name, str) or not isinstance(parameters, dict):
+                    raise ValueError("Expected a named tool with object arguments")
+                key: Union[str, Tuple[str, str]] = (
+                    name,
+                    json.dumps(parameters, sort_keys=True),
                 )
-            except json.JSONDecodeError:
-                tool_call_tuple = (
-                    raw_json,
-                    None,
-                    None,
-                )  # If parsing fails, treat as raw content
-                arguments_hashable = None  # No need for hashing
+                event = (None, name, parameters)
+            except (KeyError, TypeError, ValueError):
+                key = raw_json
+                event = (raw_json, None, None)
 
-            # Avoid duplicate entries
-            dedup_key = (
-                (func_and_args["name"], arguments_hashable)
-                if func_and_args is not None
-                else (raw_json)
-            )
-
-            # Add to results if not already seen
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
+            if key not in tool_calls:
+                tool_calls.add(key)
+                results.append(event)
 
         return results
 
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        # The opening marker also ends with three backticks, so look for
+        # closing fences only after a complete opening has been consumed.
+        position = 0
+        while (start := text.find("```json", position)) != -1:
+            start += len("```json")
+            end = text.find("```", start)
+            if end == -1:
+                return json_argument_start(text, start)
+            position = end + 3
+        return None
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Any]:
-        """
-        Extract tool calls from streaming output.
-
-        Currently not supported for DeepSeek V3 model. This method raises
-        a ValueError indicating that streaming tool call extraction is only
-        available for specific model/backend combinations.
-
-        Args:
-            previous_text (List[str]): Previous text chunks from the stream.
-            current_text (str): Current accumulated text.
-            delta_text (str): New text delta in this chunk.
-
-        Raises:
-            ValueError: Always raised as streaming is not supported.
-        """
-        raise NotImplementedError(
-            "Streaming support for tool calls is available only when using "
-            "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
-            "DeepSeek V3 does not support streaming tool call extraction."
-        )
+    ) -> List[Tuple]:
+        return stream_delimited_calls(self, current_text, delta_text, "```json", "```")

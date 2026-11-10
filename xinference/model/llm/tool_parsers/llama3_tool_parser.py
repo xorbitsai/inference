@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, json_argument_start
 
 logger = logging.getLogger(__name__)
 
@@ -61,30 +62,32 @@ class Llama3ToolParser(ToolParser):
         except (KeyError, TypeError):
             return [(model_output, None, None)]
 
+    @staticmethod
+    def flush_streaming_content(text: str) -> Optional[str]:
+        # A leading brace might be ordinary text or a JSON/Python tool call.
+        # If no call was found, release the buffered content at the end.
+        if not text.strip() or text.lstrip().startswith("{"):
+            return text
+        return None
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        if text.rstrip().endswith("}"):
+            return None
+        return json_argument_start(text, 0)
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Any]:
-        """
-        Extract tool calls from streaming output.
-
-        Currently not supported for Llama3 model. This method raises
-        a ValueError indicating that streaming tool call extraction is only
-        available for specific model/backend combinations.
-
-        Args:
-            previous_text (List[str]): Previous text chunks from the stream.
-            current_text (str): Current accumulated text.
-            delta_text (str): New text delta in this chunk.
-
-        Raises:
-            ValueError: Always raised as streaming is not supported.
-
-        Note:
-            Llama3 model does not currently support streaming tool call
-            extraction. Use extract_tool_calls() with complete output instead.
-        """
-        raise NotImplementedError(
-            "Streaming support for tool calls is available only when using "
-            "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
-            "Llama3 does not support streaming tool call extraction."
-        )
+    ) -> List[Tuple]:
+        if not current_text.strip():
+            return []
+        if not current_text.lstrip().startswith("{"):
+            previous = previous_text[-1] if previous_text else ""
+            return [(delta_text if previous.strip() else current_text, None, None)]
+        previous = previous_text[-1] if previous_text else ""
+        if (
+            not current_text.rstrip().endswith("}")
+            or current_text.strip() == previous.strip()
+        ):
+            return []
+        result = self.extract_tool_calls(current_text)
+        return result if result[0][1] else []

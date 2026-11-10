@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, dsml_argument_start
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,15 @@ class DeepseekV3_2ToolParser(ToolParser):
         if content:
             results.append((content, None, None))
         return results
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        dsml = self._detect_format(text)
+        return dsml_argument_start(
+            text,
+            "function_calls",
+            self._DSML[1:] if dsml else "",
+            lambda body: self._parse_invoke_params(body, self._regexes[dsml][2]),
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
