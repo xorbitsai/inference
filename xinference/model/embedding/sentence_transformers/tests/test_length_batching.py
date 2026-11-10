@@ -178,3 +178,33 @@ async def test_concurrent_requests_are_split_back_after_length_batching(monkeypa
         )
         assert [item["index"] for item in result["data"]] == [0, 1]
     assert sorted(map(len, model._model.batches)) == [16, 16]
+
+
+def test_request_dimensions_truncate_before_normalization(monkeypatch):
+    model = _make_model(monkeypatch)
+    texts = ["short", "long " * 100]
+    result = model._create_embedding(texts, dimensions=2, show_progress_bar=False)
+    expected = torch.nn.functional.normalize(
+        torch.tensor([_vector(text)[:2] for text in texts])
+    )
+    torch.testing.assert_close(
+        torch.tensor([item["embedding"] for item in result["data"]]), expected
+    )
+
+
+def test_request_dimensions_override_the_launch_truncate_dim(monkeypatch):
+    model = _make_model(monkeypatch)
+    model._model.truncate_dim = 2
+    result = model._create_embedding(
+        ["text"], dimensions=1, normalize_embeddings=False, show_progress_bar=False
+    )
+    assert result["data"][0]["embedding"] == _vector("text")[:1]
+
+
+@pytest.mark.parametrize("dimensions", [0, -2, 1.5, True, "2"])
+def test_invalid_request_dimensions_are_rejected(monkeypatch, dimensions):
+    model = _make_model(monkeypatch)
+    with pytest.raises(ValueError, match="dimensions"):
+        model._create_embedding(
+            ["text"], dimensions=dimensions, show_progress_bar=False
+        )

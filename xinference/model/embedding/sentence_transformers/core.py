@@ -599,6 +599,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             convert_to_tensor: bool = False,
             device: str = None,
             normalize_embeddings: bool = False,
+            dimensions: Optional[int] = None,
             **kwargs,
         ):
             """
@@ -612,6 +613,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any setting from convert_to_numpy
             :param device: Which torch.device to use for the computation
             :param normalize_embeddings: If set to true, returned vectors will have length 1. In that case, the faster dot-product (util.dot_score) instead of cosine similarity can be used.
+            :param dimensions: Truncate each embedding to this many dimensions (OpenAI ``dimensions``), before normalization.
 
             :return:
                By default, a list of tensors is returned. If convert_to_tensor, a stacked tensor is returned. If convert_to_numpy, a numpy matrix is returned.
@@ -629,6 +631,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
             if convert_to_tensor:
                 convert_to_numpy = False
+
+            truncate_dim = model.truncate_dim
+            if dimensions is not None:
+                if (
+                    isinstance(dimensions, bool)
+                    or not isinstance(dimensions, int)
+                    or dimensions <= 0
+                ):
+                    raise ValueError(
+                        "The `dimensions` argument must be a positive integer, "
+                        f"but got {dimensions!r}"
+                    )
+                truncate_dim = dimensions
 
             if output_value != "sentence_embedding":
                 convert_to_tensor = False
@@ -728,7 +743,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     from sentence_transformers.util import truncate_embeddings
 
                     out_features["sentence_embedding"] = truncate_embeddings(
-                        out_features["sentence_embedding"], model.truncate_dim
+                        out_features["sentence_embedding"], truncate_dim
                     )
 
                     if output_value == "token_embeddings":
