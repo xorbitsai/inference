@@ -1,5 +1,4 @@
 import re
-from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .minimax_tool_parser import MiniMaxToolParser
@@ -65,13 +64,3 @@ class SeedOssToolParser(MiniMaxToolParser):
             position = end
         parts.append(text[position:])
         return "".join(parts)
-
-    def extract_tool_calls(
-        self, model_output: str
-    ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        # Only a closed block outside reasoning is a call. A truncated one stays
-        # text, so the response keeps its finish reason.
-        markup = self._tool_markup(model_output)
-        return self._settled_events(model_output, markup, 0, len(model_output)) or [
-            (model_output, None, None)
-        ]
