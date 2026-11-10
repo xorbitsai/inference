@@ -803,6 +803,12 @@ class VLLMModel(WeightCachedModel, LLM):
             processor.renderer.mm_processor = copy.copy(mm_processor)
             processor.renderer.mm_processor.cache = None
             processor.renderer._mm_cache_stats = None
+            # Newer vLLM renderers pass their own sender cache into
+            # MMProcessorInputs instead of reading mm_processor.cache, so the
+            # copied renderer must not share it either.
+            for cache_name in ("_mm_processor_cache", "_mm_processor_only_cache"):
+                if hasattr(renderer, cache_name):
+                    setattr(processor.renderer, cache_name, None)
             preprocessor = getattr(processor, "input_preprocessor", None)
             if preprocessor is not None:
                 processor.input_preprocessor = copy.copy(preprocessor)

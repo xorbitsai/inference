@@ -540,8 +540,13 @@ async def test_counting_uses_cache_isolated_processor_copy(model, monkeypatch):
     original_cache = object()
     original_stats = object()
     mm_processor = SimpleNamespace(cache=original_cache)
+    original_sender_cache = object()
+    original_processor_only_cache = object()
     renderer = SimpleNamespace(
-        mm_processor=mm_processor, _mm_cache_stats=original_stats
+        mm_processor=mm_processor,
+        _mm_cache_stats=original_stats,
+        _mm_processor_cache=original_sender_cache,
+        _mm_processor_only_cache=original_processor_only_cache,
     )
     preprocessor = SimpleNamespace(renderer=renderer)
     observed = {}
@@ -584,3 +589,7 @@ async def test_counting_uses_cache_isolated_processor_copy(model, monkeypatch):
     assert observed["processor"].input_preprocessor.renderer is observed["renderer"]
     assert mm_processor.cache is original_cache
     assert renderer._mm_cache_stats is original_stats
+    assert observed["renderer"]._mm_processor_cache is None
+    assert observed["renderer"]._mm_processor_only_cache is None
+    assert renderer._mm_processor_cache is original_sender_cache
+    assert renderer._mm_processor_only_cache is original_processor_only_cache
