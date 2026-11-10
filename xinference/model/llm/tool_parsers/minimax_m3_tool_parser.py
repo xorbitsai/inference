@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 # only text that follows it is markup: ]<]minimax[>[<tool_call>, ...<invoke>,
 # ...<city>Beijing]<]minimax[>[</city>, ...</tool_call>.
 NAMESPACE = "]<]minimax[>["
+NAMESPACED_START = NAMESPACE + "<tool_call>"
+NAMESPACED_END = NAMESPACE + "</tool_call>"
 
 
 @register_tool_parser("minimax_m3")
@@ -94,11 +96,49 @@ class MiniMaxM3ToolParser(ToolParser):
                 duplicate_tags.add(child.tag)
         return result
 
-    def _normalize(self, text: str) -> str:
-        """Read M3's namespaced block tags as the tags this parser matches."""
-        return text.replace(
-            NAMESPACE + "<tool_call>", self.tool_call_start_token
-        ).replace(NAMESPACE + "</tool_call>", self.tool_call_end_token)
+    def _scan_blocks(self, text: str) -> Tuple[List[str], Optional[int]]:
+        """Split text into plain text and blocks, left to right.
+
+        Each block ends at the end tag of its own format, so a tag of the
+        other format inside an argument is text. Returns the segments and the
+        index where an unclosed block starts, if any.
+        """
+        pairs = {
+            NAMESPACED_START: NAMESPACED_END,
+            self.tool_call_start_token: self.tool_call_end_token,
+            self.think_start_token: self.think_end_token,
+        }
+        segments: List[str] = []
+        pos = search = 0
+        while True:
+            found = [(text.find(tag, search), tag) for tag in pairs]
+            found = [(index, tag) for index, tag in found if index != -1]
+            if not found:
+                break
+            index, tag = min(found)
+            end = text.find(pairs[tag], index + len(tag))
+            if end == -1 and tag == self.think_start_token:
+                # An unclosed think block is text; keep looking for tool calls.
+                search = index + len(tag)
+                continue
+            if index > pos:
+                segments.append(text[pos:index])
+            if end == -1:
+                return segments, index
+            pos = search = end + len(pairs[tag])
+            segments.append(text[index:pos])
+        if pos < len(text):
+            segments.append(text[pos:])
+        return segments, None
+
+    def _block_format(self, segment: str) -> Optional[str]:
+        """The start tag of the first tool-call block in segment, if any."""
+        found = [
+            (segment.find(tag), tag)
+            for tag in (NAMESPACED_START, self.tool_call_start_token)
+            if tag in segment
+        ]
+        return min(found)[1] if found else None
 
     @staticmethod
     def _namespace_to_xml(body: str) -> str:
@@ -110,8 +150,10 @@ class MiniMaxM3ToolParser(ToolParser):
             xml.append(part[:tag_end] + escape(part[tag_end:]))
         return "".join(xml)
 
-    def _parse_invoke_args(self, name: str, body: str) -> Dict[str, Any]:
-        if NAMESPACE in body:
+    def _parse_invoke_args(
+        self, name: str, body: str, namespaced: bool = False
+    ) -> Dict[str, Any]:
+        if namespaced:
             body = self._namespace_to_xml(body)
         # Model output is often XML-like rather than strictly valid XML. Escape
         # bare ampersands while preserving the five predefined XML entities and
@@ -153,15 +195,26 @@ class MiniMaxM3ToolParser(ToolParser):
                 duplicate_keys.add(key)
         return args
 
-    def _parse_invoke_calls(self, tool_block: str) -> List[Tuple[str, Dict[str, Any]]]:
+    def _parse_invoke_calls(
+        self, tool_block: str, block_format: Optional[str] = None
+    ) -> List[Tuple[str, Dict[str, Any]]]:
         results = []
+        if block_format is None:
+            block_format = self._block_format(tool_block)
         regex = (
             self.namespaced_invoke_regex
-            if NAMESPACE in tool_block
+            if block_format == NAMESPACED_START
             else self.invoke_regex
         )
         for name, body in regex.findall(tool_block):
-            results.append((name, self._parse_invoke_args(name, body)))
+            results.append(
+                (
+                    name,
+                    self._parse_invoke_args(
+                        name, body, block_format == NAMESPACED_START
+                    ),
+                )
+            )
         return results
 
     def _get_function_calls(self, model_output: str) -> List[str]:
@@ -191,21 +244,23 @@ class MiniMaxM3ToolParser(ToolParser):
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        model_output = self._normalize(model_output)
-        if self.tool_call_start_token not in model_output:
+        if self._block_format(model_output) is None:
             return [(model_output, None, None)]
 
         results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
             []
         )
         try:
-            function_calls = self._get_function_calls(model_output)
+            function_calls, unclosed = self._scan_blocks(model_output)
+            if unclosed is not None:
+                function_calls.append(model_output[unclosed:])
             if not function_calls:
                 return [(model_output, None, None)]
 
             for function_call in function_calls:
-                if self.tool_call_start_token in function_call:
-                    invokes = self._parse_invoke_calls(function_call)
+                block_format = self._block_format(function_call)
+                if block_format is not None:
+                    invokes = self._parse_invoke_calls(function_call, block_format)
                     if not invokes:
                         results.append((function_call, None, None))
                         continue
@@ -229,17 +284,19 @@ class MiniMaxM3ToolParser(ToolParser):
         def completed_blocks(
             text: str,
         ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-            text = self._normalize(text)
-            # The namespace token arrives whole, before <tool_call>.
-            if text.endswith(NAMESPACE):
-                text = text[: -len(NAMESPACE)]
-            for prefix_length in range(len(self.tool_call_start_token) - 1, 0, -1):
-                partial_start = self.tool_call_start_token[:prefix_length]
-                if text.endswith(partial_start):
-                    text = text[:-prefix_length]
-                    break
-            if self._has_unclosed_tool_call(text):
-                text = text[: text.rfind(self.tool_call_start_token)]
+            # Hold back a start tag that may still be arriving. The namespace
+            # token arrives whole, before <tool_call>.
+            held = 0
+            for start in (NAMESPACED_START, self.tool_call_start_token):
+                for prefix_length in range(len(start) - 1, held, -1):
+                    if text.endswith(start[:prefix_length]):
+                        held = prefix_length
+                        break
+            if held:
+                text = text[:-held]
+            _, unclosed = self._scan_blocks(text)
+            if unclosed is not None:
+                text = text[:unclosed]
             return self.extract_tool_calls(text)
 
         try:

@@ -329,9 +329,19 @@ M3_CALL_WITH_RAW_INVOKE = (
     f"{NS}</invoke>\n"
     f"{NS}</tool_call>"
 )
+# A legacy block tag in an argument is text too.
+LEGACY_BLOCK = "<minimax:tool_call>hello</minimax:tool_call>"
+M3_CALL_WITH_LEGACY_BLOCK = (
+    f"{NS}<tool_call>\n"
+    f'{NS}<invoke name="write_file">'
+    f"{NS}<code>{LEGACY_BLOCK}{NS}</code>"
+    f"{NS}</invoke>\n"
+    f"{NS}</tool_call>"
+)
 M3_CALLS = [
     (M3_CALL, ("get_weather", {"city": "Beijing", "days": 3})),
     (M3_CALL_WITH_RAW_INVOKE, ("write_file", {"code": "<invoke>hello</invoke>"})),
+    (M3_CALL_WITH_LEGACY_BLOCK, ("write_file", {"code": LEGACY_BLOCK})),
 ]
 
 
@@ -357,6 +367,7 @@ def test_tool_call_rendered_by_the_m3_template_is_parsed(parser):
         "code": "if a < b and c > d: x = '&lt;' & y",
         "cities": ["A", "B"],
         "markup": '<invoke>hello</invoke> <invoke name="other">x</invoke>',
+        "legacy": "<minimax:tool_call>hello</minimax:tool_call>",
     }
     prompt = mixin.get_full_context(
         [
