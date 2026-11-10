@@ -2433,6 +2433,13 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+        # Same as launch_model: a "Model not found" entry cached before the
+        # launch would keep answering 404 for the new uid until it expires.
+        from xinference.api.utils import invalidate_model_not_found_cache
+
+        invalidate_model_not_found_cache(model_uid)
+
         return JSONResponse(content={"model_uid": model_uid})
 
     async def get_model_versions(
