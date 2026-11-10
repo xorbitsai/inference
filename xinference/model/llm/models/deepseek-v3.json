@@ -442,7 +442,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "tool_parser": "deepseek_v3",
+    "tool_parser": "deepseek-r1",
     "updated_at": 1769418520,
     "featured": false,
     "architectures": [
