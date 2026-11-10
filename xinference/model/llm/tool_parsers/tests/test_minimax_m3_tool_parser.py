@@ -464,3 +464,36 @@ async def test_m3_tool_call_reaches_the_chat_stream(call_text, expected):
     assert content == "Checking.\n"
     assert calls == [expected]
     assert finish_reason == "tool_calls"
+
+
+# A complete invoke, then output cut off before the outer closing tag.
+M3_CALL_CUT_OFF = M3_CALL[: -len(f"{NS}</tool_call>")]
+
+
+def test_m3_block_cut_off_before_its_closing_tag_is_not_a_call_in_the_response():
+    result = _m3_model()._post_process_completion(
+        None, "test-model", _completion("Checking.\n" + M3_CALL_CUT_OFF, "length")
+    )
+    choice = result["choices"][0]
+
+    assert not choice["message"].get("tool_calls")
+    assert choice["message"]["content"] == "Checking.\n" + M3_CALL_CUT_OFF
+    assert choice["finish_reason"] == "length"
+
+
+@pytest.mark.asyncio
+async def test_m3_block_cut_off_before_its_closing_tag_is_not_a_call_in_the_stream():
+    async def chunks():
+        yield _completion("Checking.\n", None)
+        yield _completion(M3_CALL_CUT_OFF, None)
+        yield _completion("", "length")
+
+    content, calls, finish_reason = "", [], None
+    async for chunk in _m3_model()._async_to_tool_completion_chunks(chunks()):
+        for choice in chunk["choices"]:
+            content += choice["delta"].get("content") or ""
+            calls += choice["delta"].get("tool_calls") or []
+            finish_reason = choice["finish_reason"] or finish_reason
+
+    assert calls == []
+    assert finish_reason == "length"

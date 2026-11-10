@@ -252,8 +252,13 @@ class MiniMaxM3ToolParser(ToolParser):
         )
         try:
             function_calls, unclosed = self._scan_blocks(model_output)
+            unclosed_text = None
             if unclosed is not None:
-                function_calls.append(model_output[unclosed:])
+                if model_output.startswith(NAMESPACED_START, unclosed):
+                    # An unclosed M3 block is an unfinished turn, not a call.
+                    unclosed_text = model_output[unclosed:]
+                else:
+                    function_calls.append(model_output[unclosed:])
             if not function_calls:
                 return [(model_output, None, None)]
 
@@ -269,6 +274,8 @@ class MiniMaxM3ToolParser(ToolParser):
                 else:
                     if function_call:
                         results.append((function_call, None, None))
+            if unclosed_text:
+                results.append((unclosed_text, None, None))
             return results
         except Exception as e:
             logger.error(
