@@ -113,9 +113,13 @@ SGLang replicas
 
 .. versionadded:: v4.0.0
 
-SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported.
+SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported.
 
-Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16.
+Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning.
+
+Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings; checkpoint files are identified by name, size and shard index rather than by content. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 requires SGLang >= ``0.5.21`` with its ``deepseek-recipe`` package.
+
+SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically.
 
 ``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`.
 

@@ -3638,15 +3638,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(
                 "SGLang Xavier requires the xavier transport and one worker per replica"
             )
+        # Plain SGLang replica sharing stores the engine's own host pools, so
+        # quantized and tensor-parallel checkpoints are validated by the engine.
+        sglang_pool_sharing = sglang_xavier and not pd_enabled
+        if sglang_pool_sharing and model_format not in (
+            None,
+            "pytorch",
+            "fp8",
+            "fp4",
+            "gptq",
+            "awq",
+            "bnb",
+        ):
+            raise ValueError(
+                "SGLang Xavier requires PyTorch, FP8, FP4, GPTQ, AWQ or bitsandbytes weights"
+            )
         if sglang_xavier or heterogeneous_pd or heterogeneous_cache:
-            if (
-                model_type not in (None, "LLM")
-                or (
-                    not host_handoff
-                    and not heterogeneous_cache
-                    and model_format not in (None, "pytorch")
+            if model_type not in (None, "LLM") or (
+                not sglang_pool_sharing
+                and (
+                    (
+                        not host_handoff
+                        and not heterogeneous_cache
+                        and model_format not in (None, "pytorch")
+                    )
+                    or quantization not in (None, "none")
                 )
-                or quantization not in (None, "none")
             ):
                 raise ValueError(
                     "Cross-engine Xavier sharing requires unquantized LLM weights"
@@ -3671,6 +3688,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             kwargs["_xavier_cache_config"] = {
                 "address": (service_address or model_service_address(self)),
                 "uid": f"xavier-cache-{model_uid}",
+                # Replicas may share a host; each sizes its HiCache pool alone.
+                "replicas": replica,
             }
         if shared_cache_backend and (sglang_xavier or trt_xavier):
             kwargs["_xavier_cache_config"]["read_timeout"] = cache_backend_config[

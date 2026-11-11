@@ -16,10 +16,38 @@ from ...xavier.contract import KVCacheContract
 
 logger = logging.getLogger(__name__)
 
+# SGLang names the anchor pool "kv". A logical anchor (DeepSeek-V4) holds no
+# bytes; its zero-byte page marks a prefix whose side pools were all written.
+_KV = "kv"
+# Hashes TP-sharded pools per rank even for MLA models (SGLang's Mamba state).
+_RANK_SHARDED_POOLS = ("mamba",)
+_MAX_RPC_ENTRIES = 1024
+
+
+class _V1Transfer:
+    def __init__(self, name, keys, host_indices):
+        self.name, self.keys, self.host_indices = name, keys, host_indices
+
 
 class XavierHiCacheStorage(HiCacheStorage):
     def __init__(self, storage_config, kwargs=None):
-        if (
+        self._config = dict(storage_config.extra_config)
+        self._pools = self._config.get("pools")
+        if self._pools:
+            # SGLang's HiCache controller picks the writer: one rank for
+            # replicated MLA pools, every rank for TP-sharded pools.
+            if any(
+                getattr(storage_config, name, 1) != 1
+                for name in ("pp_size", "attn_cp_size", "dcp_size")
+            ):
+                raise ValueError(
+                    "SGLang Xavier supports tensor parallelism without PP, CP or DCP"
+                )
+            self._is_mla = bool(storage_config.is_mla_model)
+            self._tp_rank = storage_config.tp_rank
+            self._tp_size = storage_config.tp_size
+            self._contract = None
+        elif (
             any(
                 getattr(storage_config, name) != 1
                 for name in ("tp_size", "pp_size", "attn_cp_size")
@@ -27,8 +55,9 @@ class XavierHiCacheStorage(HiCacheStorage):
             or storage_config.is_mla_model
         ):
             raise ValueError("SGLang Xavier requires unsharded full-attention KV")
-        self._config = dict(storage_config.extra_config)
-        self._contract = KVCacheContract.from_dict(self._config["contract"])
+        else:
+            self._contract = KVCacheContract.from_dict(self._config["contract"])
+        self._layouts = {}
         self._namespace = None
         self._closed = False
         self._rpc_loop = None
@@ -80,6 +109,9 @@ class XavierHiCacheStorage(HiCacheStorage):
 
     def register_mem_pool_host(self, pool):
         super().register_mem_pool_host(pool)
+        if self._pools:
+            self._layouts[_KV] = self._layout(_KV, pool)
+            return
         contract = self._contract
         if (
             pool.dtype != getattr(torch, contract.logical_dtype)
@@ -216,6 +248,8 @@ class XavierHiCacheStorage(HiCacheStorage):
         return self.batch_exists([key]) == 1
 
     def batch_exists(self, keys, extra_info=None):
+        if self._pools:
+            return self._pool_exists(keys)
         return self._request("exists", keys, 0)
 
     def _offsets(self, keys, host_indices):
@@ -240,6 +274,8 @@ class XavierHiCacheStorage(HiCacheStorage):
         return offsets
 
     def batch_set_v1(self, keys, host_indices, extra_info=None):
+        if self._pools:
+            return self._write_pool(_KV, self.mem_pool_host, keys, host_indices)
         offsets = self._offsets(keys, host_indices)
         pages = [
             self.mem_pool_host.get_data_page(index, flat=True).clone().view(torch.uint8)
@@ -248,6 +284,10 @@ class XavierHiCacheStorage(HiCacheStorage):
         return self._request("put", keys, [False] * len(keys), pages)
 
     def batch_get_v1(self, keys, host_indices, extra_info=None):
+        if self._pools:
+            return self._batch_io_v2(
+                [_V1Transfer(_KV, keys, host_indices)], write=False
+            )[_KV]
         offsets = self._offsets(keys, host_indices)
         pages = self._request("get", keys, [None] * len(keys))
         results = []
@@ -260,6 +300,238 @@ class XavierHiCacheStorage(HiCacheStorage):
             else:
                 results.append(False)
         return results
+
+    # Multi-pool mode: MLA and hybrid models, any tensor-parallel size.
+
+    @staticmethod
+    def _layout(name, pool):
+        page = pool.get_dummy_flat_data_page()
+        return {
+            "page_bytes": page.numel() * page.element_size(),
+            "dtype": str(page.dtype).removeprefix("torch."),
+            "page_size": int(getattr(pool, "page_size", 1) or 1),
+            "layer_num": int(getattr(pool, "layer_num", 0) or 0),
+            "layout": getattr(pool, "layout", None),
+            "class": type(pool).__name__,
+        }
+
+    def register_mem_host_pool_v2(self, host_pool, host_pool_name):
+        super().register_mem_host_pool_v2(host_pool, host_pool_name)
+        if not self._pools:
+            raise ValueError("SGLang Xavier needs multi-pool mode for this model")
+        name = str(host_pool_name)
+        if name != _KV or host_pool is not getattr(self, "mem_pool_host", None):
+            self._layouts[name] = self._layout(name, host_pool)
+
+    def on_host_pools_registered(self):
+        if not self._pools:
+            return
+        identity = {
+            **self._config["identity"],
+            "engine": "sglang",
+            "version": importlib.metadata.version("sglang"),
+            # MLA pages are replicated across TP ranks; sharded pages are not.
+            "tp_size": None if self._is_mla else self._tp_size,
+            "hash_format": "sglang-storage-chain-v1",
+        }
+        self._namespace = self._rpc("configure_pools", identity, self._layouts)
+        logger.info(
+            "Xavier shared HiCache ready on TP rank %d/%d: %s",
+            self._tp_rank,
+            self._tp_size,
+            ", ".join(
+                f"{name}={layout['page_bytes']}B"
+                for name, layout in sorted(self._layouts.items())
+            ),
+        )
+
+    def _entry(self, pool, key):
+        pool = str(pool)
+        if not self._is_mla or pool in _RANK_SHARDED_POOLS:
+            key = f"{key}@tp{self._tp_rank}"
+        return [pool, key]
+
+    def _pool_rpc(self, method, entries, pages=None):
+        """Batched RPC; a failure turns the whole request into misses."""
+        results = []
+        writers = {}
+        try:
+            for offset in range(0, len(entries), _MAX_RPC_ENTRIES):
+                batch = entries[offset : offset + _MAX_RPC_ENTRIES]
+                args = (self._namespace, batch)
+                if pages is not None:
+                    args += (
+                        pages[offset : offset + _MAX_RPC_ENTRIES],
+                        self._config.get("replica", ""),
+                    )
+                value = self._rpc(method, *args)
+                if method == "get_pool_pages":
+                    for writer, count in value["writers"].items():
+                        writers[writer] = writers.get(writer, 0) + count
+                    value = value["pages"]
+                if len(value) != len(batch):
+                    raise ValueError("Xavier returned a short pool page batch")
+                results.extend(value)
+        except Exception:
+            logger.warning(
+                "Xavier storage %s failed; treating pages as misses",
+                method,
+                exc_info=True,
+            )
+            return [None if method == "get_pool_pages" else False] * len(entries), {}
+        return results, writers
+
+    def _present(self, pool, keys):
+        if not keys:
+            return []
+        present, _ = self._pool_rpc(
+            "contains_pool_pages", [self._entry(pool, key) for key in keys]
+        )
+        return [bool(value) for value in present]
+
+    def _pool_exists(self, keys):
+        present = self._present(_KV, keys)
+        return present.index(False) if False in present else len(present)
+
+    def _host_offsets(self, pool, keys, host_indices):
+        page_size = int(getattr(pool, "page_size", 1) or 1)
+        if host_indices is None or host_indices.numel() != len(keys) * page_size:
+            return None
+        return [int(host_indices[i * page_size].item()) for i in range(len(keys))]
+
+    def _write_pool(self, name, pool, keys, host_indices):
+        offsets = self._host_offsets(pool, keys, host_indices)
+        if offsets is None:
+            logger.error("Xavier %s host indices differ from page keys", name)
+            return [False] * len(keys)
+        if self._layouts[str(name)]["page_bytes"] == 0:
+            pages = [b""] * len(keys)
+        else:
+            pages = [
+                pool.get_data_page(offset, flat=True)
+                .contiguous()
+                .view(torch.uint8)
+                .numpy()
+                .tobytes()
+                for offset in offsets
+            ]
+        stored, _ = self._pool_rpc(
+            "put_pool_pages", [self._entry(name, key) for key in keys], pages
+        )
+        return [bool(value) for value in stored]
+
+    def _read_pool(self, name, pool, keys, host_indices):
+        offsets = self._host_offsets(pool, keys, host_indices)
+        if offsets is None:
+            logger.error("Xavier %s host indices differ from page keys", name)
+            return [False] * len(keys), {}, 0
+        layout = self._layouts[str(name)]
+        pages, writers = self._pool_rpc(
+            "get_pool_pages", [self._entry(name, key) for key in keys]
+        )
+        results = []
+        nbytes = 0
+        dtype = getattr(torch, layout["dtype"])
+        for offset, page in zip(offsets, pages):
+            if page is None or self._closed or len(page) != layout["page_bytes"]:
+                results.append(False)
+                continue
+            if layout["page_bytes"]:
+                pool.set_from_flat_data_page(
+                    offset,
+                    torch.frombuffer(bytearray(page), dtype=torch.uint8).view(dtype),
+                )
+                nbytes += len(page)
+            results.append(True)
+        return results, writers, nbytes
+
+    def _registered(self, name):
+        name = str(name)
+        if name == _KV:
+            return self.mem_pool_host
+        pool = getattr(self, "registered_pools", {}).get(name)
+        if pool is None:
+            for key, value in getattr(self, "registered_pools", {}).items():
+                if str(key) == name:
+                    return value
+            raise ValueError(f"Unregistered Xavier host pool: {name}")
+        return pool
+
+    def batch_exists_v2(self, keys, pool_transfers=None, extra_info=None):
+        from sglang.srt.mem_cache.hicache_storage import (
+            PoolHitPolicy,
+            PoolTransferResult,
+        )
+
+        kv_pages = self._pool_exists(keys)
+        hit_count = {_KV: kv_pages} if kv_pages else {}
+        restorable = list(range(1, kv_pages + 1))
+        for transfer in pool_transfers or []:
+            if not restorable:
+                break
+            present = self._present(transfer.name, keys[:kv_pages])
+            if transfer.hit_policy == PoolHitPolicy.ALL_PAGES:
+                boundary = present.index(False) if False in present else kv_pages
+                allowed = set(range(1, boundary + 1))
+            elif transfer.hit_policy == PoolHitPolicy.TRAILING_PAGES:
+                trailing = max(1, len(transfer.keys) if transfer.keys else 1)
+                allowed = {
+                    length
+                    for length in range(1, kv_pages + 1)
+                    if all(present[max(0, length - trailing) : length])
+                }
+                boundary = max(allowed, default=0)
+            else:
+                raise ValueError(
+                    f"Xavier does not support pool hit policy {transfer.hit_policy}"
+                )
+            if boundary:
+                hit_count[transfer.name] = boundary
+            restorable = [length for length in restorable if length in allowed]
+        return PoolTransferResult(
+            restorable[-1] if restorable else 0, hit_count, restorable
+        )
+
+    def _batch_io_v2(self, transfers, write):
+        results = {}
+        writers = {}
+        nbytes = 0
+        for transfer in transfers:
+            pool = self._registered(transfer.name)
+            keys = list(transfer.keys or [])
+            if write:
+                results[transfer.name] = self._write_pool(
+                    transfer.name, pool, keys, transfer.host_indices
+                )
+                continue
+            ok, read_writers, read_bytes = self._read_pool(
+                transfer.name, pool, keys, transfer.host_indices
+            )
+            results[transfer.name] = ok
+            nbytes += read_bytes
+            for writer, count in read_writers.items():
+                writers[writer] = writers.get(writer, 0) + count
+        if not write and nbytes:
+            self._log_restore(results, writers, nbytes)
+        return results
+
+    def _log_restore(self, results, writers, nbytes):
+        log = logger.info if self._tp_rank == 0 else logger.debug
+        log(
+            "Xavier restored %s (%d bytes) on TP rank %d of replica %s from "
+            "pages written by %s",
+            ", ".join(f"{name}={sum(ok)}" for name, ok in results.items()),
+            nbytes,
+            self._tp_rank,
+            self._config.get("replica", "?"),
+            ", ".join(f"{name or '?'}:{count}" for name, count in writers.items()),
+        )
+
+    def batch_get_v2(self, transfers, extra_info=None):
+        return self._batch_io_v2(transfers, write=False)
+
+    def batch_set_v2(self, transfers, extra_info=None):
+        return self._batch_io_v2(transfers, write=True)
 
     def get_stats(self):
         return self._rpc("get_stats")

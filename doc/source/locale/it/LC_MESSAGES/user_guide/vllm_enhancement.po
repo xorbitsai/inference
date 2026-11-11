@@ -61,8 +61,8 @@ msgid "SGLang replicas"
 msgstr "Repliche SGLang"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` può condividere la cache KV dei prefissi tramite il backend di archiviazione HiCache di Xavier. Avviare più repliche con ``model_engine=\"SGLang\"`` e ``enable_xavier=True``. L'adattatore iniziale supporta modelli testuali Qwen2, Qwen3 e Llama FP16 non quantizzati, con attenzione completa e TP=PP=DP=1; LoRA, decodifica speculativa, attenzione ibrida e input multimodali non sono supportati."
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` può condividere la cache KV dei prefissi tramite il backend di archiviazione HiCache di Xavier. Avvia più repliche con ``model_engine=\"SGLang\"`` e ``enable_xavier=True``. Ogni replica viene eseguita su un worker; PP, DP, parallelismo di contesto, LoRA e decodifica speculativa non sono supportati."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -80,8 +80,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "Le repliche SGLang ordinarie condividono pagine HiCache sulla CPU. I ruoli espliciti di prefill/decode usano invece il trasferimento da GPU a GPU di Xavier. Per il P/D con lo stesso motore o tra motori diversi e le impostazioni del motore per replica, vedere :ref:`user_guide_pd_separation`."
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier carica i checkpoint BF16 come FP16 ed emette un avviso. Sia i pesi sia le cache KV usano FP16."
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "I modelli di testo Qwen2, Qwen3 e Llama non quantizzati, con attenzione completa e TP=1, condividono pagine FP16 canoniche, usate anche dalla condivisione tra motori e da P/D. Xavier carica i checkpoint BF16 come FP16 per queste pagine ed emette un avviso."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings; checkpoint files are identified by name, size and shard index rather than by content. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 requires SGLang >= ``0.5.21`` with its ``deepseek-recipe`` package."
+msgstr "I modelli Qwen2, Qwen3 e Llama con parallelismo tensoriale o quantizzati, e DeepSeek-V4 e V4.1 incluso l'input di immagini, condividono invece i pool host HiCache propri di SGLang. Tutte le repliche devono registrare gli stessi pool a partire dagli stessi file di checkpoint, dalla stessa versione di SGLang e dalle stesse impostazioni della cache; i file di checkpoint sono identificati per nome, dimensione e indice degli shard anziché per contenuto. Le pagine MLA replicate vengono scritte una volta per replica e lette da ogni rank del parallelismo tensoriale; le pagine suddivise in shard vengono archiviate per rank. DeepSeek-V4.1 richiede SGLang >= ``0.5.21`` con il relativo pacchetto ``deepseek-recipe``."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically."
+msgstr "SGLang dimensiona il pool host HiCache di ogni replica in base alla memoria libera dell'host senza tenere conto delle altre repliche. Se non è impostato ``hicache_ratio``, ``hicache_size`` o ``hicache_host_memory_fraction``, Xavier imposta ``hicache_host_memory_fraction`` a ``0.5`` diviso per il numero di repliche e ``hicache_ratio=1.2`` per DeepSeek-V4, i cui pool host SGLang non può dimensionare automaticamente."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
