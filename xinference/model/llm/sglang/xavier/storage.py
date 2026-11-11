@@ -318,7 +318,9 @@ class XavierHiCacheStorage(HiCacheStorage):
     def register_mem_host_pool_v2(self, host_pool, host_pool_name):
         super().register_mem_host_pool_v2(host_pool, host_pool_name)
         if not self._pools:
-            raise ValueError("SGLang Xavier needs multi-pool mode for this model")
+            # SGLang also registers the single KV pool of ordinary models here;
+            # the canonical-page path keeps using the v1 interface.
+            return
         name = str(host_pool_name)
         if name != _KV or host_pool is not getattr(self, "mem_pool_host", None):
             self._layouts[name] = self._layout(name, host_pool)

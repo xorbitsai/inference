@@ -463,3 +463,23 @@ def test_pool_mode_rejects_unvalidated_models_and_options(
     (tmp_path / "tokenizer.json").write_text("{}")
     with pytest.raises(ValueError, match=message):
         configure_xavier(str(tmp_path), dict(options), {"address": "a", "uid": "c"})
+
+
+def test_single_pool_path_accepts_sglang_v2_kv_registration(storage_class):
+    # SGLang >= 0.5.23 registers ordinary models' KV pool through v2 as well.
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 3, 2, 4, 4, "float16"
+    )
+    config = SimpleNamespace(
+        tp_rank=0,
+        tp_size=1,
+        pp_size=1,
+        attn_cp_size=1,
+        is_mla_model=False,
+        extra_config={"address": "a", "uid": "c", "contract": contract.to_dict()},
+    )
+    storage = storage_class(config)
+    pool = BytePool()
+    storage.register_mem_host_pool_v2(pool, PoolName.KV)
+    storage.on_host_pools_registered()
+    assert storage.registered_pools[PoolName.KV] is pool
