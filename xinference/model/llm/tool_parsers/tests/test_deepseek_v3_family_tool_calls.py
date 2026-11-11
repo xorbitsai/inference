@@ -67,8 +67,10 @@ def _rendered_call(model):
         model.model_family.chat_template,
         tools=TOOLS,
     )
-    start = prompt.index("<｜tool▁calls▁begin｜>")
-    end = prompt.index("<｜tool▁calls▁end｜>") + len("<｜tool▁calls▁end｜>")
+    # The tool instructions in the system prompt show the format too; take the
+    # call from the assistant turn.
+    start = prompt.index("<｜tool▁calls▁begin｜>", prompt.index("<｜Assistant｜>"))
+    end = prompt.index("<｜tool▁calls▁end｜>", start) + len("<｜tool▁calls▁end｜>")
     return prompt[start:end], arguments
 
 
@@ -122,3 +124,42 @@ async def test_deepseek_v3_tool_call_reaches_the_chat_stream():
     assert names == ["get_weather"]
     assert json.loads(argument_text) == arguments
     assert finish_reason == "tool_calls"
+
+
+def test_deepseek_v3_template_renders_the_tool_definitions():
+    model = _model()
+    messages = [{"role": "user", "content": "Weather in Beijing?"}]
+    with_tools = model.get_full_context(
+        messages, model.model_family.chat_template, tools=TOOLS
+    )
+    without_tools = model.get_full_context(messages, model.model_family.chat_template)
+
+    assert with_tools != without_tools
+    assert json.dumps(TOOLS[0]) in with_tools
+    assert "<｜tool▁call▁begin｜>function<｜tool▁sep｜>" in with_tools
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("request_kind", ["tools", "tool_result"])
+async def test_deepseek_v3_tool_request_reaches_the_model(
+    monkeypatch, request_kind, stream
+):
+    from .....api.tests.test_chat_tool_families import TOOL_REQUESTS, _chat_api
+    from .....api.tests.test_llm_request_abort import _Request
+
+    api, model = _chat_api(monkeypatch, "deepseek-v3")
+    if stream:
+
+        async def chunks():
+            yield b'{"choices": []}'
+
+        model.chat.return_value = chunks()
+    body = {"model": "model", "stream": stream, **TOOL_REQUESTS[request_kind]}
+
+    response = await api.create_chat_completion(_Request(body))
+
+    assert response.status_code == 200
+    if stream:
+        assert [item async for item in response.body_iterator]
+    model.chat.assert_awaited_once()
