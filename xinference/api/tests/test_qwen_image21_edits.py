@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import io
 from types import SimpleNamespace
@@ -69,6 +71,7 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
             size="original",
             response_format="b64_json",
             stream=False,
+            kwargs=None,
         )
     )
     assert response.status_code == 200

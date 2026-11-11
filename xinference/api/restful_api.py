@@ -4626,6 +4626,7 @@ class RESTfulAPI(CancelMixin):
         size: Optional[str] = Form("original"),
         response_format: Optional[str] = Form("url"),
         stream: Optional[bool] = Form(False),
+        kwargs: Optional[str] = Form(None),
     ) -> Response:
         """OpenAI-compatible image edit endpoint.
 
@@ -4657,6 +4658,7 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(
                 status_code=400, detail="response_format must be 'url' or 'b64_json'"
             )
+        parsed_kwargs = _parse_kwargs(kwargs)
 
         # Resolve model when the caller didn't specify one.
         if not model:
@@ -4695,6 +4697,7 @@ class RESTfulAPI(CancelMixin):
 
         request_id = None
         try:
+            request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
 
             description = await (await self._get_supervisor_ref()).describe_model(
@@ -4734,12 +4737,13 @@ class RESTfulAPI(CancelMixin):
                 model_size = ""
 
             model_params: dict[str, Any] = {
+                "denoising_strength": 0.75,
+                "negative_prompt": " ",
+                **parsed_kwargs,
                 "prompt": prompt,
                 "n": n or 1,
                 "size": model_size,
                 "response_format": response_format,
-                "denoising_strength": 0.75,
-                "negative_prompt": " ",
             }
             if reference_images:
                 model_params["reference_images"] = reference_images
