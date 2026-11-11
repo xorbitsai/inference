@@ -265,6 +265,7 @@ async def test_describe_running_model_supports_virtual_and_physical_models(tmp_p
         "model_name": "physical-model",
         "model_type": "LLM",
         "replica": 1,
+        "supports_thinking_budget": False,
     }
 
 
@@ -626,14 +627,43 @@ async def test_virtual_chat_separates_internal_and_external_credentials(monkeypa
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "thinking_fields",
+    "thinking_fields,expected_template",
     [
-        {"enable_thinking": True, "extra_body": {"enable_thinking": False}},
-        {"extra_body": {"enable_thinking": True}},
+        (
+            {"enable_thinking": True, "extra_body": {"enable_thinking": False}},
+            {"enable_thinking": True, "thinking": True},
+        ),
+        (
+            {"extra_body": {"enable_thinking": True}},
+            {"enable_thinking": True, "thinking": True},
+        ),
+        (
+            {"thinking_budget": 1024},
+            {"enable_thinking": True, "thinking_budget": 1024},
+        ),
+        (
+            {"chat_template_kwargs": {"thinking_budget": 1024}},
+            {"enable_thinking": True, "thinking_budget": 1024},
+        ),
+        (
+            {"chat_template_kwargs": '{"thinking_budget": 1024}'},
+            {"enable_thinking": True, "thinking_budget": 1024},
+        ),
+        *[
+            (
+                {"enable_thinking": True, "reasoning_effort": effort},
+                {
+                    "enable_thinking": True,
+                    "thinking": True,
+                    "reasoning_effort": effort,
+                },
+            )
+            for effort in ("high", "max")
+        ],
     ],
 )
 async def test_virtual_chat_normalizes_router_estimation_fields(
-    monkeypatch, thinking_fields
+    monkeypatch, thinking_fields, expected_template
 ):
     resolution = {
         "matched": True,
@@ -675,8 +705,8 @@ async def test_virtual_chat_normalizes_router_estimation_fields(
                     "model": "virtual-model",
                     "messages": [{"role": "user", "content": "hello"}],
                     "stream": False,
-                    "max_tokens": 8,
-                    "max_completion_tokens": 16,
+                    "max_tokens": 2048,
+                    "max_completion_tokens": 4096,
                     **thinking_fields,
                 },
             )
@@ -684,11 +714,8 @@ async def test_virtual_chat_normalizes_router_estimation_fields(
         await api._close_token_router_client()
 
     assert response.status_code == 200
-    assert captured["payload"]["chat_template_kwargs"] == {
-        "enable_thinking": True,
-        "thinking": True,
-    }
-    assert captured["payload"]["max_tokens"] == 16
+    assert captured["payload"]["chat_template_kwargs"] == expected_template
+    assert captured["payload"]["max_tokens"] == 4096
 
 
 @pytest.mark.asyncio
@@ -940,7 +967,8 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
     class FakeModel:
         uid = "physical-model"
 
-        async def chat(self, messages, kwargs, raw_params=None):
+        async def chat(self, messages, kwargs, raw_params=None, request_id=None):
+            assert isinstance(request_id, str) and request_id
             return json.dumps(
                 {
                     "id": "chatcmpl-physical",

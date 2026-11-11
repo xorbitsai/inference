@@ -31,7 +31,7 @@ Outputs (under --out):
     engines/<engine>.meta.json  extra index URLs / index strategy per engine
     pins.json                   per-model specs and their additional indexes
     urls.txt                    direct wheel URLs (target arch only)
-    git.txt                     git+ sources
+    git.txt                     unsupported direct references (Git and source archives)
     manifest.json               generation parameters and counts
 """
 
@@ -46,24 +46,24 @@ import sys
 import types
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from urllib.parse import unquote, urlsplit
+
+from packaging.requirements import InvalidRequirement, Requirement
 
 PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
 SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_-]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
 XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
+DIRECT_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+BARE_URL_MARKER_RE = re.compile(r"(https?://\S+)\s+;\s*(.*)")
 
-# This model's vLLM integration targets an upstream release that is not yet
-# published. Keep the runtime requirement intact, but do not block the offline
-# mirror for every other model. Remove this entry when that release is available.
-DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {
-    (
-        "embedding/models/embeddinggemma-2.json",
-        "embeddinggemma-2",
-        "vllm",
-        "vllm>=0.32.0",
-    ): "EmbeddingGemma 2 requires the unpublished vLLM release with EmbeddingGemma2Model",
-}
+# Temporarily omit individual model requirements awaiting an upstream release.
+# Remove each exception when a compatible candidate is published.
+DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {}
+
+# Trim this model's separate CUDA stack while its engine requires remote source.
+PRUNED_OFFLINE_MODEL_ENGINES = {("Audio8-TTS-Realistic-0.6b", "sglang-omni")}
 
 
 def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
@@ -158,23 +158,30 @@ def iter_virtualenv_packages(
 
 
 def classify_spec(spec: str) -> str:
-    """Classify a marker-free requirement spec: 'url', 'git' or 'pin'."""
+    """Distinguish direct wheels, unsupported sources, and index requirements."""
     candidate = spec.strip()
-    if candidate.startswith(("http://", "https://")):
+    if DIRECT_SCHEME_RE.match(candidate) or candidate.startswith(
+        ("git+", "hg+", "svn+", "bzr+")
+    ):
+        target = candidate.split(maxsplit=1)[0]
+    elif "@" in candidate:
+        try:
+            target = Requirement(normalize_mirror_spec(candidate)).url
+        except InvalidRequirement:
+            return "pin"
+    else:
+        return "pin"
+    if target is None:
+        return "pin"
+    if target.startswith(("http://", "https://")) and unquote(
+        urlsplit(target).path
+    ).endswith(".whl"):
         return "url"
-    if candidate.startswith("git+"):
-        return "git"
-    if "@" in candidate:
-        target = candidate.partition("@")[2].strip()
-        if target.startswith("git+"):
-            return "git"
-        if target.startswith(("http://", "https://")):
-            return "url"
-    return "pin"
+    return "source"
 
 
 def normalize_mirror_spec(spec: str) -> str:
-    """Strip xoscar-only markers that pip cannot evaluate.
+    """Convert mirror requirements to syntax pip can evaluate.
 
     The offline mirror must carry dependencies for both CPU and CUDA model
     launches. xoscar selects the applicable branch when it creates the model
@@ -186,6 +193,14 @@ def normalize_mirror_spec(spec: str) -> str:
     requirement, separator, marker = candidate.partition(";")
     if separator and marker.strip().lower() in XOSCAR_RUNTIME_MARKERS:
         return requirement.strip()
+    bare_wheel = BARE_URL_MARKER_RE.fullmatch(candidate)
+    if bare_wheel is not None:
+        # Pip accepts markers on named direct requirements.
+        url, marker = bare_wheel.groups()
+        filename = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
+        if filename.endswith(".whl"):
+            name = filename.split("-", 1)[0]
+            return f"{name} @ {url} ; {marker}"
     return candidate
 
 
@@ -274,7 +289,7 @@ def main() -> None:
     (out / "engines").mkdir(parents=True, exist_ok=True)
 
     urls: Set[str] = set()
-    git_sources: Set[str] = set()
+    unsupported_sources: Set[str] = set()
     pins: Dict[str, Set[str]] = {}  # spec -> sources
     pin_indexes: Dict[str, List[str]] = {}
     excluded_pins: Set[str] = set()
@@ -288,8 +303,8 @@ def main() -> None:
         kind = classify_spec(spec)
         if kind == "url":
             urls.add(spec)
-        elif kind == "git":
-            git_sources.add(spec)
+        elif kind == "source":
+            unsupported_sources.add(spec)
         else:
             name = spec.split(";", 1)[0].strip().lower()
             if any(pattern in name for pattern in excluded_packages):
@@ -355,9 +370,21 @@ def main() -> None:
                 if engine.lower() not in excluded_engines:
                     candidate_engines.add(engine)
         for cand in candidate_engines:
-            for spec in filter_packages(
-                list(concrete), cand, args.cuda_version, "linux"
-            ):
+            candidate_indexes = extra_index_urls
+            if extra_index_url is None and cand is not None:
+                candidate_indexes = engine_extra_indexes.get(cand.lower(), [])
+            filtered = filter_packages(list(concrete), cand, args.cuda_version, "linux")
+            if cand and (model_name, cand.lower()) in PRUNED_OFFLINE_MODEL_ENGINES:
+                # Use the worker's check so a switch to a wheel restores mirroring.
+                remote_sources = core_utils.find_remote_direct_reference_packages(
+                    core_utils.rewrite_direct_url_packages_for_index(filtered)
+                )
+                if remote_sources:
+                    unsupported_sources.update(
+                        normalize_mirror_spec(spec) for spec in remote_sources
+                    )
+                    continue
+            for spec in filtered:
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname
@@ -375,10 +402,12 @@ def main() -> None:
                 if is_find_links_only_requirement(model_name, spec):
                     find_links_only_pins.setdefault(spec, set()).add(source)
                     continue
-                _add(spec, source, extra_index_urls)
+                _add(spec, source, candidate_indexes)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
-    (out / "git.txt").write_text("".join(f"{g}\n" for g in sorted(git_sources)))
+    (out / "git.txt").write_text(
+        "".join(f"{spec}\n" for spec in sorted(unsupported_sources))
+    )
     (out / "pins.json").write_text(
         json.dumps(
             [
@@ -415,7 +444,7 @@ def main() -> None:
             "engines": len(engines_meta),
             "pins": len(pins),
             "urls": len(urls),
-            "git": len(git_sources),
+            "git": len(unsupported_sources),
             "find_links_only": len(find_links_only_pins),
             "deferred_model_pins": len(deferred_model_pins),
         },

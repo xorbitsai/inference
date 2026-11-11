@@ -178,3 +178,61 @@ async def test_progressor():
 
         await asyncio.sleep(0.1)
         assert await progress_tracker_ref.get_progress(request_id) == 1.0
+
+
+def test_launch_generation_waits_for_ready_and_rejects_stale_reports():
+    tracker = ProgressTrackerActor()
+    tracker.start("launch", generation="first")
+    tracker.set_progress("launch", 1.0, generation="first")
+    assert tracker.get_progress("launch") == 0.99
+    tracker.start("launch", generation="second")
+    tracker.set_progress("launch", 1.0, generation="first", finished=True)
+    assert tracker.get_progress("launch") == 0
+    tracker.set_progress("launch", 0.5, generation="second")
+    tracker.set_progress(
+        "launch", 0.5, details={"stage": "failed"}, generation="second", finished=True
+    )
+    tracker.set_progress("launch", 1.0, generation="second")
+    assert tracker.get_progress_details("launch") == (0.5, None, {"stage": "failed"})
+
+
+@pytest.mark.asyncio
+async def test_launch_cache_keeps_loading_and_expires_failed_records():
+    tracker = ProgressTrackerActor(to_remove_interval=0, check_interval=0.01)
+    tracker.start("loading", generation="loading")
+    tracker.set_progress("loading", 1.0, generation="loading")
+    tracker.start("failed", generation="failed")
+    tracker.set_progress("failed", 0.2, generation="failed", finished=True)
+    task = asyncio.create_task(tracker._clear_finished())
+    try:
+        await asyncio.sleep(0.05)
+        assert tracker.get_progress("loading") == 0.99
+        with pytest.raises(KeyError):
+            tracker.get_progress("failed")
+        tracker.set_progress("failed", 1.0, generation="failed")
+        assert "failed" not in tracker._request_id_to_progress
+    finally:
+        task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_launch_progressor_finishes_only_explicitly():
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        tracker = await xo.create_actor(
+            ProgressTrackerActor, address=pool.external_address
+        )
+        progressor = Progressor(
+            "launch", tracker, asyncio.get_running_loop(), generation="one"
+        )
+        await progressor.start()
+        with progressor:
+            progressor.set_progress(1.0)
+        await asyncio.sleep(0.05)
+        assert await tracker.get_progress("launch") == 0.99
+        await progressor.finish_launch(True)
+        progressor.set_progress(0.5, details={"stage": "loading"})
+        await asyncio.sleep(0.05)
+        progress, _, details = await tracker.get_progress_details("launch")
+        assert progress == 1
+        assert details["stage"] == "completed"

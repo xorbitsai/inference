@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 from PIL import Image
 
+from ...utils import dependency_import_message
 from .sdapi import SDAPIDiffusionModelMixin
 from .utils import MAX_IMAGE_SEED, handle_image_result, resolve_image_seed_list
 
@@ -61,7 +62,14 @@ class Flux3Model(SDAPIDiffusionModelMixin):
         try:
             from diffusers import ComponentsManager, Flux3DistilledModularPipeline
         except ImportError as exc:
-            raise ImportError("FLUX 3 Image Klein requires diffusers>=0.42.0") from exc
+            detail = dependency_import_message(
+                "diffusers",
+                exc,
+                install_hint='Install with `pip install "diffusers>=0.42.0"`.',
+            )
+            raise ImportError(
+                f"FLUX 3 Image Klein requires diffusers>=0.42.0. {detail}"
+            ) from exc
 
         for option in ("lora_model", "gguf_model_path", "lightning_model_path"):
             if self._kwargs.get(option):

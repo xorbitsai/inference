@@ -2530,7 +2530,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "featured": false,
-    "updated_at": 1786693269
+    "featured": true,
+    "updated_at": 1793553196
   }
 ]

@@ -78,8 +78,7 @@ class MiniMaxMusic3Model:
         except ImportError as e:
             raise ImportError(
                 "MiniMax-Music3 requires Diffusers with ModularPipeline support. "
-                "Enable the model virtual environment or install the dependencies "
-                "declared in its built-in model specification."
+                f"Import failed: {type(e).__name__}: {e}"
             ) from e
 
         if (

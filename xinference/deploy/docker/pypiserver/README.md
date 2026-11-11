@@ -14,11 +14,12 @@ The mirror also carries only the CPU build of `xllamacpp`; its GPU wheels come
 from a separate CUDA-specific index. Preinstall the matching GPU wheel in a
 custom runtime image when llama.cpp GPU acceleration is required air-gapped.
 
-Git and non-wheel direct references cannot be reproduced faithfully through a
-simple index. The generator records them, the selfcheck reports them as
-unsupported, and `XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1` makes the runtime
-reject them before attempting egress. Preinstall those exact source revisions
-in a custom runtime image when the corresponding model is needed air-gapped.
+Git and non-wheel direct references bypass package indexes. The generator
+records them and the selfcheck reports them as unsupported by the bundled
+mirror. With `XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1`, the runtime rejects
+remote references before attempting egress. Preinstall those exact source
+revisions in a custom runtime image when the corresponding model is needed
+air-gapped.
 
 ## How the build works
 
@@ -27,16 +28,16 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    so the lists cannot drift from what the runtime installs. It emits one
    requirement set per engine (including the union of its format-scoped
    optional dependencies), the per-model concrete pins, direct wheel URLs and
-   git sources, filtered for the target platform/CUDA. Runtime venvs still
-   select only the dependencies for the launched model and format.
+   unsupported direct references, filtered for the target platform/CUDA.
+   The `git.txt` manifest and its `git` count include Git dependencies and
+   other non-wheel direct references, such as source archives.
+   Audio8-TTS's SGLang-Omni dependencies are omitted from the mirror while
+   that model path requires a remote source archive.
+   Runtime venvs select only the dependencies for the launched model and format.
    Known integrations awaiting an upstream release are explicitly recorded in
-   `manifest.json` as `deferred_model_pins`. Currently this excludes only
-   EmbeddingGemma 2's `vllm>=0.32.0` requirement, since that upstream release
-   is not published. Its vLLM backend is unavailable from this offline mirror;
-   the runtime requirement is unchanged. Other models still include released
-   vLLM versions. Remove this exception when the required release is published.
-   Preflight also checks deferred requirements and warns when a published
-   candidate becomes available, prompting removal of the exception.
+   `manifest.json` as `deferred_model_pins`. Preflight checks these requirements
+   and warns when a published candidate becomes available, prompting removal of
+   the exception.
 2. **`download_packages.py`** first locks the exact shared runtime pins from
    `xinference/deploy/docker/requirements-runtime.txt`, then locks each engine
    set with `uv pip compile`, and fetches the fully-pinned locks with
@@ -44,13 +45,14 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    specs cannot fan out into many versions. Model pins are fetched constrained
    to the shared locks (with a recorded unconstrained fallback on conflicts),
    direct wheel URLs are downloaded with their dependencies, and sdist-only
-   downloads are built into wheels. Git sources are recorded but deliberately
-   skipped because the offline runtime rejects them.
+   downloads are built into wheels. Unsupported direct references are recorded
+   and skipped by the downloader.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
    shared runtime constraint, index-compatible engine set, pin and direct wheel
-   against the baked mirror ALONE (`--disable-fallback`). Any gap fails the
-   image build; recorded git and non-wheel direct references are reported as
-   unsupported.
+   against the baked mirror alone (`--disable-fallback`). The selfcheck server
+   caches package directory entries and file digests across resolver requests.
+   Any resolution gap fails the image build. The selfcheck reports Git and
+   non-wheel direct references as unsupported.
 
 The generation manifest and download report are baked into the image under
 `/data/manifest/` for debugging (`report.json` lists total size, packages with
@@ -67,7 +69,7 @@ a regression test keeps the default Python target aligned with the Dockerfile.
 It does not download artifacts, install engines or build images. Index request errors fail
 the check rather than silently dropping requirements.
 
-This catches unpublished requirements such as `vllm>=0.32.0` before a long build.
+This catches unpublished requirements before a long build.
 It does not resolve transitive dependencies, prove that sdists compile or check
 all native platform requirements (such as external system libraries). The full
 image build and offline selfcheck remain required for releases.

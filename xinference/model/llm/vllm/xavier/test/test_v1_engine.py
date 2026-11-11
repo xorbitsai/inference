@@ -17,11 +17,11 @@ import pytest
 class KVTransferConfig032:
     # Strict subset of vLLM 0.32's fields used by the adapter.
     kv_connector: str
-    kv_connector_module_path: str
-    engine_id: Optional[str]
+    kv_connector_module_path: Optional[str]
     kv_role: str
     kv_connector_extra_config: dict
     kv_load_failure_policy: str
+    engine_id: Optional[str] = None
 
 
 @dataclass
@@ -231,6 +231,46 @@ def test_unsafe_parallelism_and_lora_fail_before_engine_creation(engine, field, 
     factory.assert_not_called()
 
 
+def test_tensor_parallel_replicas_share_cpu_snapshots(engine):
+    module, factory = engine
+    args = SimpleNamespace(
+        tensor_parallel_size=4,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=False),
+    )
+    module.XavierEngine.from_engine_args(
+        args, xavier_config={"role": "hybrid", "rank": 1}
+    )
+    factory.assert_called_once()
+    assert args.kv_transfer_config.kv_connector == "XavierConnector"
+    assert args.kv_transfer_config.kv_role == "kv_both"
+
+
+@pytest.mark.parametrize(
+    "xavier_config,recurrent",
+    [
+        ({"role": "decode"}, False),
+        ({"role": "hybrid", "gpu_cache_bytes": 0}, False),
+        ({"role": "hybrid", "gpu_cache_bytes": 1024}, False),
+        ({"role": "hybrid", "cpu_prefix_cache": {"capacity_bytes": 1}}, False),
+        ({"role": "hybrid", "shared_prefix": True}, False),
+        ({"role": "hybrid", "heterogeneous": True}, False),
+        ({"role": "hybrid"}, True),
+    ],
+)
+def test_tensor_parallel_requires_shared_cpu_snapshots(
+    engine, xavier_config, recurrent
+):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        tensor_parallel_size=2,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=recurrent),
+    )
+    with pytest.raises(ValueError, match="TP"):
+        module.XavierEngine.from_engine_args(args, xavier_config=xavier_config)
+    factory.assert_not_called()
+
+
 def test_gpu_path_rejects_legacy_before_engine_start(engine):
     module, factory = engine
     module.VLLM_VERSION = "0.7.3"
@@ -286,5 +326,152 @@ def test_lmcache_rejects_legacy_vllm_before_engine_start(engine, vllm_version):
     with pytest.raises(RuntimeError, match="LMCache backend requires vLLM V1"):
         module.XavierEngine.from_engine_args(
             SimpleNamespace(), xavier_config={"cache_backend": {"name": "lmcache"}}
+        )
+    factory.assert_not_called()
+
+
+@pytest.fixture
+def hybrid_prefix_config():
+    return {
+        "cpu_prefix_cache": {
+            "address": "127.0.0.1:1234",
+            "uid": b"shared-cache",
+            "capacity_bytes": 512 * 1024**2,
+        }
+    }
+
+
+def test_hybrid_prefix_uses_vllm_offloading(engine, hybrid_prefix_config):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True,
+            is_multimodal_model=True,
+            multimodal_config=SimpleNamespace(language_model_only=True),
+            compute_hash=lambda: "model-hash",
+        )
+    )
+    module.XavierEngine.from_engine_args(args, xavier_config=hybrid_prefix_config)
+
+    assert args.enable_prefix_caching is True
+    assert args.mamba_cache_mode == "align"
+    transfer = args.kv_transfer_config
+    assert transfer.kv_connector == "OffloadingConnector"
+    assert transfer.kv_role == "kv_both"
+    assert transfer.kv_load_failure_policy == "recompute"
+    extra = transfer.kv_connector_extra_config
+    assert extra["cpu_bytes_to_use"] == 512 * 1024**2
+    assert extra["secondary_tiers"][0]["type"] == "XavierOffloadTier"
+    assert extra["secondary_tiers"][0]["uid"] == b"shared-cache"
+    factory.assert_called_once()
+
+
+def test_hybrid_prefix_requires_new_vllm(engine, hybrid_prefix_config):
+    module, factory = engine
+    with pytest.raises(ValueError, match="vLLM >= 0.32.0"):
+        module.XavierEngine.from_engine_args(
+            object(), xavier_config=hybrid_prefix_config
+        )
+    factory.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "overrides,error",
+    [
+        ({"enable_prefix_caching": False}, "requires HMA and prefix caching"),
+        ({"disable_hybrid_kv_cache_manager": True}, "requires HMA"),
+        ({"speculative_config": {}}, "without speculation"),
+        ({"mamba_cache_mode": "all"}, "mamba_cache_mode=align"),
+        ({"kv_offloading_size": 1}, "separate KV offloading"),
+        ({"kv_transfer_config": {}}, "separate KV offloading or transfer"),
+    ],
+)
+def test_hybrid_prefix_rejects_incompatible_args(
+    engine, hybrid_prefix_config, overrides, error
+):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True, is_multimodal_model=False
+        ),
+        **overrides,
+    )
+    with pytest.raises(ValueError, match=error):
+        module.XavierEngine.from_engine_args(args, xavier_config=hybrid_prefix_config)
+    factory.assert_not_called()
+
+
+@pytest.mark.parametrize("cpu_fallback", [False, True])
+def test_hybrid_prefix_prefers_gpu(engine, hybrid_prefix_config, cpu_fallback):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True,
+            is_multimodal_model=False,
+            compute_hash=lambda: "model",
+        )
+    )
+    config = {"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 2}
+    if cpu_fallback:
+        config.update(hybrid_prefix_config)
+    module.XavierEngine.from_engine_args(args, xavier_config=config)
+    transfer = args.kv_transfer_config
+    assert args.async_scheduling is False
+    assert args.enable_prefix_caching is True
+    assert args.mamba_cache_mode == "align"
+    if cpu_fallback:
+        assert transfer.kv_connector == "XavierHybridTieredConnector"
+        assert [
+            entry["kv_connector"]
+            for entry in transfer.kv_connector_extra_config["connectors"]
+        ] == ["XavierHybridGPUConnector", "OffloadingConnector"]
+    else:
+        assert transfer.kv_connector == "XavierHybridGPUConnector"
+    assert transfer.kv_load_failure_policy == "recompute"
+    factory.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("backend", "explicit_unit", "nnodes", "expected"),
+    [
+        (None, None, 1, "XavierHybridUniProcExecutor"),
+        ("uni", None, 1, "XavierHybridUniProcExecutor"),
+        ("mp", None, 1, "XavierHybridMultiprocExecutor"),
+        ("uni", 64, 1, "uni"),
+        ("ray", None, 1, "ray"),
+        ("mp", None, 2, "mp"),
+    ],
+)
+def test_hybrid_gpu_defaults_preserve_executor_and_explicit_overrides(
+    engine, backend, explicit_unit, nnodes, expected
+):
+    module, _ = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(
+            is_hybrid=True, is_multimodal_model=False
+        ),
+        distributed_executor_backend=backend,
+        prefix_match_unit=explicit_unit,
+        nnodes=nnodes,
+    )
+    module.XavierEngine.from_engine_args(
+        args, xavier_config={"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 3}
+    )
+    assert args.distributed_executor_backend.rsplit(".", 1)[-1] == expected
+    assert args.prefix_match_unit == explicit_unit
+
+
+def test_single_replica_resident_mode_rejects_non_hybrid_before_engine_start(engine):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(create_model_config=lambda: SimpleNamespace(is_hybrid=False))
+    with pytest.raises(ValueError, match="Single-replica.*recurrent-hybrid"):
+        module.XavierEngine.from_engine_args(
+            args,
+            xavier_config={"role": "hybrid", "gpu_cache_bytes": 0, "world_size": 2},
         )
     factory.assert_not_called()

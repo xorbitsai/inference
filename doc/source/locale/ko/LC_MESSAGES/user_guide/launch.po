@@ -791,3 +791,19 @@ msgid ""
 msgstr ""
 "결과를 확인할 수 없는 경우 Web UI의 **표시된 설정 다시 적용** 은 변경되지 않았더라도 현재 표시된 값을 전송합니다. 비어 "
 "있거나 복제본마다 값이 다른 필드는 값을 지정하기 전까지 제외됩니다."
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "``quantization_method=\"compressed-tensors\"``를 선언한 체크포인트는 vLLM의 compressed-tensors 로더가 전처리된 IPC 가중치를 지원하지 않으면 기본 가중치 로딩을 사용합니다. 자동 가중치 유지는 이 구성을 건너뛰며, 유지를 명시적으로 활성화하면 시작이 거부됩니다."
+
+#: ../../source/user_guide/launch.rst:311
+msgid "When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload."
+msgstr "**실행 중인 모델** 에서 복제본을 추가하면 Web UI는 일반적인 60초 제한 시간을 적용하지 않고 전체 요청이 완료될 때까지 기다리며 경과 시간과 복제본별 진행률을 표시합니다. 복제본이 준비될 때까지 진행률은 100% 미만으로 유지됩니다. 성공 응답을 받은 경우에만 전체 작업의 성공을 확정하고 대화 상자를 닫으며, 이후 새로 고침 실패로 성공 결과가 바뀌지 않습니다. 연결이나 게이트웨이 오류가 발생하면 추적을 종료하거나 다시 시도하기 전에 현재 복제본을 확인하세요. UI는 자동으로 다시 제출하지 않습니다. 추적 상태는 현재 페이지에만 저장되며 페이지를 다시 로드하면 사라집니다."
+
+#: ../../source/user_guide/launch.rst:418
+msgid "In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply."
+msgstr "**실행 중인 모델** 의 **복제본 추가** 대화 상자는 자동 스케줄링과 복제본별 배치를 제공합니다. 복제본별 배치에서는 새 복제본마다 워커 하나를 선택해야 하며 각 행에 GPU 인덱스와 별칭을 선택적으로 입력할 수 있습니다. GPU 인덱스는 해당 워커의 로컬 번호이며, 비워 두면 자동 할당되고 CPU를 선택하면 전송되지 않습니다. 현재 선택한 모드만 제출됩니다. GPU 가용성과 별칭 충돌은 서버에서 확인하며 기존 확장 제한도 적용됩니다."
+
+#: ../../source/user_guide/launch.rst:294
+msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
+msgstr "배포를 제출하면 복제본을 준비하거나 로드하는 동안을 포함하여 대화 상자에 대기 메시지와 경과 시간이 즉시 표시됩니다. 복제본이 준비되거나 진행률이 100%가 되어도 요청이 완료된 것은 아닙니다. 배포 응답이 도착하면 대기 시간 측정이 끝나며, 대화 상자가 닫히기 전에 설정 저장이 완료되어야 할 수 있습니다. 취소에 실패하면 원래 시작 시간을 유지한 채 계속 기다립니다. 다운로드 전용 작업은 별도의 진행률 표시를 유지합니다."

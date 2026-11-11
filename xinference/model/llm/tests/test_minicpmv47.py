@@ -25,6 +25,7 @@ from ....core.utils import filter_virtualenv_packages_by_markers
 from ....core.virtual_env_manager import expand_engine_dependency_placeholders
 from ...utils import get_engine_params_by_name_with_virtual_env
 from ..llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
+from ..sglang import core as sglang_core
 from ..sglang.core import SGLANGVisionModel
 from ..transformers.multimodal.minicpmv46 import MiniCPMV46Model
 from ..transformers.multimodal.minicpmv47 import MiniCPMV47Model
@@ -43,6 +44,14 @@ VARIANTS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def supported_sglang_python(monkeypatch):
+    """Keep supported-runtime tests independent of the CI interpreter."""
+    runtime_sys = SimpleNamespace(**vars(sglang_core.sys))
+    runtime_sys.version_info = (3, 12, 0, "final", 0)
+    monkeypatch.setattr(sglang_core, "sys", runtime_sys)
+
+
 @pytest.fixture
 def virtualenv_worker(monkeypatch):
     monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", False)
@@ -51,6 +60,14 @@ def virtualenv_worker(monkeypatch):
         vllm_core.VLLMModel, "_has_cuda_device", classmethod(lambda cls: True)
     )
     monkeypatch.setattr(vllm_core.VLLMModel, "_is_linux", classmethod(lambda cls: True))
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", False)
+    monkeypatch.setattr(sglang_core, "_virtual_env_allows_missing_sglang", lambda: True)
+    monkeypatch.setattr(
+        sglang_core.SGLANGModel, "_has_cuda_device", classmethod(lambda cls: True)
+    )
+    monkeypatch.setattr(
+        sglang_core.SGLANGModel, "_is_linux", classmethod(lambda cls: True)
+    )
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -90,7 +107,13 @@ def test_official_checkpoints_and_engine_selection(
     for engine, expected in (
         ("Transformers", MiniCPMV47Model),
         ("vLLM", vllm_core.VLLMMultiModel),
+        ("SGLang", SGLANGVisionModel),
     ):
+        if engine == "SGLang" and model_format == "bnb":
+            assert SGLANGVisionModel.match_json(family, spec, quantization)[0] is False
+            with pytest.raises(ValueError, match="BNB"):
+                SGLANGVisionModel("unsupported-bnb", family, "/models/test", {})
+            continue
         assert (
             check_engine_by_spec_parameters_with_virtual_env(
                 engine,
@@ -116,13 +139,16 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
     params = get_engine_params_by_name_with_virtual_env(
         "LLM", "MiniCPM-V-4.7", enable_virtual_env=True
     )
-    for engine in ("Transformers", "vLLM"):
+    for engine in ("Transformers", "vLLM", "SGLang"):
         assert {
             (int(entry["model_size_in_billions"]), entry["model_format"], quantization)
             for entry in params[engine]
             for quantization in entry["quantizations"]
-        } == {(size, fmt, quant) for size, fmt, quant, _ in VARIANTS}
-    assert not isinstance(params.get("SGLang"), list)
+        } == {
+            (size, fmt, quant)
+            for size, fmt, quant, _ in VARIANTS
+            if engine != "SGLang" or fmt != "bnb"
+        }
     assert not isinstance(params.get("llama.cpp"), list)
     assert "MiniCPM-V-4.7" not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 
@@ -132,6 +158,7 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
     [
         ("Transformers", "transformers>=5.18.0"),
         ("vllm", "vllm==0.31.1rc1.dev281+gc85616efc"),
+        ("sglang", "sglang>=0.5.23"),
         ("llama.cpp", None),
     ],
 )
@@ -162,6 +189,366 @@ def test_virtualenv_requirements(engine, expected):
     else:
         assert "qwen-omni-utils>=0.0.9" not in prepared
         assert "audioread" not in prepared
+    if engine == "sglang":
+        assert "qwen-vl-utils" in prepared
+        assert "transformers>=5.18.0" in prepared
+        assert "bitsandbytes>=0.45.0" not in prepared
+        assert "flash-attn-4>=4.0.0b18" in prepared
+    else:
+        assert not any(package.startswith("flash-attn-4") for package in prepared)
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("size,model_format,quantization,suffix", VARIANTS)
+def test_sglang_checkpoint_loader(
+    monkeypatch, hub, size, model_format, quantization, suffix
+):
+    family = match_llm("MiniCPM-V-4.7", model_format, size, quantization, hub)
+    if model_format == "bnb":
+        with pytest.raises(ValueError, match="BNB"):
+            SGLANGVisionModel("unsupported-bnb", family, "/models/test", {})
+        return
+    model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    config = model._sanitize_model_config({})
+    assert "load_format" not in config
+    assert "quantization" not in config
+
+
+def test_sglang_bnb_cannot_override_unsupported_checkpoint():
+    family = match_llm("MiniCPM-V-4.7", "bnb", 1, "4-bit", "huggingface")
+    with pytest.raises(ValueError, match="BNB"):
+        SGLANGVisionModel(
+            "unsupported-bnb", family, "/models/test", {"load_format": "bitsandbytes"}
+        )
+
+
+def test_sglang_worker_preserves_prerelease_requirement(tmp_path):
+    from ....core.worker import WorkerActor
+
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    settings = family.virtualenv.copy(deep=True)
+    settings.inherit_pip_config = False
+    manager = SimpleNamespace(
+        env_path=str(tmp_path / "3.12"),
+        install_packages=Mock(side_effect=RuntimeError("capture-dependencies")),
+    )
+    with pytest.raises(RuntimeError, match="capture-dependencies"):
+        WorkerActor._prepare_virtual_env(
+            manager,
+            settings,
+            None,
+            model_engine="SGLang",
+            model_name=family.model_name,
+            architectures=family.architectures,
+            model_format="pytorch",
+        )
+    packages = manager.install_packages.call_args.args[0]
+    assert "flash-attn-4>=4.0.0b18" in packages
+
+
+@pytest.mark.parametrize("size", [1, 35])
+def test_sglang_model_defaults(monkeypatch, size):
+    family = match_llm("MiniCPM-V-4.7", "pytorch", size, "none", "huggingface")
+    model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    config = model._sanitize_model_config({})
+    assert config["mamba_radix_cache_strategy"] == "extra_buffer"
+    assert "mamba_scheduler_strategy" not in config
+    assert config["trust_remote_code"] is False
+    assert "quantization" not in config
+    assert (
+        model._sanitize_model_config({"mamba_radix_cache_strategy": "no_buffer"})[
+            "mamba_radix_cache_strategy"
+        ]
+        == "no_buffer"
+    )
+
+
+@pytest.mark.parametrize("version", [(3, 10), (3, 11), (3, 12), (3, 13), (3, 14)])
+@pytest.mark.parametrize("virtualenv", [False, True])
+def test_sglang_python_range(virtualenv_worker, monkeypatch, version, virtualenv):
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(sglang_core, "_get_sglang_version", lambda: Version("0.5.23"))
+    monkeypatch.setattr(
+        sglang_core.SGLANGModel, "check_lib", classmethod(lambda cls: True)
+    )
+    monkeypatch.setattr(
+        sglang_core, "_virtual_env_allows_missing_sglang", lambda: virtualenv
+    )
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    supported = (3, 11) <= version < (3, 14)
+    result = SGLANGVisionModel.match_json(family, family.model_specs[0], "none")
+    assert (result is True) is supported
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", family.model_name, enable_virtual_env=virtualenv
+    )
+    assert isinstance(params.get("SGLang"), list) is supported
+    if supported:
+        SGLANGVisionModel("supported-python", family, "/models/test", {})
+    else:
+        assert "Python 3.11-3.13" in result[1]
+        with pytest.raises(ValueError, match="Python 3.11-3.13"):
+            SGLANGVisionModel("unsupported-python", family, "/models/test", {})
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize(
+    "version,model_format,size,quantization,error",
+    [
+        ((3, 10), "pytorch", 35, "none", "Python 3.11-3.13"),
+        ((3, 14), "pytorch", 35, "none", "Python 3.11-3.13"),
+        ((3, 12), "bnb", 1, "4-bit", "BNB"),
+    ],
+)
+def test_sglang_factory_rejects_before_caching_weights(
+    virtualenv_worker,
+    monkeypatch,
+    hub,
+    version,
+    model_format,
+    size,
+    quantization,
+    error,
+):
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    with pytest.raises(ValueError, match=error):
+        create_llm_model_instance(
+            "unsupported-launch",
+            "MiniCPM-V-4.7",
+            "SGLang",
+            model_format,
+            size,
+            quantization,
+            download_hub=hub,
+            enable_virtual_env=True,
+        )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("version", [(3, 11), (3, 12), (3, 13)])
+def test_sglang_factory_caches_supported_checkpoint(
+    virtualenv_worker, monkeypatch, version
+):
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    model = create_llm_model_instance(
+        "supported-launch",
+        "MiniCPM-V-4.7",
+        "SGLang",
+        "pytorch",
+        35,
+        "none",
+        download_hub="huggingface",
+        enable_virtual_env=True,
+    )
+    assert isinstance(model, SGLANGVisionModel)
+    cache.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    "version,model_format,quantization",
+    [
+        ((3, 10), "pytorch", "none"),
+        ((3, 14), "pytorch", "none"),
+        ((3, 12), "bnb", "4-bit"),
+    ],
+)
+def test_sglang_native_constraints_override_cached_discovery(
+    virtualenv_worker, monkeypatch, version, model_format, quantization
+):
+    from ...utils import _force_virtualenv_engine_params
+
+    monkeypatch.setattr(sglang_core, "sys", SimpleNamespace(version_info=version))
+    family = match_llm("MiniCPM-V-4.7", model_format, 1, quantization, "huggingface")
+    engine_params = {"SGLang": [{"cached": True}]}
+    available_params = {"SGLang": [{"cached": True}]}
+    status = _force_virtualenv_engine_params(
+        family,
+        {"SGLang": [SGLANGVisionModel], "vLLM": [vllm_core.VLLMMultiModel]},
+        {"sglang"},
+        engine_params,
+        available_params,
+        True,
+    )
+    assert status["SGLang"] is False
+    assert "SGLang" not in engine_params
+    assert "SGLang" not in available_params
+
+
+def test_sglang_legacy_discovery_fallback_for_unknown_architecture(virtualenv_worker):
+    from ...utils import _force_virtualenv_engine_params
+
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    family.architectures = ["UnknownForConditionalGeneration"]
+
+    class UpstreamEngine:
+        @staticmethod
+        def match_json(*args):
+            return True
+
+    engine_params, available_params = {}, {}
+    status = _force_virtualenv_engine_params(
+        family,
+        {"SGLang": [SGLANGVisionModel], "vLLM": [UpstreamEngine]},
+        {"sglang"},
+        engine_params,
+        available_params,
+        True,
+    )
+    assert status["SGLang"] is True
+    assert isinstance(engine_params["SGLang"], list)
+
+
+@pytest.mark.parametrize(
+    "attribute,error",
+    [
+        ("_has_cuda_device", "requires CUDA GPUs"),
+        ("_is_linux", "only supported on Linux"),
+    ],
+)
+def test_sglang_keeps_platform_requirements(
+    virtualenv_worker, monkeypatch, attribute, error
+):
+    monkeypatch.setattr(SGLANGVisionModel, attribute, classmethod(lambda cls: False))
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    result = SGLANGVisionModel.match_json(family, family.model_specs[0], "none")
+    assert result[0] is False
+    assert error in result[1]
+
+
+@pytest.mark.parametrize("virtualenv", [False, True])
+@pytest.mark.parametrize(
+    "installed_version", [None, "0.5.22", "0.5.23rc1", "0.5.23", "0.5.24"]
+)
+def test_sglang_version_gate(
+    virtualenv_worker, monkeypatch, virtualenv, installed_version
+):
+    monkeypatch.setattr(
+        sglang_core, "_virtual_env_allows_missing_sglang", lambda: virtualenv
+    )
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", installed_version is not None)
+    monkeypatch.setattr(
+        sglang_core,
+        "_get_sglang_version",
+        lambda: Version(installed_version) if installed_version else None,
+    )
+    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+    result = SGLANGVisionModel.match_json(family, family.model_specs[0], "none")
+    accepted = virtualenv or (
+        installed_version is not None
+        and Version(installed_version) >= Version("0.5.23")
+    )
+    assert (result is True) is accepted
+    if not accepted:
+        assert "MiniCPM-V-4.7 requires SGLang >= 0.5.23" in result[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("image_count", [0, 1, 2])
+async def test_sglang_chat_request(stream, image_count):
+    import base64
+    import json
+    from io import BytesIO
+
+    from aiohttp import web
+    from PIL import Image
+
+    captured = []
+    state = {
+        "text": "ok",
+        "meta_info": {
+            "prompt_tokens": 10,
+            "completion_tokens": 1,
+            "finish_reason": {"type": "stop"},
+        },
+    }
+
+    async def generate(request):
+        captured.append(await request.json())
+        if stream:
+            return web.Response(
+                text=f"data: {json.dumps(state)}\n\ndata: [DONE]\n\n",
+                content_type="text/event-stream",
+            )
+        return web.json_response(state)
+
+    app = web.Application()
+    app.router.add_post("/generate", generate)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, "127.0.0.1", 0).start()
+    try:
+        family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
+        model = SGLANGVisionModel("minicpm-sglang-test", family, "/models/test", {})
+        model.reasoning_parser = None
+        template = (
+            "{% for message in messages %}{{ message.role }}:"
+            "{% for item in message.content %}"
+            "{% if item.type == 'image' %}<|image_pad|>"
+            "{% elif item.type == 'text' %}{{ item.text }}{% endif %}"
+            "{% endfor %}{% endfor %}"
+        )
+        tokenizer = SimpleNamespace(chat_template=template)
+        model._engine = SimpleNamespace(
+            generate_url=f"http://127.0.0.1:{runner.addresses[0][1]}/generate",
+            get_tokenizer=lambda: tokenizer,
+        )
+        buffer = BytesIO()
+        Image.new("RGB", (56, 56), "red").save(buffer, format="PNG")
+        url = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode()
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    *[
+                        {"type": "image_url", "image_url": {"url": url}}
+                        for _ in range(image_count)
+                    ],
+                    {"type": "text", "text": "describe"},
+                ],
+            }
+        ]
+        config = {
+            "stream": stream,
+            "max_tokens": 8,
+            "mm_processor_kwargs": {"downsample_mode": "4x", "max_slice_nums": 2},
+        }
+        original = deepcopy((messages, config))
+        result = await model.async_chat(messages, config, request_id="test-request")
+        if stream:
+            chunks = [chunk async for chunk in result]
+            assert (
+                "".join(
+                    c["choices"][0]["delta"].get("content", "") or "" for c in chunks
+                )
+                == "ok"
+            )
+        else:
+            assert result["choices"][0]["message"]["content"] == "ok"
+        assert (messages, config) == original
+        [request] = captured
+        assert request["rid"] == "test-request"
+        assert request["text"].count("<|image_pad|>") == image_count
+        assert "describe" in request["text"]
+        assert len(request["image_data"] or []) == image_count
+        assert request["mm_processor_kwargs"] == config["mm_processor_kwargs"]
+        assert "mm_processor_kwargs" not in request["sampling_params"]
+        assert request["sampling_params"]["max_new_tokens"] == 8
+        assert request["sampling_params"]["stop"] == family.stop
+    finally:
+        await runner.cleanup()
 
 
 @pytest.mark.asyncio
@@ -249,14 +636,16 @@ def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, ac
         assert "PR #58674" in result[1]
 
 
-def test_int4_exception_is_scoped(virtualenv_worker):
-    family = match_llm("MiniCPM-V-4.7", "pytorch", 35, "Int4", "huggingface")
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_int4_requires_quantization_metadata(virtualenv_worker, hub):
+    registered = match_llm("MiniCPM-V-4.7", "pytorch", 35, "Int4", hub)
+    family = registered.copy(deep=True)
     spec = family.model_specs[0]
-    family.architectures = ["MiniCPMV4_6ForConditionalGeneration"]
+    assert spec.quantization_method == "compressed-tensors"
+    spec.quantization_method = None
     assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
-    family.architectures = ["MiniCPMV4_7ForConditionalGeneration"]
-    spec.model_size_in_billions = 1
-    assert vllm_core.VLLMMultiModel.match_json(family, spec, "Int4")[0] is False
+    assert SGLANGVisionModel.match_json(family, spec, "Int4")[0] is False
+    assert registered.model_specs[0].quantization_method == "compressed-tensors"
 
 
 def test_fp8_uses_checkpoint_quantizer(monkeypatch, tmp_path):
@@ -452,11 +841,7 @@ def test_base64_video_is_request_scoped(adapter, processor_fails):
     assert paths and not paths[0].exists()
 
 
-def test_older_architecture_and_unsupported_engines():
+def test_older_architecture():
     family = match_llm("MiniCPM-V-4.6", "pytorch", 1, "none", "huggingface")
     assert MiniCPMV46Model.match_json(family, family.model_specs[0], "none") is True
     assert MiniCPMV47Model.match_json(family, family.model_specs[0], "none")[0] is False
-    family = match_llm("MiniCPM-V-4.7", "pytorch", 1, "none", "huggingface")
-    assert (
-        SGLANGVisionModel.match_json(family, family.model_specs[0], "none")[0] is False
-    )

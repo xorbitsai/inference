@@ -51,7 +51,23 @@ Model Spec 3 (ggufv2, 7 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 7
-- **Quantizations:** Q4_K_M, Q6_K, Q8_0
+- **Quantizations:** Q4_K_M
+- **Engines**: vLLM, llama.cpp
+- **Model ID:** tencent/Hy-MT2-7B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT2-7B-GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-7B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name Hy-MT2-7B --size-in-billions 7 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 4 (ggufv2, 7 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 7
+- **Quantizations:** Q6_K, Q8_0
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** tencent/Hy-MT2-7B-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT2-7B-GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-7B-GGUF>`__

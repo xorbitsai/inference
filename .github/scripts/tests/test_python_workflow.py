@@ -749,6 +749,7 @@ class TestPythonWorkflow(unittest.TestCase):
             "xinference/model/llm/vllm/xavier/test/test_v1_engine.py",
             "xinference/model/llm/sglang/tests/test_runtime.py",
             "xinference/model/audio/tests/test_audio_batching.py",
+            "xinference/model/audio/tests/test_audio8_tts.py",
         ):
             with self.subTest(path=path):
                 self.assertIn(path, LINUX_PATHS)

@@ -48,6 +48,8 @@ class _ProgressInfo:
     seconds_per_progress: Optional[float] = None
     progress_samples: int = 0
     last_progress_interval: float = 0.0
+    generation: Optional[str] = None
+    finished: bool = False
 
 
 class ProgressTrackerActor(xo.StatelessActor):
@@ -81,7 +83,7 @@ class ProgressTrackerActor(xo.StatelessActor):
             to_remove_request_ids = []
             now = time.time()
             for request_id, progress in self._request_id_to_progress.items():
-                if abs(progress.progress - 1.0) > 1e-5:
+                if not progress.finished and abs(progress.progress - 1.0) > 1e-5:
                     continue
 
                 # finished
@@ -106,6 +108,7 @@ class ProgressTrackerActor(xo.StatelessActor):
         request_id: str,
         info: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
+        generation: Optional[str] = None,
     ):
         now = time.monotonic()
         self._request_id_to_progress[request_id] = _ProgressInfo(
@@ -115,6 +118,7 @@ class ProgressTrackerActor(xo.StatelessActor):
             details=details,
             started_at=now,
             last_progress_at=now,
+            generation=generation,
         )
 
     @rpc_context
@@ -124,9 +128,22 @@ class ProgressTrackerActor(xo.StatelessActor):
         progress: float,
         info: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
+        generation: Optional[str] = None,
+        finished: bool = False,
     ):
         assert progress <= 1.0
-        info_ = self._request_id_to_progress[request_id]
+        info_ = self._request_id_to_progress.get(request_id)
+        if info_ is None and generation is not None:
+            return  # A delayed launch report after terminal progress was expired.
+        if info_ is None:
+            raise KeyError(request_id)
+        if info_.generation != generation or info_.finished:
+            return
+        if generation is not None:
+            # Stage contexts may finish while the engine is still loading in a
+            # background thread. Only wait_for_load may finish a model launch.
+            progress = min(progress, 0.99) if not finished else progress
+            info_.finished = finished
         now = time.monotonic()
         change = progress - info_.progress
         if change < 0:
@@ -200,10 +217,13 @@ class Progressor:
         progress_tracker_ref: xo.ActorRefType["ProgressTrackerActor"],
         loop: asyncio.AbstractEventLoop,
         upload_span: float = UPLOAD_PROGRESS_SPAN,
+        generation: Optional[str] = None,
     ):
         self.request_id = request_id
         self.progress_tracker_ref = progress_tracker_ref
         self.loop = loop
+        self.generation = generation
+        self._legacy_launch_tracker = False
         self._rpc_metadata: Optional[RpcMetadata] = get_current_rpc_metadata()
         # uploading when progress changes over this span
         # to prevent from frequently uploading
@@ -217,13 +237,32 @@ class Progressor:
 
     async def start(self):
         if self.request_id:
-            await actor_call(
-                self.progress_tracker_ref,
-                "start",
-                self.request_id,
-                _rpc_operation_request_id=self.request_id,
-                _rpc_parent_metadata=self._rpc_metadata,
-            )
+            kwargs = {"generation": self.generation} if self.generation else {}
+            try:
+                await actor_call(
+                    self.progress_tracker_ref,
+                    "start",
+                    self.request_id,
+                    **kwargs,
+                    _rpc_operation_request_id=self.request_id,
+                    _rpc_parent_metadata=self._rpc_metadata,
+                )
+            except TypeError as exc:
+                if (
+                    not self.generation
+                    or "unexpected keyword argument 'generation'" not in str(exc)
+                ):
+                    raise
+                # Rolling upgrades may temporarily pair a new worker with an
+                # old supervisor. Keep launches working using its old protocol.
+                self._legacy_launch_tracker = True
+                await actor_call(
+                    self.progress_tracker_ref,
+                    "start",
+                    self.request_id,
+                    _rpc_operation_request_id=self.request_id,
+                    _rpc_parent_metadata=self._rpc_metadata,
+                )
 
     def split_stages(self, n_stage: int, stage_weight: Optional[List[float]] = None):
         if self.request_id:
@@ -286,11 +325,42 @@ class Progressor:
                     self.progress_tracker_ref,
                     "set_progress",
                     self.request_id,
-                    self._current_progress,
+                    (
+                        min(self._current_progress, 0.99)
+                        if self.generation
+                        else self._current_progress
+                    ),
                     info,
                     details,
+                    **(
+                        {"generation": self.generation}
+                        if self.generation and not self._legacy_launch_tracker
+                        else {}
+                    ),
                     _rpc_operation_request_id=self.request_id,
                     _rpc_parent_metadata=self._rpc_metadata,
                 )
                 asyncio.run_coroutine_threadsafe(set_progress, self.loop)  # type: ignore
                 self._last_report_progress = self._current_progress
+
+    async def finish_launch(self, success: bool) -> None:
+        """Finish only this launch generation; late stage reports are ignored."""
+        if self.request_id and self.generation:
+            kwargs: Dict[str, Any] = (
+                {"generation": self.generation, "finished": True}
+                if not self._legacy_launch_tracker
+                else {}
+            )
+            await actor_call(
+                self.progress_tracker_ref,
+                "set_progress",
+                self.request_id,
+                1.0 if success else min(self._current_progress, 0.99),
+                details={
+                    "stage": "completed" if success else "failed",
+                    "updated_at": time.time(),
+                },
+                **kwargs,
+                _rpc_operation_request_id=self.request_id,
+                _rpc_parent_metadata=self._rpc_metadata,
+            )

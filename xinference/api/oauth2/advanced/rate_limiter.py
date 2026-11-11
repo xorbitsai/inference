@@ -13,6 +13,7 @@
 # limitations under the License.
 """Dual-layer brute-force protection: IP-level and (IP, Key)-level banning."""
 
+import math
 import threading
 import time
 from dataclasses import dataclass, field
@@ -156,7 +157,7 @@ class RateLimiter:
             if not rec or not rec.banned_until:
                 return 0
             remaining = rec.banned_until - time.time()
-            return max(0, int(remaining))
+            return max(0, math.ceil(remaining))
 
     def get_key_ban_remaining(self, ip: str, key_id: int) -> int:
         with self._lock:
@@ -164,7 +165,7 @@ class RateLimiter:
             if not rec or not rec.banned_until:
                 return 0
             remaining = rec.banned_until - time.time()
-            return max(0, int(remaining))
+            return max(0, math.ceil(remaining))
 
     def record_key_failure(
         self, ip: str, key_id: int, config: Optional[RateLimitConfig] = None

@@ -397,18 +397,18 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
+            "model_id": "bartowski/THUDM_GLM-4-32B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-32B-0414-{quantization}.gguf",
             "model_metadata": {
               "vocab_size": 151552,
-              "num_attention_heads": 32,
+              "num_attention_heads": 48,
               "num_key_value_heads": 2,
               "head_dim": 128,
-              "config_source": "https://huggingface.co/bartowski/THUDM_GLM-4-9B-0414-GGUF/resolve/main/THUDM_GLM-4-9B-0414-IQ2_M.gguf",
-              "config_sha256": "5ac5e79e5d0ca81918cd6ff1efb95a9e3d00cafd4ba97e33da0726a07ec01a25",
-              "hidden_size": 4096,
-              "intermediate_size": 13696,
-              "num_hidden_layers": 40
+              "config_source": "https://huggingface.co/bartowski/THUDM_GLM-4-32B-0414-GGUF/resolve/b650220dbf94ac4b4423e9aaa2f230629929e65f/THUDM_GLM-4-32B-0414-IQ2_M.gguf",
+              "config_sha256": "f8e36a7df1429866f03f85d155ca6e4e00d66053665b70e03e69511cf1a6f878",
+              "hidden_size": 6144,
+              "intermediate_size": 23040,
+              "num_hidden_layers": 61
             }
           },
           "modelscope": {
@@ -439,18 +439,18 @@
               "Q6_K_L",
               "Q8_0"
             ],
-            "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
-            "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
+            "model_id": "bartowski/THUDM_GLM-4-32B-0414-GGUF",
+            "model_file_name_template": "THUDM_GLM-4-32B-0414-{quantization}.gguf",
             "model_metadata": {
               "vocab_size": 151552,
-              "num_attention_heads": 32,
+              "num_attention_heads": 48,
               "num_key_value_heads": 2,
               "head_dim": 128,
-              "config_source": "https://modelscope.cn/models/bartowski/THUDM_GLM-4-9B-0414-GGUF/resolve/master/THUDM_GLM-4-9B-0414-IQ2_M.gguf",
-              "config_sha256": "5ac5e79e5d0ca81918cd6ff1efb95a9e3d00cafd4ba97e33da0726a07ec01a25",
-              "hidden_size": 4096,
-              "intermediate_size": 13696,
-              "num_hidden_layers": 40
+              "config_source": "https://modelscope.cn/models/bartowski/THUDM_GLM-4-32B-0414-GGUF/resolve/master/THUDM_GLM-4-32B-0414-IQ2_M.gguf",
+              "config_sha256": "f8e36a7df1429866f03f85d155ca6e4e00d66053665b70e03e69511cf1a6f878",
+              "hidden_size": 6144,
+              "intermediate_size": 23040,
+              "num_hidden_layers": 61
             }
           }
         }

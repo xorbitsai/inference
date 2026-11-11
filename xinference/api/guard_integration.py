@@ -43,6 +43,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any
 
+from ..utils import dependency_import_guard
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from guard import SecurityConfig
@@ -189,12 +191,9 @@ def attach_guard(app: FastAPI) -> None:
     """
     if not guard_enabled():
         return
-    try:
+    with dependency_import_guard(
+        "guard", install_hint='Install with `pip install "xinference[guard]"`.'
+    ):
         from guard import SecurityMiddleware
-    except ImportError as exc:
-        raise ImportError(
-            "XINFERENCE_GUARD_ENABLED requires fastapi-guard. "
-            'Install it with: pip install "xinference[guard]"'
-        ) from exc
 
     app.add_middleware(SecurityMiddleware, config=_build_guard_config())

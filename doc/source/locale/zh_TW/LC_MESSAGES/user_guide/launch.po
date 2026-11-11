@@ -767,3 +767,19 @@ msgid ""
 msgstr ""
 "結果無法確認時，可在 Web UI 中點擊 "
 "**重新套用目前顯示的設定**，即使沒有修改也會提交目前顯示的值。空白欄位和各副本值不同的欄位，只有在指定值後才會提交。"
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "宣告 ``quantization_method=\"compressed-tensors\"`` 的檢查點，在 vLLM 的 compressed-tensors 載入器不支援預處理 IPC 權重時使用原生權重載入。自動權重保留會略過此設定；明確啟用權重保留則拒絕啟動。"
+
+#: ../../source/user_guide/launch.rst:311
+msgid "When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload."
+msgstr "從 **執行中的模型** 新增副本時，Web UI 會等待整個請求完成，不使用一般請求的 60 秒逾時，並顯示等待時間與逐副本進度。副本就緒前，進度保持在 100% 以下。只有成功回應才能確認整批完成並關閉對話框；之後重新整理失敗不會改變新增成功的結果。連線或閘道異常時，請先核實目前副本，再結束追蹤或重試；介面不會自動重新提交。追蹤狀態僅保存在目前頁面，重新載入頁面後會遺失。"
+
+#: ../../source/user_guide/launch.rst:418
+msgid "In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply."
+msgstr "在 **執行中的模型** 中，**新增副本** 對話框提供自動排程和逐副本指定兩種模式。逐副本指定需要為每個新副本選擇一個 Worker，並可逐列填寫 GPU 索引與副本別名。GPU 索引是所選 Worker 的本機編號；留空時自動分配，選擇 CPU 時不傳送 GPU 索引。只提交目前選取的模式。GPU 可用性與別名衝突由伺服器檢查，現有擴充限制仍然適用。"
+
+#: ../../source/user_guide/launch.rst:294
+msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
+msgstr "提交部署後，對話框立即顯示等待提示與已用時間，涵蓋副本準備及載入階段。某個副本就緒或進度達到 100% 不代表請求已經完成。部署回應傳回後停止等待計時，對話框關閉前可能還需完成設定儲存。取消失敗時繼續等待，保留原開始時間。僅下載操作仍使用獨立的進度顯示。"

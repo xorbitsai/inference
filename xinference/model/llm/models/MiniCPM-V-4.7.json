@@ -12,7 +12,7 @@
       "vision",
       "hybrid"
     ],
-    "model_description": "MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang support currently requires an upstream fork with conflicting dependency pins and is not enabled. GGUF and llama.cpp support is not enabled.",
+    "model_description": "MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang requires >=0.5.23 and Python 3.11-3.13 for text and image inputs; its 1B BNB checkpoint is not supported. GGUF and llama.cpp support is not enabled.",
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -368,7 +368,8 @@
               "intermediate_size": 512
             }
           }
-        }
+        },
+        "quantization_method": "compressed-tensors"
       },
       {
         "model_format": "fp8",
@@ -434,7 +435,7 @@
     "updated_at": 1791872417,
     "virtualenv": {
       "packages": [
-        "transformers>=5.18.0 ; #engine# == \"Transformers\" or #engine# == \"vllm\"",
+        "transformers>=5.18.0 ; #engine# == \"Transformers\" or #engine# == \"vllm\" or #engine# == \"sglang\"",
         "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
         "#system_torchvision# ; #engine# == \"Transformers\"",
@@ -444,6 +445,9 @@
         "vllm==0.31.1rc1.dev281+gc85616efc ; #engine# == \"vllm\"",
         "qwen-omni-utils>=0.0.9 ; #engine# == \"vllm\"",
         "audioread ; #engine# == \"vllm\"",
+        "sglang>=0.5.23 ; #engine# == \"sglang\"",
+        "flash-attn-4>=4.0.0b18 ; #engine# == \"sglang\"",
+        "qwen-vl-utils ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"Transformers\" or #engine# == \"vllm\""
       ],
       "extra_index_url": "https://wheels.vllm.ai/c85616efc6f0eaa50ca1f1a09c32368aedffd3d8",

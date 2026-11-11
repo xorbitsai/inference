@@ -302,6 +302,7 @@ Define a custom model based on the following templates:
 * model_family: A required string representing the family of the model you want to register. This parameter must not conflict with any builtin model names.
 * model_specs: An array of objects defining the specifications of the model. These include:
    * model_format: A string that defines the model format, like "pytorch" or "ggufv2".
+   * ``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime.
 * model_size_in_billions: An integer defining the size of the model in billions of parameters.
 * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggufv2 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
   Some engines also support ``fp4`` / ``fp8`` / ``bnb`` formats (see :ref:`installation` for backend support details).

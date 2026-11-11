@@ -21,7 +21,6 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { ModelAbility } from '@/constants';
 import { toast } from 'sonner';
 import PageContainer from '@/components/ui/page-container';
@@ -57,6 +56,7 @@ import {
   type ModelListItem,
 } from './use-model-instances';
 import { ModelStatusBadge } from './model-status-badge';
+import { useAddReplica } from './use-add-replica';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -89,34 +89,6 @@ interface AutostartSummary {
     enabled?: boolean;
     model_uid?: string;
   }>;
-}
-
-function formatErrorDetail(detail: unknown): string | undefined {
-  if (typeof detail === 'string') return detail;
-  if (Array.isArray(detail)) {
-    const messages = detail
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
-          return item.msg;
-        }
-        try {
-          return JSON.stringify(item);
-        } catch {
-          return String(item);
-        }
-      })
-      .filter(Boolean);
-    return messages.length ? messages.join('; ') : undefined;
-  }
-  if (detail && typeof detail === 'object') {
-    try {
-      return JSON.stringify(detail);
-    } catch {
-      return String(detail);
-    }
-  }
-  return undefined;
 }
 
 const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
@@ -283,7 +255,25 @@ const RunningModel = ({ modelUid }: { modelUid?: string } = {}) => {
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
   const [addReplicaOpen, setAddReplicaOpen] = useState(false);
-  const [addReplicaLoading, setAddReplicaLoading] = useState(false);
+  const [addReplicaModel, setAddReplicaModel] = useState<ModelListItem>();
+  const addReplica = useAddReplica({
+    onReplicas: (modelUid, replicas) =>
+      setReplicaLogs((prev) => ({ ...prev, [modelUid]: replicas })),
+    onSettled: (operation) => {
+      fetchModels();
+      if (operation.phase === 'succeeded') {
+        setAddReplicaOpen(false);
+        toast.success(t('runningModels.addReplicaSuccess', { count: operation.count }));
+      } else if (operation.phase === 'failed') {
+        toast.error(operation.error || t('runningModels.addReplicaFailed'));
+      } else {
+        toast.warning(t('runningModels.addReplicaUnknown'));
+      }
+    },
+    onSuccessRefreshFailed: () => {
+      toast.warning(t('runningModels.addReplicaSuccessRefreshFailed'));
+    },
+  });
   const [tryApiOpen, setTryApiOpen] = useState(false);
   const [reloadModelUid, setReloadModelUid] = useState<string | null>(null);
   const handleReloadOpenChange = useCallback((open: boolean) => {
@@ -556,27 +546,16 @@ const RunningModel = ({ modelUid }: { modelUid?: string } = {}) => {
   };
 
   const handleAddReplica = (body: AddReplicaRequest) => {
-    if (!activeModel || isTokenRouterModel(activeModel)) return;
-    setAddReplicaLoading(true);
-    request
-      .post(`/v1/models/${encodeURIComponent(activeModel.id)}/replicas`, body)
-      .then(() => {
-        setAddReplicaOpen(false);
-        toast.success(t('runningModels.addReplicaSuccess', { count: body.replica }));
-        fetchReplicas(activeModel.id);
-        fetchModels();
-      })
-      .catch((err: unknown) => {
-        const message = axios.isAxiosError<{ detail?: unknown }>(err)
-          ? formatErrorDetail(err.response?.data?.detail) || err.message
-          : err instanceof Error
-            ? err.message
-            : undefined;
-        toast.error(message || t('runningModels.addReplicaFailed'));
-      })
-      .finally(() => {
-        setAddReplicaLoading(false);
-      });
+    if (!addReplicaModel || isTokenRouterModel(addReplicaModel)) return;
+    void addReplica.submit(addReplicaModel.id, body);
+  };
+
+  const openAddReplica = () => {
+    if (!['pending', 'unknown'].includes(addReplica.operation?.phase ?? '')) {
+      addReplica.reset();
+      setAddReplicaModel(activeModel);
+    }
+    setAddReplicaOpen(true);
   };
 
   const handleRemoveAutostart = (modelUid: string) => {
@@ -1097,7 +1076,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string } = {}) => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
                   {activeModelReady && (
-                    <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
+                    <Button variant="outline" size="sm" onClick={openAddReplica}>
                       <Plus className="size-3.5 mr-1" />
                       {t('runningModels.addReplica')}
                     </Button>
@@ -1286,20 +1265,37 @@ const RunningModel = ({ modelUid }: { modelUid?: string } = {}) => {
         open={addReplicaOpen}
         onOpenChange={setAddReplicaOpen}
         onConfirm={handleAddReplica}
-        loading={addReplicaLoading}
+        loading={addReplica.operation?.phase === 'pending'}
+        operation={addReplica.operation}
+        elapsedSeconds={addReplica.elapsedSeconds}
+        newReplicas={addReplica.newReplicas}
+        onRefresh={() => void addReplica.refresh()}
+        onAcknowledge={() => {
+          addReplica.reset();
+          setAddReplicaOpen(false);
+        }}
         workerOptions={addReplicaWorkerOptions}
-        modelUid={activeModel?.id ?? ''}
-        modelName={activeModel?.model_name ?? ''}
-        modelType={activeModel?.model_type ?? ''}
-        modelEngine={activeModel?.model_engine}
-        modelFormat={activeModel?.model_format}
-        modelSizeInBillions={activeModel?.model_size_in_billions}
-        quantization={activeModel?.quantization}
+        modelUid={addReplicaModel?.id ?? ''}
+        modelName={addReplicaModel?.model_name ?? ''}
+        modelType={addReplicaModel?.model_type ?? ''}
+        modelEngine={addReplicaModel?.model_engine}
+        modelFormat={addReplicaModel?.model_format}
+        modelSizeInBillions={addReplicaModel?.model_size_in_billions}
+        quantization={addReplicaModel?.quantization}
         currentReplicaCount={
-          activeModel ? (replicaLogs[activeModel.id]?.length ?? activeModel.replica ?? 0) : 0
+          addReplicaModel
+            ? ((addReplica.operation?.baselineReady
+                ? addReplica.operation.baseline.length
+                : undefined) ??
+              replicaLogs[addReplicaModel.id]?.length ??
+              addReplicaModel.replica ??
+              0)
+            : 0
         }
         defaultDevice={
-          activeModel?.accelerators?.some((value) => /^\d+$/.test(String(value))) ? 'GPU' : 'CPU'
+          addReplicaModel?.accelerators?.some((value) => /^\d+$/.test(String(value)))
+            ? 'GPU'
+            : 'CPU'
         }
       />
       <TryApiDrawer

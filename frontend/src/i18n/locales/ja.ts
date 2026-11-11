@@ -623,6 +623,9 @@ const ja = {
     manageCachedModels: 'キャッシュモデル管理',
     manageVirtualEnvironments: '仮想環境を管理',
     favorite: 'お気に入り',
+    featuredModel: 'おすすめ',
+    featuredModelDescription:
+      'Xinference がおすすめするモデルです。モデル一覧で優先的に表示されます。',
     importFavorites: 'ブラウザーのお気に入りをインポート',
     importFavoritesHint: 'このブラウザーに保存したお気に入りを現在のアカウントにインポートします。',
     importFavoritesSharedHint:
@@ -778,6 +781,8 @@ const ja = {
     virtualEnvConfig: '仮想環境の設定',
     modelVirtualEnv: 'モデルの仮想環境',
     virtualEnvPackage: '仮想環境パッケージ',
+    virtualEnvIndexUrl: 'Package index URL (uv pip)',
+    virtualEnvExtraIndexUrls: 'Extra package indexes (uv pip)',
     virtualEnvFindLinks: 'ローカル Wheel ディレクトリ',
     envVariable: '環境変数',
     envVariableConfig: '環境変数の設定',
@@ -813,6 +818,12 @@ const ja = {
     launchProgress: '起動状況',
     overallProgress: '全体の進捗',
     noReplicaStatus: 'レプリカの状態を待っています...',
+    launchWaiting: 'モデルをデプロイ中、レプリカの準備完了を待っています',
+    launchElapsed: '{{seconds}} 秒待機中',
+    launchWaitHint:
+      'モデルの準備、ダウンロード、読み込みには数分かかる場合があります。しばらくお待ちください。',
+    launchCanceling: 'デプロイをキャンセルしています。しばらくお待ちください…',
+    launchFinishing: 'モデルの準備ができました。デプロイの最終処理を行っています…',
     stagePreparing: 'デプロイを準備しています...',
     stageDownloading: 'モデルファイルをダウンロードしています...',
     stageWaitingDependencies: 'モデルの依存パッケージの準備を待っています...',
@@ -928,6 +939,11 @@ const ja = {
       modelUid: 'モデル UID',
       modelName: 'モデル名',
       virtual: '仮想モデル',
+      registeredContextLength: '登録済みコンテキスト長（参考）',
+      runtimeContextLength: 'ロード済みコンテキスト長（トークン）',
+      unknownContextLength: '不明',
+      runtimeContextDescription:
+        '入力と出力の合計上限。レプリカの最小値を使用し、報告できないレプリカがある場合は不明と表示します。',
       contextLength: 'コンテキスト長',
       replica: 'レプリカ数',
       address: 'アドレス',
@@ -969,6 +985,27 @@ const ja = {
       chatEmpty: 'メッセージを送信するか、メディアを添付して開始してください。',
       chatPlaceholder: 'メッセージを入力',
       additionalInputs: '追加パラメーター',
+      chatSettingsDescription: 'この会話の生成設定を調整します。',
+      reasoningEffort: '推論強度',
+      reasoningEffortDefault: 'モデルの既定値',
+      reasoningEffortCustom: '数値を指定',
+      reasoningEffortRange: '推論強度の範囲: {{min}}–{{max}}。',
+      reasoningEffortInvalid: '対応する推論レベルを選択してください。',
+      reasoningEffortNumberInvalid: '{{min}}〜{{max}} の整数を入力してください。',
+      thinkingBudget: '思考トークン予算',
+      thinkingBudgetHint: '空欄で既定値を使用します。残りの出力トークンは回答に使用できます。',
+      thinkingBudgetInvalid: '出力トークン上限を先に設定し、それ未満の正の整数を入力してください。',
+      sendMessage: 'メッセージを送信',
+      reasoningEffortLevels: {
+        none: 'オフ',
+        minimal: '最小',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '非常に高い',
+        max: '最大',
+        no_think: 'オフ',
+      },
       maxTokensLabel: '最大トークン数（0 は利用可能な上限）',
       temperature: 'Temperature',
       stream: 'ストリーミング',
@@ -1037,6 +1074,20 @@ const ja = {
     addReplicaEnginePlaceholder: '利用可能なモデルエンジン情報がありません',
     addReplicaSuccess: '{{count}} 個のレプリカを追加しました',
     addReplicaFailed: 'レプリカの追加に失敗しました',
+    addReplicaState_pending: 'レプリカの読み込みを待機中',
+    addReplicaState_succeeded: 'レプリカの追加が完了しました',
+    addReplicaState_failed: 'レプリカの追加に失敗しました',
+    addReplicaState_unknown: '結果の確認が必要です',
+    addReplicaUnknown:
+      '接続が切れたか、ゲートウェイがタイムアウトしました。再送信前に現在のレプリカを確認してください。',
+    addReplicaElapsed: '{{seconds}} 秒待機中',
+    addReplicaWaitHint:
+      '読み込みには数分かかる場合があります。ページを閉じてもサーバーの追加処理は取り消されません。',
+    addReplicaWaitingCount: '要求したレプリカのうち {{count}} 個がまだ表示されていません。',
+    addReplicaRefreshFailed: '状態の取得に失敗しました。前回の状態を保持して再試行します。',
+    addReplicaSuccessRefreshFailed:
+      'レプリカの追加は完了しましたが、状態の更新に失敗しました。再読み込みして最終状態を確認してください。',
+    addReplicaAcknowledge: '結果を確認しました。追跡を終了',
     addReplicaLoading: 'レプリカ追加中...',
     addReplicaWorkerLabel: 'ワーカー',
     addReplicaGpuIdxLabel: 'GPU インデックス',
@@ -1044,6 +1095,18 @@ const ja = {
     addReplicaUidLabel: 'レプリカエイリアス',
     addReplicaUidPlaceholder: '任意、空の場合は表示しません',
     addReplicaAutoWorker: '自動（デフォルト）',
+    addReplicaSimplePlacement: '自動スケジューリング',
+    addReplicaPlacementHint:
+      'GPU 番号は Worker ごとに独立しており、異なる Worker では同じ番号を使用できます。空欄の場合は選択した Worker が自動割り当てします。GPU 数を指定する場合はインデックスを入力してください。',
+    addReplicaRow: '追加レプリカ {{row}}',
+    addReplicaRowError_count: '配置行数を正の整数の追加レプリカ数と一致させてください。',
+    addReplicaRowError_worker: '追加レプリカ {{row}}: 利用可能な Worker を選択してください。',
+    addReplicaRowError_gpu:
+      '追加レプリカ {{row}}: 非負整数の GPU インデックスをカンマ区切りで入力してください。',
+    addReplicaRowError_duplicateGpu:
+      '追加レプリカ {{row}}: 同じ行で GPU インデックスを重複させないでください。',
+    addReplicaRowError_duplicateAlias:
+      '追加レプリカ {{row}}: この別名は今回の追加レプリカで既に使用されています。',
     addReplicaWorkerHint:
       '選択した各ワーカーに少なくとも1つのレプリカを割り当て、追加分は選択順に繰り返します。',
     addReplicaWorkerRequired: 'GPU インデックスを指定する前に Worker を選択してください。',
@@ -1627,6 +1690,11 @@ const ja = {
     threadsUnit: 'スレッド',
   },
   securitySettings: {
+    ipBannedMessage:
+      '認証の失敗が繰り返されたため、この IP は一時的にブロックされています。管理者に連絡するか、管理者としてログインし、「システム管理 → セキュリティ設定」でブロックを解除してください。',
+    keyBannedMessage:
+      'この API キーは、この IP で一時的にブロックされています。管理者に連絡し、「セキュリティ設定」でブロックを解除してください。',
+    banRetryAfter: '{{seconds}} 秒後に再試行してください。',
     pageDescription:
       '失敗リクエストの制限を設定し、現在ブロックされている IP と API キーを管理します。',
     rateLimitConfig: 'レート制限ポリシー',
@@ -1827,6 +1895,7 @@ const ja = {
       fri: '金',
       sat: '土',
     },
+    close: '閉じる',
     cancel: 'キャンセル',
     confirm: '確認',
     update: '更新',

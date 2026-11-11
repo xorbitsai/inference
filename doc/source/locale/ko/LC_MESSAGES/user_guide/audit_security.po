@@ -217,3 +217,38 @@ msgstr ""
 #: ../../source/user_guide/audit_security.rst:80
 msgid "The read-only alias is a routing convenience, not a field-level security boundary. Browser clients should access logs only through the Xinference API, and Elasticsearch credentials should not be exposed to users who are not allowed to read captured request bodies."
 msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:101
+msgid ""
+"Invalid JWTs also count toward the IP threshold. A correctly signed access "
+"token that has expired still receives ``401 Unauthorized``, but does not "
+"increment this counter. Refresh the session or sign in again."
+msgstr ""
+"유효하지 않은 JWT도 IP 임계값에 포함됩니다. 서명이 올바르지만 만료된 액세스 토큰에는 계속 ``401 Unauthorized`` 가"
+" 반환되지만 이 카운터는 증가하지 않습니다. 세션을 갱신하거나 다시 로그인하세요."
+
+#: ../../source/user_guide/audit_security.rst:105
+msgid ""
+"Ban responses include ``X-Xinference-Error-Code`` (``ip_banned`` or "
+"``key_banned``) and ``Retry-After`` (remaining seconds), while preserving "
+"the existing ``detail`` message. Other ``429`` responses can indicate model "
+"rate limits rather than an authentication ban."
+msgstr ""
+"차단 응답은 기존 ``detail`` 메시지를 유지하면서 ``X-Xinference-Error-Code`` (``ip_banned`` "
+"또는 ``key_banned``)와 ``Retry-After`` (남은 초)를 포함합니다. 다른 ``429`` 응답은 인증 차단이 아닌 "
+"모델 요청 제한을 의미할 수 있습니다."
+
+#: ../../source/user_guide/audit_security.rst:128
+msgid ""
+"If your own IP is banned, sign in as an administrator and open **System "
+"Management → Security Settings** to lift the ban. An enabled administrator "
+"with a valid, current access token can reach ``/v1/admin/security/*`` and "
+"read their account permissions at ``GET /v1/auth/me`` from a banned IP; "
+"other protected endpoints remain blocked until the ban is lifted. On older "
+"releases that also block security settings, use an administrator connection "
+"from another unblocked source IP or wait for the ban to expire."
+msgstr ""
+"자신의 IP가 차단된 경우 관리자 계정으로 로그인하고 **시스템 관리 → 보안 설정** 에서 차단을 해제하세요. 활성 상태이며 유효하고 "
+"취소되지 않은 액세스 토큰을 가진 관리자는 차단된 IP에서도 ``/v1/admin/security/*`` 에 접근하고 ``GET "
+"/v1/auth/me`` 로 자신의 계정 권한을 읽을 수 있습니다. 다른 보호된 엔드포인트는 차단이 해제될 때까지 계속 차단됩니다. 보안"
+" 설정도 차단하는 이전 버전에서는 관리자가 차단되지 않은 다른 원본 IP로 연결하거나 차단이 만료될 때까지 기다리세요."

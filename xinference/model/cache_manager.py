@@ -143,7 +143,7 @@ class CacheManager:
             os.remove(persist_path)
 
         cache_dir = self.get_cache_dir()
-        if self.get_cache_status():
+        if os.path.exists(cache_dir):
             logger.warning(
                 f"Remove the cache of user-defined model {self._model_family.model_name}. "
                 f"Cache directory: {cache_dir}"

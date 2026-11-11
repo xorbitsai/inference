@@ -134,6 +134,139 @@ async def test_lmcache_eviction_is_miss_and_invalidates_directory(backend):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_prefetch_waits_for_active_read(backend):
+    _, k, v = publish(backend, [1, 2])
+    entered, release = threading.Event(), threading.Event()
+    original = backend._storage.load
+    active = peak = 0
+
+    def slow(keys):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        try:
+            entered.set()
+            assert release.wait(5)
+            return original(keys)
+        finally:
+            active -= 1
+
+    backend._storage.load = slow
+    reads = [asyncio.create_task(backend.prefetch([1]))]
+    try:
+        assert await asyncio.to_thread(entered.wait, 1)
+        reads.append(asyncio.create_task(backend.prefetch([2])))
+        await asyncio.sleep(0.01)
+        assert not reads[1].done(), "A healthy concurrent read must not become a miss"
+        release.set()
+        assert await asyncio.gather(*reads) == [True, True]
+        assert peak == 1
+        assert backend.reserve("reader", [1, 2])
+        assert torch.equal(backend.read("K", [1, 2]), k)
+        assert torch.equal(backend.read("V", [1, 2]).view(torch.bfloat16), v)
+        backend.release("reader")
+    finally:
+        release.set()
+        await asyncio.gather(*reads, return_exceptions=True)
+        await backend.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_stopped_prefetch_waiter_does_not_cancel_owner(backend, cancel):
+    publish(backend, [1, 2])
+    entered, release = threading.Event(), threading.Event()
+    original = backend._storage.load
+    loads = []
+
+    def slow(keys):
+        loads.append(keys)
+        entered.set()
+        assert release.wait(5)
+        return original(keys)
+
+    backend._storage.load = slow
+    owner = asyncio.create_task(backend.prefetch([1]))
+    reads = [owner]
+    try:
+        assert await asyncio.to_thread(entered.wait, 1)
+        backend._config["read_timeout"] = 1 if cancel else 0.01
+        waiter = asyncio.create_task(backend.prefetch([2]))
+        reads.append(waiter)
+        if cancel:
+            await asyncio.sleep(0.01)
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            assert not await waiter
+            assert backend.get_stats()["timeouts"] == 1
+        assert not owner.done()
+        assert len(loads) == 1
+        release.set()
+        assert await owner
+        assert await backend.prefetch([2])
+    finally:
+        release.set()
+        await asyncio.gather(*reads, return_exceptions=True)
+        await backend.close()
+
+
+@pytest.mark.asyncio
+async def test_lmcache_republishes_evicted_page_with_stale_directory(backend):
+    keys = [1, 2]
+    _, k, v = publish(backend, keys)
+    del backend._storage.pages[1]
+    assert backend.ready_keys(keys) == keys
+    assert backend.publish(keys, {"K", "V"}) == keys
+    assert 1 not in backend._storage.pages  # Metadata-only refresh.
+
+    accepted, _, _ = publish(backend, keys)
+    assert accepted == keys
+    assert await backend.prefetch(keys)
+    assert backend.reserve("1:read", keys)
+    assert torch.equal(backend.read("K", keys), k)
+    assert torch.equal(backend.read("V", keys).view(torch.bfloat16), v)
+    backend.release("1:read")
+
+
+@pytest.mark.asyncio
+async def test_stale_prefetch_miss_preserves_republished_page(backend, monkeypatch):
+    keys = [1, 2]
+    publish(backend, keys)
+    backend._storage.pages.clear()
+    snapshot_taken, release = threading.Event(), threading.Event()
+    load = backend._storage.load
+
+    def delay_result(keys):
+        result = load(keys)
+        snapshot_taken.set()
+        assert release.wait(5)
+        return result
+
+    monkeypatch.setattr(backend._storage, "load", delay_result)
+    backend._config["read_timeout"] = 5
+    read = asyncio.create_task(backend.prefetch(keys))
+    try:
+        assert await asyncio.to_thread(snapshot_taken.wait, 1)
+        accepted, k, v = publish(backend, [1])
+        assert accepted == [1]
+        assert backend.publish([2], {"K", "V"}) == [2]  # Metadata only.
+    finally:
+        release.set()
+        await read
+
+    assert not read.result()
+    assert backend.ready_keys(keys) == [1]
+    assert backend.take_evicted() == [2]
+    assert await backend.prefetch([1])
+    assert backend.reserve("1:read", [1])
+    assert torch.equal(backend.read("K", [1]), k)
+    assert torch.equal(backend.read("V", [1]).view(torch.bfloat16), v)
+    backend.release("1:read")
+
+
+@pytest.mark.asyncio
 async def test_prefetch_pressure_does_not_evict_active_reader(backend):
     publish(backend, [1, 2])
     assert await backend.prefetch([1])
@@ -225,12 +358,19 @@ def _require_real_lmcache():
 async def _wait_for_disk_writes(store, path, count):
     deadline = asyncio.get_running_loop().time() + 10
     while True:
-        controllers = store._storage.manager.report_status()[
-            "store_controllers"
-        ].values()
-        if len(list(path.rglob("*.data"))) >= count and all(
-            status["pending_keys_count"] == 0 and status["in_flight_task_count"] == 0
-            for status in controllers
+        status = store._storage.manager.report_status()
+        controllers = status["store_controllers"].values()
+        if (
+            len(list(path.rglob("*.data"))) >= count
+            and all(
+                status["pending_keys_count"] == 0
+                and status["in_flight_task_count"] == 0
+                for status in controllers
+            )
+            and all(
+                manager["read_locked_count"] == manager["write_locked_count"] == 0
+                for manager in status["l1_managers"].values()
+            )
         ):
             return
         assert asyncio.get_running_loop().time() < deadline, "Disk writes did not drain"

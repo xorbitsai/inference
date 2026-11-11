@@ -116,3 +116,86 @@ msgstr "启用 ``realtime=True`` 时，在模型启动参数中设置 ``realtime
 #: user_guide/realtime.rst:63
 msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
 msgstr "默认不启用优化。这是候选配置，不保证延迟达标。删除 ``realtime_options`` 可恢复默认值；仅设置 ``optimize=false`` 不会重置显式配置的时间参数或分段上限。"
+
+#: user_guide/realtime.rst:40
+msgid ""
+"For the Nano adapter, the limits and locking below apply. The Qwen3 engines "
+"use the separate defaults described later."
+msgstr "以下限制和锁机制适用于 Nano 适配器。Qwen3 引擎使用后文介绍的独立默认配置。"
+
+#: user_guide/realtime.rst:70
+msgid "Qwen3 audio with native batching"
+msgstr "支持原生合批的 Qwen3 音频"
+
+#: user_guide/realtime.rst:73
+msgid ""
+"Use Linux with CUDA and Python 3.11–3.13. In the model environment, install "
+"``vllm[audio]==0.32.0`` and ``silero-vad[onnx-cpu]`` for ASR; TTS additionally "
+"requires ``vllm-omni==0.32.0``. Engine-specific virtualenv packages are "
+"included in the built-in model specs."
+msgstr ""
+"使用带 CUDA 的 Linux 和 Python 3.11–3.13。在模型环境中，为 ASR 安装 ``vllm[audio]==0.32.0`` "
+"和 ``silero-vad[onnx-cpu]``；TTS 还需要 ``vllm-omni==0.32.0``。内置模型配置已包含各引擎对应的虚拟环境依赖。"
+
+#: user_guide/realtime.rst:75
+msgid ""
+"Launch Qwen3-ASR with ``vLLM``. Each connection owns a Silero VAD "
+"state and utterance buffer; English is the default session language. Use the"
+" WebSocket protocol above with ``language=en``. Partial results re-decode "
+"utterance snapshots; this is segmental transcription, not incremental "
+"acoustic encoding. Both 0.6B and 1.7B models are supported."
+msgstr ""
+"使用 ``vLLM`` 启动 Qwen3-ASR。每个连接独立维护 Silero VAD "
+"状态和语句缓冲区，默认会话语言为英语。使用上述 WebSocket 协议并设置 "
+"``language=en``。部分结果通过重新识别语句快照生成；这是分段转写，不是增量声学编码。支持 0.6B 和 1.7B 两个模型。"
+
+#: user_guide/realtime.rst:86
+msgid ""
+"ASR defaults to 16 concurrent sessions per replica. "
+"``XINFERENCE_REALTIME_MAX_SESSIONS`` overrides admission capacity; "
+"``max_num_seqs`` configures native engine scheduling. Concurrent file and "
+"WebSocket decodes enter the same AsyncLLM scheduler without a Python "
+"inference lock. Cancelling one session aborts only its request and retains "
+"its slot until abort settles. Measure throughput, latency and accuracy on "
+"the target GPU before choosing production limits."
+msgstr ""
+"ASR 默认每副本允许 16 个并发会话。``XINFERENCE_REALTIME_MAX_SESSIONS`` "
+"覆盖接入容量；``max_num_seqs`` 配置原生引擎调度。并发的文件和 WebSocket 识别请求进入同一个 AsyncLLM 调度器，不经过"
+" Python 推理锁。取消会话只中止该会话的请求，直到中止完成才释放名额。选择生产限制前，请在目标 GPU 上测量吞吐、延迟和准确率。"
+
+#: user_guide/realtime.rst:88
+msgid ""
+"Launch Qwen3-TTS CustomVoice with ``vLLM`` for native AsyncOmni batching and"
+" streaming. Both 0.6B and 1.7B CustomVoice models are supported; Base and "
+"VoiceDesign are excluded. Streaming requires ``stream=true`` and "
+"``response_format=pcm`` and returns mono 24 kHz PCM16 little-endian chunks. "
+"The default speaker is ``ryan`` and the default language is English. Close "
+"the response to cancel generation."
+msgstr ""
+"使用 ``vLLM`` 启动 Qwen3-TTS CustomVoice，以启用原生 AsyncOmni 合批和流式输出。支持 0.6B 和 1.7B "
+"CustomVoice，不支持 Base 和 VoiceDesign。流式请求必须设置 ``stream=true`` 和 "
+"``response_format=pcm``，返回单声道 24 kHz PCM16 小端音频块。默认说话人为 "
+"``ryan``，默认语言为英语。关闭响应即可取消生成。"
+
+#: user_guide/realtime.rst:73
+#, python-brace-format
+msgid ""
+"Query ``GET /v1/models/{model_uid}/audio/capabilities`` before enabling "
+"voice controls. It reports the loaded adapter’s streaming and VAD support, "
+"supported TTS formats, sample rates and voice IDs. Unsupported adapters "
+"return an empty object. ``formats`` and ``sample_rates`` describe streaming "
+"output; ``file_formats`` lists non-streaming output formats."
+msgstr ""
+"启用语音控件前，查询 ``GET /v1/models/{model_uid}/audio/capabilities``。接口返回已加载适配器的流式与 "
+"VAD 支持情况，以及支持的 TTS 格式、采样率和音色 ID。不支持的适配器返回空对象。 ``formats`` 和 ``sample_rates``"
+" 描述流式输出；``file_formats`` 列出非流式输出格式。"
+
+#: user_guide/realtime.rst:90
+msgid ""
+"For ASR, ``max_num_seqs`` must be 1–128 (default 16); ``language=auto`` "
+"enables automatic detection. Native engine construction currently blocks the"
+" model Actor loop during loading; RPCs to that replica resume after "
+"initialization."
+msgstr ""
+"ASR 的 ``max_num_seqs`` 必须为 1–128（默认 16）；``language=auto`` "
+"启用语言自动检测。原生引擎的构造目前会在加载期间阻塞模型 Actor 的事件循环；该副本的 RPC 会在初始化完成后恢复。"

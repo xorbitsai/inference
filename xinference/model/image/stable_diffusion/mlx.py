@@ -22,6 +22,7 @@ import numpy as np
 from PIL import Image
 
 from ....types import LoRA
+from ....utils import dependency_import_guard
 from ..sdapi import SDAPIDiffusionModelMixin
 from ..utils import handle_image_result, resolve_image_seed_list
 
@@ -86,16 +87,8 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
         return "flux" in model_name.lower()
 
     def load(self):
-        try:
+        with dependency_import_guard("mlx"):
             import mlx.nn as nn
-        except ImportError:
-            error_message = "Failed to import module 'mlx'"
-            installation_guide = [
-                "Please make sure 'mlx' is installed. ",
-                "You can install it by `pip install mlx`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         from ....thirdparty.mlx.flux import FluxPipeline
 

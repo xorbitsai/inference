@@ -34,7 +34,12 @@ import xoscar as xo
 
 from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
-from .rpc_context import actor_call, get_current_rpc_metadata, wrap_async_iterator
+from .rpc_context import (
+    actor_call,
+    get_current_rpc_metadata,
+    rpc_context,
+    wrap_async_iterator,
+)
 from .utils import log_async
 
 if TYPE_CHECKING:
@@ -472,6 +477,55 @@ class PDModelActor(xo.StatelessActor):
             "max_model_len": None,
             "effective_max_tokens": None,
         }
+
+    async def get_reasoning_capabilities(self) -> Dict[str, bool]:
+        for replica in self._decode_replicas.values():
+            result = await actor_call(replica, "get_reasoning_capabilities")
+            if isinstance(result, (str, bytes)):
+                result = json.loads(result)
+            if (
+                not isinstance(result, dict)
+                or result.get("supports_thinking_budget") is not True
+            ):
+                return {"supports_thinking_budget": False}
+        return {"supports_thinking_budget": bool(self._decode_replicas)}
+
+    @rpc_context
+    async def supports_chat_priority(self) -> bool:
+        prefill = self._prefill_replicas.copy()
+        decode = self._decode_replicas.copy()
+        if not prefill or not decode:
+            return False
+        results = await asyncio.gather(
+            *(
+                actor_call(replica, "supports_chat_priority")
+                for replica in (*prefill.values(), *decode.values())
+            ),
+            return_exceptions=True,
+        )
+        return (
+            all(result is True for result in results)
+            and prefill == self._prefill_replicas
+            and decode == self._decode_replicas
+        )
+
+    @log_async(logger=logger)
+    async def prepare_reasoning_request(self, generate_config: Dict):
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+        # Every possible decoder must support the requested budget. Native
+        # sampling fields are applied again by the selected decoder at generation.
+        for replica in self._decode_replicas.values():
+            result = await actor_call(
+                replica, "prepare_reasoning_request", generate_config
+            )
+            if isinstance(result, (str, bytes)):
+                result = json.loads(result)
+            if not isinstance(result, dict) or "error" in result:
+                return result
+        return copy.deepcopy(generate_config)
 
     @log_async(logger=logger)
     async def prepare_anthropic_request(

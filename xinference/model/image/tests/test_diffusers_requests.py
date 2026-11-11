@@ -1,3 +1,6 @@
+# CI: linux
+
+import contextlib
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -31,4 +34,39 @@ async def test_text_to_image_uses_pipeline(n):
         height=768,
         seed=42,
         loras=None,
+    )
+
+
+def test_inpainting_applies_default_generate_config():
+    spec = SimpleNamespace(
+        model_ability=["inpainting"],
+        default_generate_config={"num_inference_steps": 4, "guidance_scale": 1.0},
+    )
+    model = DiffusionModel("test", model_spec=spec)
+    model._model = Mock()
+    model._patch_prepare_latents = Mock(return_value=contextlib.nullcontext())
+    model._call_model = Mock(return_value={"data": ["image"]})
+    image, mask = Mock(), Mock()
+
+    model.inpainting(
+        image,
+        mask,
+        prompt="a cat",
+        size="512*768",
+        response_format="b64_json",
+        guidance_scale=3.5,
+        strength=None,
+    )
+
+    model._call_model.assert_called_once_with(
+        image=image,
+        mask_image=mask,
+        prompt="a cat",
+        num_images_per_prompt=1,
+        response_format="b64_json",
+        model=model._model,
+        num_inference_steps=4,
+        guidance_scale=3.5,
+        width=512,
+        height=768,
     )

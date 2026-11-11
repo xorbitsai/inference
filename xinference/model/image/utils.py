@@ -105,6 +105,7 @@ def handle_image_result(response_format: str, images) -> ImageList:
     if response_format == "url":
         os.makedirs(XINFERENCE_IMAGE_DIR, exist_ok=True)
         image_list = []
+        futures = []
         with ThreadPoolExecutor() as executor:
             for img in images:
                 use_png = _needs_png(img)
@@ -112,7 +113,9 @@ def handle_image_result(response_format: str, images) -> ImageList:
                 path = os.path.join(XINFERENCE_IMAGE_DIR, uuid.uuid4().hex + suffix)
                 image_list.append(Image(url=path, b64_json=None))
                 fmt = "png" if use_png else "jpeg"
-                executor.submit(img.save, path, fmt)
+                futures.append(executor.submit(img.save, path, fmt))
+        for future in futures:
+            future.result()
         return ImageList(created=int(time.time()), data=image_list)
     elif response_format == "b64_json":
 

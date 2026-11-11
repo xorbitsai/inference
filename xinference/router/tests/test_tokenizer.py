@@ -1,6 +1,8 @@
+# CI: linux
 import json
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 import pytest
 from tokenizers import Tokenizer, models, pre_tokenizers
@@ -246,3 +248,113 @@ def test_max_completion_tokens_overrides_max_tokens(tmp_path: Path) -> None:
 
     assert result.output_tokens == 16
     assert result.total_tokens == result.prompt_tokens + 16
+
+
+@pytest.mark.parametrize("location", ["top", "template", "template_json"])
+def test_budget_enables_thinking_before_classification(
+    tmp_path: Path, location
+) -> None:
+    from xinference.router.app import _payload_thinking
+    from xinference.router.classifier import RoutingPolicy, ThinkingRejected
+
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=4096
+    )
+    payload: dict[str, Any] = {"messages": [{"role": "user", "content": "hello"}]}
+    if location == "top":
+        payload["thinking_budget"] = 1024
+    else:
+        context = {"thinking_budget": 1024}
+        payload["chat_template_kwargs"] = (
+            json.dumps(context) if location == "template_json" else context
+        )
+    original = deepcopy(payload)
+
+    result = estimator.estimate(payload)
+
+    assert _payload_thinking(payload) is True
+    assert result.enable_thinking is True
+    policy = RoutingPolicy(
+        short_threshold_tokens=8192,
+        short_max_model_len=8192,
+        long_max_model_len=16384,
+        thinking_pool="reject",
+    )
+    with pytest.raises(ThinkingRejected):
+        policy.classify(result)
+    assert payload == original
+
+
+@pytest.mark.parametrize(
+    "controls",
+    [
+        {"thinking_budget": 0},
+        {"thinking_budget": True},
+        {"chat_template_kwargs": {"thinking_budget": None}},
+        {"thinking_budget": 1, "chat_template_kwargs": {"thinking_budget": 2}},
+        {"thinking_budget": 1, "enable_thinking": False},
+        {"thinking_budget": 1, "chat_template_kwargs": {"thinking": False}},
+    ],
+)
+def test_invalid_budget_controls_fail_before_estimation(
+    tmp_path: Path, controls
+) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=4096
+    )
+    with pytest.raises(TokenizationError, match="thinking_budget"):
+        estimator.estimate(
+            {"messages": [{"role": "user", "content": "hello"}], **controls}
+        )
+
+
+@pytest.mark.parametrize("effort", ["high", "max"])
+def test_top_level_effort_counts_native_prefix_for_routing(effort) -> None:
+    from xinference.router.classifier import ContextLimitExceeded, RoutingPolicy
+    from xinference.router.config import (
+        BackendConfig,
+        RouteAction,
+        RoutingRule,
+        RuleMatch,
+    )
+
+    asset = Path(__file__).parents[1] / "tokenizer_assets/deepseek_v4_flash_0731"
+    estimator = DeepSeekV4TokenEstimator(
+        asset, reserve_tokens=0, default_output_tokens=1
+    )
+    payload = {
+        "messages": [{"role": "user", "content": "hello"}],
+        "enable_thinking": True,
+    }
+    baseline = estimator.estimate(payload)
+    nested = estimator.estimate(
+        {**payload, "chat_template_kwargs": {"reasoning_effort": effort}}
+    )
+    top_level = estimator.estimate({**payload, "reasoning_effort": effort})
+
+    assert top_level == nested
+    assert top_level.prompt_tokens > baseline.prompt_tokens
+    threshold = baseline.total_tokens
+    policy = RoutingPolicy(
+        backends=(
+            BackendConfig("short", "short-model", threshold, 1, 0, 0, 1),
+            BackendConfig("long", "long-model", nested.total_tokens, 1, 0, 0, 1),
+        ),
+        rules=(
+            RoutingRule(
+                "threshold",
+                1,
+                RuleMatch(total_tokens_lte=threshold),
+                RouteAction(type="route", backend_id="short"),
+            ),
+        ),
+        default_action=RouteAction(type="route", backend_id="long"),
+    )
+    assert policy.classify(top_level).backend_id == "long"
+    capped_policy = RoutingPolicy(
+        backends=policy.backends.values(),
+        rules=(),
+        default_action=RouteAction(type="route", backend_id="short"),
+    )
+    with pytest.raises(ContextLimitExceeded):
+        capped_policy.classify(top_level)

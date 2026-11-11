@@ -563,3 +563,70 @@ def test_host_page_dtype_error_names_contract_dtype(storage_class, dtype, other)
             adapter.batch_set(["key"], [torch.zeros(1, dtype=getattr(torch, other))])
     finally:
         adapter.close()
+
+
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+def test_pd_history_keeps_gpu_transport_and_enables_only_p_hicache(model_path, role):
+    model_config = {}
+    cache_config = dict(
+        address="pd:1",
+        uid="pd",
+        role=role,
+        heterogeneous=True,
+        prefix_cache=dict(
+            address="worker:1", uid="history", shared_prefix=True, write_behind=True
+        ),
+    )
+    if role == "decode":
+        with pytest.raises(ValueError, match="Only the prefill"):
+            configure_xavier(str(model_path), model_config, cache_config)
+        return
+    configure_xavier(str(model_path), model_config, cache_config)
+    assert model_config["disaggregation_mode"] == "prefill"
+    assert model_config["disaggregation_transfer_backend"] == "xavier"
+    assert model_config["enable_hierarchical_cache"]
+    assert not model_config["disaggregation_decode_enable_radix_cache"]
+    history = json.loads(model_config["hicache_storage_backend_extra_config"])
+    assert history["address"] == "worker:1" and history["uid"] == "history"
+    assert history["shared_prefix"] and "role" not in history
+    assert history["contract"] == cache_config["contract"]
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_binds_exact_salted_tokens_before_generation(monkeypatch):
+    from unittest.mock import AsyncMock, Mock
+
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ...xavier.prefix import prefix_keys
+    from ..core import SGLANGModel
+
+    tokens = list(range(129))
+    model = SGLANGModel.__new__(SGLANGModel)
+    model.model_uid = "model"
+    model._engine = SimpleNamespace(
+        get_tokenizer=lambda: SimpleNamespace(encode=lambda p: tokens)
+    )
+    model._xavier_cache_config = {
+        "address": "storage",
+        "uid": "cache",
+        "contract": {"block_size": 64},
+    }
+    model._active_request_ids = set()
+    model._model_config = {}
+    model._non_stream_generate = AsyncMock(return_value={"text": "ok", "meta_info": {}})
+    model._convert_state_to_completion = Mock(return_value="done")
+    actor = SimpleNamespace(bind_cache_session=AsyncMock(return_value=True))
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=actor))
+    session = CacheSessionTag("scoped", 0)
+    assert (
+        await model.async_generate(
+            "prompt", {CACHE_SESSION_ARG: session, "cache_salt": "tenant"}
+        )
+        == "done"
+    )
+    actor.bind_cache_session.assert_awaited_once_with(
+        session.to_dict(), prefix_keys(tokens, 64, "tenant")
+    )
+    args = model._non_stream_generate.call_args.kwargs
+    assert args["_xavier_input_ids"] == tokens
+    assert CACHE_SESSION_ARG not in args

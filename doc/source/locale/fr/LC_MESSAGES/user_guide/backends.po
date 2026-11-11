@@ -640,23 +640,9 @@ msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgid "TRT-LLM"
 msgstr "TRT-LLM"
 
-#: ../../source/user_guide/backends.rst:342
-msgid ""
-"The TRT-LLM backend uses the Python LLM API inside the model process. It "
-"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. Model support "
-"follows the text architectures implemented by that version, including "
-"Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, "
-"Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, "
-"SeedOSS and Starcoder2. Fine-tuned and custom models use the same "
-"architecture matching."
-msgstr ""
-"Le backend TRT-LLM utilise l’API Python LLM dans le processus du modèle. Il "
-"nécessite Linux, des GPU NVIDIA CUDA et ``tensorrt-llm==1.2.1``. La prise en"
-" charge suit les architectures textuelles de cette version, dont Qwen2/2.5, "
-"Qwen3 (dense, MoE, Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, "
-"GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS, "
-"Starcoder2. Les modèles affinés et personnalisés utilisent la même sélection"
-" par architecture."
+#: source/user_guide/backends.rst:237
+msgid "The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm>=1.2.1,<1.4`` for ordinary replicas. Model support retains the TensorRT-LLM 1.2.1 text-architecture baseline, including Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS and Starcoder2. Fine-tuned and custom models use the same architecture matching."
+msgstr "Le backend TRT-LLM utilise l’API Python LLM dans le processus du modèle. Il nécessite Linux, des GPU NVIDIA CUDA et ``tensorrt-llm>=1.2.1,<1.4``. La prise en charge suit les architectures textuelles de la base TensorRT-LLM 1.2.1, dont Qwen2/2.5, Qwen3 (dense, MoE, Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS, Starcoder2. Les modèles affinés et personnalisés utilisent la même sélection par architecture."
 
 #: ../../source/user_guide/backends.rst:344
 msgid ""
@@ -767,3 +753,7 @@ msgstr ""
 "``dtype=\"auto\"``, ``\"float16\"`` ou ``\"bfloat16\"`` ; TP=PP=CP=1 reste "
 "requis. Le cache partagé et P/D ont les contraintes supplémentaires ci-"
 "dessous."
+
+#: source/user_guide/backends.rst:239
+msgid "The default extra pins ``tensorrt-llm==1.2.1``. Newer versions require an explicit installation override. Version 1.3 pre-releases, such as ``tensorrt-llm==1.3.0rc24``, require an explicit installation choice. Xavier shared caching and both P/D backends accept 1.2.1 or ``>=1.3.0rc24,<1.4``. The 1.3 integration, including P/D, is experimental and has not been GPU-validated; 1.2.1 remains the validated baseline. Request priority requires a native priority API; older versions reject an explicitly supplied ``priority``. See :doc:`client_api`."
+msgstr "L’extra par défaut fixe ``tensorrt-llm==1.2.1``. Les versions plus récentes nécessitent de remplacer explicitement cette dépendance à l’installation. Une préversion 1.3 telle que ``tensorrt-llm==1.3.0rc24`` doit être choisie explicitement. Le partage de cache Xavier et les deux backends P/D acceptent 1.2.1 ou ``>=1.3.0rc24,<1.4``. L’intégration 1.3, P/D compris, est expérimentale et non validée sur GPU ; 1.2.1 reste la base validée. La priorité des requêtes nécessite une API native ; les versions antérieures rejettent ``priority`` explicite. Voir :doc:`client_api`."

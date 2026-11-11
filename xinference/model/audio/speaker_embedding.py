@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import numpy as np
 
 from ...device_utils import get_available_device, is_device_available
+from ...utils import dependency_import_guard
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -53,15 +54,12 @@ class ModelScopeSpeakerEmbeddingModel:
         return self._model_spec.model_ability
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "modelscope",
+            install_hint='Install with `pip install "modelscope[framework]" soundfile scikit-learn`.',
+        ):
             from modelscope.pipelines import pipeline
             from modelscope.utils.constant import Tasks
-        except ImportError as e:
-            raise ImportError(
-                "Failed to import ModelScope speaker-verification dependencies. "
-                "Please install `modelscope[framework]`, `soundfile`, and "
-                "`scikit-learn`."
-            ) from e
 
         if self._device is None:
             self._device = get_available_device()

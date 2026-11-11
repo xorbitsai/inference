@@ -1,12 +1,34 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Union
 
 from . import register_tool_parser
-from .abstract_tool_parser import ToolParser
+from .abstract_tool_parser import ToolArgumentsDelta, ToolParser
+from .argument_stream import ArgumentReader, json_argument_start, requested_tool
 
 logger = logging.getLogger(__name__)
+
+
+_XML_FUNCTION = re.compile(r"\s*<function\s*=\s*([a-zA-Z0-9_\-.]+)\s*>")
+_XML_PARAMETER = re.compile(r"\s*<parameter\s*=\s*([a-zA-Z0-9_\-.]+)\s*>")
+_XML_PARAMETER_END = "</parameter>"
+
+_StreamingEvent = Union[
+    Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+    Tuple[
+        Optional[str],
+        Optional[str],
+        Optional[Union[Dict[str, Any], ToolArgumentsDelta]],
+        int,
+    ],
+]
+
+
+class _ArgumentPrefix(NamedTuple):
+    function: str
+    value_end: int
+    serialized: str
 
 
 @register_tool_parser("qwen")
@@ -18,6 +40,8 @@ class QwenToolParser(ToolParser):
     which uses XML-like tags for both thinking blocks and tool calls.
 
     """
+
+    handles_tool_call_marker = True
 
     def __init__(self):
         """
@@ -567,6 +591,175 @@ class QwenToolParser(ToolParser):
             logger.error("Error in Qwen streaming tool call extraction: %s", e)
             raise
 
+    def extract_tool_calls_with_argument_deltas(
+        self,
+        previous_text: str,
+        current_text: str,
+        sent_arguments: Dict[int, Union[_ArgumentPrefix, ArgumentReader]],
+        fallback_calls: Set[int],
+        *,
+        finish_reason: Optional[str],
+    ) -> List[_StreamingEvent]:
+        # A tag can arrive across multiple engine chunks. Keep its undecided
+        # suffix out of the plain-text stream until the next chunk resolves it.
+        marker = (self.tool_call_start_token,)
+        previous_end = len(previous_text) - self._partial_marker_length(
+            previous_text, marker
+        )
+        current_end = len(current_text)
+        if finish_reason is None:
+            current_end -= self._partial_marker_length(current_text, marker)
+        current = current_text[:current_end]
+        events: List[_StreamingEvent] = []
+        if current_end > previous_end:
+            parsed = self.extract_tool_calls_streaming(
+                [previous_text[:previous_end]], current, current[previous_end:]
+            )
+            if isinstance(parsed, list):
+                events.extend(parsed)
+            elif parsed:
+                events.append(parsed)
+
+        # The legacy parser can expose the name before it has confirmed
+        # arguments. Hold it until we have a safe fragment or a complete call.
+        completed: List[_StreamingEvent] = []
+        for event in events:
+            if len(event) == 3:
+                completed.append(event)
+                continue
+            content, name, arguments, call_index = event
+            if arguments is None:
+                continue
+            wire_index = call_index + sum(i < call_index for i in fallback_calls)
+            sent = sent_arguments.pop(call_index, None)
+            if sent is None:
+                completed.append((content, name, arguments, wire_index))
+                continue
+            if isinstance(sent, ArgumentReader):
+                assert name is not None
+                fragment = (
+                    sent.finish(name, arguments, current)
+                    if isinstance(arguments, dict)
+                    else None
+                )
+            else:
+                prefix = sent.serialized
+                final = json.dumps(arguments, ensure_ascii=False)
+                fragment = final[len(prefix) :] if final.startswith(prefix) else None
+            if fragment is None:
+                logger.debug("Qwen tool call %d could not be reconciled", call_index)
+                fallback_calls.add(call_index)
+                completed.append((content, name, arguments, wire_index + 1))
+            else:
+                completed.append(
+                    (content, name, ToolArgumentsDelta(fragment), wire_index)
+                )
+        events = completed
+
+        if finish_reason is not None:
+            return events
+        if self.tool_call_start_token not in current:
+            return events
+        blocks, partial = self._scan_tool_calls(current)
+        if partial == -1:
+            return events
+        call_index = len(blocks)
+        previous = sent_arguments.get(call_index)
+        if isinstance(previous, ArgumentReader):
+            raw = previous
+        elif (
+            previous is None
+            and (
+                start := json_argument_start(
+                    current,
+                    partial + len(self.tool_call_start_token),
+                    "arguments",
+                    allow_control_chars=True,
+                )
+            )
+            and requested_tool(start.name)
+        ):
+            raw = ArgumentReader(start)
+            sent_arguments[call_index] = raw
+        else:
+            raw = None
+
+        if raw is not None:
+            name = raw.start.name
+            fragment = raw.read(current)
+            if not fragment:
+                return events
+        else:
+            assert previous is None or isinstance(previous, _ArgumentPrefix)
+            candidate = self._xml_argument_prefix(current, partial, previous)
+            if candidate is None or candidate == previous:
+                return events
+            prefix = previous.serialized if previous else ""
+            if not candidate.serialized.startswith(prefix):
+                return events
+            sent_arguments[call_index] = candidate
+            name = candidate.function
+            fragment = candidate.serialized[len(prefix) :]
+
+        wire_index = call_index + sum(i < call_index for i in fallback_calls)
+        events.append((None, name, ToolArgumentsDelta(fragment), wire_index))
+        return events
+
+    def _xml_argument_prefix(
+        self, text: str, start: int, previous: Optional[_ArgumentPrefix]
+    ) -> Optional[_ArgumentPrefix]:
+        # Keep a possible closing tag and the template's final newline out of
+        # the emitted string. Within the same parameter, escape only new text.
+        tail = len(text) - self._partial_marker_length(text, (_XML_PARAMETER_END,))
+        if tail and text[tail - 1] == "\n":
+            tail -= 1
+        if previous and text.find(_XML_PARAMETER_END, previous.value_end) == -1:
+            if tail <= previous.value_end:
+                return previous
+            delta = json.dumps(text[previous.value_end : tail], ensure_ascii=False)[
+                1:-1
+            ]
+            return _ArgumentPrefix(previous.function, tail, previous.serialized + delta)
+
+        function = _XML_FUNCTION.match(text, start + len(self.tool_call_start_token))
+        if function is None:
+            return None
+        name = function[1]
+        arguments: Dict[str, Any] = {}
+        position = function.end()
+        while parameter := _XML_PARAMETER.match(text, position):
+            key = parameter[1]
+            if key in arguments:
+                return None
+            start = parameter.end()
+            end = text.find(_XML_PARAMETER_END, start)
+            if end == -1:
+                if text.startswith("\n", start):
+                    start += 1
+                if tail <= start or not self._is_string_parameter(name, key):
+                    return None
+                arguments[key] = text[start:tail]
+                # Leave the string and object open until the parsed tool call
+                # confirms the exact arguments.
+                return _ArgumentPrefix(
+                    name, tail, json.dumps(arguments, ensure_ascii=False)[:-2]
+                )
+            arguments[key] = self._parse_xml_value(name, key, text[start:end])
+            position = end + len(_XML_PARAMETER_END)
+        return None
+
+    @staticmethod
+    def _parse_xml_value(function: str, key: str, value: str) -> Any:
+        # Strip only the template's surrounding newlines. Preserve whitespace
+        # and do not coerce a schema-declared string such as "404".
+        value = value.removeprefix("\n").removesuffix("\n")
+        if not ToolParser._is_string_parameter(function, key):
+            try:
+                return json.loads(value)
+            except Exception:
+                pass
+        return value
+
     @staticmethod
     def parse_qwen35_tool_call(text: str):
         """
@@ -588,16 +781,6 @@ class QwenToolParser(ToolParser):
 
         args = {}
         for key, value in param_pattern.findall(text):
-            # The chat template wraps each value in one newline on each side.
-            # Any other whitespace (code indentation, a final newline) belongs
-            # to the value.
-            cleaned = value[1:] if value.startswith("\n") else value
-            cleaned = cleaned[:-1] if cleaned.endswith("\n") else cleaned
-            if not ToolParser._is_string_parameter(func_name, key):
-                try:
-                    cleaned = json.loads(cleaned)
-                except Exception:
-                    pass
-            args[key] = cleaned
+            args[key] = QwenToolParser._parse_xml_value(func_name, key, value)
 
         return None, func_name, args

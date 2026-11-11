@@ -487,6 +487,16 @@ export function transformFormToFetch(values: FormValues) {
   applyNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_packages');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_find_links');
+  transformOnlyValueFormListToArray(nextValues, 'virtual_env_extra_index_urls');
+  if (typeof nextValues.virtual_env_index_url === 'string') {
+    const indexUrl = nextValues.virtual_env_index_url.trim();
+    if (indexUrl) {
+      nextValues.virtual_env_index_url = indexUrl;
+    } else {
+      delete nextValues.virtual_env_index_url;
+    }
+  }
+
   deleteNestedEmptyArrayField(nextValues, 'peft_model_config', 'lora_list');
 
   if (nextValues?.enable_virtual_env === 'unset') {
@@ -598,6 +608,7 @@ export function transformFetchToForm(values: FormValues) {
   restoreFormListObject(nextValues, 'envs');
   transformArrayToOnlyValueFormList(nextValues, 'virtual_env_packages');
   transformArrayToOnlyValueFormList(nextValues, 'virtual_env_find_links');
+  transformArrayToOnlyValueFormList(nextValues, 'virtual_env_extra_index_urls');
   restoreKwargsFormList(nextValues);
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_load_kwargs');
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
@@ -925,6 +936,11 @@ export function generateCommandLineStatement(params: FormValues) {
           .filter((path) => !isEmptyCommandValue(path))
           .map((path) => `--virtual-env-find-link ${quoteCommandValue(path)}`);
       }
+      if (key === 'virtual_env_extra_index_urls' && Array.isArray(value)) {
+        return value
+          .filter((path) => !isEmptyCommandValue(path))
+          .map((path) => `--virtual-env-extra-index-url ${quoteCommandValue(path)}`);
+      }
 
       if (key === 'enable_virtual_env') {
         if (value === true) return '--enable-virtual-env';
@@ -961,6 +977,7 @@ export function parseXinferenceCommand(command: string) {
   const quantizationConfig: Record<string, unknown> = {};
   const virtualEnvPackages: string[] = [];
   const virtualEnvFindLinks: string[] = [];
+  const virtualEnvExtraIndexUrls: string[] = [];
   const envs: Record<string, unknown> = {};
   const args =
     tokens[0] === 'xinference' && tokens[1] === 'launch'
@@ -1066,6 +1083,12 @@ export function parseXinferenceCommand(command: string) {
       }
       continue;
     }
+    if (normalizedKey === 'virtual_env_extra_index_url') {
+      if (value) {
+        virtualEnvExtraIndexUrls.push(value);
+      }
+      continue;
+    }
 
     if (normalizedKey === 'env') {
       setObjectPair(envs, valueTokens);
@@ -1103,6 +1126,9 @@ export function parseXinferenceCommand(command: string) {
 
   if (virtualEnvFindLinks.length > 0) {
     params.virtual_env_find_links = virtualEnvFindLinks;
+  }
+  if (virtualEnvExtraIndexUrls.length > 0) {
+    params.virtual_env_extra_index_urls = virtualEnvExtraIndexUrls;
   }
 
   if (Object.keys(envs).length > 0) {

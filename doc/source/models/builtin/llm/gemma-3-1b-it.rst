@@ -35,7 +35,7 @@ Model Spec 2 (mlx, 1 Billion)
 
 - **Model Format:** mlx
 - **Model Size (in billions):** 1
-- **Quantizations:** 4bit, 6bit, 8bit, fp16
+- **Quantizations:** 4bit, 6bit, 8bit, bf16
 - **Engines**: MLX
 - **Model ID:** mlx-community/gemma-3-1b-it-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-3-1b-it-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-3-1b-it-{quantization}>`__

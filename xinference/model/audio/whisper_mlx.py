@@ -17,6 +17,7 @@ import logging
 import tempfile
 from typing import TYPE_CHECKING, List, Optional
 
+from ...utils import dependency_import_guard, dependency_import_message
 from .utils import MLXModelThreadMixin
 
 if TYPE_CHECKING:
@@ -60,33 +61,20 @@ class WhisperMLXModel(MLXModelThreadMixin):
             try:
                 import mlx.core as mx
                 from lightning_whisper_mlx.transcribe import ModelHolder
-            except ImportError:
+            except ImportError as exc:
                 if use_lightning == "auto":
                     use_lightning = False
                 else:
-                    error_message = "Failed to import module 'lightning_whisper_mlx'"
-                    installation_guide = [
-                        "Please make sure 'lightning_whisper_mlx' is installed.\n",
-                    ]
-
                     raise ImportError(
-                        f"{error_message}\n\n{''.join(installation_guide)}"
-                    )
+                        dependency_import_message("lightning_whisper_mlx", exc)
+                    ) from exc
             else:
                 use_lightning = True
         if not use_lightning:
-            try:
+            with dependency_import_guard("mlx_whisper"):
                 import mlx.core as mx  # noqa: F811
                 from mlx_whisper.transcribe import ModelHolder  # noqa: F811
-            except ImportError:
-                error_message = "Failed to import module 'mlx_whisper'"
-                installation_guide = [
-                    "Please make sure 'mlx_whisper' is installed.\n",
-                ]
-
-                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
-            else:
-                use_lightning = False
+            use_lightning = False
 
         logger.info(
             "Loading MLX whisper from %s, use lightning: %s",

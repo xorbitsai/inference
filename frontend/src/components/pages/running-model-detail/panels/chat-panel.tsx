@@ -26,11 +26,12 @@ import {
   DialogContent,
   DialogFooter,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import ReactMarkdown from '@/components/ui/markdown-renderer';
-import { useForm } from '@/hooks/use-form';
+import { useForm, useWatch } from '@/hooks/use-form';
 import { ModelAbility } from '@/constants';
 import {
   postEventStreamFetcher,
@@ -45,7 +46,8 @@ import type { FileUploadValue } from '@/types/common';
 import { useI18n } from '@/contexts/i18n-context';
 
 import type { ChatMessage, ChatSettings } from '../types';
-import { transformFileInfoForResult } from '../utils';
+import { isTokenRouterModel, transformFileInfoForResult } from '../utils';
+import { ReasoningEffortInput, supportedChatSettings, supportsEffort } from './chat-reasoning';
 
 const fileDataUrlCache = new WeakMap<File, string>();
 
@@ -176,9 +178,10 @@ const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
 interface ChatPanelProps {
   model: RunningModelDetail;
   modelUid: string;
+  runtimeContextLength?: number | null;
 }
 
-export function ChatPanel({ model, modelUid }: ChatPanelProps) {
+export function ChatPanel({ model, modelUid, runtimeContextLength }: ChatPanelProps) {
   const { t } = useI18n();
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [form] = useForm();
@@ -194,13 +197,15 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
     stream: true,
   });
 
+  const maxOutputTokens = Number(useWatch('max_tokens', form)) || 0;
+  const effortCapability = model.reasoning_effort;
   const hasVision = model.model_ability.includes(ModelAbility.Vision);
   const hasAudio = model.model_ability.includes(ModelAbility.Audio);
   const accept = [hasVision ? 'image/*,video/*' : '', hasAudio ? 'audio/*' : '']
     .filter(Boolean)
     .join(',');
   const handleSaveSetting = (values: FormValues) => {
-    setSettings(values as ChatSettings);
+    setSettings(supportedChatSettings(values as ChatSettings, model));
     setSettingOpen(false);
   };
 
@@ -318,14 +323,15 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
       })
     );
 
+    const requestSettings = supportedChatSettings(settings, model);
     await postEventStreamFetcher<ChatStreamResult>(
       {
         url: '/v1/chat/completions',
         data: {
           model: modelUid,
-          ...settings,
+          ...requestSettings,
           // if max_tokens = 0, fetch err
-          max_tokens: settings.max_tokens || undefined,
+          max_tokens: requestSettings.max_tokens || undefined,
           messages,
           stream_options: { include_usage: true },
         },
@@ -415,7 +421,11 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
                   variant="outline"
                   size="icon"
                   className="size-8 rounded-full border-0"
-                  onClick={() => setSettingOpen(true)}
+                  aria-label={t('runningModels.detail.additionalInputs')}
+                  onClick={() => {
+                    form.resetFields();
+                    setSettingOpen(true);
+                  }}
                 >
                   <Wrench />
                 </Button>
@@ -451,6 +461,7 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
                 size="icon"
                 className="size-8 rounded-full"
                 loading={loading}
+                aria-label={t('runningModels.detail.sendMessage')}
                 onClick={() => send(input)}
               >
                 <Send />
@@ -460,18 +471,91 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
         </div>
       </div>
       <Dialog open={settingOpen} onOpenChange={setSettingOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('runningModels.detail.additionalInputs')}</DialogTitle>
+            <DialogDescription>
+              {t('runningModels.detail.chatSettingsDescription')}
+            </DialogDescription>
           </DialogHeader>
-          <Form form={form} onFinish={handleSaveSetting} initialValues={{ ...settings }}>
+          <Form
+            form={form}
+            onFinish={handleSaveSetting}
+            initialValues={{ ...supportedChatSettings(settings, model) }}
+          >
             <FormField
               name="max_tokens"
               label={t('runningModels.detail.maxTokensLabel')}
               normalize={(value) => Number(value)}
             >
-              <Input type="number" min={0} max={model.context_length || undefined} />
+              <Input
+                type="number"
+                aria-label={t('runningModels.detail.maxTokensLabel')}
+                min={0}
+                max={
+                  (isTokenRouterModel(model) ? model.context_length : runtimeContextLength) ||
+                  undefined
+                }
+              />
             </FormField>
+            {!!effortCapability?.values.length && (
+              <FormField
+                name="reasoning_effort"
+                label={t('runningModels.detail.reasoningEffort')}
+                extra={
+                  effortCapability.integer_range
+                    ? t('runningModels.detail.reasoningEffortRange', {
+                        min: effortCapability.integer_range[0],
+                        max: effortCapability.integer_range[1],
+                      })
+                    : undefined
+                }
+                rules={[
+                  {
+                    validator: (value) =>
+                      value === undefined ||
+                      value === '' ||
+                      supportsEffort(value, effortCapability),
+                    message: effortCapability.integer_range
+                      ? t('runningModels.detail.reasoningEffortNumberInvalid', {
+                          min: effortCapability.integer_range[0],
+                          max: effortCapability.integer_range[1],
+                        })
+                      : t('runningModels.detail.reasoningEffortInvalid'),
+                  },
+                ]}
+              >
+                <ReasoningEffortInput capability={effortCapability} />
+              </FormField>
+            )}
+            {model.supports_thinking_budget === true && (
+              <FormField
+                name="thinking_budget"
+                label={t('runningModels.detail.thinkingBudget')}
+                extra={t('runningModels.detail.thinkingBudgetHint')}
+                normalize={(value) => (value === '' ? undefined : Number(value))}
+                rules={[
+                  {
+                    validator: (value) =>
+                      value === undefined ||
+                      value === '' ||
+                      (Number.isInteger(value) &&
+                        value > 0 &&
+                        value < Number(form.getFieldValue('max_tokens'))),
+                    message: t('runningModels.detail.thinkingBudgetInvalid'),
+                  },
+                ]}
+              >
+                <Input
+                  type="number"
+                  aria-label={t('runningModels.detail.thinkingBudget')}
+                  min={1}
+                  max={maxOutputTokens > 1 ? maxOutputTokens - 1 : undefined}
+                  step={1}
+                  placeholder={t('runningModels.detail.reasoningEffortDefault')}
+                />
+              </FormField>
+            )}
             <FormField
               name="temperature"
               label={t('runningModels.detail.temperature')}

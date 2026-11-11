@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple, Type, Union
 
 from typing_extensions import Annotated, Literal
 
@@ -41,6 +41,7 @@ from ..utils import (
 from . import LLM
 from .context_length import ContextLengthExtension
 from .model_metadata import ModelMetadata
+from .reasoning_controls import ReasoningEffortConfig
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,9 @@ class PytorchLLMSpecV2(BaseModel):
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantization: str
+    # Method recorded in an offline-quantized checkpoint's config.json.
+    # Unset for runtime quantization of an unquantized checkpoint.
+    quantization_method: Optional[Literal["compressed-tensors"]] = None
     model_id: Optional[str]
     model_hub: str = "huggingface"
     model_uri: Optional[str]
@@ -214,6 +218,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    reasoning_effort: Optional[ReasoningEffortConfig] = None
     # Provenance: True only for bundled built-in models; user-registered /
     # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
     is_builtin: bool = False
@@ -259,8 +264,18 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             return False
         return any(arch in supported_architectures for arch in resolved)
 
+    def get_reasoning_effort(self) -> Optional[ReasoningEffortConfig]:
+        if self.reasoning_effort is not None:
+            return self.reasoning_effort
+        if self.model_family:
+            for family in BUILTIN_LLM_FAMILIES:
+                if family.model_name == self.model_family:
+                    return family.reasoning_effort
+        return None
+
     def to_description(self):
         spec = self.model_specs[0]
+        effort = self.get_reasoning_effort()
         return {
             "model_type": "LLM",
             "address": getattr(self, "address", None),
@@ -268,6 +283,7 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "model_name": self.model_name,
             "model_lang": self.model_lang,
             "model_ability": self.model_ability,
+            "reasoning_effort": effort.dict() if effort else None,
             "model_description": self.model_description,
             "model_format": spec.model_format,
             "model_size_in_billions": spec.model_size_in_billions,
@@ -620,6 +636,24 @@ def match_llm(
     ) -> List["LLMSpecV1"]:
         return [x for x in _model_specs if x.model_hub == hub]
 
+    def _with_usable_specs_on_other_hubs(
+        _family: "LLMFamilyV2", _model_specs: List["LLMSpecV1"]
+    ) -> Iterator["LLMSpecV1"]:
+        from .cache_manager import LLMCacheManager
+
+        yield from _model_specs
+        # A local path needs no hub, and hubs share a cache path, so these weights
+        # stay usable even when the selected hub does not host this variant.
+        listed_hubs = {spec.model_hub for spec in _model_specs}
+        for spec in _family.model_specs:
+            if spec.model_hub not in listed_hubs and (
+                model_path
+                or os.path.exists(
+                    LLMCacheManager.get_cache_dir_for_spec(_family.model_name, spec)
+                )
+            ):
+                yield spec
+
     # priority: download_hub > download_from_modelscope() and download_from_csghub()
     # set base model
     families = BUILTIN_LLM_FAMILIES + user_defined_llm_families
@@ -670,7 +704,7 @@ def match_llm(
             else:
                 model_specs = _get_model_specs(family.model_specs, "huggingface")
 
-        for spec in model_specs:
+        for spec in _with_usable_specs_on_other_hubs(family, model_specs):
             # check model_format and model_size_in_billions
             if (
                 model_format

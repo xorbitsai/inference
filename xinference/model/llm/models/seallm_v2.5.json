@@ -50,11 +50,10 @@
         "model_src": {
           "huggingface": {
             "quantizations": [
-              "Q4_K_M",
-              "Q8_0"
+              "Q4_K_M"
             ],
             "model_id": "SeaLLMs/SeaLLM-7B-v2.5-GGUF",
-            "model_file_name_template": "SeaLLM-7B-v2.5.{quantization}.gguf"
+            "model_file_name_template": "seallm-7b-v2.5.{quantization}.gguf"
           }
         }
       }

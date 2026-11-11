@@ -13,6 +13,7 @@ from ...tool_controls import (
     convert_forced_completion,
     prepare_forced_tools,
     single_tool_stream,
+    validate_forced_tool_choice,
 )
 from .. import core
 
@@ -53,7 +54,10 @@ def completion(text, finish_reason="stop"):
 
 
 @pytest.mark.parametrize("unsupported", [None, "sampling", "markers", "disabled"])
-def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
+@pytest.mark.parametrize(
+    "model_class", [core.VLLMModel, core.VLLMChatModel, core.VLLMMultiModel]
+)
+def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported, model_class):
     from ...reasoning_parser import ReasoningParser
 
     def sampling(*, thinking_token_budget=None):
@@ -66,7 +70,7 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
             SamplingParams=(lambda: None) if unsupported == "sampling" else sampling
         ),
     )
-    instance = object.__new__(core.VLLMChatModel)
+    instance = object.__new__(model_class)
     instance.reasoning_parser = ReasoningParser(
         reasoning_start_tag="<think>", reasoning_end_tag="</think>"
     )
@@ -88,16 +92,20 @@ def test_manual_thinking_budget_native_mapping(monkeypatch, unsupported):
     else:
         instance._apply_thinking_budget(config)
         assert config["thinking_token_budget"] == 1024
+    instance.model_family = SimpleNamespace(reasoning_effort=None)
+    assert instance.get_reasoning_capabilities()["supports_thinking_budget"] is (
+        unsupported is None
+    )
 
 
 @pytest.mark.parametrize("anthropic", [False, True])
-def test_native_budget_forwarding_is_anthropic_only(monkeypatch, anthropic):
+def test_native_budget_forwarding_for_both_protocols(monkeypatch, anthropic):
     from packaging.version import Version
 
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.28.0"))
     config = {"thinking_token_budget": 16, "_anthropic_request": anthropic}
     sanitized = core.VLLMModel._sanitize_generate_config(config)
-    assert sanitized.get("thinking_token_budget") == (16 if anthropic else None)
+    assert sanitized.get("thinking_token_budget") == 16
 
 
 @pytest.mark.asyncio
@@ -232,6 +240,50 @@ def test_forced_named_tool_schema_restricts_name_arguments_and_count():
     assert "tool definitions" in prepared[0]["content"]
     assert config == original
     assert messages == [{"role": "user", "content": "Delete the file"}]
+
+
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_forced_tools_accept_one_shot_tool_iterables(choice):
+    # pydantic yields OpenAI ``Iterable[...]`` tools as a list_iterator; it used
+    # to be exhausted by enumerate() before json.dumps() raised TypeError.
+    prepared, generated = prepare_forced_tools(
+        [], {"tools": iter(tools()), "tool_choice": choice}
+    )
+    expected = tools() if choice == "required" else tools()[:1]
+    assert prepared[0]["content"].endswith(json.dumps(expected, ensure_ascii=False))
+    variants = generated["response_format"]["json_schema"]["schema"]["items"]["oneOf"]
+    assert [v["properties"]["name"]["const"] for v in variants] == [
+        t["function"]["name"] for t in expected
+    ]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"tool_choice": "required"},
+        {"tool_choice": "required", "tools": []},
+        {
+            "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            "tools": iter(tools()),
+        },
+    ],
+    ids=["required-without-tools", "required-empty-tools", "named-not-declared"],
+)
+def test_native_forced_choice_validation_rejects_unmatched_tools(config):
+    with pytest.raises(ValueError, match="requires a declared tool"):
+        validate_forced_tool_choice(config)
+
+
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+def test_native_forced_choice_validation_keeps_tools_for_rendering(choice):
+    config = {"tools": iter(tools()), "tool_choice": choice}
+    validate_forced_tool_choice(config)
+    # Validation only checks the choice; the one-shot iterator stays usable.
+    assert config == {"tools": tools(), "tool_choice": choice}
 
 
 def test_required_choice_preserves_alternatives_and_rejects_unknown_names():

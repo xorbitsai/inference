@@ -17,6 +17,7 @@ import platform
 import sys
 from typing import TYPE_CHECKING, Tuple, Union
 
+from ...utils import dependency_import_message
 from .diffusers import DiffusersVideoModel
 from .engine_family import SUPPORTED_ENGINES, VideoEngineModel
 from .minimax_h3 import SGLangMiniMaxH3Model, VLLMMiniMaxH3Model
@@ -78,13 +79,17 @@ class MLXVideoEngineModel(MLXVideoModel, VideoEngineModel):
         try:
             wan_module = importlib.util.find_spec("mlx_video.models.wan_2.generate")
             ltx_module = importlib.util.find_spec("mlx_video.models.ltx_2.generate")
-        except (ImportError, ModuleNotFoundError):
-            wan_module = ltx_module = None
+        except ImportError as exc:
+            return False, dependency_import_message(
+                "mlx_video",
+                exc,
+                install_hint="Use the Blaizzy/mlx-video dependency declared in the model specification.",
+            )
         if wan_module is None or ltx_module is None:
             return (
                 False,
-                "Blaizzy/mlx-video is not installed; the unrelated PyPI package "
-                "with the same name is not compatible",
+                "Blaizzy/mlx-video must provide both the Wan and LTX runtimes. "
+                "The unrelated PyPI package with the same name is not compatible.",
             )
         return True
 

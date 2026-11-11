@@ -636,6 +636,8 @@ const en = {
     manageCachedModels: 'Manage Cached Models',
     manageVirtualEnvironments: 'Manage Virtual Environments',
     favorite: 'Favorite',
+    featuredModel: 'Featured',
+    featuredModelDescription: 'Recommended by Xinference and prioritized in the model list.',
     importFavorites: 'Import browser favorites',
     importFavoritesHint: 'Import favorites saved in this browser into the current account.',
     importFavoritesSharedHint:
@@ -791,6 +793,8 @@ const en = {
     virtualEnvConfig: 'Virtual Environments Config',
     modelVirtualEnv: 'Model Virtual Environments',
     virtualEnvPackage: 'Virtual Environment Packages',
+    virtualEnvIndexUrl: 'Package index URL (uv pip)',
+    virtualEnvExtraIndexUrls: 'Extra package indexes (uv pip)',
     virtualEnvFindLinks: 'Local Wheel Directories',
     envVariable: 'Environment Variables',
     envVariableConfig: 'Environment Variable Config',
@@ -827,6 +831,12 @@ const en = {
     launchProgress: 'Launch Progress',
     overallProgress: 'Overall progress',
     noReplicaStatus: 'Waiting for replica status...',
+    launchWaiting: 'Deploying model, waiting for replicas to be ready',
+    launchElapsed: 'Waited {{seconds}} seconds',
+    launchWaitHint:
+      'Model preparation, downloading, and loading may take several minutes. Please wait.',
+    launchCanceling: 'Canceling deployment, please wait…',
+    launchFinishing: 'Model is ready, finishing deployment…',
     stagePreparing: 'Preparing deployment...',
     stageDownloading: 'Downloading model files...',
     stageWaitingDependencies: 'Waiting to prepare model dependencies...',
@@ -942,6 +952,11 @@ const en = {
       modelUid: 'Model UID',
       modelName: 'Model Name',
       virtual: 'Virtual',
+      registeredContextLength: 'Registered context length (reference)',
+      runtimeContextLength: 'Loaded context length (tokens)',
+      unknownContextLength: 'Unknown',
+      runtimeContextDescription:
+        'Total input and output limit. Uses the smallest replica limit; unknown if any replica cannot report it.',
       contextLength: 'Context Length',
       replica: 'Replicas',
       address: 'Address',
@@ -984,6 +999,29 @@ const en = {
       chatEmpty: 'Start by sending a message or attaching media.',
       chatPlaceholder: 'Enter a message',
       additionalInputs: 'Additional inputs',
+      chatSettingsDescription: 'Adjust generation settings for this conversation.',
+      reasoningEffort: 'Reasoning effort',
+      reasoningEffortDefault: 'Model default',
+      reasoningEffortCustom: 'Custom value',
+      reasoningEffortRange: 'Reasoning intensity: {{min}}–{{max}}.',
+      reasoningEffortInvalid: 'Choose a supported reasoning level.',
+      reasoningEffortNumberInvalid: 'Enter an integer from {{min}} to {{max}}.',
+      thinkingBudget: 'Thinking token budget',
+      thinkingBudgetHint:
+        'Leave empty to use the default. Remaining output tokens are available for the answer.',
+      thinkingBudgetInvalid:
+        'Set a positive integer below the output token limit. Set the output limit first.',
+      sendMessage: 'Send message',
+      reasoningEffortLevels: {
+        none: 'Off',
+        minimal: 'Minimal',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        xhigh: 'Very high',
+        max: 'Maximum',
+        no_think: 'Off',
+      },
       maxTokensLabel: 'Max tokens (0 uses the maximum available)',
       temperature: 'Temperature',
       stream: 'Stream',
@@ -1217,6 +1255,20 @@ const en = {
     addReplicaEnginePlaceholder: 'No engine information available',
     addReplicaSuccess: '{{count}} replica(s) added successfully',
     addReplicaFailed: 'Failed to add replica',
+    addReplicaState_pending: 'Waiting for replicas to load',
+    addReplicaState_succeeded: 'Replica addition completed',
+    addReplicaState_failed: 'Replica addition failed',
+    addReplicaState_unknown: 'Result needs verification',
+    addReplicaUnknown:
+      'Connection lost or gateway timed out. Verify the current replicas before submitting again.',
+    addReplicaElapsed: 'Waited {{seconds}} seconds',
+    addReplicaWaitHint:
+      'Loading can take several minutes. Closing this page does not cancel the server operation.',
+    addReplicaWaitingCount: '{{count}} requested replica(s) have not appeared yet.',
+    addReplicaRefreshFailed: 'Status refresh failed; retaining the last snapshot and retrying.',
+    addReplicaSuccessRefreshFailed:
+      'Replicas were added successfully, but status refresh failed. Refresh to view the final state.',
+    addReplicaAcknowledge: 'I have verified the result; stop tracking',
     addReplicaLoading: 'Adding replica...',
     addReplicaWorkerLabel: 'Worker',
     addReplicaGpuIdxLabel: 'GPU Index',
@@ -1224,6 +1276,19 @@ const en = {
     addReplicaUidLabel: 'Replica Alias',
     addReplicaUidPlaceholder: 'Optional, hidden if empty',
     addReplicaAutoWorker: 'Auto (default)',
+    addReplicaSimplePlacement: 'Automatic Scheduling',
+    addReplicaPlacementHint:
+      'GPU indexes belong to each Worker; different Workers may use the same indexes. Leave blank for automatic allocation on that Worker. Specify indexes when a particular GPU count is required.',
+    addReplicaRow: 'New replica {{row}}',
+    addReplicaRowError_count:
+      'The number of placement rows must match the positive number of new replicas.',
+    addReplicaRowError_worker: 'New replica {{row}}: select an available Worker.',
+    addReplicaRowError_gpu:
+      'New replica {{row}}: enter comma-separated non-negative integer GPU indexes.',
+    addReplicaRowError_duplicateGpu:
+      'New replica {{row}}: GPU indexes must not repeat within a row.',
+    addReplicaRowError_duplicateAlias:
+      'New replica {{row}}: this replica alias is already used in this batch.',
     addReplicaWorkerHint:
       'Each selected Worker receives at least one replica. Additional replicas reuse them in selection order.',
     addReplicaWorkerRequired: 'Select a worker before specifying GPU indexes.',
@@ -1813,6 +1878,11 @@ const en = {
     threadsUnit: 'threads',
   },
   securitySettings: {
+    ipBannedMessage:
+      'Your IP is temporarily blocked after repeated authentication failures. Contact an administrator, or sign in as an administrator and unblock it under System Management → Security Settings.',
+    keyBannedMessage:
+      'This API key is temporarily blocked for your IP. Contact an administrator to unblock it in Security Settings.',
+    banRetryAfter: 'Try again in {{seconds}} seconds.',
     pageDescription:
       'Configure failed-request rate limits and manage currently banned IPs and API keys.',
     rateLimitConfig: 'Rate Limit Policy',
@@ -2013,6 +2083,7 @@ const en = {
       fri: 'Fri',
       sat: 'Sat',
     },
+    close: 'Close',
     cancel: 'Cancel',
     confirm: 'Confirm',
     update: 'Update',

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,27 @@ class DeepseekV3_1ToolParser(ToolParser):
         if content:
             results.append((content, None, None))
         return results
+
+    _ARGUMENT_OPEN = re.compile(r"([^<]+?)<｜tool▁sep｜>\s*(?=\{)")
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        wrapper = open_block(text, "<｜tool▁calls▁begin｜>", "<｜tool▁calls▁end｜>")
+        body = open_block(text, "<｜tool▁call▁begin｜>", "<｜tool▁call▁end｜>")
+        if wrapper is None or body is None or body < wrapper:
+            return None
+        match = self._ARGUMENT_OPEN.match(text, body)
+        if match is None:
+            return None
+        return ArgumentStart(
+            match[1].strip(),
+            match.end(),
+            json_suffix="<｜tool▁call▁end｜>",
+            close_frame=self._close_call,
+        )
+
+    @staticmethod
+    def _close_call(text: str, start: int) -> int:
+        return text.find("<｜tool▁call▁end｜>", start)
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

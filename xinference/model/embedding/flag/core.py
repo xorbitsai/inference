@@ -32,6 +32,7 @@ except ImportError:
 
 from ....device_utils import get_available_device
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ....utils import dependency_import_guard
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -105,15 +106,8 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
             raise NotImplementedError(
                 "Flag embedder does not support dimensions argument now."
             )
-        try:
+        with dependency_import_guard("FlagEmbedding"):
             from FlagEmbedding import BGEM3FlagModel
-        except ImportError:
-            error_message = "Failed to import module 'BGEM3FlagModel'"
-            installation_guide = [
-                "Please make sure 'FlagEmbedding' is installed. ",
-                "You can install it by `pip install FlagEmbedding`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         torch_dtype = None
         if torch_dtype_str := self._kwargs.get("torch_dtype"):

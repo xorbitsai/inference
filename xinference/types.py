@@ -18,9 +18,11 @@ from typing_extensions import Literal, NotRequired, TypedDict
 
 from ._compat import (
     BaseModel,
+    Field,
     create_model,
     create_model_from_typeddict,
     validate_arguments,
+    validator,
 )
 from .fields import (
     echo_field,
@@ -34,6 +36,11 @@ from .fields import (
     temperature_field,
     top_k_field,
     top_p_field,
+)
+from .request_priority import (
+    MAX_REQUEST_PRIORITY,
+    MIN_REQUEST_PRIORITY,
+    validate_request_priority,
 )
 
 
@@ -329,6 +336,7 @@ class LogitsProcessorList(List[LogitsProcessor]):
 
 
 class PytorchGenerateConfig(TypedDict, total=False):
+    priority: int
     cache_salt: Optional[str]
     temperature: float
     repetition_penalty: float
@@ -442,6 +450,12 @@ class ModelAndMessages(BaseModel):
 
 
 class CreateCompletionTorch(BaseModel):
+    priority: int = Field(default=0, ge=MIN_REQUEST_PRIORITY, le=MAX_REQUEST_PRIORITY)
+
+    _validate_priority = validator("priority", pre=True, allow_reuse=True)(
+        validate_request_priority
+    )
+
     echo: bool = echo_field
     ignore_eos: bool = False
     max_tokens: Optional[int] = max_tokens_field
@@ -495,6 +509,9 @@ class CreateChatCompletion(  # type: ignore
 ):
     cache_salt: Optional[str] = None
     mm_processor_kwargs: Optional[Dict[str, Any]] = None
+    # Validate model-specific values before generation, without coercing numbers or booleans.
+    reasoning_effort: Optional[Any] = None
+    thinking_budget: Optional[Any] = None
 
 
 class LoRA:

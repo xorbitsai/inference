@@ -22,6 +22,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ....types import LoRA
+from ....utils import dependency_import_guard
 from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
@@ -138,16 +139,11 @@ class SGLangDiffusionModel:
         bin_dir = os.path.dirname(sys.executable)
         if bin_dir not in os.environ.get("PATH", "").split(os.pathsep):
             os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
-        try:
+        with dependency_import_guard(
+            "sglang", install_hint="Install with `pip install 'sglang[diffusion]'`."
+        ):
             from sglang.multimodal_gen import DiffGenerator
             from sglang.multimodal_gen.runtime.server_args import ServerArgs
-        except ImportError:
-            error_message = "Failed to import module 'sglang.multimodal_gen'"
-            installation_guide = [
-                "Please make sure 'sglang' with diffusion support is installed. ",
-                "You can install it by `pip install 'sglang[diffusion]'`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         engine_kwargs = _filter_kwargs_by_dataclass_fields(
             self._kwargs, ServerArgs, "server args"

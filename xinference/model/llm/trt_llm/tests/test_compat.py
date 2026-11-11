@@ -8,7 +8,69 @@ from unittest.mock import Mock
 
 import pytest
 
-from ..compat import initialize_worker, prepare_runtime
+from ..compat import initialize_worker, prepare_runtime, validate_runtime_version
+
+
+@pytest.mark.parametrize(
+    "version", ["1.2.1", "1.2.2", "1.3.0rc24", "1.3.0rc29", "1.3.0"]
+)
+def test_ordinary_replica_version_range(version):
+    validate_runtime_version({}, version)
+
+
+@pytest.mark.parametrize(
+    "version", ["1.2.0", "1.4.0.dev1", "1.4.0rc2", "1.4.0", "2.0.0", "unknown"]
+)
+def test_outside_compatibility_range_is_rejected(version):
+    with pytest.raises(ValueError, match="version|requires"):
+        validate_runtime_version({}, version)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"_xavier_cache_config": {}},
+        {"_xavier_cache_config": {"role": "prefill"}},
+        {"_nixl_config": {"role": "decode"}},
+        {
+            "kv_connector_config": {
+                "connector_module": "xinference.model.llm.trt_llm.connector"
+            }
+        },
+    ],
+)
+def test_private_transports_accept_legacy_and_new_adapters(config):
+    for version in (
+        "1.2.1",
+        "1.2.1+cu130",
+        "1.2.1.post1",
+        "1.3.0rc24",
+        "1.3.0rc29",
+        "1.3.0",
+    ):
+        validate_runtime_version(config, version)
+    for version in ("1.2.2", "1.3.0rc23"):
+        with pytest.raises(ValueError, match="Xavier shared caching and P/D require"):
+            validate_runtime_version(config, version)
+
+
+def test_new_runtime_does_not_apply_the_legacy_nvml_patch(monkeypatch):
+    initialize = Mock(side_effect=AssertionError("Unexpected legacy NVML patch"))
+    monkeypatch.setattr(
+        "xinference.model.llm.trt_llm.compat.initialize_worker", initialize
+    )
+    prepare_runtime({}, engine_version="1.3.0rc24")
+    initialize.assert_not_called()
+
+
+@pytest.mark.parametrize("version", ["1.2.1", "1.2.1+cu130", "1.2.1.post1"])
+def test_legacy_build_variants_keep_the_nvml_pointer_fix(monkeypatch, version):
+    initialize = Mock()
+    monkeypatch.setattr(
+        "xinference.model.llm.trt_llm.compat.initialize_worker", initialize
+    )
+    prepare_runtime({}, engine_version=version)
+    initialize.assert_called_once()
 
 
 def test_nvml_query_passes_structure_by_pointer_and_preserves_cc_state(monkeypatch):

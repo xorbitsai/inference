@@ -10,6 +10,8 @@ from contextlib import closing
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Union
 
+from ...utils import dependency_import_message
+
 
 @dataclass
 class ContentBudget:
@@ -126,7 +128,11 @@ def _document(block: Dict[str, Any], budget: ContentBudget) -> List[Dict[str, An
         import pypdfium2 as pdfium
     except ImportError as exc:
         raise ValueError(
-            "PDF input requires pypdfium2; install xinference[image]"
+            dependency_import_message(
+                "pypdfium2",
+                exc,
+                install_hint='Install with `pip install "xinference[image]"`.',
+            )
         ) from exc
     parts: List[Dict[str, Any]] = []
     from ..pdf_ocr import _pdfium_lock

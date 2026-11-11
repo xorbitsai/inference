@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Release live context transmissions in the pinned TRT-LLM TP1 executor."""
+"""Release live context transmissions on TRT-LLM's TP1 execution thread."""
 
 import threading
 import time
@@ -13,6 +13,14 @@ class NativeSourceReleaser:
         self._lock = threading.Lock()
         self._pending: dict[int, Future] = {}
         self._cancelled: dict[int, object] = {}
+        if not hasattr(executor, "ctx_in_transmission_requests"):
+            self._initialize_async_transfers(executor)
+            return
+        self._transmissions = lambda: {
+            ticket: entry[0]
+            for ticket, entry in executor.ctx_in_transmission_requests.items()
+        }
+        self._status_owner = None
         original = executor._terminate_disagg_ctx_finished_requests
         check_status = executor._check_disagg_ctx_cache_transfer_status
         self._restore = (original, check_status)
@@ -57,30 +65,78 @@ class NativeSourceReleaser:
         executor._terminate_disagg_ctx_finished_requests = poll
         executor._check_disagg_ctx_cache_transfer_status = check
 
+    def _initialize_async_transfers(self, executor) -> None:
+        manager = executor.async_transfer_manager
+        self._transmissions = manager.requests_in_transfer
+        if hasattr(executor, "_check_disagg_ctx_cache_transfer_status"):
+            owner, name = executor, "_check_disagg_ctx_cache_transfer_status"
+        else:
+            # Later 1.3 releases moved transfer orchestration out of PyExecutor.
+            owner, name = executor.disagg, "reap_context_sends"
+        original = getattr(owner, name)
+        self._status_owner = owner, name
+        self._restore = original
+
+        def poll(at_least=0):
+            if (self._pending or self._cancelled) and at_least:
+                # Cancelled native sender pointers must remain alive until
+                # shutdown. Match the legacy nonblocking poll's backoff.
+                time.sleep(0.001)
+                at_least = 0
+            with self._lock:
+                sources = {}
+                for ticket in self._pending:
+                    request = self._transmissions().get(ticket)
+                    if request is not None:
+                        # The native status path retries cancellation, then
+                        # removes the transfer only after native KV cleanup.
+                        request.py_kv_transfer_timed_out = True
+                        if not request.is_disagg_context_complete_state:
+                            sources[ticket] = request
+                try:
+                    original(0 if self._pending or self._cancelled else at_least)
+                except Exception as error:
+                    for future in self._pending.values():
+                        future.set_exception(error)
+                    self._pending.clear()
+                    raise
+                for ticket, future in list(self._pending.items()):
+                    if ticket not in self._transmissions():
+                        self._pending.pop(ticket)
+                        if ticket in sources:
+                            self._cancelled[ticket] = sources[ticket]
+                        future.set_result(None)
+
+        setattr(owner, name, poll)
+
     def engine_stopped(self) -> None:
         # Only after native shutdown may its retained raw pointers be dropped.
         executor = self.executor
-        (
-            executor._terminate_disagg_ctx_finished_requests,
-            executor._check_disagg_ctx_cache_transfer_status,
-        ) = self._restore
+        if self._status_owner is None:
+            (
+                executor._terminate_disagg_ctx_finished_requests,
+                executor._check_disagg_ctx_cache_transfer_status,
+            ) = self._restore
+        else:
+            owner, name = self._status_owner
+            setattr(owner, name, self._restore)
         self._cancelled.clear()
+        self._transmissions = None
+        self._status_owner = None
         self.executor = self._restore = None
 
     def find_source(self, client_id: int):
         # The final response may have retired BaseWorker's mapping before the
         # Python result has consumed its context metadata.
         with self._lock:
-            for ticket, (request, _, _) in list(
-                self.executor.ctx_in_transmission_requests.items()
-            ):
+            for ticket, request in list(self._transmissions().items()):
                 if request.py_client_id == client_id:
                     return ticket
         return None
 
     def release(self, ticket: int) -> None:
         with self._lock:
-            if ticket not in self.executor.ctx_in_transmission_requests:
+            if ticket not in self._transmissions():
                 return  # The native sender already completed and unpinned it.
             future = self._pending.setdefault(ticket, Future())
         # No wall-clock cancellation: keep slots owned until native cancellation

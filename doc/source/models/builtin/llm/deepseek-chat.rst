@@ -67,7 +67,7 @@ Model Spec 4 (ggufv2, 67 Billion)
 
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 67
-- **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S, Q6_K, Q8_0
+- **Quantizations:** Q2_K, Q3_K_L, Q3_K_M, Q3_K_S, Q4_0, Q4_K_M, Q4_K_S, Q5_0, Q5_K_M, Q5_K_S
 - **Engines**: vLLM, llama.cpp
 - **Model ID:** TheBloke/deepseek-llm-67b-chat-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/deepseek-llm-67b-chat-GGUF>`__

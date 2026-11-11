@@ -18,6 +18,8 @@ import wave
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
+from ...utils import dependency_import_guard
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
@@ -184,15 +186,8 @@ class VoxCPMModel:
         return int(getattr(self._model.tts_model, "sample_rate", 48000))
 
     def load(self):
-        try:
+        with dependency_import_guard("voxcpm"):
             from voxcpm import VoxCPM
-        except ImportError:
-            error_message = "Failed to import module 'voxcpm'"
-            installation_guide = [
-                "Please make sure 'voxcpm' is installed. ",
-                "You can install it by `pip install voxcpm`\n",
-            ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         compile_opt = self._kwargs.pop("compile", None)
         optimize_opt = self._kwargs.pop("optimize", None)

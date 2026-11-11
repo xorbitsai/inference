@@ -32,17 +32,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased bg-background text-foreground" suppressHydrationWarning>
-        <RequestProvider>
-          <GlobalProvider>
-            <I18nProvider>
+        <I18nProvider>
+          <RequestProvider>
+            <GlobalProvider>
               <ThemeProvider>
                 <AppInit />
                 <LayoutContent>{children}</LayoutContent>
                 <Toaster />
               </ThemeProvider>
-            </I18nProvider>
-          </GlobalProvider>
-        </RequestProvider>
+            </GlobalProvider>
+          </RequestProvider>
+        </I18nProvider>
       </body>
     </html>
   );

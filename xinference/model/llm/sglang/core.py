@@ -40,6 +40,7 @@ from xoscar.utils import get_next_port
 
 from ....cache_isolation import redact_cache_salt, validate_cache_salt
 from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
+from ....request_priority import SGLANG_PRIORITY_DISABLED, validate_request_priority
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -49,6 +50,7 @@ from ....types import (
     CompletionLogprobs,
     CompletionUsage,
 )
+from ....utils import dependency_import_guard, dependency_import_message
 from ...utils import check_dependency_available
 from .. import LLMFamilyV2, LLMSpecV1
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
@@ -79,8 +81,11 @@ logger = logging.getLogger(__name__)
 
 
 class SGLANGModelConfig(TypedDict, total=False):
+    enable_priority_scheduling: bool
+    schedule_low_priority_values_first: bool
     page_size: int
     mamba_scheduler_strategy: str
+    mamba_radix_cache_strategy: str
     mamba_track_interval: int
     tokenizer_mode: str
     trust_remote_code: bool
@@ -111,6 +116,7 @@ class SGLANGModelConfig(TypedDict, total=False):
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
+    priority: int
     presence_penalty: float
     frequency_penalty: float
     temperature: float
@@ -129,14 +135,19 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     skip_special_tokens: bool
     require_reasoning: bool
     response_format: dict
+    mm_processor_kwargs: Dict[str, Any]
 
 
+_SGLANG_IMPORT_ERROR: Optional[str] = None
 try:
     import sglang  # noqa: F401
 
     SGLANG_INSTALLED = True
-except ImportError:
+except ImportError as exc:
     SGLANG_INSTALLED = False
+    _SGLANG_IMPORT_ERROR = dependency_import_message(
+        "sglang", exc, install_hint="Install with `pip install 'sglang[all]'`."
+    )
 
 
 def _virtual_env_allows_missing_sglang() -> bool:
@@ -193,6 +204,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
     "MiniCPMV4_6ForConditionalGeneration",
+    "MiniCPMV4_7ForConditionalGeneration",
     "MllamaForConditionalGeneration",
     "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
@@ -200,6 +212,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 ]
 
 LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
+MINICPMV47_MIN_SGLANG_VERSION = Version("0.5.23")
 
 
 def _get_sglang_version() -> Optional[Version]:
@@ -210,12 +223,47 @@ def _get_sglang_version() -> Optional[Version]:
         return None
 
 
+def _minicpmv47_compatibility_error(
+    llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1"
+) -> Optional[str]:
+    if not llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+        return None
+    if not (3, 11) <= sys.version_info[:2] < (3, 14):
+        return (
+            "MiniCPM-V-4.7 SGLang requires Python 3.11-3.13; "
+            f"found {sys.version_info[0]}.{sys.version_info[1]}"
+        )
+    if llm_spec.model_format == "bnb":
+        return (
+            "MiniCPM-V-4.7 BNB checkpoints are not supported by SGLang: "
+            "quantization-state names do not match the native model"
+        )
+    return None
+
+
 class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
+    supports_native_request_priority = True
     supports_cache_salt = True
     _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
     supports_tool_controls = True
+
+    def supports_chat_priority(self) -> bool:
+        return bool(
+            (getattr(self, "_model_config", None) or {}).get(
+                "enable_priority_scheduling", False
+            )
+        )
+
+    @classmethod
+    def validate_launch(cls, model_family: "LLMFamilyV2") -> None:
+        """Reject incompatible launches before downloading checkpoints."""
+        compatibility_error = _minicpmv47_compatibility_error(
+            model_family, model_family.model_specs[0]
+        )
+        if compatibility_error:
+            raise ValueError(compatibility_error)
 
     def __init__(
         self,
@@ -225,6 +273,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
+        self.validate_launch(model_family)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -244,7 +293,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         return self._driver_info
 
     def load(self):
-        try:
+        with dependency_import_guard(
+            "sglang", install_hint="Install with `pip install 'sglang[all]'`."
+        ):
             venv_bin = os.path.dirname(sys.executable)
             if venv_bin:
                 path_entries = os.environ.get("PATH", "").split(os.pathsep)
@@ -253,14 +304,6 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         [venv_bin] + ([p for p in path_entries if p] or [])
                     )
             import sglang as sgl
-        except ImportError:
-            error_message = "Failed to import module 'sglang'"
-            installation_guide = [
-                "Please make sure 'sglang' is installed. ",
-                "You can install it by `pip install 'sglang[all]'`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
         nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
@@ -285,6 +328,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             if self._n_worker != 1:
                 raise ValueError("SGLang Xavier requires one worker per replica")
             configure_xavier(self.model_path, self._model_config, cache_config)
+            self._xavier_cache_config = cache_config
             if cache_config.get("role"):
                 from sglang.srt.plugins.hook_registry import HookRegistry
 
@@ -534,6 +578,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             model_config.setdefault("page_size", 64)
             model_config.setdefault("mamba_scheduler_strategy", "extra_buffer")
             model_config.setdefault("mamba_track_interval", 64)
+        if self.model_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+            model_config.setdefault("mamba_radix_cache_strategy", "extra_buffer")
+            # Native processors also work for quantized snapshots whose
+            # auto_map references remote processor files they do not include.
+            model_config.setdefault("trust_remote_code", False)
         # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
         model_config["trust_remote_code"] = (
             bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
@@ -661,6 +710,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
         return generate_config
 
+    def supports_agent_cache_lifecycle(self) -> bool:
+        config = getattr(self, "_xavier_cache_config", None)
+        return bool(self._engine is not None and config and not config.get("role"))
+
     def _get_tokenizer(self, lora_request: Any = None) -> Any:
         if self._engine is None:
             return None
@@ -705,7 +758,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if "generate" not in llm_family.model_ability:
             return False, "SGLang base engine requires generate ability"
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     @staticmethod
@@ -884,13 +937,14 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     @staticmethod
     def _lift_logprob_request_params(sampling_params: dict) -> dict:
-        """Pop sglang's top-level GenerateReqInput logprob fields out of the
+        """Pop sglang's top-level GenerateReqInput fields out of the
         sampling_params dict. sglang reads them off GenerateReqInput, not
         SamplingParams; leaving them in sampling_params crashes the msgspec
         SamplingParams with unknown kwargs (#3553).
         """
         top: Dict = {}
         for k in (
+            "priority",
             "return_logprob",
             "top_logprobs_num",
             "return_text_in_logprobs",
@@ -900,6 +954,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             "bootstrap_host",
             "bootstrap_port",
             "bootstrap_room",
+            "mm_processor_kwargs",
         ):
             if k in sampling_params:
                 top[k] = sampling_params.pop(k)
@@ -947,9 +1002,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ):
         import aiohttp
 
+        input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            "text": prompt,
+            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1019,9 +1075,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ) -> dict:
         import aiohttp
 
+        input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            "text": prompt,
+            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1060,6 +1117,26 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         elif reason == "abort":
             raise RuntimeError("SGLang PD decode aborted")
         return reason is not None and str(reason).lower() != "none"
+
+    def get_runtime_context_length(self) -> Optional[int]:
+        import requests
+
+        from ..context_length import normalize_runtime_positive_int
+
+        if self._engine is None:
+            return None
+        with requests.get(
+            self._engine.url + "/v1/models",
+            headers=self._engine_headers(),
+            timeout=2,
+        ) as response:
+            response.raise_for_status()
+            # The base ModelCard exposes model_config.context_len. LoRA cards
+            # have a parent and do not report their own context capacity.
+            for card in response.json().get("data", []):
+                if card.get("parent") is None:
+                    return normalize_runtime_positive_int(card.get("max_model_len"))
+            return None
 
     def _engine_headers(self) -> dict:
         api_key = getattr(self, "_model_config", {}).get("api_key")
@@ -1187,16 +1264,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         return len(tokenizer.encode(prompt))
 
     def _apply_thinking_budget(self, config: Dict) -> None:
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("max_thinking_tokens", None)
+            return
         context = (
             self._get_chat_template_kwargs_from_generate_config(
-                config, self.reasoning_parser
+                config, getattr(self, "reasoning_parser", None)
             )
             or {}
         )
         budget = context.get("thinking_budget")
-        if budget is None or not context.get("enable_thinking"):
+        # 0 is a template-level budget (Seed-OSS), never an engine budget.
+        if not budget or not context.get("enable_thinking"):
             return
-        parser = self.reasoning_parser
+        parser = getattr(self, "reasoning_parser", None)
         if parser is None or not (
             parser.reasoning_start_tag or parser.reasoning_end_tag
         ):
@@ -1262,8 +1344,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         config = dict(generate_config or {})
         anthropic = config.get("_anthropic_request", False)
-        if anthropic:
-            self._apply_thinking_budget(config)
+        self._apply_thinking_budget(config)
         if anthropic and is_forced_tool_choice(config):
             return await self._forced_tool_chat(messages, config, request_id)
         plain_json = bool(
@@ -1331,6 +1412,25 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        config_request_id = config.pop("request_id", None)
+        if request_id is None and config_request_id is not None:
+            request_id = str(config_request_id)
+        priority = validate_request_priority(config.get("priority", 0))
+        priority_enabled = self.supports_chat_priority()
+        if priority and not priority_enabled:
+            raise ValueError(SGLANG_PRIORITY_DISABLED)
+        if priority_enabled:
+            # Xinference uses lower values first, regardless of SGLang's
+            # native scheduling direction (higher values first by default).
+            lower_first = (self._model_config or {}).get(
+                "schedule_low_priority_values_first", False
+            )
+            config["priority"] = priority if lower_first else -priority
+        else:
+            config.pop("priority", None)
+        from ..xavier.cache_lifecycle import CACHE_SESSION_ARG
+
+        cache_session = config.pop(CACHE_SESSION_ARG, None)
         anthropic = config.pop("_anthropic_request", False)
         transfer = config.pop("_pd_kv_transfer_params", None)
         pd: Any = getattr(self, "_xavier_handoff", None) or getattr(
@@ -1366,6 +1466,29 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         sanitized_generate_config = self._sanitize_generate_config(
             cast(SGLANGGenerateConfig, config)
         )
+        from ..xavier.cache_lifecycle import CacheSessionTag, bind_cache_session
+
+        if (
+            isinstance(cache_session, CacheSessionTag)
+            and self.supports_agent_cache_lifecycle()
+        ):
+            from ..xavier.prefix import prefix_keys
+
+            # Send these exact token IDs to SGLang, avoiding a second tokenizer
+            # pass with potentially different BOS defaults in its HTTP server.
+            tokens = await asyncio.to_thread(self._get_tokenizer().encode, prompt)
+            await bind_cache_session(
+                self._xavier_cache_config,
+                cache_session,
+                prefix_keys(
+                    tokens,
+                    self._xavier_cache_config["contract"]["block_size"],
+                    sanitized_generate_config.get("cache_salt"),
+                ),
+            )
+            cast(Dict[str, Any], sanitized_generate_config)[
+                "_xavier_input_ids"
+            ] = tokens
         parser = getattr(self, "reasoning_parser", None)
         thinking = bool(
             parser and parser.reasoning_end_tag and parser.is_enable_thinking()
@@ -1506,7 +1629,11 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         # Keep terminal metadata without replacing buffered tool text.
                         continue
                     chunk = new_chunk
-                    if tools:
+                    if tools and not getattr(
+                        getattr(self, "tool_parser", None),
+                        "handles_tool_call_marker",
+                        False,
+                    ):
                         """
                         The qwen2 tool call returns format like this:
                         <tool_call>
@@ -1640,7 +1767,7 @@ class SGLANGChatModel(SGLANGModel):
         if "chat" not in llm_family.model_ability:
             return False, "SGLang chat engine requires chat ability"
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     def _sanitize_chat_config(
@@ -1722,6 +1849,19 @@ class SGLANGVisionModel(SGLANGModel):
             return False, "SGLang vision engine requires CUDA GPUs"
         if not cls._is_linux():
             return False, "SGLang vision engine is only supported on Linux"
+        is_minicpmv47 = llm_family.has_architecture(
+            "MiniCPMV4_7ForConditionalGeneration"
+        )
+        compatibility_error = _minicpmv47_compatibility_error(llm_family, llm_spec)
+        if compatibility_error:
+            return False, compatibility_error
+        if is_minicpmv47 and not _virtual_env_allows_missing_sglang():
+            installed = _get_sglang_version()
+            if installed is None or installed < MINICPMV47_MIN_SGLANG_VERSION:
+                return (
+                    False,
+                    f"MiniCPM-V-4.7 requires SGLang >= {MINICPMV47_MIN_SGLANG_VERSION}; found {installed or 'not installed'}",
+                )
         if (
             llm_family.has_architecture("Qwen4ExpForConditionalGeneration")
             and not _virtual_env_allows_missing_sglang()
@@ -1745,7 +1885,9 @@ class SGLANGVisionModel(SGLANGModel):
                 f"SGLang vision engine supports {'/'.join(supported_formats)} formats only",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            if quantization not in (None, "none") and not (
+                is_minicpmv47 and llm_spec.quantization_method
+            ):
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang vision",
@@ -1763,7 +1905,7 @@ class SGLANGVisionModel(SGLANGModel):
         # missing local install must not hide the engine. GPU/OS checks above
         # stay unconditional because virtualenv cannot add a GPU or change the OS.
         if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
-            return False, "sglang library is not installed"
+            return False, _SGLANG_IMPORT_ERROR or "SGLang could not be loaded"
         return True
 
     def _sanitize_chat_config(

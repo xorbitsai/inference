@@ -140,10 +140,13 @@ def _get_completion(
     model_uid: str,
     r: InferenceRequest,
     completion_tokens: int,
+    stop_sequence: Optional[str] = None,
 ):
     completion_choice = CompletionChoice(
         text=output, index=0, logprobs=None, finish_reason=finish_reason
     )
+    if stop_sequence is not None:
+        completion_choice["stop_sequence"] = stop_sequence
 
     completion_chunk = CompletionChunk(
         id=chunk_id,
@@ -166,6 +169,81 @@ def _get_completion(
         usage=completion_usage,
     )
     return completion
+
+
+def _find_stop_sequence(text: str, stop_strings: List[str]) -> Optional[str]:
+    """Return the earliest stop string present in decoded output."""
+    matches = [(text.find(stop), stop) for stop in stop_strings if text.find(stop) >= 0]
+    return min(matches)[1] if matches else None
+
+
+class _IncrementalDecoder:
+    """Decode the generated tokens of one request as they grow.
+
+    Decoding every generated token again on each step makes a step cost grow
+    with the output length. With a byte-level BPE tokenizer (Qwen, Llama 3,
+    DeepSeek, GLM and others) the text of a prefix that ends on a character
+    boundary does not change when tokens are appended, so that text is kept
+    and only the tokens after it are decoded, together with a few tokens
+    before it as context. If the context comes out differently, for example
+    because tokenization spaces were cleaned up across it, all tokens are
+    decoded again. Other tokenizers always decode all tokens.
+    """
+
+    _CONTEXT_TOKENS = 8
+    _MIN_CONTEXT_CHARS = 4
+
+    def __init__(self, tokenizer):
+        self._tokenizer = tokenizer
+        try:
+            from tokenizers.decoders import ByteLevel
+        except ImportError:
+            self._incremental = False
+        else:
+            backend = getattr(tokenizer, "backend_tokenizer", None)
+            self._incremental = isinstance(getattr(backend, "decoder", None), ByteLevel)
+        # Text of the tokens before the last character boundary that was kept,
+        # and the text of the context tokens at the end of it.
+        self._text = ""
+        self._context_offset = 0
+        self._context_text = ""
+
+    def _decode(self, tokens: List[int]) -> str:
+        return self._tokenizer.decode(
+            tokens,
+            skip_special_tokens=True,
+            spaces_between_special_tokens=False,
+            clean_up_tokenization_spaces=True,
+        )
+
+    def decode(self, tokens: List[int], count: int) -> str:
+        """Return the same text as decoding ``tokens[:count]``."""
+        if not self._incremental or count <= 2 * self._CONTEXT_TOKENS:
+            # Short outputs decode as fast in one call.
+            return self._decode(tokens[:count])
+        window = self._decode(tokens[self._context_offset : count])
+        if window.startswith(self._context_text):
+            text = self._text + window[len(self._context_text) :]
+        else:
+            text = self._decode(tokens[:count])
+        if not text.endswith("�"):
+            context_offset = max(0, count - self._CONTEXT_TOKENS)
+            context_text = self._decode(tokens[context_offset:count])
+            # Keep the context only if it is the end of the full text: space
+            # cleanup can change depending on where a decode starts.
+            if text.endswith(context_text) and (
+                len(context_text) >= self._MIN_CONTEXT_CHARS or not context_offset
+            ):
+                self._text = text
+                self._context_offset = context_offset
+                self._context_text = context_text
+        return text
+
+
+def _decode_visible_tokens(r: InferenceRequest, tokenizer) -> str:
+    if r.decoder is None:
+        r.decoder = _IncrementalDecoder(tokenizer)
+    return r.decoder.decode(r.new_tokens, r.visible_new_tokens_count)
 
 
 def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
@@ -376,6 +454,7 @@ def _batch_inference_one_step_internal(
 
     past_key_values = valid_req_list[0].kv_cache
     stop_token_mapping: Dict[InferenceRequest, int] = {}
+    stop_sequence_mapping: Dict[InferenceRequest, str] = {}
     output_mapping: Dict[InferenceRequest, str] = {}
     # here, only decode phase, just run some rounds
     for _i in range(decode_round):
@@ -427,22 +506,15 @@ def _batch_inference_one_step_internal(
                 # Stop strings must only inspect user-visible tokens. The
                 # physical batch may continue decoding to keep its cache aligned.
                 if stop_str and r not in output_mapping:
-                    output = tokenizer.decode(
-                        visible_tokens,
-                        skip_special_tokens=True,
-                        spaces_between_special_tokens=False,
-                        clean_up_tokenization_spaces=True,
-                    )
+                    output = _decode_visible_tokens(r, tokenizer)
                     if isinstance(stop_str, str):
                         stop_str = [stop_str]
-                    stop_pos = len(output)
-                    for stop in stop_str:
-                        pos = output.find(stop)
-                        if pos != -1:
-                            stop_pos = min(stop_pos, pos)
-                    if stop_pos < len(output):
+                    matched_stop = _find_stop_sequence(output, stop_str)
+                    if matched_stop is not None:
+                        stop_pos = output.find(matched_stop)
                         output = output[:stop_pos]
                         output_mapping[r] = output
+                        stop_sequence_mapping[r] = matched_stop
                         stopped = True
                         finish_reason = "stop"
 
@@ -457,19 +529,15 @@ def _batch_inference_one_step_internal(
                 Note that you can't just decode based on the newest r.new_tokens here,
                 which may destroy the integrity of the parsed characters,
                 and at the same time is not good at handling some special characters.
-                So the implementation here is to decode all the tokens that have been generated each time,
-                and then take the slice.
+                So the implementation here is to take the text of all the tokens that have been generated
+                each time, and then take the slice. _IncrementalDecoder keeps the text of earlier steps,
+                so a step does not decode the whole output again.
                 """
                 if not was_stopped and (
                     r.stopped or r.visible_new_tokens_count % stream_interval == 0
                 ):
                     if output is None:
-                        output = tokenizer.decode(
-                            r.new_tokens[: r.visible_new_tokens_count],
-                            skip_special_tokens=True,
-                            spaces_between_special_tokens=False,
-                            clean_up_tokenization_spaces=True,
-                        )
+                        output = _decode_visible_tokens(r, tokenizer)
 
                     if r.last_output_length == 0:
                         r.completion.append(bos_flag)
@@ -501,6 +569,7 @@ def _batch_inference_one_step_internal(
                             completion_tokens=r.visible_new_tokens_count,
                             total_tokens=len(r.prompt_tokens)
                             + r.visible_new_tokens_count,
+                            stop_sequence=stop_sequence_mapping.get(r),
                         )
                         r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
@@ -553,6 +622,7 @@ def _batch_inference_one_step_internal(
                         model_uid,
                         r,
                         visible_token_count,
+                        stop_sequence_mapping.get(r),
                     )
                     r.completion = [completion]
 

@@ -543,6 +543,19 @@ class GPUTransferMixin:
         runtime = self._gpu_transfer
         return await runtime.run(runtime.load_direct, requests, tickets)
 
+    def register_shared_prefix_v1(self, ticket, blocks):
+        self._gpu_transfer.register_direct(ticket, ticket, blocks, shared=True)
+
+    async def revoke_shared_prefix_v1(self, ticket):
+        runtime = getattr(self, "_gpu_transfer", None)
+        if runtime is not None:
+            await runtime.run(runtime.revoke_shared_prefix, ticket)
+
+    async def load_shared_prefix_v1(self, ranks, ticket):
+        runtime = self._gpu_transfer
+        invalid = await runtime.run(runtime._load_direct, [ranks], [ticket])
+        return not invalid
+
     async def release_remote_direct_gpu_v1(self, rank, ticket):
         ref = await xo.actor_ref(
             address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"

@@ -5,9 +5,10 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 """Check mirror requirements using index metadata, without downloading packages.
 
-This catches unpublished versions and missing Python/architecture candidates.
+This catches unpublished versions and missing Python/architecture candidates,
+and validates direct wheel filenames against the target.
 It is not a dependency resolver or a substitute for the image's offline selfcheck:
-sdist buildability, transitive conflicts, and direct references remain build checks.
+sdist buildability, transitive conflicts, and direct wheel downloads remain build checks.
 """
 
 from __future__ import annotations
@@ -172,6 +173,37 @@ def matching_file(
     )
 
 
+def validate_direct_wheels(
+    path: Path, environment: Dict[str, str], python_version: str
+) -> None:
+    machine = environment["platform_machine"]
+    for line in path.read_text().splitlines():
+        spec = line.strip()
+        if not spec:
+            continue
+        requirement = (
+            None if spec.startswith(("http://", "https://")) else Requirement(spec)
+        )
+        url = spec if requirement is None else requirement.url or ""
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"{path}: expected a direct HTTP(S) wheel URL: {spec}")
+        filename = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
+        try:
+            name, _, _, tags = parse_wheel_filename(filename)
+        except InvalidWheelFilename as exc:
+            raise ValueError(f"{path}: invalid direct wheel filename: {spec}") from exc
+        if requirement is not None:
+            if name != canonicalize_name(requirement.name):
+                raise ValueError(f"{path}: direct wheel name does not match: {spec}")
+            if requirement.marker and not requirement.marker.evaluate(environment):
+                continue
+        if tags.isdisjoint(supported_tags(machine, python_version)):
+            raise ValueError(
+                f"{path}: direct wheel is incompatible with Python {python_version} "
+                f"on Linux {machine}: {spec}"
+            )
+
+
 def collect_requirements(
     manifest_dir: Path, runtime_constraints: Path, python_version: str
 ) -> List[Dict[str, Any]]:
@@ -190,6 +222,7 @@ def collect_requirements(
         python_full_version=python_version,
         extra="",
     )
+    validate_direct_wheels(manifest_dir / "urls.txt", environment, python_version)
     checks = []
 
     def add(
@@ -197,7 +230,9 @@ def collect_requirements(
     ) -> None:
         requirement = Requirement(spec)
         if requirement.url:
-            return
+            raise ValueError(
+                f"{manifest_dir}: unexpected direct reference in {', '.join(sources)}: {spec}"
+            )
         if requirement.marker and not requirement.marker.evaluate(environment):
             return
         checks.append(
@@ -291,13 +326,16 @@ def main() -> None:
     parser.add_argument("--runtime-constraints", type=Path, required=True)
     parser.add_argument("--python-version", default=DEFAULT_PYTHON_VERSION)
     args = parser.parse_args()
-    checks = [
-        check
-        for directory in args.manifest_dir
-        for check in collect_requirements(
-            directory, args.runtime_constraints, args.python_version
-        )
-    ]
+    try:
+        checks = [
+            check
+            for directory in args.manifest_dir
+            for check in collect_requirements(
+                directory, args.runtime_constraints, args.python_version
+            )
+        ]
+    except (ValueError, OSError) as exc:
+        sys.exit(f"ERROR: {exc}")
     failures = check_requirements(checks, args.python_version)
     for failure in failures:
         print(f"ERROR: {failure}", file=sys.stderr)

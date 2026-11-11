@@ -1022,6 +1022,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._pending_control_faults: Dict[str, Dict[str, _ControlFaultModel]] = {}
         self._retrying_control_faults = False
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
+        self._launch_progressors: Dict[str, "Progressor"] = {}
         # Tracks whether this worker has successfully called supervisor.add_worker().
         # _supervisor_ref being non-None no longer implies registered, because
         # heartbeat() uses add_worker=False and may populate the ref cache before
@@ -4544,6 +4545,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         model_uid: Optional[str] = None,
         reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
@@ -4607,6 +4610,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             for k, v in pip_config.items():
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
+
+        from .virtual_env_manager import apply_requested_virtualenv_indexes
+
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if virtual_env_find_links is not None:
             requested_find_links = validate_virtual_env_find_links(
@@ -4709,7 +4718,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     u for u in existing_urls if u not in system_cuda_urls
                 ]
 
-        if not is_cuda_compatible(settings.extra_index_url, cuda_version):
+        # Omni pins its own CUDA runtime; newer drivers can run its older CUDA
+        # wheels. Other engines retain the existing exact-version policy.
+        if not is_cuda_compatible(
+            settings.extra_index_url,
+            cuda_version,
+            allow_older_cuda=(model_engine or "").lower() == "sglang-omni",
+        ):
             logger.debug(
                 f"[DEBUG] CUDA version mismatch: cuda_version={cuda_version}, extra_index_url={settings.extra_index_url}, clearing extra_index_url and index_strategy"
             )
@@ -4738,6 +4753,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # with no required runtime dependencies, so an exclusive index does not
         # break resolution.
         force_reinstall_xllamacpp = False
+        requested_indexes = bool(
+            (virtual_env_index_url and virtual_env_index_url.strip())
+            or virtual_env_extra_index_urls
+        )
         if model_engine and model_engine.lower() == "llama.cpp":
             from .virtual_env_manager import get_xllamacpp_cuda_index_url
 
@@ -4760,16 +4779,19 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     xllamacpp_index_url,
                 )
             elif xllamacpp_index_url and cuda_device_available:
-                logger.info(
-                    "Detected CUDA %s, installing GPU build of xllamacpp "
-                    "exclusively from %s",
-                    cuda_version,
-                    xllamacpp_index_url,
-                )
-                settings.index_url = xllamacpp_index_url
-                settings.extra_index_url = None
-                settings.find_links = None
-                settings.index_strategy = None
+                if not requested_indexes:
+                    logger.info(
+                        "Detected CUDA %s, installing GPU build of xllamacpp "
+                        "exclusively from %s",
+                        cuda_version,
+                        xllamacpp_index_url,
+                    )
+                    settings.index_url = xllamacpp_index_url
+                    settings.extra_index_url = None
+                    settings.find_links = None
+                    settings.index_strategy = None
+                # Explicit sources control resolution, but must not bypass
+                # replacing a satisfying CPU wheel on a usable CUDA worker.
                 # A CPU build of xllamacpp may already satisfy the
                 # "xllamacpp>=..." requirement (e.g. inherited from the parent
                 # env, or installed on a previous CPU-only launch). Because the
@@ -4794,6 +4816,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 critical_specs,
             )
             packages = packages + critical_specs
+
+        # Engine/CUDA filtering may remove incompatible model defaults. Restore
+        # explicit request sources so these never silently disappear.
+        apply_requested_virtualenv_indexes(
+            settings, virtual_env_index_url, virtual_env_extra_index_urls
+        )
 
         if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
             if not settings.index_url:
@@ -5063,7 +5091,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return fingerprint
 
     async def _get_progressor(
-        self, request_id: str, initial_info: str = "Start to launch model"
+        self,
+        request_id: str,
+        initial_info: str = "Start to launch model",
+        launch: bool = False,
     ):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
@@ -5077,10 +5108,32 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             request_id,
             progress_tracker_ref,
             asyncio.get_running_loop(),
+            generation=uuid.uuid4().hex if launch else None,
         )
         await progressor.start()
         progressor.set_progress(0.0, initial_info)
+        if launch:
+            self.__dict__.setdefault("_launch_progressors", {})[
+                request_id.removeprefix("launching-")
+            ] = progressor
         return progressor
+
+    async def _finish_launch_progress(
+        self, model_uid: str, success: bool, progressor: Optional["Progressor"] = None
+    ) -> None:
+        progressors = getattr(self, "_launch_progressors", {})
+        current = progressors.get(model_uid)
+        if current is None or (progressor is not None and current is not progressor):
+            return
+        progressors.pop(model_uid, None)
+        try:
+            await xo.wait_for(current.finish_launch(success), timeout=5)
+        except Exception:
+            # Progress reporting must not turn a ready model into a failed
+            # launch, nor prevent resource cleanup after an engine failure.
+            logger.warning(
+                "Failed to finish launch progress for %s", model_uid, exc_info=True
+            )
 
     @classmethod
     def _upload_download_progress(
@@ -5395,6 +5448,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
         virtual_env_find_links: Optional[List[str]] = None,
+        virtual_env_index_url: Optional[str] = None,
+        virtual_env_extra_index_urls: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -5710,7 +5765,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             )
 
                         progressor = await self._get_progressor(
-                            "launching-" + model_uid
+                            "launching-" + model_uid, launch=True
                         )
                         # split into download and launch
                         progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
@@ -5810,6 +5865,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                         model, model_format
                                     ),
                                     virtual_env_find_links=virtual_env_find_links,
+                                    virtual_env_index_url=virtual_env_index_url,
+                                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
                                     model_uid=model_uid,
                                     reserve_usage=self._reserve_virtual_env_usage,
                                     release_usage=self._release_virtual_env_usage,
@@ -6029,6 +6086,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         self._launch_waiting,
                     )
         finally:
+            if sys.exc_info()[0] is not None:
+                await WorkerActor._finish_launch_progress(self, model_uid, False)
             if _was_queued:
                 self._launch_waiting -= 1
             self._model_uid_launching_guard.pop(model_uid, None)
@@ -6074,16 +6133,27 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             logger.error(
                 f"Failed to finalize launch of model {model_uid}", exc_info=True
             )
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
 
-    async def _clean_up_failed_launch(self, model_uid: str, model_ref=None):
+    async def _clean_up_failed_launch(
+        self,
+        model_uid: str,
+        model_ref=None,
+        progressor: Optional["Progressor"] = None,
+    ):
         """Roll back the state registered by ``launch_builtin_model`` when the
         launch fails after registration (e.g. an engine that loads
         asynchronously crashes at init and the error only surfaces in
         ``wait_for_load``). Without this, the stale ``_model_uid_to_model``
         entry makes relaunching the same model_uid fail on the registration
         assert until the whole service is restarted."""
+        # Only finish the generation captured by the failing launch. Recovery
+        # may already have registered a new progressor for the same UID.
+        if progressor is not None:
+            await WorkerActor._finish_launch_progress(
+                self, model_uid, False, progressor
+            )
         try:
             fence = getattr(self, "_control_fence", None)
             if fence is None:
@@ -6113,13 +6183,22 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
     @management_operation
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
+        progressor = getattr(self, "_launch_progressors", {}).get(model_uid)
         try:
             await model_ref.wait_for_load()
         except Exception:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
-            await self._clean_up_failed_launch(model_uid, model_ref)
+            await self._clean_up_failed_launch(model_uid, model_ref, progressor)
             raise
-        await self._update_model_state(model_uid, "ready")
+        try:
+            await self._update_model_state(model_uid, "ready")
+        except Exception:
+            await WorkerActor._finish_launch_progress(
+                self, model_uid, False, progressor
+            )
+            raise
+        if progressor is not None:
+            await WorkerActor._finish_launch_progress(self, model_uid, True, progressor)
 
     @log_sync(logger=logger, level=logging.INFO)
     @management_operation
@@ -6741,6 +6820,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             if reload_children:
                 await asyncio.to_thread(_stop_reload_children, reload_children)
             self._release_virtual_env_usage(model_uid)
+            await WorkerActor._finish_launch_progress(self, model_uid, False)
 
             self._model_uid_to_model.pop(model_uid, None)
             if getattr(self, "_control_fence", None) is not None:
@@ -8060,9 +8140,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         rep_model_uid = launch_args.get("model_uid")
         origin_uid, _ = parse_replica_model_uid(rep_model_uid)
         xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
-        is_xavier: bool = xavier_config is not None
+        uses_xavier_collective = xavier_config is not None and (
+            not xavier_config.get("cpu_prefix_cache")
+            or xavier_config.get("gpu_cache_bytes") is not None
+        )
         supervisor_ref = await self.get_supervisor_ref(add_worker=False)
-        if is_xavier:
+        if uses_xavier_collective:
             rank = xavier_config.get("rank")
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
@@ -8081,7 +8164,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 )
                 await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
-        if is_xavier:
+        if uses_xavier_collective:
             model_ref = self._model_uid_to_model[rep_model_uid]
             await model_ref.start_transfer_for_vllm([])
             rank = xavier_config.get("rank")
@@ -8096,7 +8179,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
         if (
-            (is_xavier and xavier_config.get("role") in ("prefill", "decode"))
+            (
+                uses_xavier_collective
+                and xavier_config.get("role") in ("prefill", "decode")
+            )
             or launch_args.get("_nixl_config")
             or launch_args.get("_xavier_cache_config", {}).get("role")
             in ("prefill", "decode")

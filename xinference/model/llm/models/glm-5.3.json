@@ -1,6 +1,7 @@
 [
   {
     "model_name": "glm-5.3",
+    "reasoning_effort": {"values": ["low", "high", "max"]},
     "model_description": "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks.",
     "context_length": 1048576,
     "model_lang": [
@@ -126,7 +127,7 @@
         "transformers>=5.15.0 ; #engine# == \"vllm\" or #engine# == \"Transformers\""
       ]
     },
-    "featured": false,
-    "updated_at": 1791693366
+    "featured": true,
+    "updated_at": 1793553196
   }
 ]

@@ -11,7 +11,7 @@
     "model_src": {
       "huggingface": {
         "model_id": "FunAudioLLM/CosyVoice-300M",
-        "model_revision": "39c4e13d46bd4dfb840d214547623e5fcd2428e2"
+        "model_revision": "24c40509c3c5ea6fe06b5f8790ff99e3714a6bee"
       },
       "modelscope": {
         "model_id": "iic/CosyVoice-300M",

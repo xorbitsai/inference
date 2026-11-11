@@ -481,3 +481,7 @@ msgstr "코드로 사용자 정의 모델을 등록 해제합니다."
 
 #~ msgid "``architectures`` and other model metadata (when available)"
 #~ msgstr ""
+
+#: ../../source/models/custom.rst:305
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method``: ``model_specs`` 에서 이미 양자화된 체크포인트의 방식을 지정하는 선택 필드입니다. 현재 지원되는 방식은 ``compressed-tensors`` 뿐입니다. vLLM은 로드할 때 체크포인트의 양자화 구성을 감지합니다. 런타임에 양자화하는 경우 이 필드를 생략하세요."

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block, tagged_string_start
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,6 @@ class MiniMaxToolParser(ToolParser):
         self.tool_call_end_token: str = "</minimax:tool_call>"
 
         self.think_regex = re.compile(r"<think>(.*?)</think>", re.DOTALL)
-        self.content_regex = (
-            r"(<(?:think|minimax:tool_call)>.*?</(?:think|minimax:tool_call)>)"
-        )
         self.tool_call_complete_regex = re.compile(
             r"<minimax:tool_call>(.*?)</minimax:tool_call>", re.DOTALL
         )
@@ -68,18 +66,6 @@ class MiniMaxToolParser(ToolParser):
             results.append((name, args))
         return results
 
-    def _get_function_calls(self, model_output: str) -> List[str]:
-        functions_calls = []
-        last_end = 0
-        for m in re.finditer(self.content_regex, model_output, re.DOTALL):
-            if m.start() > last_end:
-                functions_calls.append(model_output[last_end : m.start()])
-            functions_calls.append(m.group(0))
-            last_end = m.end()
-        if last_end < len(model_output):
-            functions_calls.append(model_output[last_end:])
-        return functions_calls
-
     def _get_function_calls_streaming(self, model_output: str) -> List[str]:
         matched_ranges = self.tool_call_regex.findall(model_output)
         return matched_ranges
@@ -114,78 +100,105 @@ class MiniMaxToolParser(ToolParser):
             text, [self.tool_call_start_token]
         )
 
+    def _tool_markup(self, text: str) -> str:
+        """Return ``text``, at the same offsets, as tool tags should be read from it."""
+        return text
+
+    def _settled_events(
+        self, text: str, markup: str, start: int, end: int
+    ) -> List[ToolEvent]:
+        """Return the plain text and every invoke of each closed block in a range."""
+        events: List[ToolEvent] = []
+        position = start
+        for match in self.tool_call_complete_regex.finditer(markup, start, end):
+            if match.start() > position:
+                events.append((text[position : match.start()], None, None))
+            invokes = self._parse_invoke_calls(match.group(0))
+            if invokes:
+                events.extend((None, name, args) for name, args in invokes)
+            else:
+                events.append((match.group(0), None, None))
+            position = match.end()
+        if position < end:
+            events.append((text[position:end], None, None))
+        return events
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        if self.tool_call_start_token not in model_output:
-            return [(model_output, None, None)]
+        # Only a closed block is a call, as in streaming. A truncated one stays
+        # text, so the response keeps its finish reason.
+        markup = self._tool_markup(model_output)
+        return self._settled_events(model_output, markup, 0, len(model_output)) or [
+            (model_output, None, None)
+        ]
 
-        results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
-            []
+    _INVOKE_END = "</invoke>"
+    _INVOKE_OPEN = re.compile(r'\s*<invoke\s+name="([^"]+)">')
+    _PARAMETER_OPEN = re.compile(r'\s*<parameter\s+name="(?P<key>[^"]+)">')
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        body = open_block(
+            self._tool_markup(text),
+            self.tool_call_start_token,
+            self.tool_call_end_token,
         )
-        try:
-            function_calls = self._get_function_calls(model_output)
-            if not function_calls:
-                return [(model_output, None, None)]
+        if body is None:
+            return None
+        invoke_start: int = body
+        preceding = 0
+        last_end = text.rfind(self._INVOKE_END, body)
+        if last_end != -1:
+            for complete in self.invoke_regex.finditer(
+                text, body, last_end + len(self._INVOKE_END)
+            ):
+                invoke_start = complete.end()
+                preceding += 1
+        match = self._INVOKE_OPEN.match(text, invoke_start)
+        if match is None:
+            return None
+        name = match[1]
 
-            for function_call in function_calls:
-                if self.tool_call_start_token in function_call:
-                    invokes = self._parse_invoke_calls(function_call)
-                    if not invokes:
-                        results.append((function_call, None, None))
-                        continue
-                    for name, args in invokes:
-                        results.append((None, name, args))
-                else:
-                    if function_call:
-                        results.append((function_call, None, None))
-            return results
-        except Exception as e:
-            logger.error(
-                "Can't parse minimax tool call output: %s. Error: %s",
-                model_output,
-                e,
-            )
-            return [(model_output, None, None)]
+        def parse_completed(completed: str) -> Dict[str, Any]:
+            return {
+                key: self._parse_param_value(
+                    value, self._is_string_parameter(name, key)
+                )
+                for key, value in self.param_regex.findall(completed)
+            }
+
+        return tagged_string_start(
+            text,
+            match.end(),
+            name,
+            self._PARAMETER_OPEN,
+            "</parameter>",
+            parse_completed,
+            preceding_calls=preceding,
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> Optional[Union[ToolEvent, List[ToolEvent]]]:
         try:
-            if self.tool_call_start_token not in current_text:
+            markup = self._tool_markup(current_text)
+            previous = current_text[: len(current_text) - len(delta_text)]
+            start = self._settled_length(self._tool_markup(previous))
+            end = self._settled_length(markup)
+            if self.tool_call_start_token not in markup:
                 # Hold back a trailing piece that may start the tool call tag,
                 # and release it once it turns out to be text.
-                content = self._plain_text_delta(
-                    current_text, delta_text, [self.tool_call_start_token]
-                )
-                if content is None:
+                if end <= start:
                     return None if delta_text else (delta_text, None, None)
-                return (content, None, None)
+                return (current_text[start:end], None, None)
 
             # Text after an unclosed start tag belongs to a tool call block
             # that is still streaming. Emit only what became settled in this
             # chunk: plain text, and every invoke of each block that closed.
-            previous = current_text[: len(current_text) - len(delta_text)]
-            start = self._settled_length(previous)
-            end = self._settled_length(current_text)
             if end <= start:
                 return None
 
-            events: List[ToolEvent] = []
-            position = start
-            for match in self.tool_call_complete_regex.finditer(
-                current_text, start, end
-            ):
-                if match.start() > position:
-                    events.append((current_text[position : match.start()], None, None))
-                invokes = self._parse_invoke_calls(match.group(0))
-                if invokes:
-                    events.extend((None, name, args) for name, args in invokes)
-                else:
-                    events.append((match.group(0), None, None))
-                position = match.end()
-            if position < end:
-                events.append((current_text[position:end], None, None))
+            events = self._settled_events(current_text, markup, start, end)
             return events[0] if len(events) == 1 else events
         except Exception as e:
             logger.error("Error in MiniMax streaming tool call extraction: %s", e)

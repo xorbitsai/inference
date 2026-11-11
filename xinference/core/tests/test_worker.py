@@ -2697,6 +2697,57 @@ def test_prepare_virtual_env_system_torch_injects_cuda_index_by_default(monkeypa
     assert kwargs["extra_index_url"] == [PYTORCH_CUDA_WHEEL_URLS["cu130"]]
 
 
+@pytest.mark.parametrize(
+    "engine,cuda_version,index_suffix",
+    [
+        ("transformers", "13.0", "cu130"),
+        ("SGLang-Omni", "13.0", "cu128"),
+        ("SGLang-Omni", "12.8", "cu128"),
+        ("SGLang-Omni", "12.6", None),
+        ("SGLang-Omni", None, None),
+    ],
+)
+def test_prepare_audio8_virtual_env_engine_indexes(
+    monkeypatch, engine, cuda_version, index_suffix
+):
+    import importlib.metadata
+
+    from ...model.audio.core import match_audio
+
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "2.11.0+cu130" if name == "torch" else real_version(name),
+    )
+    monkeypatch.setattr(
+        "xoscar.virtualenv.platform.get_cuda_version", lambda: cuda_version
+    )
+    spec = match_audio("Audio8-TTS-Realistic-0.6b", "huggingface")
+    settings = spec.virtualenv.copy(deep=True)
+    settings.inherit_pip_config = False
+    manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        manager, settings, None, model_engine=engine, model_name=spec.model_name
+    )
+    packages, kwargs = manager.calls[0]
+    expected = (
+        [f"https://download.pytorch.org/whl/{index_suffix}"] if index_suffix else None
+    )
+    assert kwargs["extra_index_url"] == expected
+    if engine == "SGLang-Omni":
+        assert "torch==2.9.1+cu128" in packages
+        assert "#system_torch#" not in packages
+        assert kwargs["index_strategy"] == (
+            "unsafe-best-match" if index_suffix else None
+        )
+    else:
+        assert "#system_torch#" in packages
+        assert not any("sglang" in package for package in packages)
+    from ..virtual_env_manager import is_cuda_compatible
+
+    assert not is_cuda_compatible(["https://download.pytorch.org/whl/cu128"], "13.0")
+
+
 def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(
@@ -5431,3 +5482,34 @@ async def test_terminate_dead_model_removes_all_cached_rank_pools(monkeypatch):
     assert all(call.kwargs == {"force": True} for call in calls)
     assert uid not in worker._model_uid_to_model
     assert uid not in worker._model_uid_to_subpool_addresses
+
+
+@pytest.mark.parametrize("source", ["settings", "launch"])
+def test_trt_explicit_new_runtime_overrides_default_pin(tmp_path, monkeypatch, source):
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
+    explicit = ["tensorrt-llm==1.3.0rc29"]
+    settings = (
+        VirtualEnvSettings(packages=explicit, inherit_pip_config=False)
+        if source == "settings"
+        else None
+    )
+    monkeypatch.setattr(worker_module, "get_pip_config_args", lambda: {})
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        explicit if source == "launch" else None,
+        model_engine="TRT-LLM",
+    )
+    packages, _ = manager.calls[0]
+    requirements = [Requirement(package) for package in packages]
+    engine = [
+        requirement
+        for requirement in requirements
+        if canonicalize_name(requirement.name) == "tensorrt-llm"
+    ]
+    assert len(engine) == 1
+    assert str(engine[0].specifier) == "==1.3.0rc29"

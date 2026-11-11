@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { beforeEach, afterEach, it } from 'node:test';
 import React, { act } from 'react';
+import { AxiosError } from 'axios';
 // @ts-expect-error -- jsdom has no declarations in this dependency tree.
 import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
@@ -63,6 +64,9 @@ const { translations } = require('@/i18n/translations') as typeof import('@/i18n
 const originalGet = request.get;
 const originalPost = request.post;
 const originalDelete = request.delete;
+const { toast } = require('sonner') as typeof import('sonner');
+const originalSuccess = toast.success;
+const originalWarning = toast.warning;
 let root: Root;
 let host: HTMLDivElement;
 let models: Record<string, unknown>[];
@@ -73,6 +77,8 @@ let posts: string[];
 let deletes: string[];
 let failDelete: boolean;
 let failReads: Set<string>;
+let successes: string[];
+let warnings: string[];
 
 const uid = 'model/one';
 const progressUrl = '/v1/models/model%2Fone/progress';
@@ -154,6 +160,16 @@ beforeEach(async () => {
   deletes = [];
   failDelete = false;
   failReads = new Set();
+  successes = [];
+  warnings = [];
+  toast.success = ((message: unknown) => {
+    successes.push(String(message));
+    return 1;
+  }) as typeof toast.success;
+  toast.warning = ((message: unknown) => {
+    warnings.push(String(message));
+    return 1;
+  }) as typeof toast.warning;
   request.get = async <T,>(url: string) => {
     reads.push(url);
     if (failReads.has(url)) throw new Error('temporary failure');
@@ -185,6 +201,8 @@ afterEach(async () => {
   request.get = originalGet;
   request.post = originalPost;
   request.delete = originalDelete;
+  toast.success = originalSuccess;
+  toast.warning = originalWarning;
 });
 
 it('discovers a loading instance with independent replica progress and no inference controls', async () => {
@@ -509,6 +527,13 @@ it('provides lifecycle labels in every maintained UI language', () => {
     assert.ok(labels.clearFailedRecord);
     assert.ok(labels.clearFailedRecordConfirm.includes('{{modelUid}}'));
     assert.ok(labels.launchFailed);
+    assert.ok(labels.addReplicaState_pending);
+    assert.ok(labels.addReplicaState_unknown);
+    assert.ok(labels.addReplicaUnknown);
+    assert.ok(labels.addReplicaAcknowledge);
+    assert.ok(labels.addReplicaSuccessRefreshFailed);
+    assert.ok(labels.addReplicaElapsed.includes('{{seconds}}'));
+    assert.ok(labels.addReplicaWaitingCount.includes('{{count}}'));
   }
 });
 
@@ -540,4 +565,160 @@ it('falls back to the first model for a missing query target', async () => {
   ];
   await mount('removed-model');
   assert.equal(host.querySelectorAll('h4')[2]?.textContent, 'deepseek');
+});
+
+it('keeps an add-replica request and dialog bound to the selected model snapshot', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  models = [running()];
+  instances = [instance('READY')];
+  const get = request.get;
+  request.get = (<T,>(url: string) => {
+    if (url.endsWith('/replicas')) return Promise.resolve(instance('READY').replica_statuses as T);
+    return get<T>(url);
+  }) as typeof request.get;
+  let finish!: () => void;
+  request.post = <T,>(url: string) => {
+    posts.push(url);
+    return new Promise<T>((resolve) => {
+      finish = () => resolve({} as T);
+    });
+  };
+  await mount();
+  await act(async () => button('runningModels.addReplica')!.click());
+  const dialog = document.querySelector('[role="dialog"]')!;
+  assert.ok(dialog.textContent?.includes('demo'));
+  const confirm = [...dialog.querySelectorAll<HTMLButtonElement>('button')].find(
+    (b) => b.textContent === 'runningModels.addReplica'
+  )!;
+  await act(async () => confirm.click());
+  assert.deepEqual(posts, ['/v1/models/model%2Fone/replicas']);
+  models = [{ ...running(), id: 'second', model_name: 'another' }];
+  instances = [{ ...instance('READY'), model_uid: 'second', model_name: 'another' }];
+  await act(async () => context.mock.timers.tick(2000));
+  assert.equal(document.querySelector('[role="dialog"] input')?.getAttribute('value'), uid);
+  await act(async () => finish());
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.deepEqual(successes, ['runningModels.addReplicaSuccess']);
+  assert.equal(posts.length, 1);
+  assert.ok(reads.includes('/v1/models/model%2Fone/progress'));
+  await act(async () => button('runningModels.addReplica')!.click());
+  assert.equal(document.querySelector('[role="dialog"] input')?.getAttribute('value'), 'second');
+  assert.ok(document.querySelector('[role="dialog"]'));
+});
+
+function deferReplicaPost() {
+  let resolve!: (value?: unknown) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<unknown>((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  request.post = <T,>(url: string) => {
+    posts.push(url);
+    return promise as Promise<T>;
+  };
+  return { resolve, reject };
+}
+
+async function startReplicaAddition() {
+  models = [running()];
+  instances = [instance('READY')];
+  await mount();
+  await act(async () => button('runningModels.addReplica')!.click());
+  const confirm = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+    (b) => b.textContent === 'runningModels.addReplica'
+  )!;
+  await act(async () => confirm.click());
+}
+
+it('keeps waiting for 181 seconds despite READY replicas, then closes before a slow final refresh', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  const post = deferReplicaPost();
+  const get = request.get;
+  let slow = false;
+  let currentReplicas = instance('READY').replica_statuses.slice(0, 1);
+  let finishRefresh!: (value: unknown) => void;
+  let finalSignal: AbortSignal | undefined;
+  const refresh = new Promise<unknown>((resolve) => {
+    finishRefresh = resolve;
+  });
+  request.get = (<T,>(url: string, config?: { signal?: AbortSignal }) => {
+    if (url.endsWith('/replicas')) {
+      reads.push(url);
+      if (slow) {
+        finalSignal = config?.signal;
+        return refresh;
+      }
+      return Promise.resolve(currentReplicas);
+    }
+    return get<T>(url);
+  }) as typeof request.get;
+  await startReplicaAddition();
+  currentReplicas = instance('READY').replica_statuses;
+  await act(async () => context.mock.timers.tick(181000));
+  assert.ok(document.querySelector('[role="dialog"]'));
+  assert.ok(document.querySelector('[role="dialog"] article')?.textContent?.includes('READY'));
+  assert.deepEqual(successes, []);
+  slow = true;
+  await act(async () => post.resolve({}));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.deepEqual(successes, ['runningModels.addReplicaSuccess']);
+  assert.equal(finalSignal?.aborted, false);
+  const newReplica = {
+    ...instance('READY').replica_statuses[1],
+    replica_model_uid: 'new-replica-after-success',
+  };
+  await act(async () => finishRefresh([newReplica]));
+  assert.ok(host.textContent?.includes('new-replica-after-success'));
+  assert.deepEqual(warnings, []);
+});
+
+for (const failedQuery of ['replicas', 'progress']) {
+  it(`closes on success and warns outside the dialog when final ${failedQuery} refresh fails`, async (context) => {
+    context.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
+    const post = deferReplicaPost();
+    await startReplicaAddition();
+    failReads.add(`/v1/models/model%2Fone/${failedQuery}`);
+    await act(async () => post.resolve({}));
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.deepEqual(successes, ['runningModels.addReplicaSuccess']);
+    assert.deepEqual(warnings, ['runningModels.addReplicaSuccessRefreshFailed']);
+    await act(async () => context.mock.timers.tick(10000));
+    assert.equal(warnings.length, 1);
+    assert.equal(posts.length, 1);
+  });
+}
+
+for (const status of [500, 504]) {
+  it(`keeps the dialog open after ${status === 500 ? 'a backend failure' : 'an uncertain gateway result'}`, async () => {
+    const post = deferReplicaPost();
+    await startReplicaAddition();
+    const error = new AxiosError('request failed');
+    error.response = {
+      status,
+      data: { detail: 'load failed' },
+      headers: {},
+      statusText: '',
+      config: { headers: {} },
+    } as NonNullable<typeof error.response>;
+    await act(async () => post.reject(error));
+    assert.ok(document.querySelector('[role="dialog"]'));
+    assert.ok(
+      document.body.textContent?.includes(
+        `runningModels.addReplicaState_${status === 500 ? 'failed' : 'unknown'}`
+      )
+    );
+    assert.deepEqual(successes, []);
+    assert.equal(posts.length, 1);
+  });
+}
+
+it('keeps success and the dialog closed when the model list refresh fails', async () => {
+  const post = deferReplicaPost();
+  await startReplicaAddition();
+  failReads.add('/v1/models');
+  await act(async () => post.resolve({}));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.ok(host.textContent?.includes('runningModels.statusUnavailable'));
+  assert.deepEqual(successes, ['runningModels.addReplicaSuccess']);
 });

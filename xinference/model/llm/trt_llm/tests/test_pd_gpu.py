@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(
     sys.platform != "linux"
     or not os.environ.get("XINFERENCE_TRTLLM_TEST_MODEL")
     or not os.environ.get("XINFERENCE_TRTLLM_PD_TEST_GPUS"),
-    reason="Requires TRT-LLM 1.2.1, a model and two explicitly reserved GPU IDs",
+    reason="Requires a supported TRT-LLM runtime, a model and two explicitly reserved GPU IDs",
 )
 
 SCRIPT = r"""
@@ -50,12 +50,22 @@ async def main():
     prompt = 'The capital of France is Paris. '*24
     try:
         model.load()
+        if args['priority'] is not None:
+            assert model.supports_native_request_priority
+            tokens['priority'] = args['priority']
         if role == 'prefill':
             if args.get('fault'):
                 fault = await model.async_generate(prompt, {**tokens, '_pd_kv_transfer_params': {'do_remote_decode':True}}, 'fault')
                 (root/'fault.json').write_text(json.dumps(fault['_pd_kv_transfer_params']))
-                await wait(root/'fault-done')
-                await model.release_pd_request('fault')
+                if args['fault'] == 'orphan':
+                    # No receiver ever consumes this native context. Release
+                    # must cancel the transfer and leave the executor usable.
+                    await asyncio.wait_for(model.release_pd_request('fault'), 30)
+                    assert not model._pd.active
+                    (root/'fault-done').touch()
+                else:
+                    await wait(root/'fault-done')
+                    await model.release_pd_request('fault')
             result = await model.async_generate(prompt, {**tokens, '_pd_kv_transfer_params': {'do_remote_decode':True}}, 'live-pd')
             (root/'handoff.json').write_text(json.dumps(result['_pd_kv_transfer_params']))
             await wait(root/'release')
@@ -69,7 +79,9 @@ async def main():
             finally:
                 model._pd = pd
             (root/'ready').touch()
-            if args.get('fault'):
+            if args.get('fault') == 'orphan':
+                await wait(root/'fault-done')
+            elif args.get('fault'):
                 from xinference.model.llm.trt_llm.gpu import service
                 transport = service()
                 original_submit = transport.submit
@@ -138,6 +150,7 @@ asyncio.run(main())
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("priority", [None, -10])
 @pytest.mark.parametrize(
     "backend,stream,fault",
     [
@@ -145,11 +158,21 @@ asyncio.run(main())
         ("xavier", True, None),
         ("nixl", False, None),
         ("nixl", True, None),
+        ("nixl", False, "orphan"),
         ("xavier", False, "fail"),
         ("xavier", False, "cancel"),
     ],
 )
-async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream, fault):
+async def test_live_two_gpu_pd_matches_baseline(
+    tmp_path, backend, stream, fault, priority
+):
+    if priority is not None:
+        from importlib.metadata import version
+
+        from packaging.version import Version
+
+        if Version(version("tensorrt-llm")) < Version("1.3.0rc24"):
+            pytest.skip("Priority requires a TRT-LLM runtime with native priority")
     gpu_ids = os.environ["XINFERENCE_TRTLLM_PD_TEST_GPUS"].split(",")
     assert len(gpu_ids) == 2 and len(set(gpu_ids)) == 2
     pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
@@ -168,6 +191,7 @@ async def test_live_two_gpu_pd_matches_baseline(tmp_path, backend, stream, fault
                     model=os.environ["XINFERENCE_TRTLLM_TEST_MODEL"],
                     stream=stream,
                     fault=fault,
+                    priority=priority,
                 )
             )
         )

@@ -28,7 +28,9 @@ EXECUTION_OPTIONS = {
 }
 
 
-def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
+def configure_xavier(
+    model_path: str, config: dict, cache_config: dict, *, engine_version: str = "1.2.1"
+) -> None:
     if cache_config.get("role") not in (None, "prefill", "decode"):
         raise ValueError("TRT-LLM Xavier requires a prefill or decode role")
     if (
@@ -52,20 +54,26 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
     if set(config) - EXECUTION_OPTIONS or config.get("trust_remote_code"):
         raise ValueError("TRT-LLM Xavier does not allow model or execution overrides")
     if config.get("dtype", "bfloat16") not in ("auto", "bfloat16"):
-        raise ValueError("TRT-LLM 1.2.1 Qwen3 currently requires BF16 weights and KV")
+        raise ValueError("TRT-LLM Xavier currently requires BF16 weights and KV")
     if config.get("enable_chunked_prefill"):
         raise ValueError("TRT-LLM Xavier does not yet support chunked prefill")
     if config.get("disable_overlap_scheduler", True) is not True:
         raise ValueError("TRT-LLM Xavier requires disable_overlap_scheduler=true")
-    if config.get("scheduler_config"):
+    scheduler = dict(config.get("scheduler_config") or {})
+    if (
+        set(scheduler) - {"capacity_scheduler_policy", "waiting_queue_policy"}
+        or scheduler.get("capacity_scheduler_policy", "GUARANTEED_NO_EVICT")
+        != "GUARANTEED_NO_EVICT"
+    ):
         raise ValueError("TRT-LLM Xavier manages its capacity scheduler policy")
+    scheduler["capacity_scheduler_policy"] = "GUARANTEED_NO_EVICT"
     contract = build_pd_contract(model_path, config.get("max_seq_len"))
     checkpoint_config = json.loads((Path(model_path) / "config.json").read_text())
     if (
         checkpoint_config.get("dtype", checkpoint_config.get("torch_dtype"))
         != "bfloat16"
     ):
-        raise ValueError("TRT-LLM 1.2.1 Qwen3 requires a BF16 checkpoint")
+        raise ValueError("TRT-LLM Xavier requires a BF16 checkpoint")
     contract = replace(contract, logical_dtype="bfloat16")
     kv = dict(config.get("kv_cache_config") or {})
     if set(kv) - {
@@ -88,18 +96,20 @@ def configure_xavier(model_path: str, config: dict, cache_config: dict) -> None:
         kv_cache_config=kv,
         disable_overlap_scheduler=True,
         enable_chunked_prefill=False,
-        scheduler_config={"capacity_scheduler_policy": "GUARANTEED_NO_EVICT"},
+        scheduler_config=scheduler,
         kv_connector_config={
             "connector_module": "xinference.model.llm.trt_llm.connector",
             "connector_scheduler_class": "XavierConnectorScheduler",
             "connector_worker_class": "XavierConnectorWorker",
         },
     )
+    cache_config["contract"] = contract.to_dict()
     # The model process owns its environment and hosts TRT's embedded worker.
-    # KvCacheConnectorConfig in 1.2.1 has no user-config field.
+    # The connector receives only the native engine arguments.
     os.environ[CONFIG_ENV] = json.dumps(
         {
             **cache_config,
+            "engine_version": engine_version,
             "contract": contract.to_dict(),
             "max_seq_len": config.get("max_seq_len")
             or checkpoint_config["max_position_embeddings"],

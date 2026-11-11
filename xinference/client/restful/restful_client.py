@@ -18,9 +18,12 @@ from urllib.parse import quote
 import requests
 
 from ..common import (
+    IMAGE_DOWNLOAD_TIMEOUT,
     convert_float_to_int_or_str,
     encode_world_reference,
+    is_http_url,
     normalize_endpoint,
+    read_file_input,
     streaming_response_iterator,
 )
 
@@ -49,6 +52,20 @@ def _get_error_string(response: requests.Response) -> str:
     except requests.HTTPError as e:
         return str(e)
     return "Unknown error"
+
+
+def _streaming_response(response: requests.Response) -> Iterator[Any]:
+    def iterate():
+        try:
+            # Enter the cleanup scope before returning an unconsumed stream.
+            yield None
+            yield from streaming_response_iterator(response.iter_lines())
+        finally:
+            response.close()
+
+    stream = iterate()
+    next(stream)
+    return stream
 
 
 class RESTfulModelHandle:
@@ -310,6 +327,10 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/variations"
+        if isinstance(image, list):
+            image = [self._read_image(img) for img in image]
+        else:
+            image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -348,6 +369,28 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
+
+    def _download_if_url(self, image: Any) -> Any:
+        """Download an http(s) URL; paths, bytes and file objects pass through."""
+        if not (isinstance(image, str) and is_http_url(image)):
+            return image
+        # No auth headers: the Xinference credentials must not reach the image host.
+        try:
+            response = self.session.get(image, timeout=IMAGE_DOWNLOAD_TIMEOUT)
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"Failed to download an image, detail: {error}"
+            ) from error
+
+    def _read_image(self, image: Any) -> Any:
+        """Return the upload content of an image URL, local file path or bytes."""
+        image = self._download_if_url(image)
+        if isinstance(image, str):
+            with open(image, "rb") as f:
+                return f.read()
+        return image
 
     def image_edit(
         self,
@@ -409,6 +452,12 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         )
         """
         url = f"{self._base_url}/v1/images/edits"
+        # The route takes uploaded files only, so URLs are downloaded here.
+        if isinstance(images, list):
+            images = [self._download_if_url(image) for image in images]
+        else:
+            images = self._download_if_url(images)
+        mask = self._download_if_url(mask)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -530,6 +579,8 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             :param image:
         """
         url = f"{self._base_url}/v1/images/inpainting"
+        image = self._read_image(image)
+        mask_image = self._read_image(mask_image)
         params = {
             "model": self._model_uid,
             "prompt": prompt,
@@ -557,6 +608,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
+        image = self._read_image(image)
         params = {
             "model": self._model_uid,
             "kwargs": json.dumps(kwargs),
@@ -627,7 +679,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         image: `Union[str, bytes]`
-            The input image to condition the generation on.
+            The input image to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -652,13 +704,11 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
+        files.append(
+            ("image", ("image", read_file_input(image), "application/octet-stream"))
+        )
         if video is not None:
-            if isinstance(video, str):
-                with open(video, "rb") as f:
-                    video_data = f.read()
-            else:
-                video_data = video
+            video_data = read_file_input(video)
             files.append(
                 (
                     "video",
@@ -689,9 +739,9 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         Parameters
         ----------
         first_frame: `Union[str, bytes]`
-            The first frame to condition the generation on.
+            The first frame to condition the generation on, as a local file path or bytes.
         last_frame: `Union[str, bytes]`
-            The last frame to condition the generation on.
+            The last frame to condition the generation on, as a local file path or bytes.
         prompt: `str` or `List[str]`
             The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
         negative_prompt (`str` or `List[str]`, *optional*):
@@ -714,10 +764,10 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         files: List[Any] = []
         for key, value in params.items():
             files.append((key, (None, value)))
-        files.append(
-            ("first_frame", ("image", first_frame, "application/octet-stream"))
-        )
-        files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
+        for key, frame in (("first_frame", first_frame), ("last_frame", last_frame)):
+            files.append(
+                (key, ("image", read_file_input(frame), "application/octet-stream"))
+            )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -818,7 +868,7 @@ class RESTfulGenerateModelHandle(RESTfulModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
@@ -899,7 +949,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
             )
 
         if stream:
-            return streaming_response_iterator(response.iter_lines())
+            return _streaming_response(response)
 
         response_data = response.json()
         return response_data
@@ -1475,6 +1525,16 @@ class Client:
         if response.status_code != 202:
             raise RuntimeError(
                 f"Failed to reload model, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_model_runtime_info(self, model_uid: str) -> Dict[str, Any]:
+        """Return runtime_context_length (tokens, or None) and per-replica limits."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/runtime"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get model runtime info, detail: {_get_error_string(response)}"
             )
         return response.json()
 

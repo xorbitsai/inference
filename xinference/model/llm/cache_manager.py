@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import hashlib
+import json
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+import tempfile
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ..cache_manager import CacheManager
 
@@ -24,6 +27,38 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# Where the files of a user-registered model's cache directory were downloaded from
+# are recorded next to the model directories, never inside one, so that no file of a
+# repository can pass for the record or be displaced by it. The record maps what a
+# launch reuses to its source: GGUF files, including shards, aliases and projectors,
+# otherwise the whole directory.
+SOURCE_RECORD_DIR = ".model-sources"
+WHOLE_DIRECTORY = "."
+
+
+def _source_of(spec, quantization: Optional[str] = None) -> Dict[str, Any]:
+    model_id = spec.model_id
+    if model_id and "{" in model_id:
+        # Match the selected spec's expansion, including PyTorch's default.
+        # An invalid template is match_llm's error if that spec is selected.
+        with contextlib.suppress(
+            AttributeError, IndexError, KeyError, TypeError, ValueError
+        ):
+            model_id = model_id.format(
+                quantization=spec.quantization if quantization is None else quantization
+            )
+    return {
+        "model_hub": spec.model_hub,
+        "model_id": model_id,
+        "model_revision": spec.model_revision,
+    }
+
+
+def _describe_source(source: Dict[str, Any]) -> str:
+    revision = source.get("model_revision")
+    description = f"{source.get('model_hub')}:{source.get('model_id')}"
+    return f"{description}@{revision}" if revision else description
 
 
 class LLMCacheManager(CacheManager):
@@ -56,6 +91,7 @@ class LLMCacheManager(CacheManager):
         self._quantization = llm_family.model_specs[0].quantization
         self._model_uri = llm_family.model_specs[0].model_uri
         self._multimodal_projector = multimodal_projector
+        self._reuse_existing_gguf_files = False
         self._model_id = llm_family.model_specs[0].model_id
         self._model_hub = llm_family.model_specs[0].model_hub
         self._model_revision = llm_family.model_specs[0].model_revision
@@ -157,6 +193,239 @@ class LLMCacheManager(CacheManager):
                 f"`{{draft_quantization}}`: {exc!r}"
             )
 
+    def get_cache_status(self):
+        cache_dir = self.get_cache_dir()
+        if not os.path.exists(cache_dir):
+            return False
+        if (
+            self._model_format != "ggufv2"
+            or self._model_uri is not None
+            or self._use_draft_model
+        ):
+            return True
+        # The directory name does not depend on the file a spec names, so a
+        # directory cached under an older spec can lack the file the loader opens.
+        from .gguf_model_metadata import resolve_gguf_model_path
+
+        return os.path.exists(
+            resolve_gguf_model_path(cache_dir, self._llm_family.model_specs[0])
+        )
+
+    def _declared_sources(self) -> Optional[List[Dict[str, Any]]]:
+        """The downloads a user registration declares for this cache directory.
+
+        None for a model that is not user-registered: built-in specs name a
+        different repository per hub for one directory, so only registrations
+        are tied to the source they were downloaded from.
+        """
+        from .custom import get_user_defined_llm_families
+
+        for family in get_user_defined_llm_families():
+            if family.model_name == self._model_name:
+                return [
+                    _source_of(spec, quantization)
+                    for spec in family.model_specs
+                    if spec.model_uri is None
+                    and self.get_cache_dir_for_spec(self._model_name, spec)
+                    == self._cache_dir
+                    # match_llm also uses "none" for an omitted PyTorch quantization.
+                    for quantization in (
+                        (spec.quantization, "none")
+                        if spec.model_format == "pytorch"
+                        else (spec.quantization,)
+                    )
+                ]
+        return None
+
+    def _source_record_path(self) -> str:
+        return os.path.join(
+            self._v2_cache_dir_prefix,
+            SOURCE_RECORD_DIR,
+            os.path.basename(self._cache_dir) + ".json",
+        )
+
+    def _source_files(self, downloading: bool) -> List[str]:
+        """Files read on a cache hit, or written by a GGUF download."""
+        if self._model_format != "ggufv2" or self._model_uri is not None:
+            return [WHOLE_DIRECTORY]
+        from .gguf_model_metadata import resolve_gguf_model_path
+
+        file_names, final_file_name, need_merge = self._gguf_file_names()
+        if downloading:
+            if need_merge:
+                file_names.append(final_file_name)
+        elif not need_merge:
+            # Keep the runtime's legacy model.bin fallback.
+            file_names = [
+                os.path.relpath(
+                    resolve_gguf_model_path(
+                        self._cache_dir, self._llm_family.model_specs[0]
+                    ),
+                    self._cache_dir,
+                )
+            ]
+            if self._multimodal_projector:
+                file_names.append(self._multimodal_projector)
+        return list(
+            dict.fromkeys(
+                os.path.relpath(
+                    os.path.join(self._cache_dir, name), self._cache_dir
+                ).replace(os.sep, "/")
+                for name in file_names
+            )
+        )
+
+    def _read_records(self) -> Dict[str, Dict[str, Any]]:
+        """The recorded source of each file the directory holds, as far as known.
+
+        Empty for a directory cached before sources were recorded, and for one
+        that no longer exists: the record it left behind is not carried over.
+        """
+        if not os.path.exists(self._cache_dir):
+            return {}
+        record_path = self._source_record_path()
+        try:
+            with open(record_path, encoding="utf-8") as fd:
+                records = json.load(fd)
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            records = None
+        if not (
+            isinstance(records, dict)
+            and records
+            and all(isinstance(r, dict) and "model_hub" in r for r in records.values())
+        ):
+            raise ValueError(
+                f"The record of where the cache directory {self._cache_dir} of model "
+                f"{self._model_name} came from, {record_path}, cannot be read or is "
+                f"invalid, so its files cannot be checked against the registration. "
+                f"Remove the directory if the old files are no longer needed, or "
+                f"remove the record to use the directory as it is."
+            )
+        return records
+
+    def _check_source(self, may_record: bool) -> None:
+        """Tie the files a user-registered model reuses to the source they came from.
+
+        Unregistering a custom model leaves its downloaded directory behind. When
+        the same name is registered again for another repository or revision,
+        reusing the directory would serve the old files, so a file is reused only
+        if it came from a source the registration still declares. Nothing is
+        deleted or moved: only its owner can tell whether the old files are still
+        wanted.
+
+        Record new hub downloads before they start, under the files they add: a
+        GGUF directory can exist, with or without a record, while the download of
+        the selected file is still needed. Missing records and files without an
+        entry are accepted for compatibility with older caches, including when a
+        record was removed manually, except when completing a split GGUF download.
+        Unreadable or invalid records do not authorize reuse.
+        """
+        self._reuse_existing_gguf_files = False
+        declared = None if self._use_draft_model else self._declared_sources()
+        if declared is None:
+            return  # a drafter, or a model that is not user-registered
+        if os.path.islink(self._cache_dir):
+            return  # a link to the user's own model_uri directory
+        records = self._read_records()
+        # A failed download may have left entries for files that never arrived.
+        records = {
+            key: source
+            for key, source in records.items()
+            if key == WHOLE_DIRECTORY
+            or os.path.exists(os.path.join(self._cache_dir, key))
+        }
+        downloading = not self.get_cache_status()
+        files = self._source_files(downloading)
+        source = _source_of(self._llm_family.model_specs[0])
+
+        def refers_to_file(key: str, name: str) -> bool:
+            if name == WHOLE_DIRECTORY or key == WHOLE_DIRECTORY or key == name:
+                return True
+            # Account for aliases and case-insensitive filesystems without
+            # conflating distinct files on a case-sensitive volume.
+            with contextlib.suppress(OSError):
+                return os.path.samefile(
+                    os.path.join(self._cache_dir, key),
+                    os.path.join(self._cache_dir, name),
+                )
+            return False
+
+        # A missing main file does not authorize replacing another recorded
+        # source's shards or projector, even when both hubs are declared.
+        allowed = [source] if downloading and may_record else declared
+        used_sources = [
+            value
+            for key, value in records.items()
+            if any(refers_to_file(key, name) for name in files)
+        ]
+        recorded = next(
+            (value for value in used_sources if value not in allowed),
+            None,
+        )
+        if recorded is None and any(value != used_sources[0] for value in used_sources):
+            raise ValueError(
+                f"Cannot reuse cache directory {self._cache_dir} for model "
+                f"{self._model_name}: files used together were downloaded from "
+                f"different sources. Remove that directory if the old files are "
+                f"no longer needed, or register the model under another name."
+            )
+        if recorded is None:
+            if downloading and may_record:
+                if self._model_format == "ggufv2" and self._gguf_file_names()[2]:
+                    for name in files:
+                        if os.path.exists(
+                            os.path.join(self._cache_dir, name)
+                        ) and not any(refers_to_file(key, name) for key in records):
+                            raise ValueError(
+                                f"Cannot complete split GGUF model {self._model_name}: "
+                                f"cached file {name} has no source record. Remove the "
+                                f"cache directory {self._cache_dir} if the old files "
+                                f"are no longer needed, or register the model under "
+                                f"another name."
+                            )
+                additions = {
+                    name: source
+                    for name in files
+                    if name == WHOLE_DIRECTORY
+                    or not os.path.exists(os.path.join(self._cache_dir, name))
+                }
+                # Existing unrecorded files remain legacy; do not claim them.
+                self._record_source({**records, **additions})
+                self._reuse_existing_gguf_files = self._model_format == "ggufv2"
+            return
+        current = (
+            "a local model_uri"
+            if self._model_uri is not None
+            else _describe_source(_source_of(self._llm_family.model_specs[0]))
+        )
+        raise ValueError(
+            f"Model {self._model_name} is registered with {current}, but its cache "
+            f"directory {self._cache_dir} holds files downloaded from "
+            f"{_describe_source(recorded)}. Remove that directory if the old files "
+            f"are no longer needed, or register the model under another name."
+        )
+
+    def _record_source(self, records: Dict[str, Dict[str, Any]]) -> None:
+        record_path = self._source_record_path()
+        os.makedirs(os.path.dirname(record_path), exist_ok=True)
+        temp_path = f"{record_path}.{os.getpid()}.tmp"
+        try:
+            with open(temp_path, "w", encoding="utf-8") as fd:
+                json.dump(records, fd)
+            os.replace(temp_path, record_path)
+        finally:
+            with contextlib.suppress(OSError):
+                os.remove(temp_path)
+
+    def _reuse_gguf_file(self, file_name: str) -> bool:
+        # Source checks already covered existing recorded files. Preserve
+        # unrecorded legacy files rather than overwrite and misattribute them.
+        return self._reuse_existing_gguf_files and os.path.exists(
+            os.path.join(self._cache_dir, file_name)
+        )
+
     def _gguf_file_names(self):
         """File list for a gguf download: the drafter is a single file."""
         from ..utils import generate_model_file_names_with_quantization_parts
@@ -253,6 +522,8 @@ class LLMCacheManager(CacheManager):
             file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for file_name in file_names:
+                if self._reuse_gguf_file(file_name):
+                    continue
                 download_file_path = retry_download(
                     huggingface_hub.hf_hub_download,
                     self._model_name,
@@ -268,7 +539,7 @@ class LLMCacheManager(CacheManager):
                 if IS_NEW_HUGGINGFACE_HUB:
                     symlink_local_file(download_file_path, cache_dir, file_name)
 
-            if need_merge:
+            if need_merge and not self._reuse_gguf_file(final_file_name):
                 merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported model format: {self._model_format}")
@@ -326,6 +597,8 @@ class LLMCacheManager(CacheManager):
             file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
+                if self._reuse_gguf_file(filename):
+                    continue
                 download_path = retry_download(
                     model_file_download,
                     self._model_name,
@@ -339,7 +612,7 @@ class LLMCacheManager(CacheManager):
                 )
                 symlink_local_file(download_path, cache_dir, filename)
 
-            if need_merge:
+            if need_merge and not self._reuse_gguf_file(final_file_name):
                 merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported format: {self._model_format}")
@@ -411,6 +684,8 @@ class LLMCacheManager(CacheManager):
             file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
+                if self._reuse_gguf_file(filename):
+                    continue
                 download_path = retry_download(
                     file_download,
                     self._model_name,
@@ -425,15 +700,40 @@ class LLMCacheManager(CacheManager):
                 )
                 symlink_local_file(download_path, cache_dir, filename)
 
-            if need_merge:
+            if need_merge and not self._reuse_gguf_file(final_file_name):
                 merge_cached_files(cache_dir, file_names, final_file_name)
         else:
             raise ValueError(f"Unsupported format: {self._model_format}")
 
         return cache_dir
 
+    def _cache_lock_key(self, lock_dir: str) -> str:
+        # Parent identity plus filename stays stable before the destination exists.
+        parent, name = os.path.split(os.path.realpath(self._cache_dir))
+        insensitive = True  # Conservatively serialize aliases if probing fails.
+        try:
+            with contextlib.ExitStack() as stack:
+                # The permanent lock directory is an entry inside the parent whose
+                # case sensitivity governs the destination's name, even on macOS.
+                probe = lock_dir
+                if not os.path.samefile(parent, os.path.dirname(lock_dir)):
+                    probe = stack.enter_context(
+                        tempfile.TemporaryDirectory(prefix=".case-", dir=parent)
+                    )
+                alias = os.path.join(parent, os.path.basename(probe).swapcase())
+                insensitive = os.path.exists(alias) and os.path.samefile(probe, alias)
+        except OSError:
+            pass
+        if insensitive:
+            name = name.casefold()
+        identity = os.stat(parent)
+        return hashlib.sha256(
+            f"{identity.st_dev}:{identity.st_ino}:{name}".encode()
+        ).hexdigest()
+
     def cache(self) -> str:
         if self._model_uri is not None:
+            self._check_source(may_record=False)
             return self.cache_uri()
         # SDK downloads share a repository-level temporary directory even
         # across quantizations/revisions. Serialize cache checks and downloads
@@ -443,7 +743,14 @@ class LLMCacheManager(CacheManager):
         key = hashlib.sha256(f"{self._model_hub}:{self._model_id}".encode()).hexdigest()
         lock_dir = os.path.join(self._v2_cache_dir_prefix, ".download-locks")
         os.makedirs(lock_dir, exist_ok=True)
-        with FileLock(os.path.join(lock_dir, key + ".lock")):
+        cache_key = self._cache_lock_key(lock_dir)
+        # Different repositories can share a destination. Keep its record and
+        # cache-status check serialized through the entire download as well.
+        with (
+            FileLock(os.path.join(lock_dir, key + ".lock")),
+            FileLock(os.path.join(lock_dir, f"cache-{cache_key}.lock")),
+        ):
+            self._check_source(may_record=True)
             if self._model_hub == "huggingface":
                 return self.cache_from_huggingface()
             elif self._model_hub == "modelscope":

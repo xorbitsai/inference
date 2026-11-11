@@ -14,7 +14,7 @@
 
 import functools
 import uuid
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 
 class InferenceRequest:
@@ -68,6 +68,8 @@ class InferenceRequest:
         self.padding_len = 0
         # Use in stream mode
         self.last_output_length = 0
+        # Decodes the generated tokens step by step, set by the engine.
+        self.decoder: Optional[Any] = None
         # For tool call
         self.tools = None
         # Currently, for storing tool call streaming results.

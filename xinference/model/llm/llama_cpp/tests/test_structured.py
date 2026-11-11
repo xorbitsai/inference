@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import json
 import sys
+from concurrent.futures import Future
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any, Dict
@@ -21,7 +22,9 @@ from ..core import XllamaCppModel, _apply_response_format
 
 class _InlineExecutor:
     def submit(self, fn):
-        fn()
+        future = Future()
+        future.set_result(fn())
+        return future
 
 
 class _FakeLlamaCppServer:

@@ -6,6 +6,13 @@ Client API
 
 Complete Client API Reference: :ref:`reference_index`
 
+Loaded context length
+=====================
+
+``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` endpoint. ``runtime_context_length`` is the loaded adapter's total input-plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each ``replica_uid`` and its limit. The model-wide value is the minimum only when every active replica reports a value. Queries follow the serving generation after reload; the model details panel fetches this information on entry and after a reload.
+
+The registered ``context_length`` and OpenAI/Anthropic model, generation, and streaming response formats remain unchanged. vLLM, Transformers, MLX, and TRT-LLM report their adapter limit; SGLang queries its runtime. llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's ``/props`` endpoint, rather than dividing the launch-time total capacity. Older runtimes without a query interface report ``null``. The limit does not guarantee available memory.
+
 Replica management
 ==================
 
@@ -93,6 +100,19 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Agent cache lifecycle
+=====================
+
+Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={"id": "run-1", "revision": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``.
+
+A single replica can use ``enable_xavier=True`` and ``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention with recurrent state. Non-hybrid single-replica launches are rejected.
+
+Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active`` or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat marks the session active. Older revisions and phase changes at the same revision are rejected. Increase the revision after chat before sending ``waiting``. Repeating the same revision and phase refreshes the 300-second TTL. Xagent sends phase changes automatically; waits longer than five minutes require explicit refreshes.
+
+Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported.
+
+The registry holds at most 4096 sessions per model and 1024 per credential scope. Requests without credentials share one anonymous scope. Lifecycle IDs are independent of ``cache_salt``; use distinct session IDs for independent workflows, including workflows with different salts.
+
 Cache hit token counts
 ======================
 
@@ -102,8 +122,21 @@ With P/D disaggregation, this count includes KV transferred from the prefill eng
 
 For streaming requests, set ``stream_options={"include_usage": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero.
 
+Chat replica affinity
+=====================
+
+For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation.
+
+Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature.
+
+Xinference retains at most 4096 routing keys per model in a least-recently-used table shared across credentials. High key churn from one credential can evict another credential's affinity; this affects replica preference only.
+
+With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by the number of data-parallel ranks served by the replica as an advisory capacity. External load balancing serves one rank; hybrid load balancing counts local ranks. Invalid capacity values disable this engine-specific probe. Below this capacity, requests keep affinity and can batch. If all replicas are busy, Xinference keeps the preferred replica and its normal queueing and admission behavior. This probe counts requests, so requests with ``n > 1`` may consume more sequence slots than counted. Moving to another replica may incur prefix recomputation or KV transfer; the policy does not estimate these costs or reserve capacity.
+
 OpenAI Client Tool Calls
 ========================
+
+With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason="tool_calls"`` and validate the assembled JSON before executing any tool. With ``finish_reason="length"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response.
 
 .. code-block::
 
@@ -496,12 +529,45 @@ Output:
      'document': 'A woman is playing violin.'}]}
 
 
+Request priority
+================
+
+All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits.
+
+vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy="priority"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``.
+
+TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``"priority"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM.
+
+Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority.
+
+Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request.
+
+With the Xinference Python client, pass ``generate_config={"priority": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:
+
+.. code-block:: python
+
+    from openai import OpenAI
+
+    client = OpenAI(base_url="http://127.0.0.1:9997/v1", api_key="your-api-key")
+    response = client.chat.completions.create(
+        model="your-model-uid",
+        messages=[{"role": "user", "content": "Hello"}],
+        extra_body={"priority": -10},
+    )
+
+Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint.
+
+Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream.
+
+
 Chat completion errors
 ======================
 
 For ``/v1/chat/completions``, unexpected worker failures return a generic error message. Server logs and error events retain the original diagnostics.
 
 Before streaming starts, system-message ordering errors on strict templates and detected vLLM multimodal per-prompt limit violations return HTTP 400. If live limit lookup is unavailable, validation is deferred to the worker.
+
+``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422.
 
 For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500.
 

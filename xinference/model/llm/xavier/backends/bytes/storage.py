@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 import xoscar as xo
 
+from ...cache_lifecycle import SessionPrefixPolicy
 from ...contract import KVCacheContract
 
 
@@ -16,9 +17,12 @@ class XavierBytesCacheActor(xo.Actor):
         if type(capacity_bytes) is not int or capacity_bytes <= 0:
             raise ValueError("Xavier cache capacity must be a positive integer")
         self.capacity_bytes = capacity_bytes
-        self._contract = None
+        self._contract: KVCacheContract | None = None
+        self._namespace: str | None = None
+        self._page_bytes = 0
         self._pages: OrderedDict[str, bytes] = OrderedDict()
         self._handoffs: dict = {}
+        self._sessions = SessionPrefixPolicy()
         self._counts = dict(
             stored_pages=0,
             read_pages=0,
@@ -32,21 +36,31 @@ class XavierBytesCacheActor(xo.Actor):
         contract = KVCacheContract.from_dict(metadata)
         if self._contract is not None:
             self._contract.require_match(contract)
-        else:
-            page_bytes = contract.layer_nbytes * contract.num_layers
-            if page_bytes > self.capacity_bytes:
-                raise ValueError("Xavier cache budget cannot hold one complete page")
-            self._contract = contract
-            self._page_bytes = page_bytes
-            self._capacity = self.capacity_bytes // page_bytes
+        result = self.configure_pages(
+            contract.fingerprint, contract.layer_nbytes * contract.num_layers
+        )
+        self._contract = contract
+        return result
+
+    def configure_pages(self, namespace: str, page_bytes: int) -> dict:
+        """Register the byte layout of an engine-specific offload cache."""
+        if self._namespace is not None and (
+            namespace != self._namespace or page_bytes != self._page_bytes
+        ):
+            raise ValueError("Xavier cache namespace differs between replicas")
+        if type(page_bytes) is not int or not 0 < page_bytes <= self.capacity_bytes:
+            raise ValueError("Xavier cache budget cannot hold one complete page")
+        self._namespace = namespace
+        self._page_bytes = page_bytes
+        self._capacity = self.capacity_bytes // page_bytes
         return {
-            "namespace": contract.fingerprint,
+            "namespace": namespace,
             "capacity_pages": self._capacity,
             "max_keys": 4096,
         }
 
     def _validate(self, namespace, keys):
-        if self._contract is None or namespace != self._contract.fingerprint:
+        if self._namespace is None or namespace != self._namespace:
             raise ValueError("Unregistered or incompatible Xavier cache namespace")
         if (
             not isinstance(keys, (list, tuple))
@@ -70,6 +84,22 @@ class XavierBytesCacheActor(xo.Actor):
     def _pinned(self):
         return {key for entry in self._handoffs.values() for key in entry["keys"]}
 
+    def get_cache_sessions(self, session_ids):
+        return self._sessions.registry.get(session_ids)
+
+    def bind_cache_session(self, session, keys):
+        return self._sessions.bind(session, keys)
+
+    def update_cache_session(self, session):
+        accepted = self._sessions.registry.update(session)
+        self._order_waiting_prefixes()
+        return accepted
+
+    def _order_waiting_prefixes(self):
+        for key in self._sessions.waiting_keys():
+            if key in self._pages:
+                self._pages.move_to_end(key)
+
     def put(self, namespace, keys, pages, start=0):
         self._validate(namespace, keys)
         if (
@@ -85,6 +115,7 @@ class XavierBytesCacheActor(xo.Actor):
         if len(keys) > self._capacity:
             return [False] * len(keys)
         pinned = self._pinned()
+        self._order_waiting_prefixes()
         # Refresh an aged prefix before inserting any suffix pages. Otherwise
         # insertion can evict this chain's own head before the final refresh.
         for key in reversed(keys[:start]):
@@ -105,6 +136,7 @@ class XavierBytesCacheActor(xo.Actor):
         for key in reversed(keys):
             if key in self._pages:
                 self._pages.move_to_end(key)
+        self._order_waiting_prefixes()
         return [key in self._pages for key in keys]
 
     def get(self, namespace, keys):
@@ -127,6 +159,10 @@ class XavierBytesCacheActor(xo.Actor):
             if key not in self._pages:
                 return index
         return len(keys)
+
+    def contains(self, namespace, keys):
+        self._validate(namespace, keys)
+        return [key in self._pages for key in keys]
 
     def record_import(self, namespace, pages):
         self._validate(namespace, [])
@@ -184,9 +220,9 @@ class XavierBytesCacheActor(xo.Actor):
         self._expire()
         return {
             **self._counts,
-            "namespace": self._contract.fingerprint if self._contract else None,
+            "namespace": self._namespace,
             "pages": len(self._pages),
-            "used_bytes": len(self._pages) * getattr(self, "_page_bytes", 0),
+            "used_bytes": len(self._pages) * self._page_bytes,
             "capacity_bytes": self.capacity_bytes,
             "active_handoffs": len(self._handoffs),
         }

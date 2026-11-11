@@ -291,6 +291,8 @@ cache receives the files. If it is omitted, the supervisor selects one worker.
 Replica
 =======
 
+The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display.
+
 During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress``
 reports a stage for each replica. After model files finish downloading, a replica
 can report ``waiting_for_dependencies`` while another launch prepares its shared
@@ -307,6 +309,8 @@ omitted.
 
 The Web UI keeps the dependency installation result visible while a replica is
 loading. When no dependency installation is needed, the replica card says so.
+
+When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload.
 
 Replicas specify the number of model instances to load. For example, if you have two GPUs and each can host one replica of the model,
 you can set the replica count to 2. This way, two identical instances of the model will be distributed across the two GPUs.
@@ -414,6 +418,8 @@ omitted, Xinference assigns the stable default
 ``{model_uid}-{replica_index}`` (for example, ``my-model-0``). Omit ``gpu_idx``
 and use ``n_gpu="auto"`` to let the selected worker allocate GPUs
 automatically.
+
+In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply.
 
 Running models can be scaled by one or more replicas in a single operation.
 The new replicas reuse the existing launch configuration by default. You can
@@ -562,6 +568,8 @@ Reconfigure and upgrade running models
    The default for ``enable_weight_cache`` changed from ``False`` to automatic selection (``None``). Retained-weight models now support multiple replicas, scale-out and sequential reload.
 
 GPU weight retention defaults to automatic selection: supported model environments and configurations enable it; unsupported configurations start normally. Omit ``enable_weight_cache`` or pass ``None`` for automatic selection, set ``True`` to require retention, or ``False`` to disable it. In the deployment dialog, **Keep GPU weights for reload** offers **Auto**, **Enabled** and **Disabled**. Retention requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one Worker per replica, and fixed tensor parallelism within each replica. Multiple replicas and scale-out are supported; each replica retains its own weights independently.
+
+Checkpoints declaring ``quantization_method="compressed-tensors"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch.
 
 .. figure:: /_static/keep_weight_for_reload.png
    :alt: Configure GPU weight retention before deploying the model.

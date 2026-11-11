@@ -120,3 +120,92 @@ msgstr "``realtime=True`` を有効にした場合、``realtime_options`` はセ
 #: user_guide/realtime.rst:63
 msgid "Optimization is disabled by default. This is a candidate configuration, not a latency guarantee. Removing ``realtime_options`` restores defaults; setting only ``optimize=false`` does not reset explicitly configured timing or segment limits."
 msgstr "最適化はデフォルトでは無効です。これは候補設定であり、レイテンシーを保証しません。``realtime_options`` を削除するとデフォルトに戻ります。``optimize=false`` だけを設定しても、明示的に設定した時間パラメーターやセグメント上限はリセットされません。"
+
+#: user_guide/realtime.rst:40
+msgid ""
+"For the Nano adapter, the limits and locking below apply. The Qwen3 engines "
+"use the separate defaults described later."
+msgstr "以下の制限とロックは Nano アダプターに適用されます。Qwen3 エンジンは後述の個別のデフォルト設定を使用します。"
+
+#: user_guide/realtime.rst:70
+msgid "Qwen3 audio with native batching"
+msgstr "ネイティブバッチ処理による Qwen3 音声"
+
+#: user_guide/realtime.rst:73
+msgid ""
+"Use Linux with CUDA and Python 3.11–3.13. In the model environment, install "
+"``vllm[audio]==0.32.0`` and ``silero-vad[onnx-cpu]`` for ASR; TTS additionally "
+"requires ``vllm-omni==0.32.0``. Engine-specific virtualenv packages are "
+"included in the built-in model specs."
+msgstr ""
+"CUDA 対応 Linux と Python 3.11–3.13 を使用します。モデル環境に ASR 用の "
+"``vllm[audio]==0.32.0`` と ``silero-vad[onnx-cpu]`` をインストールしてください。TTS にはさらに ``vllm-"
+"omni==0.32.0`` が必要です。組み込みモデルの仕様にはエンジン別の仮想環境パッケージが含まれています。"
+
+#: user_guide/realtime.rst:75
+msgid ""
+"Launch Qwen3-ASR with ``vLLM``. Each connection owns a Silero VAD "
+"state and utterance buffer; English is the default session language. Use the"
+" WebSocket protocol above with ``language=en``. Partial results re-decode "
+"utterance snapshots; this is segmental transcription, not incremental "
+"acoustic encoding. Both 0.6B and 1.7B models are supported."
+msgstr ""
+"Qwen3-ASR を ``vLLM`` で起動します。各接続が独立した Silero VAD "
+"状態と発話バッファを持ち、セッション言語のデフォルトは英語です。上記の WebSocket プロトコルで ``language=en`` "
+"を指定してください。部分結果は発話スナップショットを再認識して生成します。これは分割転写であり、増分音響エンコーディングではありません。0.6B と "
+"1.7B の両モデルをサポートします。"
+
+#: user_guide/realtime.rst:86
+msgid ""
+"ASR defaults to 16 concurrent sessions per replica. "
+"``XINFERENCE_REALTIME_MAX_SESSIONS`` overrides admission capacity; "
+"``max_num_seqs`` configures native engine scheduling. Concurrent file and "
+"WebSocket decodes enter the same AsyncLLM scheduler without a Python "
+"inference lock. Cancelling one session aborts only its request and retains "
+"its slot until abort settles. Measure throughput, latency and accuracy on "
+"the target GPU before choosing production limits."
+msgstr ""
+"ASR はデフォルトでレプリカあたり 16 個の同時セッションを許可します。``XINFERENCE_REALTIME_MAX_SESSIONS`` "
+"は受付容量を上書きし、``max_num_seqs`` はネイティブエンジンのスケジューリングを設定します。ファイルと WebSocket "
+"の同時認識要求は Python 推論ロックを介さず、同じ AsyncLLM "
+"スケジューラーに入ります。セッションのキャンセルはその要求のみを中止し、中止完了まで枠を保持します。本番の上限を決める前に、対象 GPU "
+"でスループット、遅延、精度を測定してください。"
+
+#: user_guide/realtime.rst:88
+msgid ""
+"Launch Qwen3-TTS CustomVoice with ``vLLM`` for native AsyncOmni batching and"
+" streaming. Both 0.6B and 1.7B CustomVoice models are supported; Base and "
+"VoiceDesign are excluded. Streaming requires ``stream=true`` and "
+"``response_format=pcm`` and returns mono 24 kHz PCM16 little-endian chunks. "
+"The default speaker is ``ryan`` and the default language is English. Close "
+"the response to cancel generation."
+msgstr ""
+"Qwen3-TTS CustomVoice を ``vLLM`` で起動すると、ネイティブ AsyncOmni "
+"バッチ処理とストリーミングを利用できます。0.6B と 1.7B の CustomVoice をサポートし、Base と VoiceDesign "
+"は対象外です。ストリーミングには ``stream=true`` と ``response_format=pcm`` が必要で、モノラル 24 kHz "
+"PCM16 リトルエンディアンの音声チャンクを返します。デフォルト話者は ``ryan``、言語は英語です。応答を閉じると生成をキャンセルします。"
+
+#: user_guide/realtime.rst:73
+#, python-brace-format
+msgid ""
+"Query ``GET /v1/models/{model_uid}/audio/capabilities`` before enabling "
+"voice controls. It reports the loaded adapter’s streaming and VAD support, "
+"supported TTS formats, sample rates and voice IDs. Unsupported adapters "
+"return an empty object. ``formats`` and ``sample_rates`` describe streaming "
+"output; ``file_formats`` lists non-streaming output formats."
+msgstr ""
+"音声コントロールを有効にする前に ``GET /v1/models/{model_uid}/audio/capabilities`` "
+"を照会してください。ロード済みアダプターのストリーミングと VAD の対応状況、対応する TTS 形式、サンプルレート、話者 ID "
+"を返します。非対応アダプターは空のオブジェクトを返します。 ``formats`` と ``sample_rates`` "
+"はストリーミング出力を示し、``file_formats`` は非ストリーミング出力の形式を示します。"
+
+#: user_guide/realtime.rst:90
+msgid ""
+"For ASR, ``max_num_seqs`` must be 1–128 (default 16); ``language=auto`` "
+"enables automatic detection. Native engine construction currently blocks the"
+" model Actor loop during loading; RPCs to that replica resume after "
+"initialization."
+msgstr ""
+"ASR の ``max_num_seqs`` は 1–128（デフォルトは 16）です。``language=auto`` "
+"で言語の自動検出を有効にします。現在、ネイティブエンジンの構築はロード中にモデル Actor のイベントループをブロックします。そのレプリカへの RPC"
+" は初期化後に再開します。"

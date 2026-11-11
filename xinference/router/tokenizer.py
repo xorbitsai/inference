@@ -82,7 +82,8 @@ def normalize_thinking_alias(template_kwargs: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
+def normalize_chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
+    """Expose the physical Chat API's effective controls before routing."""
     raw = payload.get("chat_template_kwargs") or {}
     if isinstance(raw, str):
         try:
@@ -101,6 +102,26 @@ def _chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(enable_thinking, bool):
         normalized["enable_thinking"] = enable_thinking
         normalized["thinking"] = enable_thinking
+
+    # The physical Chat API forwards top-level effort to the native encoder.
+    # Preserve it during token estimation, including its native prompt prefix.
+    if "reasoning_effort" in payload:
+        normalized.setdefault("reasoning_effort", payload["reasoning_effort"])
+    if "thinking_budget" in payload:
+        budget = payload["thinking_budget"]
+        if "thinking_budget" in normalized and normalized["thinking_budget"] != budget:
+            raise TokenizationError("Conflicting thinking_budget values")
+        normalized["thinking_budget"] = budget
+    if "thinking_budget" in normalized:
+        budget = normalized["thinking_budget"]
+        if type(budget) is not int or budget < 1:
+            raise TokenizationError("thinking_budget must be a positive integer")
+        if (
+            normalized.get("enable_thinking") is False
+            or normalized.get("thinking") is False
+        ):
+            raise TokenizationError("thinking_budget requires thinking to be enabled")
+        normalized["enable_thinking"] = True
     return normalized
 
 
@@ -136,7 +157,7 @@ class DeepSeekV4TokenEstimator:
                 raise TokenizationError("tools must be a list")
             messages = _attach_tools(messages, tools)
 
-        template_kwargs = _chat_template_kwargs(payload)
+        template_kwargs = normalize_chat_template_kwargs(payload)
         enable_thinking = bool(template_kwargs.get("enable_thinking", False))
         encode_messages = self._encoding.encode_messages
         kwargs: dict[str, Any] = {

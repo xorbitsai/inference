@@ -1,189 +1,177 @@
-<div align="center">
-<img src="../assets/xorbits-logo.png"  width="180px" alt="xorbits" />
+# ![Xinference](../assets/xinference-banner-platform-types.webp)
 
-# Xorbits Inference: 모델 서빙을 쉽게 🤖
+**Xinference(Xorbits Inference)는 오픈 소스 분산 추론 플랫폼입니다.**
 
-<p align="center">
-  <a href="https://xinference.co">Xinference Enterprise</a> ·
-  <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">Self-Hosting</a> ·
-  <a href="https://inference.readthedocs.io/">문서</a>
-</p>
+로컬 머신부터 분산 클러스터까지 이기종 하드웨어에서 모델을 배포하고 실행할 수 있습니다. Xinference는 언어, 비전, 임베딩, 리랭킹, 이미지, 오디오, 비디오, 월드 생성(실험적 기능)을 위한 300개 이상의 내장 모델을 제공합니다. 자체 모델도 등록할 수 있으며 Flexible 유형으로 전통적인 머신러닝 모델도 실행할 수 있습니다. Web UI에서 배포를 관리하고 OpenAI 호환 API, Python SDK 또는 CLI로 모델을 사용하세요.
 
-[![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
-[![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
-[![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
-[![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
-[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
-[![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
+[빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [플랫폼 비교](#플랫폼-비교) · [자체 호스팅](https://inference.readthedocs.io/en/latest/getting_started/installation.html) · [문서](https://inference.readthedocs.io/en/latest/) · [모델 카탈로그](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [릴리스](https://github.com/xorbitsai/inference/releases) · [Xinference Enterprise](https://xinference.co/enterprise.html)
 
-<p align="center">
-  <a href="../README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-454545?style=for-the-badge"></a>
-  <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_fr.md"><img alt="Français" src="https://img.shields.io/badge/Français-d9d9d9?style=for-the-badge"></a>
-  <br>
-  <a href="./README_es.md"><img alt="Español" src="https://img.shields.io/badge/Español-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_it.md"><img alt="Italiano" src="https://img.shields.io/badge/Italiano-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_pt_BR.md"><img alt="Português" src="https://img.shields.io/badge/Português-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_zh_TW.md"><img alt="繁體中文" src="https://img.shields.io/badge/繁體中文-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
-</p>
-</div>
-<br />
+[![GitHub 릴리스](https://img.shields.io/github/v/release/xorbitsai/inference?logo=github&label=release&style=flat-square)](https://github.com/xorbitsai/inference/releases)
+[![PyPI 버전](https://img.shields.io/pypi/v/xinference?logo=pypi&style=flat-square)](https://pypi.org/project/xinference/)
+[![Docker 태그](https://img.shields.io/docker/v/xprobe/xinference?sort=semver&logo=docker&label=docker%20tag&style=flat-square)](https://hub.docker.com/r/xprobe/xinference/tags)
+[![Python 버전](https://img.shields.io/pypi/pyversions/xinference?logo=python&style=flat-square)](https://pypi.org/project/xinference/)
+[![Python CI](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&label=CI&style=flat-square)](https://github.com/xorbitsai/inference/actions/workflows/python.yaml)
 
-Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 위한 강력하고 다목적의 라이브러리입니다. Xinference를 사용하면 단 한 줄의 명령으로 자체 모델이나 통합된 최첨단 모델을 배포하고 서비스로 제공할 수 있습니다. 연구자, 개발자, 데이터 과학자 모두 최신 AI 모델의 기능을 최대한 활용할 수 있습니다.
+[![Apache 2.0 라이선스](https://img.shields.io/github/license/xorbitsai/inference?label=license&style=flat-square)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
+[![GitHub 스타](https://img.shields.io/github/stars/xorbitsai/inference?logo=github&label=stars&style=flat-square)](https://github.com/xorbitsai/inference/stargazers)
+[![GitHub 포크](https://img.shields.io/github/forks/xorbitsai/inference?logo=github&label=forks&style=flat-square)](https://github.com/xorbitsai/inference/forks)
+[![기여자](https://img.shields.io/github/contributors/xorbitsai/inference?style=flat-square)](https://github.com/xorbitsai/inference/graphs/contributors)
+[![Docker 다운로드](https://img.shields.io/docker/pulls/xprobe/xinference?logo=docker&label=docker%20pulls&style=flat-square)](https://hub.docker.com/r/xprobe/xinference)
+[![Discord 커뮤니티](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/Xw9tszSkr5)
+[![Telegram 커뮤니티](https://img.shields.io/badge/Telegram-join-26A5E4?logo=telegram&logoColor=white&style=flat-square)](https://t.me/+nCNpwmySwk9iYmI1)
+[![X에서 Xinference 팔로우](https://img.shields.io/badge/X-follow-171717?logo=x&logoColor=white&style=flat-square)](https://x.com/Xinference_ai)
 
-<div align="center">
-<i><a href="https://discord.gg/Xw9tszSkr5">👉 우리 Discord 커뮤니티에 참여하세요!</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">Telegram 그룹에 참여하기</a></i>
-</div>
+**언어** · [English](../README.md) · [日本語](./README_ja_JP.md) · **한국어** · [Deutsch](./README_de.md) · [Français](./README_fr.md) · [Español](./README_es.md) · [Italiano](./README_it.md) · [Português](./README_pt_BR.md) · [繁體中文](./README_zh_TW.md) · [简体中文](./README_zh_CN.md)
 
-## 🔥 주요 하이라이트
-### 프레임워크 개선
-- Xinference 4.0.0은 다중 엔진 Xavier, 이기종 P/D 분리, 런타임 모델 재구성을 지원합니다: [릴리스 노트](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
-- 에이전트 네이티브 배포: Xinference는 [Xagent](https://github.com/xorbitsai/xagent)와 통합되어 동적 플래닝, 도구 사용 및 자율적 다단계 추론을 지원하며 정적 파이프라인의 한계를 넘어섭니다.
-- 자동 배칭: 여러 동시 요청을 자동으로 묶어 처리량을 크게 향상시킵니다. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
-- [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference 팀이 관리하는 새로운 llama.cpp Python 바인딩은 연속 배칭을 지원하며 프로덕션에 더 적합합니다. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
-- 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
-- vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
-### 신규 모델
-- [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) 기본 지원: [#5792](https://github.com/xorbitsai/inference/pull/5792)
-- FIBO 2.0 시리즈 ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)) 기본 지원: [#5790](https://github.com/xorbitsai/inference/pull/5790)
-- Ming-3.0 TTS 시리즈 ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)) 기본 지원: [#5788](https://github.com/xorbitsai/inference/pull/5788)
-- [Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0) 기본 지원: [#5764](https://github.com/xorbitsai/inference/pull/5764)
-- [MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) 기본 지원: [#5755](https://github.com/xorbitsai/inference/pull/5755)
-- [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) 기본 지원: [#5753](https://github.com/xorbitsai/inference/pull/5753)
-- Iris-3B 시리즈 ([Base](https://huggingface.co/speridlabs/iris-3b), [Turbo](https://huggingface.co/speridlabs/iris-3b/tree/main/turbo)) 기본 지원: [#5686](https://github.com/xorbitsai/inference/pull/5686)
-- MiniCPM-V-4.7 시리즈 ([1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B), [35B-A3B](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B)) 기본 지원: [#5676](https://github.com/xorbitsai/inference/pull/5676)
-- Qwen3.8-Flash-Next 시리즈 ([Base](https://huggingface.co/Qwen/Qwen3.8-Flash-Next), [FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)) 기본 지원: [#5673](https://github.com/xorbitsai/inference/pull/5673)
-- GLM-5.3 시리즈 ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)) 기본 지원: [#5666](https://github.com/xorbitsai/inference/pull/5666)
-- [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) 기본 지원: [#5665](https://github.com/xorbitsai/inference/pull/5665)
-- [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) 기본 지원: [#5661](https://github.com/xorbitsai/inference/pull/5661)
-- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) 기본 지원: [#5644](https://github.com/xorbitsai/inference/pull/5644)
-- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) 기본 지원: [#5591](https://github.com/xorbitsai/inference/pull/5591)
-- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) 기본 지원: [#5588](https://github.com/xorbitsai/inference/pull/5588)
-### 통합
-- [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
-- [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
-- [FastGPT](https://github.com/labring/FastGPT): 데이터 처리와 모델 호출을 위한 LLM 기반 지식 플랫폼.
-- [RAGFlow](https://github.com/infiniflow/ragflow): 문서의 심층 이해를 위한 오픈소스 RAG 엔진.
-- [MaxKB](https://github.com/1Panel-dev/MaxKB): RAG 통합형 오픈소스 지식베이스 어시스턴트.
+## 빠른 시작
 
-## 주요 기능
-🌟 모델 배포 간소화: LLM, 음성 인식, 멀티모달 모델의 배포를 단순화합니다. 실험용 및 프로덕션 모델을 단일 명령으로 설정하고 배포할 수 있습니다.
+### 1. 서버 시작
 
-⚡️ 최첨단 모델에 대한 쉬운 접근성: 통합된 최신 모델을 단 한 명령으로 시험해볼 수 있습니다. Xinference는 오픈소스 최첨단 모델에 대한 접근을 제공합니다.
-
-🖥 이기종 하드웨어 지원: GPU와 CPU를 효율적으로 활용(예: [ggml](https://github.com/ggerganov/ggml))하여 추론 속도를 높입니다.
-
-⚙️ 유연한 API 및 인터페이스: OpenAI 호환 RESTful API(함수 호출 포함), RPC, CLI, Web UI 등 다양한 인터페이스를 제공합니다.
-
-🌐 분산 배포: 여러 장치와 머신에 걸친 분산 추론을 용이하게 합니다.
-
-🔌 서드파티 통합: [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference), [LlamaIndex], [Dify], [Chatbox] 등과의 통합을 지원합니다.
-
-## 왜 Xinference인가
-| 기능                                      | Xinference | FastChat | OpenLLM | RayLLM |
-|-------------------------------------------|------------|----------|---------|--------|
-| OpenAI 호환 RESTful API                     | ✅         | ✅        | ✅       | ✅      |
-| vLLM 통합                                   | ✅         | ✅        | ✅       | ✅      |
-| 다양한 추론 엔진(GGML, TensorRT)            | ✅         | ❌        | ✅       | ✅      |
-| 다양한 플랫폼(CPU, Metal)                  | ✅         | ✅        | ❌       | ❌      |
-| 멀티노드 클러스터 배포                      | ✅         | ❌        | ❌       | ✅      |
-| 이미지 모델(텍스트→이미지)                  | ✅         | ✅        | ❌       | ❌      |
-| 텍스트 임베딩 모델                          | ✅         | ❌        | ❌       | ❌      |
-| 멀티모달 모델                               | ✅         | ❌        | ❌       | ❌      |
-| 음성 모델                                   | ✅         | ❌        | ❌       | ❌      |
-| OpenAI 기능(함수 호출)                      | ✅         | ❌        | ❌       | ❌      |
-
-## Xinference 사용법
-
-- **Self-Hosting Xinference Community Edition**
-  스타터 가이드를 따라 로컬에서 Xinference를 시작하세요. 자세한 내용은 문서(https://inference.readthedocs.io/) 참조.
-
-- **기업용 Xinference**
-  **Xinference Enterprise** 는 프로덕션 환경에서 모델을 운영하는 팀을 위한 상용 버전입니다. 자체 클라우드나 데이터 센터에 배포하거나 **Xinference Cloud** 의 관리형 전용 배포를 선택할 수 있습니다. 호스팅되는 **Model API** 를 통해 추론 인프라를 관리하지 않고도 OpenAI 호환 API로 지원 모델에 접근할 수 있습니다. 자세한 내용은 [xinference.co](https://xinference.co) 에서 확인하세요.
-  기업 관련 문의는 [이메일](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)로 연락해 주세요.
-
-## 최신 상태 유지
-
-GitHub에서 Xinference에 별을 눌러 릴리스 알림을 받으세요.
-
-![star-us](../assets/stay_ahead.gif)
-
-## 시작하기
-
-* [문서](https://inference.readthedocs.io/en/latest/index.html)
-* [내장 모델](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
-* [커스텀 모델](https://inference.readthedocs.io/en/latest/models/custom.html)
-* [배포 문서](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-
-### Quickstart
-
-**pip**
+처음 배포할 때 Xinference가 모델을 다운로드하고 엔진에 필요한 종속성을 설치합니다.
 
 ```bash
 pip install xinference
-xinference-local
+xinference-local --host 127.0.0.1
 ```
 
-**원커맨드 설치**
+[http://127.0.0.1:9997](http://127.0.0.1:9997)을 엽니다. 새 인스턴스에서는 서버 로그에 표시되는 설정 토큰으로 관리자 계정을 만든 다음 로그인합니다. [최초 설정](https://inference.readthedocs.io/en/latest/user_guide/auth_system.html#initial-admin-account)
 
-Linux/macOS:
+### 2. 채팅 모델 배포
+
+**Launch Model**에서 `qwen3.5`를 검색하고 배포 화면을 엽니다. **Recommend configuration**을 클릭하면 하드웨어에 맞는 설정이 채워집니다. 추천 내용을 확인한 뒤 **Deploy**를 클릭합니다.
+
+![추천 설정을 적용한 Qwen3.5 전체 배포 화면](../assets/guide-launch-recommend-auto.webp)
+
+### 3. 첫 요청 보내기
+
+**Running Models**에서 배포된 모델을 열어 Web UI로 프롬프트를 시험할 수 있습니다. 첫 인스턴스의 모델 UID는 `qwen3.5`입니다. 다른 UID가 표시되면 아래 요청의 `model`에 그 값을 사용하세요. API를 호출하려면 **API Key Management**에서 키를 만듭니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+export XINFERENCE_API_KEY="<your-api-key>"
+curl --fail-with-body http://127.0.0.1:9997/v1/chat/completions \
+  -H "Authorization: Bearer $XINFERENCE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3.5",
+    "messages": [{"role": "user", "content": "Translate this sentence into Spanish: The model is ready."}],
+    "enable_thinking": false,
+    "max_tokens": 96
+  }'
 ```
 
-Windows PowerShell:
+![Qwen3.5 채팅 화면과 응답 결과](../assets/guide-chat-en.webp)
 
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
+## 주요 기능
 
-[설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+| 영역 | Xinference 지원 기능 |
+| --- | --- |
+| 모델 카탈로그 | 언어, 비전, 임베딩, 리랭킹, 이미지, 오디오, 비디오, 월드 생성(실험적 기능)을 위한 300개 이상의 내장 모델을 제공합니다. Flexible 유형의 전통적인 머신러닝 모델을 포함해 자체 모델도 등록할 수 있습니다. [모델 카탈로그](https://inference.readthedocs.io/en/latest/models/builtin/index.html) |
+| 엔진과 하드웨어 | 지원되는 LLM에는 vLLM, SGLang, TRT-LLM, Transformers, llama.cpp 또는 MLX를 선택할 수 있습니다. CPU, GPU, Apple Silicon 및 일부 MLU 구성의 지원 범위는 엔진에 따라 다릅니다. [추론 백엔드](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [MLU 지원](https://github.com/xorbitsai/inference/pull/3693) |
+| 분산 추론 | 한 대에서 실행하거나 워커와 레플리카를 추가할 수 있습니다. 지원 엔진을 사용하면 대형 모델을 여러 워커에서 실행할 수 있고, 호환 구성에서는 이기종 하드웨어에 프리필과 디코드를 나눌 수 있습니다. [분산 추론](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [P/D 분리](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html) |
+| API와 도구 | OpenAI 및 Anthropic 호환 엔드포인트를 제공하며, 지원 모델에서 스트리밍과 도구 호출을 사용할 수 있습니다. Web UI, CLI 또는 Python SDK로 모델을 배포하고 관리합니다. [클라이언트 가이드](https://inference.readthedocs.io/en/latest/user_guide/client_api.html) · [도구 호출](https://inference.readthedocs.io/en/latest/models/model_abilities/tools.html) |
+| 성능과 운영 | Web UI에서 실행 중인 채팅 모델의 성능을 측정합니다. 지원되는 구성은 Xavier를 통한 접두사 캐시 공유, 일부 런타임 설정 변경, 레플리카별 순차 재로딩을 지원합니다. [성능 테스트](https://inference.readthedocs.io/en/latest/user_guide/benchmarks.html) · [런타임 설정](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-without-reloading-weights) |
+| 다국어 지원 | Web UI는 영어, 중국어 간체와 번체, 일본어, 한국어를 지원합니다. README는 10개 언어로 제공됩니다. |
 
-### Docker
+## 플랫폼 비교
 
-NVIDIA GPU 사용자는 [Xinference Docker 이미지](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)를 사용할 수 있습니다. 설치 전에 Docker 및 CUDA가 설치되어 있는지 확인하세요.
+| 기능 | **Xinference** | LocalAI | KServe | NVIDIA Dynamo |
+| --- | :---: | :---: | :---: | :---: |
+| **Kubernetes 없이 단독 실행** | ![지원][compare-supported] | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![지원][compare-supported] |
+| **멀티 노드 추론** | ![지원][compare-supported] | ![지원][compare-supported] | ![지원][compare-supported] | ![지원][compare-supported] |
+| **CPU / GPU / Apple Metal** | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
+| **llama.cpp / vLLM / SGLang** | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
+| **CUDA와 Metal 간 프리필 및 디코드** | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
+| **하나의 모델 ID에서 서로 다른 엔진의 레플리카 혼용** | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
+| **GPU 가중치를 재사용하며 레플리카 설정을 순차 변경** | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
+| 모델 카탈로그 | ![지원][compare-supported] 300+ | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![일부 지원 또는 통합 필요][compare-partial] |
+| Web UI에서 모델 배포 | ![지원][compare-supported] | ![지원][compare-supported] | ![일부 지원 또는 통합 필요][compare-partial] | ![공식 문서에 지원 내용 없음][compare-undocumented] |
+| 임베딩 및 리랭킹 | ![지원][compare-supported] | ![지원][compare-supported] | ![지원][compare-supported] | ![지원][compare-supported] |
+| 이미지 및 비디오 생성 | ![지원][compare-supported] | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![지원][compare-supported] |
+| 음성 인식 및 합성 | ![지원][compare-supported] | ![지원][compare-supported] | ![공식 문서에 지원 내용 없음][compare-undocumented] | ![일부 지원 또는 통합 필요][compare-partial] |
 
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
+![][compare-supported] 지원 · ![][compare-partial] 일부 지원 또는 통합 필요 · ![][compare-undocumented] 공식 문서에 지원 내용 없음
 
-### K8s (Helm)
+<details>
+<summary>비교 범위와 출처</summary>
 
-GPU가 활성화된 Kubernetes 클러스터에서 다음과 같이 설치하세요:
+오픈 소스 릴리스의 공식 문서에 명시된 기능을 비교합니다. 엔진과 하드웨어 지원은 모델에 따라 다릅니다. CUDA와 Metal 간 P/D 분리에는 호환되는 모델과 엔진 조합이 필요합니다.
 
-```
-# 레포지토리 추가
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+Xinference는 같은 모델 ID에서 서로 다른 엔진의 레플리카를 동시에 운영할 수 있습니다. LocalAI는 하나의 모델 이름에 우선순위가 있는 장애 조치 체인을 구성하고 첫 번째로 사용 가능한 대상으로 요청을 보냅니다. KServe와 Dynamo는 별도 배포 사이에서 요청을 라우팅할 수 있습니다. GPU 가중치 재사용은 지원되는 vLLM 및 SGLang 구성에 적용됩니다.
 
-# 인덱스 업데이트 및 버전 확인
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
+- **Xinference** · [모델 카탈로그](https://inference.readthedocs.io/en/latest/models/builtin/index.html) · [백엔드](https://inference.readthedocs.io/en/latest/user_guide/backends.html) · [분산 추론](https://inference.readthedocs.io/en/latest/user_guide/distributed_inference.html) · [CUDA와 Metal 간 교차 엔진 P/D](https://inference.readthedocs.io/en/latest/user_guide/pd_separation.html#nvidia-and-mlx-cross-engine-p-d) · [레플리카 엔진 지정](https://inference.readthedocs.io/en/latest/user_guide/launch.html#replica) · [순차 재설정](https://inference.readthedocs.io/en/latest/user_guide/launch.html#reconfigure-and-upgrade-running-models)
+- **LocalAI** · [모델 및 배포 기능](https://localai.io/docs/features/index.html) · [엔진 및 하드웨어](https://localai.io/docs/reference/index.print.html) · [분산 모드](https://localai.io/docs/features/distributed-mode/) · [별칭 및 장애 조치](https://localai.io/docs/features/model-failover/index.html)
+- **KServe** · [배포 및 하드웨어](https://kserve.github.io/website/docs/intro) · [내장 생성형 런타임](https://kserve.github.io/website/docs/model-serving/generative-inference/overview) · [Kubeflow 모델 카탈로그](https://www.kubeflow.org/docs/components/hub/installation/) · [Kubeflow Web UI](https://www.kubeflow.org/docs/ecosystem/kserve/webapp/) · [카나리 배포](https://kserve.github.io/website/docs/model-serving/generative-inference/llmisvc/canary-rollout-observability)
+- **NVIDIA Dynamo** · [배포, 하드웨어 및 엔진](https://docs.dynamo.nvidia.com/dynamo) · [배포 레시피](https://docs.dynamo.nvidia.com/dynamo/recipes/browse) · [이미지, 비디오 및 음성 생성](https://docs.dynamo.nvidia.com/dynamo/diffusion/overview) · [임베딩 및 리랭킹](https://docs.dynamo.nvidia.com/dynamo/reference/releases/v1-6-0) · [배포 간 라우팅](https://docs.dynamo.nvidia.com/dynamo/reference/components/global-router-configuration)
 
-# Xinference 설치
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
+</details>
 
-자세한 K8s 옵션은 문서를 참조하세요.
+[compare-supported]: ../assets/compare-supported.svg
+[compare-partial]: ../assets/compare-partial.svg
+[compare-undocumented]: ../assets/compare-undocumented.svg
 
-![web UI](../assets/screenshot.png)
+## 최근 업데이트
 
-## 기여하기
+[v4.2.0 릴리스 노트](https://github.com/xorbitsai/inference/releases/tag/v4.2.0)
 
-| 플랫폼                                                                    | 목적                                  |
-|---------------------------------------------------------------------------|---------------------------------------|
-| [Github Issues](https://github.com/xorbitsai/inference/issues)            | 버그 리포트 및 기능 요청               |
-| [Discord](https://discord.gg/Xw9tszSkr5)                                 | 다른 사용자와 협업                     |
-| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                               | 커뮤니티 토론                          |
-| [Twitter](https://twitter.com/xorbitsio)                                 | 공지 및 업데이트                       |
+<details>
+<summary>최근 두 릴리스(v4.1, v4.2)에 추가된 내장 모델</summary>
+
+- [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b) · [#6003](https://github.com/xorbitsai/inference/pull/6003)
+- [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0) · [#5916](https://github.com/xorbitsai/inference/pull/5916)
+- [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3) · [#5914](https://github.com/xorbitsai/inference/pull/5914)
+- [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2) · [#5913](https://github.com/xorbitsai/inference/pull/5913)
+- [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein) · [#5792](https://github.com/xorbitsai/inference/pull/5792)
+- FIBO 2.0 ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)) · [#5790](https://github.com/xorbitsai/inference/pull/5790)
+- Ming-3.0 TTS ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)) · [#5788](https://github.com/xorbitsai/inference/pull/5788)
+- [Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0) · [#5764](https://github.com/xorbitsai/inference/pull/5764)
+- [MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT) · [#5755](https://github.com/xorbitsai/inference/pull/5755)
+- [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) · [#5753](https://github.com/xorbitsai/inference/pull/5753)
+- Iris-3B ([Base](https://huggingface.co/speridlabs/iris-3b), [Turbo](https://huggingface.co/speridlabs/iris-3b/tree/main/turbo)) · [#5686](https://github.com/xorbitsai/inference/pull/5686)
+- MiniCPM-V-4.7 ([1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B), [35B-A3B](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B)) · [#5676](https://github.com/xorbitsai/inference/pull/5676)
+- Qwen3.8-Flash-Next ([Base](https://huggingface.co/Qwen/Qwen3.8-Flash-Next), [FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)) · [#5673](https://github.com/xorbitsai/inference/pull/5673)
+- GLM-5.3 ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)) · [#5666](https://github.com/xorbitsai/inference/pull/5666)
+- [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo) · [#5665](https://github.com/xorbitsai/inference/pull/5665)
+- [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) · [#5661](https://github.com/xorbitsai/inference/pull/5661)
+
+</details>
+
+## 모델 성능 테스트
+
+**Performance Tests**를 열고 실행 중인 채팅 모델과 테스트할 동시 요청 수를 선택합니다. 처리량, 첫 토큰까지 걸리는 시간, 출력 토큰당 시간을 비교해 서빙 구성을 선택하세요. [성능 테스트 가이드](https://inference.readthedocs.io/en/latest/user_guide/benchmarks.html)
+
+![동시 요청 수에 따른 처리량과 지연 시간 그래프](../assets/guide-benchmark-en.webp)
+
+*Qwen3.5-0.8B를 로컬에서 실행한 예입니다. 성능은 하드웨어, 엔진 및 워크로드에 따라 달라집니다.*
+
+## Xinference 사용하기
+
+| 하려는 작업 | 시작하기 |
+| --- | --- |
+| Linux, macOS 또는 Windows에 설치 | [한 줄 명령으로 설치](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html) |
+| 컨테이너 또는 Kubernetes에서 실행 | [Docker](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) · [Kubernetes](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html) |
+| 자체 모델 등록 | [사용자 정의 모델](https://inference.readthedocs.io/en/latest/models/custom.html) |
+| 애플리케이션 연결 | [OpenAI 호환 API](https://inference.readthedocs.io/en/latest/user_guide/client_api.html#openai-client) · [Xagent](https://github.com/xorbitsai/xagent) · [Dify](https://marketplace.dify.ai/plugin/langgenius/xinference) |
+
+**앱 및 프레임워크** · [LangChain](https://reference.langchain.com/python/langchain-community/llms/xinference/Xinference) · [LlamaIndex](https://developers.llamaindex.ai/python/framework/integrations/llm/xinference_local_deployment/) · [FastGPT](https://doc.fastgpt.io/en/self-host/custom-models/xinference) · [RAGFlow](https://github.com/infiniflow/ragflow) · [MaxKB](https://github.com/1Panel-dev/MaxKB) · [Chatbox](https://chatboxai.app/)
+
+### Xinference Enterprise
+
+Xinference Enterprise를 자체 클라우드 또는 데이터 센터에 배포할 수 있습니다. Xinference Cloud는 관리형 전용 배포를 제공하고, Model API는 호스팅 모델 엔드포인트를 제공합니다. [Enterprise 개요](https://xinference.co/enterprise.html)
+
+**비즈니스 문의** · [info@xinference.co](mailto:info@xinference.co?subject=%5BGitHub%5DBusiness%20License%20Inquiry)
+
+## 프로젝트 참여
+
+| 플랫폼 | 용도 |
+| --- | --- |
+| [GitHub Issues](https://github.com/xorbitsai/inference/issues) | 버그를 보고하고 기능을 제안합니다. |
+| [Discord](https://discord.gg/Xw9tszSkr5) | 질문하거나 다른 사용자와 의견을 나눕니다. |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1) | Xinference 커뮤니티와 대화합니다. |
+| [X](https://x.com/Xinference_ai) | 프로젝트 소식과 릴리스를 확인합니다. |
 
 ## 인용
 
-이 프로젝트가 유용했다면 다음과 같이 인용해 주세요:
+연구에 Xinference를 사용한 경우 다음 논문을 인용해 주세요. [Xinference: Making Large Model Serving Easy](https://aclanthology.org/2024.emnlp-demo.30/)
 
 ```bibtex
 @inproceedings{lu2024xinference,
@@ -201,10 +189,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 
 ## 기여자
 
-<a href="https://github.com/xorbitsai/inference/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
-</a>
+Xinference에 기여하는 모든 분께 감사드립니다. 모델을 추가하거나 문서를 개선하고 버그를 수정하는 첫 Pull Request를 보내 주세요. [기여 가이드](https://inference.readthedocs.io/en/latest/development/contributing_codebase.html)
 
-## 스타 히스토리
-
-[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)
+[![Xinference 기여자 아바타 모음](https://contrib.rocks/image?repo=xorbitsai/inference)](https://github.com/xorbitsai/inference/graphs/contributors)

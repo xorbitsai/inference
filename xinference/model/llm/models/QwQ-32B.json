@@ -248,8 +248,7 @@
               "UD-Q4_K_XL",
               "UD-Q5_K_XL",
               "UD-Q6_K_XL",
-              "UD-Q8_K_XL",
-              "Q8_0"
+              "UD-Q8_K_XL"
             ],
             "quantization_parts": {
               "BF16": [
@@ -295,8 +294,7 @@
               "UD-Q4_K_XL",
               "UD-Q5_K_XL",
               "UD-Q6_K_XL",
-              "UD-Q8_K_XL",
-              "Q8_0"
+              "UD-Q8_K_XL"
             ],
             "quantization_parts": {
               "BF16": [
@@ -307,6 +305,46 @@
             "model_id": "unsloth/QwQ-32B-GGUF",
             "model_file_name_template": "QwQ-32B-{quantization}.gguf",
             "model_file_name_split_template": "BF16/QwQ-32B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/unsloth/QwQ-32B-GGUF/resolve/master/config.json",
+              "config_sha256": "e60692e5e2948d0ef4a8cd0941e893a97b070ff6c8fa6c89b2a6ba889b42719f",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q8_0"
+            ],
+            "model_id": "unsloth/QwQ-32B-GGUF",
+            "model_file_name_template": "QwQ-32B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/unsloth/QwQ-32B-GGUF/resolve/d5faedaaaae5cdacdc487b53d90dcc7210ca218c/config.json",
+              "config_sha256": "e60692e5e2948d0ef4a8cd0941e893a97b070ff6c8fa6c89b2a6ba889b42719f",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q8_0"
+            ],
+            "model_id": "unsloth/QwQ-32B-GGUF",
+            "model_file_name_template": "QwQ-32B.{quantization}.gguf",
             "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,

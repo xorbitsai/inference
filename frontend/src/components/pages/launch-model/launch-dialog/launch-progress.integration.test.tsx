@@ -8,6 +8,7 @@ import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
 import type { FormInstance } from '@/types/form';
 import type { DownloadProgressFile } from '@/types/services';
+import type { Locale } from '@/types/common';
 import type { CatalogModel } from '../types';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
@@ -61,6 +62,7 @@ const originalGet = request.get;
 const originalPost = request.post;
 const originalSetInterval = globalThis.setInterval;
 const originalClearInterval = globalThis.clearInterval;
+const originalDateNow = Date.now;
 const model: CatalogModel = {
   model_name: 'demo',
   model_description: '',
@@ -69,8 +71,10 @@ const model: CatalogModel = {
   modelSpecs: [],
 };
 let root: Root;
-let poll: () => Promise<void>;
 let polling = false;
+let intervals: Map<number, () => void | Promise<void>>;
+let nextIntervalId: number;
+let now: number;
 type ReplicaProgress = {
   replica_id: number;
   replica_model_uid: string;
@@ -96,6 +100,8 @@ let failReplicasOnce = false;
 let resolveLaunch!: (value: { model_uid: string }) => void;
 let rejectLaunch!: (reason: Error) => void;
 let resolveAutostart!: () => void;
+let resolveDownload!: () => void;
+let cancelRequest: Promise<unknown> | undefined;
 let closed = false;
 
 function rethrowWithDetails(error: unknown): never {
@@ -107,7 +113,35 @@ function rethrowWithDetails(error: unknown): never {
 
 async function tick() {
   await act(async () => {
-    await poll();
+    for (const callback of [...intervals.values()]) await callback();
+  });
+}
+
+async function renderDialog(visibleModel: CatalogModel | null = model, locale: Locale = 'en') {
+  localStorage.setItem('app_locale', locale);
+  await act(async () => {
+    root.render(
+      <GlobalProvider initClusterAuth={{ auth: false }}>
+        <I18nProvider key={locale} initialLocale={locale}>
+          <LaunchDialog
+            model={visibleModel ?? undefined}
+            modelType={ModelType.LLM}
+            gpuAvailable={1}
+            onOpenChange={(open) => {
+              closed = !open;
+            }}
+          />
+        </I18nProvider>
+      </GlobalProvider>
+    );
+  });
+}
+
+async function stop() {
+  await act(async () => {
+    Array.from(document.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Stop'))!
+      .click();
   });
 }
 
@@ -141,14 +175,21 @@ beforeEach(async () => {
   failProgressOnce = false;
   failReplicasOnce = false;
   polling = false;
+  intervals = new Map();
+  nextIntervalId = 0;
+  now = 1_000_000;
+  Date.now = () => now;
+  cancelRequest = undefined;
   closed = false;
-  globalThis.setInterval = ((callback: () => Promise<void>) => {
-    poll = callback;
+  globalThis.setInterval = ((callback: () => void | Promise<void>) => {
+    const id = ++nextIntervalId;
+    intervals.set(id, callback);
     polling = true;
-    return 1 as unknown as ReturnType<typeof setInterval>;
+    return id as unknown as ReturnType<typeof setInterval>;
   }) as typeof setInterval;
-  globalThis.clearInterval = (() => {
-    polling = false;
+  globalThis.clearInterval = ((id: number) => {
+    intervals.delete(id);
+    polling = intervals.size > 0;
   }) as typeof clearInterval;
   request.get = (async (url: string) => {
     if (url === '/v1/models/demo/progress') {
@@ -165,6 +206,7 @@ beforeEach(async () => {
       }
       return replicaStatuses;
     }
+    if (url.startsWith('/v1/cache/models/') && url.endsWith('/progress')) return progress;
     if (url.startsWith('/v1/engines/')) {
       return {
         Transformers: [
@@ -187,28 +229,19 @@ beforeEach(async () => {
         resolveAutostart = resolve;
       });
     }
+    if (url === '/v1/cache/models') {
+      return new Promise<void>((resolve) => {
+        resolveDownload = resolve;
+      });
+    }
+    if (url.endsWith('/cancel')) return cancelRequest ?? Promise.resolve({});
     return Promise.resolve({});
   }) as typeof request.post;
   const container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
   try {
-    await act(async () => {
-      root.render(
-        <GlobalProvider initClusterAuth={{ auth: false }}>
-          <I18nProvider initialLocale="en">
-            <LaunchDialog
-              model={model}
-              modelType={ModelType.LLM}
-              gpuAvailable={1}
-              onOpenChange={(open) => {
-                closed = !open;
-              }}
-            />
-          </I18nProvider>
-        </GlobalProvider>
-      );
-    });
+    await renderDialog();
   } catch (error) {
     rethrowWithDetails(error);
   }
@@ -216,11 +249,13 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await act(async () => root.unmount());
+  assert.equal(intervals.size, 0, 'unmount must clear both polling and elapsed-time intervals');
   document.body.innerHTML = '';
   request.get = originalGet;
   request.post = originalPost;
   globalThis.setInterval = originalSetInterval;
   globalThis.clearInterval = originalClearInterval;
+  Date.now = originalDateNow;
 });
 
 it('shows replica progress without an overall launch bar', async () => {
@@ -273,10 +308,19 @@ it('shows replica progress without an overall launch bar', async () => {
 
   replicaStatuses = [{ replica_id: 0, worker_address: 'worker:1234', status: 'READY' }];
   await tick();
+  assert.match(document.body.textContent!, /Deploying model, waiting for replicas to be ready/);
+  assert.equal(closed, false);
   await act(async () => resolveLaunch({ model_uid: 'demo' }));
   assert.equal(polling, false);
   assert.match(document.body.textContent!, /100%/);
   assert.match(document.body.textContent!, /Model is ready/);
+  assert.match(document.body.textContent!, /Model is ready, finishing deployment/);
+  assert.doesNotMatch(document.body.textContent!, /Waited \d+ seconds/);
+  assert.equal(
+    Array.from(document.querySelectorAll('button')).find((button) => button.textContent === 'Stop')!
+      .disabled,
+    true
+  );
   assert.equal(closed, false);
   await act(async () => resolveAutostart());
   assert.equal(closed, true);
@@ -288,6 +332,8 @@ it('stops polling and clears progress when deployment fails', async () => {
   await tick();
   await act(async () => rejectLaunch(new Error('load failed')));
   assert.equal(polling, false);
+  assert.equal(intervals.size, 0);
+  assert.doesNotMatch(document.body.textContent!, /Waited \d+ seconds/);
   assert.doesNotMatch(document.body.textContent!, /Preparing the runtime and loading the model/);
 });
 
@@ -449,6 +495,7 @@ it('stops polling and clears progress when deployment is cancelled', async () =>
       .click();
   });
   assert.equal(polling, false);
+  assert.equal(intervals.size, 0);
   assert.doesNotMatch(document.body.textContent!, /Preparing the runtime and loading the model/);
   await act(async () => rejectLaunch(new Error('cancelled')));
 });
@@ -458,6 +505,11 @@ it('provides the deployment stage and empty replica labels in every locale', () 
     const labels = translations[locale].launchModel;
     for (const key of [
       'noReplicaStatus',
+      'launchWaiting',
+      'launchElapsed',
+      'launchWaitHint',
+      'launchCanceling',
+      'launchFinishing',
       'overallProgress',
       'stagePreparing',
       'stageDownloading',
@@ -495,3 +547,163 @@ it('does not navigate when a background launch completes after closing its dialo
   await act(async () => resolveLaunch({ model_uid: 'demo' }));
   assert.deepEqual(navigations, []);
 });
+
+it('shows waiting immediately and measures elapsed wall time independently of polling', async () => {
+  assert.doesNotMatch(document.body.textContent!, /Deploying model, waiting/);
+  await deploy();
+  assert.match(document.body.textContent!, /Deploying model, waiting for replicas to be ready/);
+  assert.match(document.body.textContent!, /Waited 0 seconds/);
+  assert.match(document.body.textContent!, /Model preparation, downloading, and loading may take/);
+  assert.match(document.body.textContent!, /Waiting for replica status/);
+
+  // One refresh after a long gap must use elapsed time, not the number of callbacks.
+  now += 181_900;
+  failProgressOnce = true;
+  failReplicasOnce = true;
+  await tick();
+  assert.match(document.body.textContent!, /Waited 181 seconds/);
+  const elapsed = Array.from(document.querySelectorAll('span')).find((span) =>
+    span.textContent?.includes('Waited 181 seconds')
+  )!;
+  assert.equal(elapsed.getAttribute('aria-live'), 'off');
+  assert.equal(elapsed.closest('[role="status"], [aria-live="polite"]'), null);
+
+  replicaStatuses = [{ replica_id: 0, worker_address: 'worker:1234', status: 'READY' }];
+  progress = { progress: 1, stage: 'completed' };
+  now += 3000;
+  await tick();
+  assert.match(document.body.textContent!, /Waited 184 seconds/);
+  assert.match(document.body.textContent!, /Deploying model, waiting/);
+  assert.equal(closed, false);
+  await act(async () => resolveLaunch({ model_uid: 'demo' }));
+  assert.equal(intervals.size, 0);
+  assert.equal(closed, true);
+});
+
+it('resets the elapsed time when retrying after failure', async () => {
+  await deploy();
+  now += 60_000;
+  await tick();
+  assert.match(document.body.textContent!, /Waited 60 seconds/);
+  await act(async () => rejectLaunch(new Error('failed')));
+  assert.equal(intervals.size, 0);
+  await deploy();
+  assert.match(document.body.textContent!, /Waited 0 seconds/);
+  now += 2500;
+  await tick();
+  assert.match(document.body.textContent!, /Waited 2 seconds/);
+});
+
+it('keeps the original elapsed time when cancellation fails', async () => {
+  await deploy();
+  let rejectCancel!: (error: Error) => void;
+  cancelRequest = new Promise((_, reject) => {
+    rejectCancel = reject;
+  });
+  now += 5000;
+  await tick();
+  await stop();
+  assert.match(document.body.textContent!, /Canceling deployment, please wait/);
+  now += 10_000;
+  await tick();
+  assert.match(document.body.textContent!, /Waited 15 seconds/);
+  await act(async () => rejectCancel(new Error('cancel failed')));
+  assert.match(document.body.textContent!, /Deploying model, waiting/);
+  assert.match(document.body.textContent!, /Waited 15 seconds/);
+  assert.equal(closed, false);
+  assert.equal(intervals.size, 2);
+});
+
+it('ignores a canceled launch completing during the next deployment', async () => {
+  await deploy();
+  const oldResolve = resolveLaunch;
+  await stop();
+  assert.equal(intervals.size, 0);
+  await deploy();
+  now += 7000;
+  await tick();
+  await act(async () => oldResolve({ model_uid: 'demo' }));
+  assert.match(document.body.textContent!, /Deploying model, waiting/);
+  assert.match(document.body.textContent!, /Waited 7 seconds/);
+  assert.equal(intervals.size, 2);
+  assert.equal(closed, false);
+  assert.deepEqual(navigations, []);
+});
+
+it('cleans up on external close and isolates old requests and timers after reopening', async () => {
+  await deploy();
+  const oldResolve = resolveLaunch;
+  const oldTimer = [...intervals.values()][1];
+  const get = request.get;
+  let resolveOldProgress!: (value: unknown) => void;
+  request.get = ((url: string) =>
+    url === '/v1/models/demo/progress'
+      ? new Promise<unknown>((resolve) => {
+          resolveOldProgress = resolve;
+        })
+      : get(url)) as typeof request.get;
+  let inFlight!: Promise<void>;
+  await act(async () => {
+    inFlight = Promise.resolve([...intervals.values()][0]());
+  });
+  await renderDialog(null);
+  assert.equal(intervals.size, 0);
+  request.get = get;
+  now += 100_000;
+  await renderDialog();
+  await deploy();
+  now += 4000;
+  await tick();
+  await act(async () => {
+    await oldTimer();
+    resolveOldProgress({ progress: 0.9, stage: 'failed' });
+    await inFlight;
+    oldResolve({ model_uid: 'demo' });
+  });
+  assert.match(document.body.textContent!, /Waited 4 seconds/);
+  assert.match(document.body.textContent!, /Deploying model, waiting/);
+  assert.match(document.body.textContent!, /Waiting for replica status/);
+  assert.equal(intervals.size, 2);
+  assert.equal(closed, false);
+  assert.deepEqual(navigations, []);
+});
+
+it('shows only download progress for download-only operations', async () => {
+  await act(async () => {
+    form.setFieldsValue({
+      model_engine: 'Transformers',
+      model_format: 'pytorch',
+      model_size_in_billions: 7,
+      quantization: 'none',
+    });
+  });
+  await act(async () => {
+    Array.from(document.querySelectorAll('button'))
+      .find((button) => button.textContent === translations.en.launchModel.downloadOnly)!
+      .click();
+  });
+  progress = { progress: 0.4, stage: 'downloading' };
+  now += 30_000;
+  await tick();
+  assert.equal(intervals.size, 1);
+  assert.ok(document.querySelector('[aria-label="Overall progress"]'));
+  assert.match(document.body.textContent!, /40%/);
+  assert.doesNotMatch(document.body.textContent!, /Deploying model, waiting|Waited \d+ seconds/);
+  await act(async () => resolveDownload());
+  assert.equal(intervals.size, 0);
+  assert.equal(closed, true);
+});
+
+for (const locale of ['en', 'zh', 'zh-TW', 'ja', 'ko'] as const) {
+  it(`renders the deployment waiting notice and elapsed time in ${locale}`, async () => {
+    await renderDialog(model, locale);
+    await deploy();
+    const labels = translations[locale].launchModel;
+    assert.ok(document.body.textContent!.includes(labels.launchWaiting));
+    assert.ok(document.body.textContent!.includes(labels.launchWaitHint));
+    assert.ok(
+      document.body.textContent!.includes(labels.launchElapsed.replace('{{seconds}}', '0'))
+    );
+    assert.doesNotMatch(document.body.textContent!, /launchModel\.launch/);
+  });
+}

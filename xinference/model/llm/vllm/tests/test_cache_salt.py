@@ -61,6 +61,42 @@ def salt_model(monkeypatch, vllm_version, *, v1=True, native_salt=True):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("trusted", [True, False])
+@pytest.mark.parametrize("supported", [True, False])
+@pytest.mark.parametrize("stream", [True, False])
+async def test_cache_session_propagates_only_trusted_supported_tags(
+    monkeypatch, trusted, supported, stream
+):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+
+    model = salt_model(monkeypatch, "0.32.0")
+    model.supports_agent_cache_lifecycle = lambda: supported
+    session = CacheSessionTag("scoped-id", 2, scope="credential")
+    sent = session if trusted else session.to_dict()
+
+    class ReachedEngine(Exception):
+        pass
+
+    def generate(prompt, params, *args, **kwargs):
+        expected = (
+            {
+                CACHE_SESSION_ARG: session.to_dict(),
+                "kv_transfer_params": {CACHE_SESSION_ARG: session.to_dict()},
+            }
+            if trusted and supported
+            else None
+        )
+        assert getattr(params, "extra_args", None) == expected
+        raise ReachedEngine
+
+    model._engine.generate = generate
+    with pytest.raises(ReachedEngine):
+        await core.VLLMModel.async_generate.__wrapped__(
+            model, "text", {CACHE_SESSION_ARG: sent, "stream": stream}
+        )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("vllm_version", ["0.10.2", "0.11.0", "0.28.0"])
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize(

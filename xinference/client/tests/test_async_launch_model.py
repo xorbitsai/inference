@@ -29,6 +29,7 @@ async def test_async_launch_model_without_waiting():
         client = AsyncClient.__new__(AsyncClient)
         client.base_url = str(server.make_url("")).rstrip("/")
         client._headers = {}
+        client._cluster_authed = False
         client.session = session
 
         assert await client.launch_model("qwen", wait_ready=False) == "false"

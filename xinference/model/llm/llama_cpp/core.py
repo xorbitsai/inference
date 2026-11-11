@@ -20,6 +20,7 @@ import queue
 import time
 import uuid
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
+from urllib.parse import urlsplit, urlunsplit
 
 from packaging import version
 
@@ -31,12 +32,35 @@ from ....types import (
     CompletionChoice,
     CompletionChunk,
 )
+from ....utils import dependency_import_guard
 from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, normalize_response_format
 
 logger = logging.getLogger(__name__)
+
+
+def _owned_native_stream(
+    iterator: Iterator, task: concurrent.futures.Future
+) -> Iterator:
+    """Retain a native slot until its callback worker has actually finished."""
+
+    def owned():
+        try:
+            yield None  # Establish cleanup even before the first client read.
+            yield from iterator
+        finally:
+            try:
+                close = getattr(iterator, "close", None)
+                if close is not None:
+                    close()
+            finally:
+                task.result()
+
+    result = owned()
+    next(result)
+    return result
 
 
 def _schema_to_grammar(schema: Dict[str, Any]) -> Optional[str]:
@@ -139,9 +163,66 @@ def _make_stream_stop_chunk(
     }
 
 
+def _annotate_stop_sequence(
+    response: Dict[str, Any],
+    stop_sequences: Any,
+    matched_stop_sequence: Optional[str] = None,
+) -> Optional[str]:
+    """Annotate a stop choice and carry early stream metadata forward."""
+    if not isinstance(stop_sequences, list) or not stop_sequences:
+        return matched_stop_sequence
+
+    verbose = response.pop("__verbose", None)
+    candidates: List[Any] = []
+    if isinstance(verbose, dict):
+        candidates.append(verbose.get("stopping_word"))
+    candidates.extend(
+        response.get(key) for key in ("stopping_word", "stop_sequence", "stop")
+    )
+    choices = response.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else None
+    if isinstance(choice, dict):
+        candidates.extend(
+            choice.get(key) for key in ("stop_sequence", "stopping_word", "stop")
+        )
+
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate in stop_sequences:
+            matched_stop_sequence = candidate
+            break
+
+    if not isinstance(choice, dict) or choice.get("finish_reason") != "stop":
+        return matched_stop_sequence
+    if choice.get("stop_sequence") is not None:
+        return matched_stop_sequence
+    if matched_stop_sequence is not None:
+        choice["stop_sequence"] = matched_stop_sequence
+        return matched_stop_sequence
+
+    text = choice.get("text")
+    if not isinstance(text, str):
+        message = choice.get("message")
+        text = message.get("content") if isinstance(message, dict) else None
+    if isinstance(text, str):
+        matches = [
+            (text.find(stop), stop)
+            for stop in stop_sequences
+            if isinstance(stop, str) and text.find(stop) >= 0
+        ]
+        if matches:
+            matched_stop_sequence = min(matches)[1]
+            choice["stop_sequence"] = matched_stop_sequence
+    return matched_stop_sequence
+
+
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
     support_draft_model = True
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        return self._request_priority_capacity
 
     def __init__(
         self,
@@ -220,11 +301,12 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         try:
             from xllamacpp import common_speculative_type
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "Speculative decoding needs a xllamacpp that knows the "
-                "`gemma4-assistant` architecture, xllamacpp>=2026.6.9713"
-            )
+                "`gemma4-assistant` architecture (xllamacpp>=2026.6.9713). "
+                f"Import failed: {type(exc).__name__}: {exc}"
+            ) from exc
         mtp = getattr(
             common_speculative_type, "COMMON_SPECULATIVE_TYPE_DRAFT_MTP", None
         )
@@ -296,7 +378,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         return True
 
     def load(self):
-        try:
+        with dependency_import_guard("xllamacpp"):
             from xllamacpp import (
                 CommonParams,
                 Server,
@@ -313,11 +395,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     )
             except version.InvalidVersion:
                 pass  # If the version parse failed, we just skip the version check.
-        except ImportError:
-            error_message = "Failed to import module 'xllamacpp'"
-            installation_guide = ["Please make sure 'xllamacpp' is installed. "]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
         enable_thinking = self._llamacpp_model_config.pop("enable_thinking", True)
@@ -338,11 +415,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         elif os.path.isabs(multimodal_projector):
             mmproj = multimodal_projector
         else:
-            # ``model_path`` resolves to the model *file*; the projector lives
-            # alongside it, so resolve it against the model's directory. Joining
-            # onto ``self.model_path`` directly would yield ".../model.gguf/mmproj"
-            # (a nonexistent path) whenever --model-path points at a single file.
-            mmproj = os.path.join(os.path.dirname(model_path), multimodal_projector)
+            # A single-file --model-path keeps the projector alongside the file;
+            # joining onto it directly would yield ".../model.gguf/mmproj". A cache
+            # directory keeps the projector at its root, even when the model's
+            # shards sit in a per-quantization subdirectory.
+            projector_dir = (
+                os.path.dirname(model_path)
+                if os.path.isfile(self.model_path)
+                else self.model_path
+            )
+            mmproj = os.path.join(projector_dir, multimodal_projector)
 
         try:
             params = CommonParams()
@@ -426,11 +508,40 @@ class XllamaCppModel(LLM, ChatModelMixin):
                     )
 
             self._llm = Server(params)
+            callback_workers = max(10, n_threads)
+            self._request_priority_capacity = max(
+                1, min(params.n_parallel, callback_workers)
+            )
             self._executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=max(10, n_threads)
+                max_workers=callback_workers
             )
         except AssertionError:
             raise RuntimeError(f"Load model {self.model_family.model_name} failed")
+
+    def get_runtime_context_length(self) -> Optional[int]:
+        import requests
+
+        from ..context_length import normalize_runtime_positive_int
+
+        address = getattr(self._llm, "listening_address", None)
+        if not address:
+            return None
+        url = urlsplit(address)
+        # The server may listen on all interfaces; query its loopback address.
+        if url.hostname in {"0.0.0.0", "::"}:
+            host = "[::1]" if url.hostname == "::" else "127.0.0.1"
+            url = url._replace(netloc=f"{host}:{url.port}")
+        config = self._llamacpp_model_config
+        prefix = config.get("api_prefix", "").strip("/")
+        url = url._replace(path=f"/{prefix}/props" if prefix else "/props")
+        keys = config.get("api_keys") or []
+        headers = {"Authorization": f"Bearer {keys[0]}"} if keys else {}
+        with requests.get(urlunsplit(url), headers=headers, timeout=2) as response:
+            response.raise_for_status()
+            settings = response.json().get("default_generation_settings", {})
+            # This is the resolved per-slot value, including engine rounding;
+            # the launch-time n_ctx is the total pool across parallel slots.
+            return normalize_runtime_positive_int(settings.get("n_ctx"))
 
     def generate(
         self, prompt: str, generate_config: Optional[dict] = None
@@ -440,6 +551,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
+        capture_stop_sequence = isinstance(stop_sequences, list) and bool(
+            stop_sequences
+        )
         q: queue.Queue = queue.Queue()
 
         def _handle_completion():
@@ -448,6 +563,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             data.pop("logits_processor", None)
             data.pop("suffix", None)
             data.pop("best_of", None)
+            if capture_stop_sequence:
+                data["verbose"] = True
             data.update(
                 {
                     "prompt": prompt,
@@ -473,21 +590,30 @@ class XllamaCppModel(LLM, ChatModelMixin):
             q.put(_Done)
 
         assert self._executor
-        self._executor.submit(_handle_completion)
+        native_task = self._executor.submit(_handle_completion)
 
         if stream:
+            matched_stop_sequence = None
 
             def _to_iterator():
+                nonlocal matched_stop_sequence
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
                         raise Exception(_error_message(r.msg))
+                    if isinstance(r, dict):
+                        matched_stop_sequence = _annotate_stop_sequence(
+                            r, stop_sequences, matched_stop_sequence
+                        )
                     yield r
 
-            return _to_iterator()
+            return _owned_native_stream(_to_iterator(), native_task)
         else:
             r = q.get()
+            native_task.result()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             return r
 
     def _normalize_disabled_thinking_reasoning_content(
@@ -556,6 +682,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
         _map_repetition_penalty(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
+        stop_sequences = generate_config.get("stop")
+        capture_stop_sequence = isinstance(stop_sequences, list) and bool(
+            stop_sequences
+        )
 
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -574,6 +704,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             data.pop("logits_processor", None)
             data.pop("suffix", None)
             data.pop("best_of", None)
+            if capture_stop_sequence:
+                data["verbose"] = True
             data.update(
                 {
                     "messages": messages,
@@ -603,11 +735,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
             q.put(_Done)
 
         assert self._executor
-        self._executor.submit(_handle_chat_completion)
+        native_task = self._executor.submit(_handle_chat_completion)
 
         if stream:
+            matched_stop_sequence = None
 
             def _to_iterator():
+                nonlocal matched_stop_sequence
                 last_chunk = None
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
@@ -627,14 +761,22 @@ class XllamaCppModel(LLM, ChatModelMixin):
                             break
                         raise Exception(_error_message(r.msg))
                     last_chunk = r
+                    if isinstance(r, dict):
+                        matched_stop_sequence = _annotate_stop_sequence(
+                            r, stop_sequences, matched_stop_sequence
+                        )
                     yield r
 
-            return self._to_chat_completion_chunks(
-                _to_iterator(), self.reasoning_parser
+            return _owned_native_stream(
+                self._to_chat_completion_chunks(_to_iterator(), self.reasoning_parser),
+                native_task,
             )
         else:
             r = q.get()
+            native_task.result()
             if type(r) is _Error:
                 raise Exception(_error_message(r.msg))
+            if isinstance(r, dict):
+                _annotate_stop_sequence(r, stop_sequences)
             r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)

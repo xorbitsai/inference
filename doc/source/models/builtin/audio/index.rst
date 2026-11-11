@@ -12,6 +12,8 @@ The following is a list of built-in audio models in Xinference:
 
    ace-step1.5
 
+   audio8-tts-realistic-0.6b
+
    auk
 
    auk-flash

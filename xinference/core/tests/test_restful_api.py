@@ -158,7 +158,7 @@ async def test_restful_api(setup):
         "prompt": "Once upon a time, there was a very old computer.",
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 500
+    assert response.status_code == 422
 
     # chat without user messages
     url = f"{endpoint}/v1/chat/completions"
@@ -201,7 +201,7 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 500
+    assert response.status_code == 422
 
     payload = {
         "model": "bogus",
@@ -1362,6 +1362,19 @@ def _build_mock_chat_api(monkeypatch, desc):
         }
     )
     mock_supervisor.get_model = AsyncMock(return_value=model)
+    from ...model.llm import BUILTIN_LLM_FAMILIES
+
+    desc = dict(desc)
+    family = next(
+        (
+            f
+            for f in BUILTIN_LLM_FAMILIES
+            if f.model_name == desc.get("model_family", desc.get("model_name"))
+        ),
+        None,
+    )
+    if family is not None:
+        desc["reasoning_effort"] = family.to_description()["reasoning_effort"]
     mock_supervisor.describe_model = AsyncMock(return_value=desc)
     mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     return api, model
@@ -1585,21 +1598,20 @@ async def test_qwen38_reasoning_effort_preserves_enable_thinking(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_non_qwen38_top_level_reasoning_effort_unchanged(monkeypatch):
-    payload = {
-        "model": "test",
-        "messages": [{"role": "user", "content": "hi"}],
-        "reasoning_effort": "high",
-    }
-
-    model, response = await _create_chat_completion_with_mock_model(
-        monkeypatch, payload, {"model_name": "qwen3", "model_family": "qwen3"}
-    )
-
-    assert response.status_code == 200
-    called_args, called_kwargs = model.chat.call_args
-    assert "chat_template_kwargs" not in called_args[1]
-    assert called_kwargs["raw_params"]["reasoning_effort"] == "high"
+async def test_undeclared_reasoning_effort_rejected(monkeypatch):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "reasoning_effort": "high",
+                }
+            )
+        )
+    assert exc.value.status_code == 501
+    model.chat.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1927,6 +1939,147 @@ async def test_chat_completion_preflight_omits_tools_disabled_by_none(
     assert "tool_choice" not in rendered_configs[0]
     assert "tools" not in rendered_configs[0]
     model.chat.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_preflight_with_required_tool_choice(monkeypatch):
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm import core as vllm_core
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend._context_length = 512
+    backend._explicit_limit_mm_per_prompt = None
+    backend.model_family = SimpleNamespace(model_ability=["vision"])
+    backend.lora_requests = []
+    forced = Mock(side_effect=AssertionError("OpenAI requests render tools natively"))
+    monkeypatch.setattr(vllm_core, "prepare_forced_tools", forced)
+    rendered = []
+
+    async def prepare_inputs(messages, config):
+        tools = list(config.pop("tools", []))
+        rendered.append((messages, tools, dict(config)))
+        return (
+            {"prompt": "rendered", "multi_modal_data": {"image": [object()]}},
+            tools,
+            {},
+            config,
+        )
+
+    backend._prepare_chat_inputs = prepare_inputs
+    backend._get_tokenizer = AsyncMock(return_value=object())
+    backend._gen_tokens_prompt = AsyncMock(
+        return_value={
+            "prompt_token_ids": list(range(100)),
+            "multi_modal_data": {"image": [object()]},
+        }
+    )
+    backend._count_prompt_tokens = AsyncMock(return_value=100)
+    model.preflight_multimodal_request.side_effect = (
+        backend.async_preflight_multimodal_request
+    )
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "describe_image",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "max_tokens": 128,
+                "tool_choice": "required",
+                "tools": [tool],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "image", "image": "unused"}],
+                    }
+                ],
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    forced.assert_not_called()
+    assert len(rendered) == 1
+    messages, tools, config = rendered[0]
+    assert tools == [tool]
+    assert messages[0]["role"] == "user"
+    assert "tool_choice" not in config
+    # The handler materializes the tools iterator, so generation still sees them
+    # after preflight consumed its own copy.
+    chat_config = model.chat.await_args.args[1]
+    assert chat_config["tools"] == [tool]
+    assert chat_config["max_tokens"] == 128
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_request",
+    [
+        {"tool_choice": "required"},
+        {
+            "tool_choice": {"type": "function", "function": {"name": "missing"}},
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "describe_image",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                }
+            ],
+        },
+    ],
+    ids=["required-without-tools", "named-choice-not-declared"],
+)
+async def test_chat_completion_preflight_rejects_unmatched_forced_tool_choice(
+    monkeypatch, tool_request
+):
+    from fastapi import HTTPException
+
+    from ...model.llm.vllm import core as vllm_core
+
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.is_vllm_backend = AsyncMock(return_value=True)
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend._context_length = 512
+    backend._explicit_limit_mm_per_prompt = None
+    backend.model_family = SimpleNamespace(model_ability=["vision"])
+    backend.lora_requests = []
+    backend._prepare_chat_inputs = AsyncMock(
+        side_effect=AssertionError("Invalid tool choices must not be rendered")
+    )
+    model.preflight_multimodal_request.side_effect = (
+        backend.async_preflight_multimodal_request
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "max_tokens": 128,
+                    **tool_request,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [{"type": "image", "image": "unused"}],
+                        }
+                    ],
+                }
+            )
+        )
+
+    assert error.value.status_code == 400
+    backend._prepare_chat_inputs.assert_not_awaited()
+    model.chat.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3329,3 +3482,117 @@ async def test_anthropic_models_include_original_fields(
     assert data["model_format"] == "pytorch"
     assert data["model_size_in_billions"] == 7
     assert data["quantization"] == "none"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "name,effort,expected",
+    [
+        ("glm-5.3", "high", "high"),
+        ("DeepSeek-V4.1-Flash-1017", "high", 75),
+        ("DeepSeek-V4.1-Flash-1017", 37, 37),
+    ],
+)
+async def test_native_effort_forwarded_before_stream(
+    monkeypatch, stream, name, effort, expected
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": name})
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "messages": [{"role": "user", "content": "hi"}],
+                "reasoning_effort": effort,
+                "stream": stream,
+            }
+        )
+    )
+    assert response.status_code == 200
+    if stream:
+        # Validation happens before the response body starts generation.
+        model.chat.assert_not_called()
+    else:
+        config = model.chat.call_args.args[1]
+        assert config["chat_template_kwargs"]["reasoning_effort"] == expected
+        assert "reasoning_effort" not in config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_glm_invalid_effort_fails_before_stream(monkeypatch, stream):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "glm-5.3"})
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "reasoning_effort": "medium",
+                    "stream": stream,
+                }
+            )
+        )
+    assert exc.value.status_code == 400
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("unsupported", [False, True])
+async def test_openai_budget_preflight_before_stream(monkeypatch, stream, unsupported):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    from ...model.llm.reasoning_controls import normalize_reasoning_controls
+
+    def prepare(config):
+        if unsupported:
+            return {"error": {"status": 501, "message": "Thinking budgets unavailable"}}
+        result = normalize_reasoning_controls(config, None)
+        result["thinking_token_budget"] = 10
+        return result
+
+    model.prepare_reasoning_request = AsyncMock(side_effect=prepare)
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "messages": [{"role": "user", "content": "hi"}],
+            "thinking_budget": 10,
+            "max_tokens": 100,
+            "stream": stream,
+        }
+    )
+    if unsupported:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == 501
+        model.chat.assert_not_called()
+    else:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        config = model.prepare_reasoning_request.call_args.args[0]
+        assert config["chat_template_kwargs"]["thinking_budget"] == 10
+        if not stream:
+            assert model.chat.call_args.args[1]["thinking_token_budget"] == 10
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prepared", [[], b"invalid-json", {"error": {"status": 200}}])
+async def test_malformed_budget_preflight_fails_before_generation(
+    monkeypatch, prepared
+):
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": "qwen3"})
+    model.prepare_reasoning_request = AsyncMock(return_value=prepared)
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "thinking_budget": 10,
+                    "max_tokens": 100,
+                    "stream": True,
+                }
+            )
+        )
+    assert exc.value.status_code == 503
+    model.chat.assert_not_called()

@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import json
+import os
 import platform
 from dataclasses import replace
 from types import SimpleNamespace
@@ -30,6 +31,26 @@ def contract():
         block_size=64,
         logical_dtype="float16",
     )
+
+
+@pytest.mark.asyncio
+async def test_pd_history_configuration_fails_before_ready_without_write_retry():
+    client = MLXXavierCache(
+        contract(), dict(role="prefill", prefix_cache={"shared_prefix": True})
+    )
+    client._ensure_configured = AsyncMock()
+    history = client._history
+    history.initialize = AsyncMock(side_effect=ValueError("history contract mismatch"))
+    with pytest.raises(ValueError, match="history contract mismatch"):
+        await client.initialize()
+    # A failed lookup/initialization cannot trigger another remote configuration
+    # round trip while publishing optional history on the live P/D path.
+    history._call = AsyncMock(
+        side_effect=AssertionError("unconfigured history must not write")
+    )
+    await client._publish_history(list(range(129)), [b"", b""])
+    history.initialize.assert_awaited_once()
+    history._call.assert_not_called()
 
 
 @pytest.mark.parametrize("length", [1, 63, 64, 65, 128, 130])
@@ -150,6 +171,168 @@ def model(model_type="qwen2"):
     value.set_dtype(mx.float16)
     mx.eval(value.parameters())
     return value
+
+
+@metal
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", [False, True])
+async def test_pd_prefill_restores_l2_history_after_live_cache_is_recreated(
+    monkeypatch, host
+):
+    """Optionally use a Linux actor at XINFERENCE_TEST_MLX_HISTORY_ADDRESS."""
+    import mlx.core as mx
+    from mlx_lm.models.cache import make_prompt_cache
+
+    from xinference.cache_isolation import cache_scope
+
+    from ...xavier.backends.bytes.history import XavierHistoryCacheActor
+    from ...xavier.history import XavierHistoryProxy
+    from ...xavier.tests.utils import mock_lmcache_backend
+
+    external = os.environ.get("XINFERENCE_TEST_MLX_HISTORY_ADDRESS")
+    backend = None
+    if not external:
+        backend, _ = mock_lmcache_backend(monkeypatch, cpu_bytes=32768)
+    m, c = model(), contract()
+    tokens = [i % 128 for i in range(130)]
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        if external:
+            store = await xo.actor_ref(address=external, uid="mlx-history-live")
+            await asyncio.wait_for(store.get_stats(), 5)
+        else:
+            store = await xo.create_actor(
+                XavierHistoryCacheActor, backend, address=pool.external_address
+            )
+        proxy = await xo.create_actor(
+            XavierHistoryProxy,
+            dict(address=store.address, uid=store.uid),
+            4 * c.num_layers * c.layer_nbytes,
+            address=pool.external_address,
+        )
+        history = dict(address=proxy.address, uid=proxy.uid, shared_prefix=True)
+        from uuid import uuid4
+
+        scope = uuid4().hex if external else ""
+        for index, salt in enumerate(
+            [scope + "customer-a", scope + "customer-a", scope + "customer-b"]
+        ):
+            # Recreate the live cache: a warm hit must come from LMCache, not P/D.
+            live = await xo.create_actor(
+                XavierBytesCacheActor, address=pool.external_address
+            )
+            config = dict(
+                address=live.address, uid=live.uid, role="prefill", prefix_cache=history
+            )
+            if host:
+                config.update(
+                    heterogeneous=True,
+                    host_handoff=True,
+                    rank=1,
+                    source_address="mac",
+                    source_uid="source",
+                )
+            p = MLXXavierCache(c, config)
+            before = await proxy.get_stats()
+            if not host:
+                await p.initialize()
+            source = AsyncMock()
+            if host:
+                original_ref = xo.actor_ref
+
+                async def actor_ref(*args, **kwargs):
+                    return (
+                        source
+                        if kwargs.get("uid") == "source"
+                        else await original_ref(*args, **kwargs)
+                    )
+
+                with monkeypatch.context() as patch:
+                    patch.setattr(xo, "actor_ref", actor_ref)
+                    p._call = AsyncMock(return_value=True)
+                    transfer = dict(
+                        sglang_xavier=dict(
+                            room=index + 1,
+                            mode="host",
+                            address=live.address,
+                            uid=live.uid,
+                            heterogeneous=True,
+                            cache_scope=cache_scope(salt),
+                        )
+                    )
+                    await p.prefill(
+                        m,
+                        tokens,
+                        transfer=transfer,
+                        generate_config=dict(cache_salt=salt),
+                    )
+                pages = source.publish.call_args.args[2]
+                cache, reused = p.decode(pages, len(tokens)), len(tokens)
+            else:
+                transfer = await p.prefill(
+                    m, tokens, generate_config=dict(cache_salt=salt)
+                )
+                d = MLXXavierCache(
+                    c, dict(address=live.address, uid=live.uid, role="decode")
+                )
+                assert d._history is None
+                cache, reused = await d.fetch(tokens, transfer, cache_salt=salt)
+            after = await proxy.get_stats()
+            assert after["imported_pages"] - before["imported_pages"] == (
+                2 if index == 1 else 0
+            )
+            assert after["enqueued_pages"] - before["enqueued_pages"] == (
+                0 if index == 1 else 2
+            )
+            expected = m(mx.array(tokens)[None], cache=make_prompt_cache(m))[:, -1]
+            if host:
+                assert source.publish.call_args.args[3] == int(
+                    mx.argmax(expected).item()
+                )
+            else:
+                actual = m(mx.array(tokens[reused:])[None], cache=cache)[:, -1]
+                mx.eval(actual, expected)
+                assert bool(
+                    mx.array_equal(mx.argmax(actual, -1), mx.argmax(expected, -1))
+                )
+                assert (
+                    float(mx.max(mx.abs(actual.astype(mx.float32) - expected))) < 0.02
+                )
+            await proxy.flush()
+            if external:
+                await store.force_disk_reads()
+            await xo.destroy_actor(live)
+        stats = await store.get_stats()
+        assert stats["backend_stats"]["l2_hits"] >= 2
+        assert (await proxy.get_stats())["imported_pages"] == 2
+
+
+@metal
+@pytest.mark.asyncio
+async def test_history_append_keeps_native_offset_when_import_counter_fails():
+    import mlx.core as mx
+    from mlx_lm.models.cache import make_prompt_cache
+
+    c, m = contract(), model()
+    tokens = [i % 128 for i in range(130)]
+    cache = make_prompt_cache(m)
+    mx.eval(m(mx.array(tokens[:128])[None], cache=cache))
+    p = MLXXavierCache(c, dict(role="prefill", prefix_cache=dict(shared_prefix=True)))
+    page = p.encode(cache, tokens[:128], start=64)
+    prefix = p.decode(p.encode(cache, tokens[:64]), 64)
+    p._history.initialize = AsyncMock()
+    p._history._capacity_pages = 4
+    p._history._call = AsyncMock(
+        side_effect=[page, RuntimeError("metrics unavailable")]
+    )
+    restored, cached = await p._fetch_history(tokens, cache=prefix, cached=64)
+    assert cached == 128 and all(entry.offset == 128 for entry in restored)
+    assert all(entry.offset == 64 for entry in prefix)
+    for expected, actual in zip(cache, restored):
+        assert all(
+            bool(mx.array_equal(a[:, :, :128], b))
+            for a, b in zip(expected.state, actual.state)
+        )
 
 
 @pytest.mark.parametrize("role", [None, "prefill", "decode"])
@@ -1475,3 +1658,100 @@ async def test_shared_prefix_metal_imports_and_exports_foreign_canonical_pages(d
             await actor.get(c.fingerprint, prefix_keys(tokens[:-1], cache_salt="b"))
             == pages
         )
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_binds_mlx_salted_pages_before_fetch(monkeypatch):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ..core import MLXModel
+
+    model = MLXModel.__new__(MLXModel)
+    model.model_uid = "model"
+    model._model = object()
+    model._tokenizer = SimpleNamespace(encode=lambda p: list(range(129)))
+    model._model_generation_config = {}
+    model._batch_model = SimpleNamespace(generate_stream=MagicMock())
+    model._xavier = MLXXavierCache(contract(), {"address": "storage", "uid": "cache"})
+    model._xavier.fetch = AsyncMock(return_value=([], 0))
+    actor = SimpleNamespace(bind_cache_session=AsyncMock(return_value=True))
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=actor))
+    session = CacheSessionTag("scoped", 0)
+    stream = await model.async_generate(
+        "prompt",
+        {
+            CACHE_SESSION_ARG: session,
+            "cache_salt": "tenant",
+            "stream": True,
+            "max_tokens": 2,
+        },
+    )
+    actor.bind_cache_session.assert_awaited_once_with(
+        session.to_dict(), model._xavier.keys(list(range(128)), "tenant")
+    )
+    model._xavier.fetch.assert_awaited_once()
+    await stream.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("length", [64, 65, 128, 129])
+async def test_lifecycle_binds_mlx_native_prefix_under_pressure(length):
+    from ...xavier.cache_lifecycle import CACHE_SESSION_ARG, CacheSessionTag
+    from ..core import MLXModel
+
+    tokens = list(range(length))
+    c = contract()
+    page = bytes(c.layer_nbytes * c.num_layers)
+    prefix_pages = (length - 2) // c.block_size + 1
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierBytesCacheActor,
+            (prefix_pages + 1) * len(page),
+            address=pool.external_address,
+        )
+        client = MLXXavierCache(c, dict(address=actor.address, uid=actor.uid))
+        # Exercise native key construction and real actor fetches without Metal.
+        client.decode = Mock(return_value=[])
+        await client.initialize()
+        prefix_keys = client.keys(tokens[:-1], "tenant")
+        other_keys = client.keys([999] * c.block_size, "other")
+        incoming_keys = client.keys([1000] * c.block_size, "other")
+        assert len(prefix_keys) == prefix_pages
+        await actor.put(c.fingerprint, prefix_keys, [page] * prefix_pages)
+        await actor.put(c.fingerprint, other_keys, [page])
+
+        model = MLXModel.__new__(MLXModel)
+        model.model_uid = "model"
+        model._model = object()
+        model._tokenizer = SimpleNamespace(encode=lambda p: tokens)
+        model._model_generation_config = {}
+        model._batch_model = SimpleNamespace(generate_stream=MagicMock())
+        model._xavier = client
+        session = CacheSessionTag("scoped", 0)
+        stream = await model.async_generate(
+            "prompt",
+            {
+                CACHE_SESSION_ARG: session,
+                "cache_salt": "tenant",
+                "stream": True,
+                "max_tokens": 2,
+            },
+        )
+        await stream.aclose()
+        client.decode.assert_called_once_with([page] * prefix_pages, length - 1)
+        assert await actor.update_cache_session(
+            dict(session.to_dict(), revision=1, phase="waiting")
+        )
+        # Make the waiting prefix older than unrelated work, then exceed capacity.
+        assert await actor.get(c.fingerprint, other_keys) == [page]
+        assert await actor.put(c.fingerprint, incoming_keys, [page]) == [True]
+        assert await client.fetch(tokens, cache_salt="tenant") == ([], length - 1)
+        assert await actor.get(c.fingerprint, other_keys) == []
+
+        # Retention remains soft: finishing makes the prefix evictable again.
+        assert await actor.update_cache_session(
+            dict(session.to_dict(), revision=2, phase="finished")
+        )
+        await actor.get(c.fingerprint, incoming_keys)
+        await actor.put(c.fingerprint, other_keys, [page])
+        assert (await client.fetch(tokens, cache_salt="tenant"))[1] < length - 1

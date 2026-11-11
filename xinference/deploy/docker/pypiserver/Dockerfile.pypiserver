@@ -83,8 +83,10 @@ FROM downloader AS selfcheck
 ARG PLATFORM=amd64
 ARG PYTHON_VERSION
 
-RUN pip install --no-cache-dir pypiserver==2.3.2 waitress
-RUN (pypi-server run -p 8080 --disable-fallback /data/packages &) \
+# Selfcheck queries the same wheel files repeatedly. Cache directory entries
+# and file digests while keeping hashed index links.
+RUN pip install --no-cache-dir 'pypiserver[cache]==2.3.2' waitress
+RUN (pypi-server run --backend cached-dir -p 8080 --disable-fallback /data/packages &) \
     && python selfcheck.py \
          --index http://127.0.0.1:8080/simple/ \
          --manifest-dir /build/out \

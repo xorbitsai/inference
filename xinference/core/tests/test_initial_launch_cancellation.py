@@ -110,6 +110,50 @@ def runtime():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_uid", ["demo", None])
+@pytest.mark.parametrize("wait_ready", [False, True])
+@pytest.mark.parametrize("explicit_workers", [False, True])
+async def test_sharded_worker_count_rejection_leaves_uid_reusable(
+    runtime, model_uid, wait_ready, explicit_workers
+):
+    supervisor, guard, workers, kwargs = runtime
+    worker = workers[0]
+    supervisor._worker_address_to_worker = {worker.address: worker}
+    worker.get_model_count = AsyncMock(return_value=0)
+    worker.get_model_registration = AsyncMock(return_value=None)
+    worker.get_gpu_allocation_status = AsyncMock(
+        return_value={"total": [0], "models": {}, "user_specified": {}}
+    )
+    kwargs.pop("replica_config")
+    kwargs.update(
+        model_uid=model_uid,
+        replica=1,
+        n_gpu=1,
+        worker_ip=[worker.address] if explicit_workers else None,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"^n_worker cannot be larger than the number of available workers\.$",
+    ):
+        await supervisor.launch_builtin_model(
+            **kwargs, n_worker=2, wait_ready=wait_ready
+        )
+
+    assert not guard.get_instance_info()
+    supervisor._status_guard_ref.set_instance_info.assert_not_awaited()
+    assert not supervisor._model_uid_to_replica_info
+    assert not supervisor._replica_model_uid_to_worker
+    assert not supervisor._initial_model_launches
+    assert not worker.models
+
+    kwargs["model_uid"] = "demo"
+    assert await supervisor.launch_builtin_model(**kwargs, n_worker=1) == "demo"
+    assert worker.models == {"demo-rep0"}
+    assert guard.get_instance_info(model_uid="demo")[0].status == "READY"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["success", "failure", "cancel", "resume_failure"])
 async def test_initial_resume_keeps_public_calls_closed_until_activation_commits(
     runtime, monkeypatch, outcome

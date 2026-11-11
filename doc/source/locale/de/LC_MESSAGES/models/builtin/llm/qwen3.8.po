@@ -39,3 +39,18 @@ msgid ""
 msgstr ""
 "**Modell-Hubs**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4>`__,"
 " `ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-27B-NVFP4>`__"
+
+msgid "Model Spec 6 (pytorch, 27 Billion)"
+msgstr "Modellspezifikation 6 (pytorch, 27 Milliarden)"
+
+msgid "**Quantizations:** Int4"
+msgstr "**Quantisierungen:** Int4"
+
+msgid "**Engines**: vLLM, Transformers"
+msgstr "**Engines**: vLLM, Transformers"
+
+msgid "**Model ID:** RedHatAI/Qwen3.8-27B-INT4"
+msgstr "**Modell-ID:** RedHatAI/Qwen3.8-27B-INT4"
+
+msgid "**Model Hubs**:  `Hugging Face <https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4>`__, `ModelScope <https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4>`__"
+msgstr "**Modell-Hubs**:  `Hugging Face <https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4>`__, `ModelScope <https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4>`__"

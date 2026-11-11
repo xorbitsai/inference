@@ -351,3 +351,7 @@ msgid ""
 "is not the problem: a four-token forward costs only ~40% more than a single-"
 "token one on either model."
 msgstr "持續啟用前請先量測。驗證步驟本身不是問題：兩種模型的四 token forward 都僅比單 token 多約 40% 成本。"
+
+#: source/user_guide/speculative_decoding.rst:101
+msgid "NGram can also use the ordinary-replica version range documented in :ref:`trt_llm_backend`. Draft/Target availability depends on the installed native API; later 1.3 pre-releases removed it. TensorRT-LLM 1.2.1 remains the GPU-validated speculative-decoding baseline."
+msgstr "NGram 也可使用 :ref:`trt_llm_backend` 中說明的一般副本版本範圍。Draft/Target 是否可用取決於已安裝版本的原生 API；後續的 1.3 預發行版移除了該 API。TensorRT-LLM 1.2.1 仍是經過 GPU 驗證的推測解碼基準。"

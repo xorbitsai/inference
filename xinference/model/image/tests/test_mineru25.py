@@ -1,3 +1,5 @@
+# CI: linux
+
 import ast
 import asyncio
 import json
@@ -5,7 +7,7 @@ import logging
 import sys
 from io import BytesIO
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import MethodType, ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, Mock, mock_open
 
 import pytest
@@ -30,6 +32,7 @@ def test_docanalyze_response_preserves_serialized_json(monkeypatch):
 
     result = [{"type": "text", "text": "document content"}]
     actor = SimpleNamespace(_lock=None, _add_running_task=Mock())
+    actor._call_wrapper_inner = MethodType(ModelActor._call_wrapper_inner, actor)
     payload = asyncio.run(
         ModelActor._call_wrapper(actor, "json", AsyncMock(return_value=result))
     )

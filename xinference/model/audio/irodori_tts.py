@@ -112,8 +112,8 @@ class IrodoriTTSModel:
             ) = _load_irodori_runtime_components()
         except ImportError as exc:
             raise ImportError(
-                "Failed to import vendored Irodori-TTS runtime. Install dependencies "
-                "declared in its built-in model specification."
+                "Failed to import vendored Irodori-TTS runtime: "
+                f"{type(exc).__name__}: {exc}"
             ) from exc
 
         model_device = str(self._device or default_runtime_device())

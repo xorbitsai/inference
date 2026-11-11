@@ -90,7 +90,7 @@ def model(monkeypatch):
     )
     monkeypatch.setattr(
         "xinference.model.llm.trt_llm.compat.prepare_runtime",
-        lambda config: None,
+        lambda config, **kwargs: None,
     )
     monkeypatch.setitem(
         sys.modules,
@@ -275,7 +275,7 @@ def test_platform_format_and_model_guards(monkeypatch, model):
 
 def test_engine_construction_failure_clears_state(monkeypatch, model):
     monkeypatch.setattr(
-        "xinference.model.llm.trt_llm.compat.prepare_runtime", lambda _: None
+        "xinference.model.llm.trt_llm.compat.prepare_runtime", lambda _, **kwargs: None
     )
     monkeypatch.setattr(
         sys.modules["tensorrt_llm"],

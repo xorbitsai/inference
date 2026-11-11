@@ -31,6 +31,11 @@ interface TokenResponse {
   refresh_token?: string;
 }
 
+export interface AuthBanNotification {
+  kind: 'ip' | 'key';
+  remainingSeconds?: number;
+}
+
 const requestInstance = axios.create({
   baseURL: getApiUrl(),
   timeout: 60000,
@@ -147,6 +152,28 @@ requestInstance.interceptors.response.use(
         eventBus.emit(extension.event, { status, message: errorMessage, error, release });
       }
       return Promise.reject(error);
+    }
+
+    if (status === 429 && !originalRequest?.errorMessages?.[status]) {
+      // Keep compatibility with servers that predate the machine-readable header.
+      const banCode =
+        response.headers?.['x-xinference-error-code'] ||
+        (response.data?.detail === 'Too many failed attempts. IP temporarily banned.'
+          ? 'ip_banned'
+          : response.data?.detail === 'Too many failed attempts for this key.'
+            ? 'key_banned'
+            : undefined);
+      if (banCode === 'ip_banned' || banCode === 'key_banned') {
+        if (!originalRequest?.suppressGlobalError) {
+          const retryAfter = Number(response.headers?.['retry-after']);
+          eventBus.emit<AuthBanNotification>(RequestEvents.AUTH_BANNED, {
+            kind: banCode === 'ip_banned' ? 'ip' : 'key',
+            remainingSeconds:
+              Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter) : undefined,
+          });
+        }
+        return Promise.reject(error);
+      }
     }
 
     switch (status) {

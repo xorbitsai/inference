@@ -1,10 +1,11 @@
 import json
 import logging
 import re
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block, stream_delimited_calls
 
 logger = logging.getLogger(__name__)
 
@@ -162,30 +163,64 @@ class DeepseekR1ToolParser(ToolParser):
             functions_calls.append(model_output[last_end:])
         return functions_calls
 
+    _WRAPPER_START = "<｜tool▁calls▁begin｜>"
+    _WRAPPER_END = "<｜tool▁calls▁end｜>"
+    _JSON_OPEN = re.compile(r"function<｜tool▁sep｜>([^\n]+)\n```json\n\s*(?=\{)")
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        wrapper = open_block(text, self._WRAPPER_START, self._WRAPPER_END)
+        body = open_block(text, self.tool_call_start_token, self.tool_call_end_token)
+        if wrapper is None or body is None or body < wrapper:
+            return None
+        match = self._JSON_OPEN.match(text, body)
+        if match is None:
+            return None
+        preceding = 0
+        if self.tool_call_end_token in text[wrapper:body]:
+            preceding = sum(
+                name is not None
+                for _, name, _ in self._parse_streaming_block(text[wrapper:body])
+            )
+        return ArgumentStart(
+            match[1],
+            match.end(),
+            call_position=match.end(),
+            preceding_calls=preceding,
+            close_frame=self._close_wrapper,
+            json_suffix="```" + self.tool_call_end_token,
+        )
+
+    def _close_wrapper(self, text: str, start: int) -> int:
+        return text.find(self._WRAPPER_END, start)
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        events = stream_delimited_calls(
+            self, text, "", self._WRAPPER_START, self._WRAPPER_END, finished=True
+        )
+        return events[0][0] if events else None
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Any]:
-        """
-        Extract tool calls from streaming output.
-
-        Currently not supported for DeepSeek R1 model. This method raises
-        a ValueError indicating that streaming tool call extraction is only
-        available for specific model/backend combinations.
-
-        Args:
-            previous_text (List[str]): Previous text chunks from the stream.
-            current_text (str): Current accumulated text.
-            delta_text (str): New text delta in this chunk.
-
-        Raises:
-            ValueError: Always raised as streaming is not supported.
-
-        Note:
-            DeepSeek R1 model does not currently support streaming tool call
-            extraction. Use extract_tool_calls() with complete output instead.
-        """
-        raise NotImplementedError(
-            "Streaming support for tool calls is available only when using "
-            "Qwen models with vLLM backend or GLM4-chat models without vLLM backend. "
-            "DeepSeek R1 does not support streaming tool call extraction."
+    ) -> List[Tuple]:
+        return stream_delimited_calls(
+            self,
+            current_text,
+            delta_text,
+            self._WRAPPER_START,
+            self._WRAPPER_END,
+            parse_block=self._parse_streaming_block,
         )
+
+    def _parse_streaming_block(self, block: str) -> List[Tuple]:
+        events: List[Tuple] = []
+        for name, raw in re.findall(self.tool_calls_regex, block, re.DOTALL):
+            try:
+                arguments = json.loads(raw)
+            except json.JSONDecodeError:
+                events.append((raw, None, None))
+                continue
+            if isinstance(arguments, dict):
+                events.append((None, name, arguments))
+            else:
+                events.append((raw, None, None))
+        return events or [(block, None, None)]

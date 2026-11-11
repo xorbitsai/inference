@@ -1,4 +1,3 @@
-from threading import Event, Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from ....types import (
@@ -72,47 +71,17 @@ class Ling3PytorchChatModel(PytorchDirectChatMixin, PytorchChatModel):
     def build_streaming_iter(
         self, messages: List[Dict], generate_config: Dict
     ) -> Tuple[Iterator, int]:
-        from transformers import (
-            StoppingCriteria,
-            StoppingCriteriaList,
-            TextIteratorStreamer,
-        )
+        from transformers import TextIteratorStreamer
 
         inputs = self.build_inputs_from_messages(messages, generate_config)
         kwargs = self.build_generate_kwargs(generate_config)
         streamer = TextIteratorStreamer(
             self._tokenizer, skip_prompt=True, skip_special_tokens=False
         )
-        cancelled = Event()
-        errors: List[Exception] = []
-
-        class Cancelled(StoppingCriteria):
-            def __call__(self, input_ids, scores, **kwargs):
-                return cancelled.is_set()
-
-        def generate():
-            try:
-                self._model.generate(
-                    **inputs,
-                    **kwargs,
-                    streamer=streamer,
-                    stopping_criteria=StoppingCriteriaList([Cancelled()]),
-                )
-            except Exception as exc:
-                errors.append(exc)
-                streamer.end()
-
-        def iterate():
-            thread = Thread(target=generate, daemon=True)
-            thread.start()
-            try:
-                yield from streamer
-                if errors:
-                    raise errors[0]
-            finally:
-                cancelled.set()
-
-        return iterate(), inputs.input_ids.shape[-1]
+        return (
+            self._start_streaming_thread({**inputs, **kwargs, "streamer": streamer}),
+            inputs.input_ids.shape[-1],
+        )
 
     def get_stop_strs(self) -> List[str]:
         return self.model_family.stop or []

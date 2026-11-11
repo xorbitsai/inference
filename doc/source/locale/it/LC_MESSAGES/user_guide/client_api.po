@@ -244,9 +244,201 @@ msgid "Before streaming starts, system-message ordering errors on strict templat
 msgstr "Prima dell’avvio dello streaming, gli errori nell’ordine dei messaggi di sistema nei template rigorosi e le violazioni rilevate dei limiti multimodali vLLM per prompt restituiscono HTTP 400. Se non è possibile consultare i limiti correnti, la convalida viene delegata al processo di lavoro."
 
 #: ../../source/user_guide/client_api.rst
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "``/v1/chat/completions`` e ``/v1/completions`` restituiscono HTTP 400 quando il corpo della richiesta non è JSON valido, oppure è JSON valido ma non un oggetto, come ``[]`` o ``null``. Questo controllo avviene prima della ricerca del modello o dell'avvio dello streaming. Un oggetto JSON che non supera la convalida dello schema della richiesta restituisce HTTP 422."
+
+#: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
 msgstr "Per le richieste senza streaming, i superamenti riconosciuti della lunghezza del contesto e gli errori noti di convalida dei media o del cache-salt restituiscono HTTP 400; i limiti di frequenza restituiscono HTTP 429. I messaggi descrivono l’errore senza esporre dettagli del processo di lavoro. Gli errori non riconosciuti restituiscono HTTP 500."
 
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "Dopo l’avvio di una risposta in streaming, lo stato HTTP rimane 200. Gli errori vengono inviati in un payload SSE ``error``. Gli errori riconosciuti di lunghezza del contesto e limite di frequenza mantengono messaggi sicuri distinti; gli errori imprevisti usano il messaggio generico."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "Affinità delle repliche di chat"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "Per un modello con repliche di chat ordinarie, inviare lo stesso valore facoltativo di ``routing_key`` per ogni richiesta di una sessione. Xinference preferisce l’ultima replica selezionata per quel modello, quella credenziale e quella chiave. Se la replica non è disponibile o ha raggiunto il limite di richieste configurato, Xinference ne prova un’altra. Le richieste senza chiave vengono distribuite a rotazione. La chiave deve contenere al massimo 128 caratteri, di cui almeno uno diverso da uno spazio bianco, e non controlla l’isolamento della cache."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "Impostare ``routing_key`` in ``extra_body`` con il client OpenAI o in ``generate_config`` con il client Xinference. Per i modelli compatibili, la risposta di ``GET /v1/models/{model_uid}`` include ``supports_chat_session_affinity: true``."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference conserva al massimo 4096 chiavi di instradamento per modello in "
+"una tabella condivisa tra le credenziali, eliminando prima le voci usate "
+"meno di recente. Un elevato ricambio di chiavi da parte di una credenziale "
+"può eliminare l’affinità di un’altra; questo influisce solo sulla preferenza"
+" della replica."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "Ciclo di vita della cache degli agenti"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "Gli adattatori Xavier supportati per modelli ibridi vLLM, SGLang, TRT-LLM e MLX dichiarano ``supports_agent_cache_lifecycle: true``. Aggiungere ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` alle richieste di chat tramite ``extra_body`` del client OpenAI o ``generate_config`` del client Xinference. Gli ID di sessione sono limitati alle credenziali della richiesta. L’isolamento della cache continua a usare ``cache_salt``."
+
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"Inviare ``id``, una ``revision`` intera e ``phase`` (``waiting``, ``active``"
+" o ``finished``) a ``POST /v1/models/{model_uid}/cache_sessions``. La chat "
+"contrassegna la sessione come attiva. Le revisioni precedenti e i cambi di "
+"fase con la stessa revisione vengono rifiutati. Dopo la chat, incrementare "
+"la revisione prima di inviare ``waiting``. Ripetere la stessa revisione e "
+"fase rinnova il TTL di 300 secondi. Xagent invia automaticamente i cambi di "
+"fase; attese superiori a cinque minuti richiedono rinnovi espliciti."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "I prefissi in attesa ricevono una preferenza di conservazione: vLLM riordina i blocchi ibridi liberi sulla GPU; tutti e quattro gli adattatori aggiornano i prefissi CPU condivisi e LMCache può precaricare dal disco un prefisso limitato. Le sessioni terminate o scadute perdono questa preferenza senza eliminare le pagine condivise. I blocchi restano allocabili; le richieste attive e i lease di trasferimento mantengono la proprietà. Gli errori di archiviazione ricadono sul prefill. I suggerimenti di ciclo di vita P/D non sono supportati."
+
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"Una singola replica può usare ``enable_xavier=True`` e "
+"``xavier_gpu_cache_bytes=0`` per prefissi residenti gestiti in base al ciclo"
+" di vita. Questa modalità richiede vLLM >= 0.32 e un modello ibrido "
+"ricorrente che combini attenzione e stato ricorrente. Gli avvii con una sola"
+" replica non ibrida vengono rifiutati."
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"Il registro conserva al massimo 4096 sessioni per modello e 1024 per ambito "
+"di credenziali. Le richieste senza credenziali condividono un ambito "
+"anonimo. Gli ID del ciclo di vita sono indipendenti da ``cache_salt``; usare"
+" ID di sessione distinti per flussi di lavoro indipendenti, inclusi quelli "
+"con salt differenti."
+
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "Priorità delle richieste"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "Le richieste LLM a ``/v1/chat/completions`` e ``/v1/completions`` supportano un intero ``priority`` con vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp e TensorRT-LLM, anche in streaming. Il valore predefinito è ``0``; i valori minori hanno priorità maggiore. La priorità influisce sulla pianificazione all’interno di una replica del modello; non seleziona repliche e non aggira i limiti delle richieste. L’intervallo valido di ``priority`` è ``[-10000, 10000]``."
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM e SGLang utilizzano la pianificazione nativa per priorità. Abilitare la pianificazione per priorità all’avvio del modello: impostare ``scheduling_policy=\"priority\"`` per vLLM (versione 0.6.3 o successiva), oppure ``enable_priority_scheduling=True`` per una versione di SGLang che supporti questa funzione. Xinference converte le priorità secondo l’ordinamento configurato di SGLang, quindi i valori minori indicano sempre una priorità maggiore nell’API Xinference, indipendentemente da ``schedule_low_priority_values_first``."
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "Gli altri motori utilizzano una coda di priorità per replica prima di inviare le richieste al motore. Le richieste attive sono limitate dalla capacità di elaborazione in batch o parallela configurata; i percorsi seriali eseguono una richiesta alla volta. Le richieste in attesa vengono eseguite per priorità e, a parità di priorità, in ordine di arrivo. Questa coda non interrompe le richieste in esecuzione. I modelli Transformers senza elaborazione in batch ora eseguono una sola richiesta alla volta, anche se priority viene omesso. Le richieste in attesa contano per ``request_limits``; raggiunto il limite, vengono rifiutate anche le richieste successive con priorità maggiore."
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "Con il client Python di Xinference, passare ``generate_config={\"priority\": -10}`` a ``model.chat()`` o ``model.generate()``. Con il client Python di OpenAI, utilizzare ``extra_body``:"
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "I tipi di priorità non validi o i valori fuori da ``[-10000, 10000]`` restituiscono HTTP 422; stringhe, booleani e numeri frazionari non vengono convertiti in interi. Le priorità diverse da zero richiedono la pianificazione nativa per priorità attivata per vLLM, SGLang e le versioni di TRT-LLM con API nativa di priorità; altrimenti le richieste senza streaming falliscono con HTTP 400. Per le richieste in streaming, la configurazione e la versione del motore vengono verificate dopo l’invio di HTTP 200, quindi questi errori compaiono nel flusso SSE."
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "Le versioni TRT-LLM con un parametro nativo ``priority`` usano la pianificazione nativa per repliche ordinarie e P/D. Xinference imposta ``scheduler_config.waiting_queue_policy`` su ``\"priority\"`` e converte linearmente gli interi: ``-10000`` corrisponde a ``1.0``, ``0`` a ``0.5`` e ``10000`` a ``0.0``. Le versioni precedenti, inclusa 1.2.1, rifiutano ``priority`` esplicito con HTTP 400 (richieste senza streaming), anche se vale ``0``. Omettere il campo per usarle; TRT-LLM non utilizza la coda condivisa come alternativa."
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"Con vLLM, l’affinità usa un intero positivo ``max_num_seqs`` moltiplicato "
+"per il numero di ranghi di parallelismo dei dati serviti dalla replica come "
+"capacità indicativa. Il bilanciamento esterno serve un rango; quello ibrido "
+"conta i ranghi locali. Valori di capacità non validi disabilitano questa "
+"verifica specifica del motore. Al di sotto di questa capacità, le richieste "
+"mantengono l’affinità e possono essere raggruppate. Se tutte le repliche "
+"sono occupate, Xinference mantiene la replica preferita e il normale "
+"comportamento di accodamento e ammissione. La verifica conta le richieste, "
+"quindi quelle con ``n > 1`` possono consumare più slot di sequenza di quelli"
+" conteggiati. Il passaggio a un’altra replica può richiedere il ricalcolo "
+"del prefisso o il trasferimento KV; la politica non stima questi costi e non"
+" riserva capacità."
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference ora verifica i valori ``request_id`` forniti dal client per tutti i motori, anche nelle richieste senza ``priority``. Gli ID devono essere univoci tra le richieste attive di una replica. Dopo un annullamento, l’ID viene bloccato per 30 secondi per impostazione predefinita; usare un nuovo ID per i tentativi successivi oppure configurare ``block_duration`` nella richiesta di annullamento."
+
+#: user_guide/client_api.rst:10
+msgid "Loaded context length"
+msgstr "Lunghezza del contesto del modello caricato"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent"
+" call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` "
+"endpoint. ``runtime_context_length`` is the loaded adapter's total input-"
+"plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each"
+" ``replica_uid`` and its limit. The model-wide value is the minimum only "
+"when every active replica reports a value. Queries follow the serving "
+"generation after reload; the model details panel fetches this information on"
+" entry and after a reload."
+msgstr ""
+"``client.get_model_runtime_info(model_uid)`` e la versione asincrona "
+"chiamano l’endpoint specifico di Xinference ``GET "
+"/v1/models/{model_uid}/runtime``. ``runtime_context_length`` è il limite "
+"totale dei token di input e output dell’adattatore caricato, oppure ``null``"
+" se sconosciuto. ``replicas`` elenca ogni ``replica_uid`` e il relativo "
+"limite. Il valore globale è il minimo solo se tutte le repliche attive "
+"riportano un valore. Dopo un ricaricamento viene interrogata l’istanza "
+"attualmente in servizio; il pannello dei dettagli recupera queste "
+"informazioni all’apertura della pagina e dopo un ricaricamento."
+
+#: user_guide/client_api.rst:10
+msgid ""
+"The registered ``context_length`` and OpenAI/Anthropic model, generation, "
+"and streaming response formats remain unchanged. vLLM, Transformers, MLX, "
+"and TRT-LLM report their adapter limit; SGLang queries its runtime. "
+"llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's "
+"``/props`` endpoint, rather than dividing the launch-time total capacity. "
+"Older runtimes without a query interface report ``null``. The limit does not"
+" guarantee available memory."
+msgstr ""
+"La ``context_length`` registrata e i formati di risposta per modelli, "
+"generazione e streaming OpenAI/Anthropic restano invariati. vLLM, "
+"Transformers, MLX e TRT-LLM riportano il limite dell’adattatore; SGLang "
+"interroga il runtime. llama.cpp legge il ``n_ctx`` effettivo per slot da "
+"``/props`` del server caricato, invece di dividere la capacità totale "
+"richiesta all’avvio. I runtime meno recenti senza interfaccia di "
+"interrogazione restituiscono ``null``. Il limite non garantisce memoria "
+"disponibile per una richiesta."
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint."
+msgstr "I client possono inviare ``priority_hint: -1`` nelle richieste di chat quando la descrizione del modello in esecuzione dichiara ``supports_chat_priority``. La replica selezionata applica il suggerimento tramite la pianificazione nativa o la coda di priorità di Xinference. Nelle distribuzioni prefill/decode, entrambe le fasi devono supportare le priorità. Un valore ``priority`` esplicito ha la precedenza. Solo ``/v1/chat/completions`` usa questo suggerimento. I valori diversi dall’intero ``-1`` vengono ignorati. Anthropic Messages e OpenAI Responses ignorano il suggerimento."
+
+#: ../../source/user_guide/client_api.rst:139
+msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
+msgstr "Con ``stream=True``, concatena i frammenti di ``delta.tool_calls[].function.arguments`` per indice della chiamata allo strumento. Attendi ``finish_reason=\"tool_calls\"`` e convalida il JSON assemblato prima di eseguire qualsiasi strumento. Con ``finish_reason=\"length\"``, una chiamata può avere un ID e un nome, ma argomenti incompleti. Non eseguire chiamate da quella risposta."

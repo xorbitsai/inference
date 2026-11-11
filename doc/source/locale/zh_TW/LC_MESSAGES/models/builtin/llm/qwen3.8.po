@@ -39,3 +39,18 @@ msgid ""
 msgstr ""
 "**模型倉庫**:  `Hugging Face <https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4>`__, "
 "`ModelScope <https://modelscope.cn/models/nv-community/Qwen3.8-27B-NVFP4>`__"
+
+msgid "Model Spec 6 (pytorch, 27 Billion)"
+msgstr "模型規格 6（pytorch，27B）"
+
+msgid "**Quantizations:** Int4"
+msgstr "**量化方式:** Int4"
+
+msgid "**Engines**: vLLM, Transformers"
+msgstr "**引擎**: vLLM, Transformers"
+
+msgid "**Model ID:** RedHatAI/Qwen3.8-27B-INT4"
+msgstr "**模型 ID:** RedHatAI/Qwen3.8-27B-INT4"
+
+msgid "**Model Hubs**:  `Hugging Face <https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4>`__, `ModelScope <https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4>`__"
+msgstr "**模型倉庫**:  `Hugging Face <https://huggingface.co/RedHatAI/Qwen3.8-27B-INT4>`__, `ModelScope <https://modelscope.cn/models/RedHatAI/Qwen3.8-27B-INT4>`__"

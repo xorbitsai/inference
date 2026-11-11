@@ -90,7 +90,7 @@ def test_chatglm_chat_stream_options_without_include_usage(stream_options):
         )
     )
     model.reasoning_parser = model.tool_parser = None
-    model._stream_chat = lambda *args, **kwargs: iter(["hello"])
+    model._stream_chat = lambda *args, **kwargs: (text for text in ["hello"])
 
     chunks = list(
         model.chat(

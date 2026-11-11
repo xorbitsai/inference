@@ -1,0 +1,25 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: source/user_guide/pd_separation.rst:231
+msgid "The 1.3 P/D adapters are experimental and have not been GPU-validated. Native NIXL requires the same TensorRT-LLM runtime version on both roles. Versions exposing native request priority pass it to both prefill and decode; 1.2.1 rejects an explicitly supplied ``priority``, including ``0``. See :doc:`client_api` for the priority scale and errors."
+msgstr "1.3 P/D アダプターは実験的で GPU 未検証です。ネイティブ NIXL では両ロールに同じ TensorRT-LLM ランタイムのバージョンが必要です。ネイティブの要求優先度を備えた版では、prefill と decode の両方に優先度を渡します。1.2.1 は明示的な ``priority`` を、値が ``0`` でも拒否します。優先度の範囲とエラーは :doc:`client_api` を参照してください。"
+
+#: source/user_guide/pd_separation.rst:229
+msgid "Use the same ``replica_config`` with ``model_engine=\"TRT-LLM\"``, ``model_name=\"qwen3\"``, ``model_size_in_billions=\"0_6\"``, ``model_format=\"pytorch\"`` and ``quantization=\"none\"`` through the Python clients, REST API or CLI. Both roles require Linux/CUDA, TensorRT-LLM ``1.2.1`` or ``>=1.3.0rc24,<1.4``, BF16 dense Qwen3 weights and KV, one worker and one GPU per replica (TP=PP=CP=1). Chunked prefill and overlap scheduling must remain disabled. Native NIXL with different engines, quantization, multimodal input, LoRA, speculative decoding and ``cache_salt`` are unsupported."
+msgstr "Python クライアント、REST API、CLI から同じ ``replica_config`` を使い、``model_engine=\"TRT-LLM\"``、``model_name=\"qwen3\"``、``model_size_in_billions=\"0_6\"``、``model_format=\"pytorch\"``、``quantization=\"none\"`` を指定します。両ロールには Linux/CUDA、TensorRT-LLM ``1.2.1`` または ``>=1.3.0rc24,<1.4``、BF16 の密な Qwen3 の重みと KV、各レプリカに 1 worker と 1 GPU（TP=PP=CP=1）が必要です。チャンク化 prefill とオーバーラップスケジューリングは無効にしてください。異なるエンジン間の Native NIXL、量子化、マルチモーダル入力、LoRA、投機的デコード、``cache_salt`` は未対応です。"
+
+#: source/user_guide/pd_separation.rst:348
+msgid "Xavier supports TRT-LLM prefill with vLLM or SGLang decode, and the reverse directions. All replicas use identical BF16 dense Qwen3 checkpoints, tokenizer assets and context limits, with one CUDA GPU per replica. TRT-LLM requires version ``1.2.1`` or ``>=1.3.0rc24,<1.4`` (experimental); vLLM and SGLang requirements match the cross-engine section above. For CUDA/Metal deployments, see :ref:`NVIDIA and MLX cross-engine P/D <trt-mlx-pd>` below."
+msgstr "Xavier は TRT-LLM prefill と vLLM または SGLang decode、およびその逆方向をサポートします。全レプリカで同一の BF16 密 Qwen3 チェックポイント、トークナイザーファイル、コンテキスト長を使い、各レプリカに CUDA GPU を 1 台割り当てます。TRT-LLM は ``1.2.1`` または ``>=1.3.0rc24,<1.4`` (実験的) が必要です。vLLM と SGLang の要件は上記のエンジン間セクションと同じです。CUDA/Metal 構成は下記の :ref:`NVIDIA と MLX の異なるエンジン間 P/D <trt-mlx-pd>` を参照してください。"
+
+#: source/user_guide/pd_separation.rst:469
+msgid "Swap the two roles for MLX prefill. Start workers with LAN-reachable addresses and ensure both workers and the supervisor can reach each other's actor ports. Specify the same ``download_hub`` explicitly. The Python and RPC dependency requirements and MLX-prefill memory budget above also apply. TRT-LLM requires ``1.2.1`` or ``>=1.3.0rc24,<1.4`` (experimental) with one CUDA GPU; MLX requires Apple silicon and ``mlx-lm>=0.31.2``."
+msgstr "ロールを交換すると MLX prefill になります。LAN から到達可能なアドレスで worker を起動し、両 worker と supervisor が互いの actor ポートに接続できることを確認してください。同じ ``download_hub`` を明示します。上記の Python、RPC 依存関係と MLX prefill メモリ予算の要件も適用されます。TRT-LLM は ``1.2.1`` または ``>=1.3.0rc24,<1.4`` (実験的) と CUDA GPU 1 台、MLX は Apple silicon と ``mlx-lm>=0.31.2`` が必要です。"

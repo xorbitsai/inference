@@ -1,3 +1,4 @@
+# CI: linux
 import json
 
 import pytest
@@ -908,7 +909,7 @@ def test_tool_cache_checkpoint_keeps_system_and_selected_tools():
     ]
 
 
-def test_effort_with_multiple_cache_checkpoints_adds_guidance_once():
+def test_native_effort_preserves_messages_and_cache_checkpoints():
     from types import SimpleNamespace
 
     from xinference.model.llm.mlx.core import MLXChatModel
@@ -939,7 +940,11 @@ def test_effort_with_multiple_cache_checkpoints_adds_guidance_once():
     )
     model = object.__new__(MLXChatModel)
     model.model_uid = "effort-checkpoints"
-    model.model_family = SimpleNamespace(model_ability=["chat"])
+    from xinference.model.llm.reasoning_controls import ReasoningEffortConfig
+
+    model.model_family = SimpleNamespace(
+        model_ability=["chat"], reasoning_effort=ReasoningEffortConfig(values=["low"])
+    )
     model.reasoning_parser = None
     model._model_config = {}
     model.count_tokens = lambda *args: 10
@@ -949,6 +954,9 @@ def test_effort_with_multiple_cache_checkpoints_adds_guidance_once():
     control = prepared["generate_config"]["_anthropic_cache_control"]
     for checkpoint in [control, *control["breakpoints"]]:
         system = checkpoint["messages"][0]["content"]
-        assert system.count("Use brief reasoning") == 1
+        assert system == "stable"
         assert system == prepared["messages"][0]["content"]
+    assert (
+        prepared["generate_config"]["chat_template_kwargs"]["reasoning_effort"] == "low"
+    )
     assert request.cache_control["messages"][0]["content"] == "stable"

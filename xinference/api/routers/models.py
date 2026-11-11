@@ -70,6 +70,13 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
 
+    router.add_api_route(
+        "/v1/models/{model_uid:path}/runtime",
+        api.get_model_runtime_info,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+
     # --- engines ---
     router.add_api_route(
         "/v1/engines/{model_name}",
@@ -168,6 +175,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         api.terminate_model,
         methods=["DELETE"],
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/cache_sessions",
+        api.update_cache_session,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/models/{model_uid}/reload",

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import base64
 import importlib
 import os
@@ -517,6 +519,20 @@ def test_mlx_engine_rejects_unrelated_pypi_package_namespace():
 
     assert result == (
         False,
-        "Blaizzy/mlx-video is not installed; the unrelated PyPI package "
-        "with the same name is not compatible",
+        "Blaizzy/mlx-video must provide both the Wan and LTX runtimes. "
+        "The unrelated PyPI package with the same name is not compatible.",
     )
+
+
+def test_mlx_engine_reports_dependency_import_failure(monkeypatch):
+    def find_spec(name):
+        if name == "mlx":
+            return object()
+        raise ModuleNotFoundError("No module named 'safetensors'", name="safetensors")
+
+    monkeypatch.setattr(MLXVideoEngineModel, "check_host", lambda: True)
+    monkeypatch.setattr(importlib.util, "find_spec", find_spec)
+
+    available, reason = MLXVideoEngineModel.check_lib()
+    assert available is False
+    assert "ModuleNotFoundError: No module named 'safetensors'" in reason

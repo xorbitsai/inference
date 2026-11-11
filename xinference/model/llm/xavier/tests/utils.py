@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from ..backends import lmcache
+from ..backends.bytes.history import XavierHistoryCacheActor
 from ..backends.torch.storage import XavierCacheActor
 
 
@@ -72,6 +73,48 @@ class DiskCacheActor(XavierCacheActor):
             ), "Disk writes did not drain"
             await asyncio.sleep(0.05)
         storage.manager.clear()
+
+
+class DiskHistoryCacheActor(XavierHistoryCacheActor):
+    async def fill_l1_below_watermark(self, count):
+        """Keep unrelated pages resident while a larger prefix streams from L2."""
+        storage = self._store._storage
+        manager = storage.manager
+        keys = [storage._key(10**9 + i) for i in range(count)]
+        reserved = manager.reserve_write(keys, storage._layout)
+        assert len(reserved) == count
+        for obj in reserved.values():
+            obj.tensor.zero_()
+        manager.finish_write(keys)
+        deadline = asyncio.get_running_loop().time() + 10
+        while any(
+            state["pending_keys_count"] or state["in_flight_task_count"]
+            for state in manager.report_status()["store_controllers"].values()
+        ):
+            assert asyncio.get_running_loop().time() < deadline
+            await asyncio.sleep(0.05)
+
+    async def evict_l2_pages(self, namespace=None, keys=None):
+        """Leave Xavier's directory stale after evicting this actor's objects."""
+        await self.force_disk_reads()
+        storage = self._store._storage
+        selected = self._store._known if keys is None else self._keys(namespace, keys)
+        for _, adapter in storage.manager.l2_adapters():
+            adapter.delete([storage._key(key) for key in selected])
+
+    async def force_disk_reads(self):
+        await DiskCacheActor.force_disk_reads(self)
+        # A store can finish just before LMCache releases its final L1 lock.
+        # Wait for actual eviction so L2 evidence excludes remaining L1 hits.
+        manager = self._store._storage.manager
+        deadline = asyncio.get_running_loop().time() + 10
+        while any(
+            s["total_object_count"]
+            for s in manager.report_status()["l1_managers"].values()
+        ):
+            assert asyncio.get_running_loop().time() < deadline
+            await asyncio.sleep(0.05)
+            manager.clear()
 
 
 def mooncake_backend_config(cpu_bytes=64 << 20):

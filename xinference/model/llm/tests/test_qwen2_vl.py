@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
+
 from threading import Event
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -131,15 +133,9 @@ def test_request_errors_are_isolated(adapter):
 
 @pytest.mark.parametrize("close", [False, True])
 @pytest.mark.timeout(10)
-def test_iterator_does_not_wait_forever(adapter, monkeypatch, close):
-    import transformers
+def test_iterator_waits_for_native_exit_after_end_or_close(adapter, close):
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-    streamer_cls = transformers.TextIteratorStreamer
-    monkeypatch.setattr(
-        transformers,
-        "TextIteratorStreamer",
-        lambda *a, **kw: streamer_cls(*a, **{**kw, "timeout": 0.01}),
-    )
     release, finished = Event(), Event()
 
     def generate(**kwargs):
@@ -149,14 +145,16 @@ def test_iterator_does_not_wait_forever(adapter, monkeypatch, close):
 
     adapter._model.generate.side_effect = generate
     iterator, _ = adapter.build_streaming_iter([], {})
-    try:
-        assert next(iterator) == "partial"
-        if close:
-            iterator.close()
-            assert not finished.is_set()
-        else:
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        try:
+            assert next(iterator) == "partial"
+            completion = executor.submit(
+                iterator.close if close else lambda: list(iterator)
+            )
             with pytest.raises(TimeoutError):
-                list(iterator)
-    finally:
-        release.set()
-        assert finished.wait(5)
+                completion.result(timeout=0.05)
+            assert not finished.is_set()
+        finally:
+            release.set()
+        completion.result(timeout=5)
+        assert finished.is_set()

@@ -28,7 +28,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 
 from ...core.utils import parse_replica_model_uid
 from ...types import PeftModelConfig
-from .reasoning_parser import KimiK3ReasoningParser, ReasoningParser
+from .reasoning_controls import (
+    TEMPLATE_THINKING_BUDGET_FAMILIES,
+    normalize_reasoning_controls,
+)
+from .reasoning_parser import (
+    KimiK3ReasoningParser,
+    ReasoningParser,
+    SeedOssReasoningParser,
+)
 from .tool_parsers import TOOL_PARSERS
 
 if TYPE_CHECKING:
@@ -46,13 +54,38 @@ def get_llm_version_infos():
     return copy.deepcopy(LLM_VERSION_INFOS)
 
 
+def _template_zero_budget(model: Any) -> bool:
+    family = getattr(model, "model_family", None)
+    name = getattr(family, "model_family", None) or getattr(family, "model_name", None)
+    return name in TEMPLATE_THINKING_BUDGET_FAMILIES
+
+
 class LLM(abc.ABC):
     _auto_yarn_env: Optional[str] = None
     supports_cache_salt = False
     allow_batch = False
     supports_tool_controls = False
+    supports_native_request_priority = False
+    supports_request_priority_fallback = True
+    # Opt in only when coroutine cancellation waits for native request cleanup.
+    _cancel_async_request_on_abort = False
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
+    # whether the engine can load a GGUF quantization uploaded as split files
+    support_split_gguf = True
+
+    def supports_chat_priority(self) -> bool:
+        """Whether this loaded engine can honor a nonzero chat priority."""
+        return (
+            not self.supports_native_request_priority
+            and self.supports_request_priority_fallback
+        )
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        """Total admission capacity, or a request's execution-path limit."""
+        return 1
 
     def __init__(
         self,
@@ -74,6 +107,33 @@ class LLM(abc.ABC):
             raise ValueError(f"Unrecognized positional arguments: {args}")
         if kwargs:
             raise ValueError(f"Unrecognized keyword arguments: {kwargs}")
+
+    def get_runtime_context_length(self) -> Optional[int]:
+        """Return the loaded adapter's input-plus-output limit, if known."""
+        from .context_length import normalize_runtime_positive_int
+
+        length = normalize_runtime_positive_int(getattr(self, "_context_length", None))
+        if length is not None:
+            return length
+        # Some multimodal Transformers loaders bypass the text loader which
+        # populates _context_length. Inspect their loaded config, without the
+        # config utility's historical 2048-token default.
+        config = getattr(getattr(self, "_model", None), "config", None)
+        if config is None:
+            return None
+        explicit = normalize_runtime_positive_int(
+            getattr(self, "_pytorch_model_config", {}).get("context_length")
+        )
+        if explicit is not None:
+            return explicit
+        from .utils import _collect_context_length_candidates
+
+        candidates = [
+            value
+            for raw in _collect_context_length_candidates(config, ("text_config",))
+            if (value := normalize_runtime_positive_int(raw)) is not None
+        ]
+        return max(candidates) if candidates else None
 
     def count_tokens(
         self, messages: List[Dict], generate_config: Optional[Dict] = None
@@ -103,11 +163,75 @@ class LLM(abc.ABC):
             prompt = prepare_prompt(prompt, config)
         return len(tokenizer.encode(prompt))
 
+    def _reasoning_effort_capability(self):
+        resolver = getattr(self.model_family, "get_reasoning_effort", None)
+        return (
+            resolver()
+            if resolver
+            else getattr(self.model_family, "reasoning_effort", None)
+        )
+
+    def get_reasoning_capabilities(self) -> Dict[str, bool]:
+        # Reuse request validation without generating tokens or retaining config.
+        try:
+            self.prepare_reasoning_request({"thinking_budget": 1, "max_tokens": 2})
+        except (NotImplementedError, ValueError):
+            return {"supports_thinking_budget": False}
+        return {"supports_thinking_budget": True}
+
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        """Preflight explicit OpenAI thinking budgets before opening a stream."""
+        config = normalize_reasoning_controls(
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
+        )
+        context = config.get("chat_template_kwargs") or {}
+        # A template-level 0 is for the chat template, not the engine.
+        if not context.get("thinking_budget"):
+            return config
+        parser = self.reasoning_parser
+        apply_budget = getattr(self, "_apply_thinking_budget", None)
+        if apply_budget is None or parser is None or not parser.reasoning_end_tag:
+            raise NotImplementedError(
+                "Thinking budgets require a supported engine and reasoning markers"
+            )
+        from .tool_controls import is_forced_tool_choice
+
+        if is_forced_tool_choice(config):
+            raise ValueError("Forced tool choice is incompatible with manual thinking")
+        if (
+            (config.get("response_format") or {}).get("type")
+            in {
+                "json_object",
+                "json_schema",
+            }
+            or config.get("guided_json") is not None
+            or any(
+                config.get(key)
+                for key in (
+                    "guided_regex",
+                    "guided_choice",
+                    "guided_grammar",
+                    "guided_json_object",
+                )
+            )
+        ):
+            raise NotImplementedError(
+                "OpenAI thinking budgets cannot be combined with structured output"
+            )
+        apply_budget(config)
+        return config
+
     def prepare_anthropic_request(
         self, messages: List[Dict], config: Dict
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
-        config = copy.deepcopy(config)
+        config = normalize_reasoning_controls(
+            config,
+            self._reasoning_effort_capability(),
+            template_zero_budget=_template_zero_budget(self),
+        )
         from ...api.protocols.anthropic_capabilities import plan_anthropic_compatibility
 
         requested_features = frozenset(config.pop("_anthropic_requested_features", []))
@@ -205,31 +329,7 @@ class LLM(abc.ABC):
             config.pop("_anthropic_cache_control", None)
         if has_images and "vision" not in self.model_family.model_ability:
             raise ValueError("Image input requires a model with vision support")
-        # Effort is a soft preference. Engines without a native effort API use
-        # explicit prompt guidance, without forcing thinking on non-thinking runs.
-        effort = config.pop("reasoning_effort", None)
         prepared = copy.deepcopy(messages)
-        if effort and effort != "medium":
-            guidance = {
-                "low": "Use brief reasoning and prioritize a direct answer.",
-                "high": "Reason carefully and check your work before answering.",
-                "xhigh": "Use thorough reasoning and check difficult edge cases.",
-                "max": "Use the reasoning needed to solve the task thoroughly.",
-            }[effort]
-            if prepared and prepared[0].get("role") == "system":
-                prepared[0]["content"] = prepared[0]["content"] + "\n" + guidance
-            else:
-                prepared.insert(0, {"role": "system", "content": guidance})
-            if cache_control_applied and cache_control is not None:
-                for checkpoint in [
-                    cache_control,
-                    *cache_control.get("breakpoints", []),
-                ]:
-                    prefix = checkpoint["messages"]
-                    if prefix and prefix[0].get("role") == "system":
-                        prefix[0]["content"] += "\n" + guidance
-                    else:
-                        prefix.insert(0, {"role": "system", "content": guidance})
         try:
             input_tokens = self.count_tokens(prepared, config)
         except NotImplementedError:
@@ -276,6 +376,11 @@ class LLM(abc.ABC):
                 else SupportLevel.UNSUPPORTED
             ),
             reasoning=(SupportLevel.NATIVE if reasoning else SupportLevel.UNSUPPORTED),
+            reasoning_effort=(
+                SupportLevel.NATIVE
+                if self._reasoning_effort_capability()
+                else SupportLevel.UNSUPPORTED
+            ),
             adaptive_thinking=(
                 SupportLevel.TRANSLATED if reasoning else SupportLevel.UNSUPPORTED
             ),
@@ -440,9 +545,13 @@ class LLM(abc.ABC):
                 reasoning_content
             )
             return
-        auto_insert_start_tag = "hybrid" not in abilities
+        # Seed-OSS writes its own start tag, and thinking_budget=0 closes reasoning
+        # in the prompt, so a missing tag means there is no reasoning.
+        seed_oss = self.model_family.reasoning_start_tag == "<seed:think>"
+        auto_insert_start_tag = "hybrid" not in abilities and not seed_oss
         # Initialize reasoning parser if model has reasoning ability
-        self.reasoning_parser = ReasoningParser(  # type: ignore
+        parser_class = SeedOssReasoningParser if seed_oss else ReasoningParser
+        self.reasoning_parser = parser_class(  # type: ignore
             reasoning_content,
             self.model_family.reasoning_start_tag,  # type: ignore
             self.model_family.reasoning_end_tag,  # type: ignore
@@ -477,11 +586,17 @@ chat_context_var: ContextVar[dict] = ContextVar("chat_context_var", default={})
 
 def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    # Use model_specs from huggingface, as HuggingFace is the most comprehensive.
-    hf_specs = [
-        spec for spec in llm_family.model_specs if spec.model_hub == "huggingface"
-    ]
-    for spec in hf_specs:
+    # Prefer model_specs from huggingface, as HuggingFace is the most comprehensive.
+    # A variant that only another hub hosts still needs an entry: the cache tracker
+    # only updates existing entries, so its downloads would stay untracked otherwise.
+    seen = set()
+    for spec in sorted(
+        llm_family.model_specs, key=lambda spec: spec.model_hub != "huggingface"
+    ):
+        variant = (spec.model_format, spec.model_size_in_billions, spec.quantization)
+        if spec.model_hub != "huggingface" and variant in seen:
+            continue
+        seen.add(variant)
         _llm_family = llm_family.copy()
         _llm_family.model_specs = [spec]
         multimodal_projectors = getattr(spec, "multimodal_projectors", None)
@@ -565,6 +680,7 @@ def create_llm_model_instance(
 ) -> LLM:
     from .cache_manager import LLMCacheManager
     from .llm_family import (
+        LlamaCppLLMSpecV2,
         check_engine_by_spec_parameters,
         check_engine_by_spec_parameters_with_virtual_env,
         match_llm,
@@ -616,8 +732,24 @@ def create_llm_model_instance(
         )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
+    validate_launch = getattr(llm_cls, "validate_launch", None)
+    if callable(validate_launch):
+        validate_launch(llm_family)
+
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
+        spec = llm_family.model_specs[0]
+        if (
+            isinstance(spec, LlamaCppLLMSpecV2)
+            and spec.quantization in (spec.quantization_parts or {})
+            and not llm_cls.support_split_gguf
+        ):
+            # Fail before downloading shards that the engine cannot load.
+            raise ValueError(
+                f"Engine {model_engine} does not support the split GGUF files of "
+                f"model {model_name} {spec.quantization}. Please merge them first "
+                "and provide `model_path` with the merged file."
+            )
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
 

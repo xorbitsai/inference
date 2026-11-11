@@ -1,6 +1,7 @@
 [
   {
     "model_name": "glm-5.2",
+    "reasoning_effort": {"values": ["high", "max"]},
     "model_description": "We're introducing GLM-5.2, our latest flagship model for long-horizon tasks",
     "context_length": 1048576,
     "model_lang": [

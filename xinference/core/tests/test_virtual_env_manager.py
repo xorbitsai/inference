@@ -1555,6 +1555,20 @@ class TestGetEngineCriticalDependencySpecs:
                 == []
             )
 
+    def test_explicit_prerelease_parent_keeps_its_own_dependency_requirements(self):
+        versions = {
+            "tensorrt_llm": "1.3.0rc24",
+            "torch": "2.10.0",
+            "numpy": "2.3.0",
+            "transformers": "4.57.3",
+        }
+        declared = ["torch>=2.10", "numpy>=2", "transformers>=5.1"]
+        with self._patch_metadata(versions, {"tensorrt_llm": declared}):
+            specs = get_engine_critical_dependency_specs(
+                "TRT-LLM", ["tensorrt_llm==1.3.0rc24"]
+            )
+        assert specs == ["transformers>=5.1"]
+
     def test_engine_absent_from_parent_is_noop(self):
         """Without a parent copy the venv resolves the engine and its full
         dependency closure itself; nothing to compensate for."""

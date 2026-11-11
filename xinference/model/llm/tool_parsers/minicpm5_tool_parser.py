@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, open_block, tagged_string_start
 
 
 @register_tool_parser("minicpm5")
@@ -129,6 +130,32 @@ class MiniCPM5ToolParser(ToolParser):
                 return text[: match.start()]
             position = function_end + len(cls._FUNCTION_END)
         return text
+
+    _ARGUMENT_OPEN = re.compile(r"""\s*<param\s+name=['"](?P<key>[^'"]+)['"]\s*>""")
+
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        body = open_block(text, self._FUNCTION_START, self._FUNCTION_END)
+        if body is None:
+            return None
+        match = self._FUNCTION_OPEN_RE.match(text, body - len(self._FUNCTION_START))
+        if match is None:
+            return None
+        name = match[1]
+
+        def parse_completed(completed: str) -> Dict[str, Any]:
+            calls = self._parse_calls(match[0] + completed + self._FUNCTION_END)
+            return calls[0][2] or {}
+
+        return tagged_string_start(
+            text,
+            match.end(),
+            name,
+            self._ARGUMENT_OPEN,
+            "</param>",
+            parse_completed,
+            boundaries="<",
+            trim=True,
+        )
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str

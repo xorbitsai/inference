@@ -14,7 +14,6 @@
 import logging
 import typing
 from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import torch
@@ -168,9 +167,7 @@ class Glm4VModel(PytorchMultiModalModel):
             **generate_kwargs,
             "streamer": streamer,
         }
-        t = Thread(target=self._model.generate, kwargs=kwargs)
-        t.start()
-        return streamer, len(inputs.input_ids[0])
+        return self._start_streaming_thread(kwargs), len(inputs.input_ids[0])
 
     def _get_full_prompt(self, messages, tools, generate_config: dict):
         msgs = self._get_processed_msgs(messages)

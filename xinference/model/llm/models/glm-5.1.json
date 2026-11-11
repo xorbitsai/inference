@@ -813,7 +813,7 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
-    "featured": true,
-    "updated_at": 1781600152
+    "featured": false,
+    "updated_at": 1793553196
   }
 ]

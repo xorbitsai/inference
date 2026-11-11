@@ -24,6 +24,7 @@ from typing import Any, Optional, Tuple, Union
 from packaging import version
 
 from ....types import Embedding
+from ....utils import dependency_import_guard
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -114,7 +115,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
             raise NotImplementedError(
                 "LlamaCpp embedder does not support dimensions argument now."
             )
-        try:
+        with dependency_import_guard("xllamacpp"):
             from xllamacpp import (
                 CommonParams,
                 Server,
@@ -131,11 +132,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                     )
             except version.InvalidVersion:
                 pass  # If the version parse failed, we just skip the version check.
-        except ImportError:
-            error_message = "Failed to import module 'xllamacpp'"
-            installation_guide = ["Please make sure 'xllamacpp' is installed. "]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # handle legacy cache.
         if (

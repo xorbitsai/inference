@@ -626,20 +626,9 @@ msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
 msgid "TRT-LLM"
 msgstr "TRT-LLM"
 
-#: ../../source/user_guide/backends.rst:342
-msgid ""
-"The TRT-LLM backend uses the Python LLM API inside the model process. It "
-"requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm==1.2.1``. Model support "
-"follows the text architectures implemented by that version, including "
-"Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, "
-"Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, "
-"SeedOSS and Starcoder2. Fine-tuned and custom models use the same "
-"architecture matching."
-msgstr ""
-"TRT-LLM 后端在模型进程内使用 Python LLM API，需要 Linux、NVIDIA CUDA GPU 和 ``tensorrt-"
-"llm==1.2.1``。模型支持按该版本实现的文本架构匹配，包括 Qwen2/2.5, Qwen3 (dense, MoE, Next), "
-"Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-"
-"OSS, Hunyuan, EXAONE, Nemotron, SeedOSS, Starcoder2。微调模型和自定义模型使用相同的架构匹配规则。"
+#: source/user_guide/backends.rst:237
+msgid "The TRT-LLM backend uses the Python LLM API inside the model process. It requires Linux, NVIDIA CUDA GPUs and ``tensorrt-llm>=1.2.1,<1.4`` for ordinary replicas. Model support retains the TensorRT-LLM 1.2.1 text-architecture baseline, including Qwen2/2.5, Qwen3 (dense, MoE and Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS and Starcoder2. Fine-tuned and custom models use the same architecture matching."
+msgstr "TRT-LLM 后端在模型进程内使用 Python LLM API，需要 Linux、NVIDIA CUDA GPU 和 ``tensorrt-llm>=1.2.1,<1.4``。模型支持按 TensorRT-LLM 1.2.1 基线的文本架构匹配，包括 Qwen2/2.5, Qwen3 (dense, MoE, Next), Llama, Mistral/Mixtral, Gemma3, Phi3, DeepSeek, GLM MoE, MiniMax M2, GPT-OSS, Hunyuan, EXAONE, Nemotron, SeedOSS, Starcoder2。微调模型和自定义模型使用相同的架构匹配规则。"
 
 #: ../../source/user_guide/backends.rst:344
 msgid ""
@@ -727,3 +716,7 @@ msgstr ""
 "AWQ/GPTQ、bitsandbytes、GGUF 和 MLX 权重格式。TRT 在启动时检查量化方案和 GPU 内核要求。普通副本接受 "
 "``dtype=\"auto\"``、``\"float16\"`` 或 ``\"bfloat16\"``，仍要求 TP=PP=CP=1。共享缓存和 "
 "P/D 还需满足下文的额外约束。"
+
+#: source/user_guide/backends.rst:239
+msgid "The default extra pins ``tensorrt-llm==1.2.1``. Newer versions require an explicit installation override. Version 1.3 pre-releases, such as ``tensorrt-llm==1.3.0rc24``, require an explicit installation choice. Xavier shared caching and both P/D backends accept 1.2.1 or ``>=1.3.0rc24,<1.4``. The 1.3 integration, including P/D, is experimental and has not been GPU-validated; 1.2.1 remains the validated baseline. Request priority requires a native priority API; older versions reject an explicitly supplied ``priority``. See :doc:`client_api`."
+msgstr "默认 extra 固定使用 ``tensorrt-llm==1.2.1``。安装新版本必须显式覆盖该依赖。必须显式选择 1.3 预发行版，例如 ``tensorrt-llm==1.3.0rc24``。Xavier 共享缓存和两种 P/D 后端接受 1.2.1 或 ``>=1.3.0rc24,<1.4``。包括 P/D 在内的 1.3 集成属于实验性功能，尚未经过 GPU 验证；1.2.1 仍是已验证的基线。请求优先级要求原生优先级 API；旧版本拒绝显式传入的 ``priority``。参见 :doc:`client_api`。"

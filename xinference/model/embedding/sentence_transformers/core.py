@@ -24,6 +24,7 @@ import numpy as np
 import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
+from ....utils import dependency_import_guard
 from ...batch import BatchMixin
 from ...utils import (
     ModelArtifactSource,
@@ -429,7 +430,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         neutralize_broken_torchcodec()
 
-        try:
+        with dependency_import_guard(
+            "sentence_transformers",
+            install_hint="Install with `pip install sentence-transformers`.",
+        ):
             import sentence_transformers
             from sentence_transformers import SentenceTransformer
 
@@ -439,19 +443,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
                     "https://github.com/UKPLab/sentence-transformers"
                 )
-        except ImportError as e:
-            error_message = "Failed to import module 'SentenceTransformer'"
-            installation_guide = [
-                "Please make sure 'sentence-transformers' is installed. ",
-                "You can install it by `pip install sentence-transformers`\n",
-            ]
-            # Preserve the original exception so that the real root cause is not
-            # swallowed. A common case is a torch/torchvision version mismatch
-            # (e.g. "operator torchvision::nms does not exist"), where the actual
-            # error has nothing to do with sentence-transformers being missing.
-            raise ImportError(
-                f"{error_message}: {e}\n\n{''.join(installation_guide)}"
-            ) from e
 
         class XSentenceTransformer(SentenceTransformer):
             def to(self, *args, **kwargs):

@@ -4,7 +4,7 @@
 mistral-nemo-instruct
 ========================================
 
-- **Context Length:** 1024000
+- **Context Length:** 131072
 - **Model Name:** mistral-nemo-instruct
 - **Languages:** en, fr, de, es, it, pt, zh, ru, ja
 - **Abilities:** chat

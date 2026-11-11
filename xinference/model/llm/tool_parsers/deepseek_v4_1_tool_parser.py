@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
+from .argument_stream import ArgumentStart, dsml_argument_start
 
 ToolCall = Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
 
@@ -64,6 +65,15 @@ class DeepseekV41ToolParser(ToolParser):
                 results.append((content, None, None))
         return results or [(model_output, None, None)]
 
+    def locate_argument_start(self, text: str) -> Optional[ArgumentStart]:
+        return dsml_argument_start(text, "calls", "｜DSML｜ ", self._parse_parameters)
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        if text.rfind(self._START) > text.rfind(self._END):
+            return None
+        length = self._partial_marker_length(text, self.tool_call_start_tokens)
+        return text[-length:] if length else None
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> Optional[List[ToolCall]]:
@@ -78,33 +88,40 @@ class DeepseekV41ToolParser(ToolParser):
             return [(content, None, None)] if content else None
 
         results: List[ToolCall] = []
-        body_start = marker_start + len(self._START)
-        if body_start > previous_length:
-            # The start tag completed in this delta. Release any preceding
-            # text withheld while the tag was still only a partial match.
-            old_text = current_text[:previous_length]
-            content_start = previous_length - self._partial_marker_length(
-                old_text, self.tool_call_start_tokens
-            )
-            content = current_text[content_start:marker_start]
-            if content:
-                results.append((content, None, None))
-
-        body_end = current_text.find(self._END, body_start)
-        body = current_text[body_start : body_end if body_end >= 0 else None]
-        # Every invoke ends with its closing tag, so none can complete in this
-        # delta unless the tag does. Skip the regex scan until then.
-        if (
+        # The wrapper can contain several calls, and one response can contain
+        # several wrappers. Skip regex work until an invoke can have closed.
+        scan_invokes = (
             current_text.find(
-                self._INVOKE_END,
-                max(previous_length - len(self._INVOKE_END) + 1, body_start),
+                self._INVOKE_END, max(previous_length - len(self._INVOKE_END) + 1, 0)
             )
-            == -1
-        ):
-            return results or None
-        for invoke in self._INVOKE.finditer(body):
-            # Emit only invokes whose closing tag arrived in this delta.
-            if body_start + invoke.end() > previous_length:
-                name, invoke_body = invoke.groups()
-                results.append((None, name, self._parse_parameters(invoke_body)))
+            != -1
+        )
+        position = 0
+        held = self._partial_marker_length(
+            current_text[:previous_length], self.tool_call_start_tokens
+        )
+        while marker_start != -1:
+            content_start = max(position, previous_length - held)
+            if marker_start > content_start:
+                results.append((current_text[content_start:marker_start], None, None))
+            body_start = marker_start + len(self._START)
+            body_end = current_text.find(self._END, body_start)
+            end = body_end if body_end != -1 else len(current_text)
+            if scan_invokes and end > previous_length:
+                for invoke in self._INVOKE.finditer(current_text, body_start, end):
+                    if invoke.end() > previous_length:
+                        name, invoke_body = invoke.groups()
+                        results.append(
+                            (None, name, self._parse_parameters(invoke_body))
+                        )
+            if body_end == -1:
+                return results or None
+            position = body_end + len(self._END)
+            marker_start = current_text.find(self._START, position)
+        content_start = max(position, previous_length - held)
+        content_end = len(current_text) - self._partial_marker_length(
+            current_text, self.tool_call_start_tokens
+        )
+        if content_end > content_start:
+            results.append((current_text[content_start:content_end], None, None))
         return results or None

@@ -259,9 +259,174 @@ msgid "Before streaming starts, system-message ordering errors on strict templat
 msgstr "流式响应开始前，严格模板的系统消息顺序错误以及检测到的 vLLM 单次提示多模态数量超限会返回 HTTP 400。如果无法查询当前限制，则由工作进程执行验证。"
 
 #: ../../source/user_guide/client_api.rst
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "当请求体不是有效的 JSON，或虽是有效的 JSON 但不是对象（例如 ``[]`` 或 ``null``）时，``/v1/chat/completions`` 和 ``/v1/completions`` 会返回 HTTP 400。该检查在查找模型或开始流式响应之前进行。未通过请求模式验证的 JSON 对象会返回 HTTP 422。"
+
+#: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
 msgstr "非流式请求中，已识别的上下文长度超限，以及已知的媒体或 cache-salt 验证错误会返回 HTTP 400；限流错误会返回 HTTP 429。错误消息会说明原因，同时避免暴露工作进程的内部信息。无法识别的工作进程错误会返回 HTTP 500。"
 
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "流式响应开始后，HTTP 状态保持为 200。错误通过 SSE 的 ``error`` 负载发送。已识别的上下文长度和限流错误保留各自不同的安全提示；意外错误使用通用消息。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "聊天副本会话亲和路由"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "模型使用普通聊天副本时，可在同一会话的每个请求中发送相同的 ``routing_key``。Xinference 会优先选择该模型、凭证和路由键上一次选中的副本。如果该副本不可用或已达到配置的请求上限，Xinference 会尝试其他副本。未提供路由键的请求按轮询分配。路由键必须是长度不超过 128 个字符的非空白字符串，仅用于选副本。缓存隔离由缓存配置决定。"
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "使用 OpenAI 客户端时，在 ``extra_body`` 中设置 ``routing_key``。使用 Xinference 客户端时，在 ``generate_config`` 中设置。对于支持此功能的模型，``GET /v1/models/{model_uid}`` 的响应包含 ``supports_chat_session_affinity: true``。"
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference 为每个模型最多保留 4096 "
+"个路由键，存储在所有凭证共享的最近最少使用（LRU）表中。某个凭证频繁使用新键，可能挤出其他凭证的亲和记录；这只影响副本选择偏好。"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "Agent 缓存生命周期"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "支持生命周期的 vLLM 混合模型、SGLang、TRT-LLM 和 MLX Xavier 适配器会声明 ``supports_agent_cache_lifecycle: true``。通过 OpenAI 客户端的 ``extra_body`` 或 Xinference 客户端的 ``generate_config``，为聊天请求附加 ``cache_session={\"id\": \"run-1\", \"revision\": 0}``。会话 ID 按请求凭证隔离。缓存隔离仍使用 ``cache_salt``。"
+
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"向 ``POST /v1/models/{model_uid}/cache_sessions`` 发送 ``id``、整数 ``revision`` 和"
+" ``phase``（``waiting``、``active`` 或 "
+"``finished``）。聊天请求会将会话标记为活跃状态。旧版本以及同一版本下的阶段变更会被拒绝。聊天后发送 ``waiting`` "
+"前必须增加版本号。重复发送相同版本和阶段可刷新 300 秒的有效期。Xagent 自动发送阶段变更；等待超过五分钟时需要显式刷新提示。"
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "等待中的前缀获得软保留优先级：vLLM 调整空闲混合架构 GPU 块的顺序；四种适配器都会刷新共享 CPU 前缀，LMCache 还可从磁盘预取有界前缀。会话结束或过期后取消优先级，不删除共享页面。块始终可供分配，活跃请求和传输租约保持所有权。存储失败时回退到预填充。P/D 暂不支持生命周期提示。"
+
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"单个副本也可使用 ``enable_xavier=True`` 和 "
+"``xavier_gpu_cache_bytes=0``，根据生命周期管理常驻前缀。此模式要求 vLLM >= "
+"0.32，以及结合注意力与循环状态的循环混合模型。非混合模型的单副本启动会被拒绝。"
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"注册表为每个模型最多保留 4096 个会话，每个凭证作用域最多保留 1024 个会话。未提供凭证的请求共享一个匿名作用域。生命周期 ID 独立于 "
+"``cache_salt``；独立工作流应使用不同的会话 ID，使用不同 salt 的工作流也不例外。"
+
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "请求优先级"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "使用 vLLM、SGLang、Transformers、MLX、MLX-VLM、llama.cpp 和 TensorRT-LLM 时，``/v1/chat/completions`` 和 ``/v1/completions`` 的大语言模型请求支持整数参数 ``priority``，包括流式请求。默认值为 ``0``，数值越小，优先级越高。优先级影响单个模型副本内的调度，不用于选择副本，也不会绕过请求数量限制。 ``priority`` 的有效范围为 ``[-10000, 10000]``。"
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM 和 SGLang 使用原生优先级调度。启动模型时启用优先级调度：vLLM（0.6.3 或更新版本）设置 ``scheduling_policy=\"priority\"``；支持优先级调度的 SGLang 版本设置 ``enable_priority_scheduling=True``。Xinference 会根据 SGLang 配置的排序方向转换优先级，因此无论 ``schedule_low_priority_values_first`` 如何设置，Xinference API 都是数值越小，优先级越高。"
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "其他引擎在请求提交给引擎前，使用每个副本独立的优先级队列。活动请求数量不超过引擎配置的批处理或并行容量；串行路径一次执行一个请求。等待请求按优先级执行，同优先级按到达顺序执行。此队列不会抢占正在执行的请求。 非批处理的 Transformers 模型现在一次只运行一个请求，即使省略 priority 也是如此。等待中的请求计入 ``request_limits``；达到限制后，后续请求即使优先级更高也会被拒绝。"
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "使用 Xinference Python 客户端时，向 ``model.chat()`` 或 ``model.generate()`` 传入 ``generate_config={\"priority\": -10}``。使用 OpenAI Python 客户端时，通过 ``extra_body`` 传入："
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "无效优先级类型或超出 ``[-10000, 10000]`` 的值返回 HTTP 422；字符串、布尔值和小数不会转换为整数。vLLM、SGLang 以及提供原生优先级 API 的 TRT-LLM 版本必须启用原生优先级调度才能使用非零优先级，否则非流式请求返回 HTTP 400。流式请求在发送 HTTP 200 后才检查引擎配置和版本，因此这些错误通过 SSE 流报告。"
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "具有原生 ``priority`` 参数的 TRT-LLM 版本在普通副本和 P/D 副本上都使用原生调度。Xinference 默认将 ``scheduler_config.waiting_queue_policy`` 设为 ``\"priority\"``，并线性转换整数范围：``-10000`` 对应 ``1.0``，``0`` 对应 ``0.5``，``10000`` 对应 ``0.0``。包括 1.2.1 在内的旧版本会对显式传入的 ``priority`` 返回 HTTP 400（非流式请求），即使值为 ``0``。省略该字段可继续使用旧版本；TRT-LLM 不使用公共队列作为回退。"
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"使用 vLLM 时，亲和路由以正整数 ``max_num_seqs`` 乘以该副本所服务的数据并行 rank 数作为参考容量。外部负载均衡只服务一个 "
+"rank，混合负载均衡统计本地 "
+"rank。无效容量值会禁用此引擎专用探测。未达到此容量时，请求保持亲和并可进行批处理。如果所有副本都忙碌，Xinference "
+"会保留首选副本及其正常的排队和准入行为。此探测按请求计数，因此 ``n > 1`` "
+"的请求可能占用比计数更多的序列槽位。切换副本可能需要重新计算前缀或传输 KV；该策略不会估算这些成本，也不会预留容量。"
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference 现在会为所有引擎检查客户端传入的 ``request_id``，包括未提供 ``priority`` 的请求。同一副本上的活动请求必须使用唯一 ID。中止请求后，该 ID 默认封禁 30 秒；重试时请使用新 ID，或通过中止请求中的 ``block_duration`` 配置封禁时间。"
+
+#: user_guide/client_api.rst:10
+msgid "Loaded context length"
+msgstr "已加载模型的上下文长度"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent"
+" call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` "
+"endpoint. ``runtime_context_length`` is the loaded adapter's total input-"
+"plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each"
+" ``replica_uid`` and its limit. The model-wide value is the minimum only "
+"when every active replica reports a value. Queries follow the serving "
+"generation after reload; the model details panel fetches this information on"
+" entry and after a reload."
+msgstr ""
+"``client.get_model_runtime_info(model_uid)`` 及其异步版本调用 Xinference 专用接口 ``GET "
+"/v1/models/{model_uid}/runtime``。``runtime_context_length`` 表示已加载适配器的输入与输出 "
+"token 总上限，未知时为 ``null``。``replicas`` 列出各个 ``replica_uid`` "
+"及其上限。只有所有活动副本均返回数值时，模型级上限才取其中最小值。重载后查询会跟随当前服务中的实例；模型详情面板在打开页面和重载完成后查询一次。"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"The registered ``context_length`` and OpenAI/Anthropic model, generation, "
+"and streaming response formats remain unchanged. vLLM, Transformers, MLX, "
+"and TRT-LLM report their adapter limit; SGLang queries its runtime. "
+"llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's "
+"``/props`` endpoint, rather than dividing the launch-time total capacity. "
+"Older runtimes without a query interface report ``null``. The limit does not"
+" guarantee available memory."
+msgstr ""
+"注册信息中的 ``context_length`` 以及 OpenAI/Anthropic "
+"的模型、生成和流式响应格式保持不变。vLLM、Transformers、MLX 和 TRT-LLM 返回适配器上限；SGLang "
+"查询其运行时。llama.cpp 从已加载服务的 ``/props`` 接口读取实际生效的每槽位 "
+"``n_ctx``，而不是用启动时的总容量除以槽位数。不提供查询接口的旧版运行时返回 ``null``。该上限不保证请求所需的内存始终可用。"
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint."
+msgstr "当运行中模型的描述声明 ``supports_chat_priority`` 时，客户端可在聊天请求中发送 ``priority_hint: -1``。选中的副本通过引擎原生调度或 Xinference 优先级队列应用该提示。使用 prefill/decode 分离部署时，两个阶段均须支持优先级。显式指定的 ``priority`` 优先。 只有 ``/v1/chat/completions`` 使用该提示。整数 ``-1`` 以外的值会被忽略。Anthropic Messages 和 OpenAI Responses 接口会忽略该提示。"
+
+#: ../../source/user_guide/client_api.rst:139
+msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
+msgstr "使用 ``stream=True`` 时，按工具调用索引拼接 ``delta.tool_calls[].function.arguments`` 的分片。收到 ``finish_reason=\"tool_calls\"`` 并验证拼接后的 JSON 后，再执行工具。如果收到 ``finish_reason=\"length\"``，工具调用可能已有 ID 和名称，但参数仍不完整。请勿执行该响应中的工具调用。"

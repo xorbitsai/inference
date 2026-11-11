@@ -1,6 +1,7 @@
 [
   {
     "model_name": "DeepSeek-V4-Flash-0731",
+    "reasoning_effort": {"values": ["low", "high", "max"]},
     "model_description": "Official DeepSeek-V4-Flash release with enhanced agentic capabilities and an attached DSpark speculative decoding module.",
     "context_length": 1048576,
     "model_lang": [
@@ -77,7 +78,7 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "featured": true,
-    "updated_at": 1786099285
+    "featured": false,
+    "updated_at": 1793553196
   }
 ]

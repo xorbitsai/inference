@@ -785,3 +785,19 @@ msgid ""
 msgstr ""
 "結果を確認できない場合、Web UI の **表示中の設定を再適用** "
 "は、変更されていなくても現在表示されている値を送信します。空欄やレプリカ間で値が異なる項目は、値を設定するまで送信されません。"
+
+#: ../../source/user_guide/launch.rst:566
+msgid "Checkpoints declaring ``quantization_method=\"compressed-tensors\"`` use native weight loading when vLLM's compressed-tensors loader does not support preprocessed IPC weights. Automatic retention skips this configuration; explicitly enabling retention rejects launch."
+msgstr "``quantization_method=\"compressed-tensors\"`` を宣言したチェックポイントでは、vLLM の compressed-tensors ローダーが前処理済み IPC 重みに対応していない場合、通常の重み読み込みを使用します。自動重み保持ではこの構成をスキップし、保持を明示的に有効にすると起動を拒否します。"
+
+#: ../../source/user_guide/launch.rst:311
+msgid "When adding replicas from **Running Models**, the Web UI waits for the whole request without the normal 60-second timeout and shows elapsed time and per-replica progress. Progress stays below 100% until a replica is ready. Only a successful response confirms the batch and closes the dialog; a later refresh failure does not undo that success. If the connection or gateway fails, check the current replicas before ending tracking or retrying; the UI does not automatically resubmit. Tracking is local to the page and is lost on reload."
+msgstr "**実行中のモデル** からレプリカを追加すると、Web UI は通常の 60 秒のタイムアウトを適用せずにリクエスト全体の完了を待ち、経過時間と各レプリカの進捗を表示します。レプリカの準備が整うまで進捗は 100% 未満に保たれます。成功レスポンスを受信した場合のみバッチの成功を確定してダイアログを閉じます。その後の更新失敗によって成功が取り消されることはありません。接続やゲートウェイで障害が発生した場合は、追跡の終了や再試行の前に現在のレプリカを確認してください。UI は自動的に再送信しません。追跡状態は現在のページ内だけに保持され、再読み込みすると失われます。"
+
+#: ../../source/user_guide/launch.rst:418
+msgid "In **Running Models**, the **Add Replica** dialog offers automatic scheduling and per-replica placement. Per-replica placement requires one worker per new replica and accepts optional GPU indexes and an alias for each row. GPU indexes are local to that worker; leave them blank for automatic allocation or select CPU to omit them. Only the selected mode is submitted. GPU availability and alias conflicts are checked by the server, and existing scale-up restrictions still apply."
+msgstr "**実行中のモデル** の **レプリカを追加** ダイアログでは、自動スケジューリングとレプリカごとの配置を選択できます。レプリカごとの配置では、新しいレプリカごとにワーカーを 1 つ選択し、各行に GPU インデックスと別名を任意で入力できます。GPU インデックスはそのワーカー内の番号です。自動割り当てには空欄にし、GPU インデックスを送信しない場合は CPU を選択します。選択したモードのみが送信されます。GPU の可用性と別名の重複はサーバーが確認し、既存のスケールアップ制限も適用されます。"
+
+#: ../../source/user_guide/launch.rst:294
+msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
+msgstr "デプロイを送信すると、レプリカの準備中や読み込み中も含め、ダイアログに待機メッセージと経過時間がすぐに表示されます。レプリカの準備完了や進捗 100% だけではリクエストは完了しません。デプロイのレスポンスを受信すると待機計測が終了し、ダイアログを閉じる前に設定の保存が完了する場合があります。キャンセルに失敗した場合は、元の開始時刻を維持して待機を続けます。ダウンロードのみの操作では従来どおり個別の進捗を表示します。"

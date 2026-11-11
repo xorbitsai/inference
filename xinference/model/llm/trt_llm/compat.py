@@ -1,15 +1,47 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Initialize TRT-LLM 1.2.1 workers before model construction."""
+"""Public runtime compatibility and version-scoped private TRT-LLM adapters."""
 
 import ctypes
 import os
 from functools import wraps
 from types import SimpleNamespace
 
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
+
+TRT_VERSION_RANGE = ">=1.2.1,<1.4"
+TRT_PRIVATE_VERSION = "1.2.1"
+TRT_NEW_PD_RANGE = ">=1.3.0rc24,<1.4"
+
+
+def validate_runtime_version(config: dict, installed_version: str) -> None:
+    try:
+        parsed = Version(installed_version)
+    except InvalidVersion as exc:
+        raise ValueError("Cannot parse the installed TensorRT-LLM version") from exc
+    if not SpecifierSet(TRT_VERSION_RANGE).contains(parsed, prereleases=True):
+        raise ValueError(
+            f"The TRT-LLM adapter requires tensorrt-llm{TRT_VERSION_RANGE}"
+        )
+    connector = config.get("kv_connector_config") or {}
+    private_transport = (
+        config.get("_xavier_cache_config") is not None
+        or config.get("_nixl_config") is not None
+        or connector.get("connector_module") == "xinference.model.llm.trt_llm.connector"
+    )
+    if (
+        private_transport
+        and parsed.base_version != TRT_PRIVATE_VERSION
+        and not SpecifierSet(TRT_NEW_PD_RANGE).contains(parsed, prereleases=True)
+    ):
+        raise ValueError(
+            f"TRT-LLM Xavier shared caching and P/D require 1.2.1 or {TRT_NEW_PD_RANGE}"
+        )
+
 
 def initialize_pd_connector() -> None:
-    """Adapt private executor plumbing only for our pinned TP1 P/D connector."""
+    """Adapt the TP1 connector lifecycle across supported TRT-LLM versions."""
     from tensorrt_llm._torch.pyexecutor.py_executor import PyExecutor
 
     from .connector import XavierConnectorWorker
@@ -113,7 +145,7 @@ def initialize_worker() -> None:
         pynvml.nvmlShutdown()
 
 
-def prepare_runtime(config: dict) -> None:
+def prepare_runtime(config: dict, *, engine_version: str = TRT_PRIVATE_VERSION) -> None:
     for name in (
         "tensor_parallel_size",
         "pipeline_parallel_size",
@@ -124,7 +156,8 @@ def prepare_runtime(config: dict) -> None:
     # Each Xinference replica already owns a model process. TRT's TP1 worker
     # runs there directly, including the NVML fix, without another MPI pool.
     os.environ["TLLM_WORKER_USE_SINGLE_PROCESS"] = "1"
-    initialize_worker()
+    if Version(engine_version).base_version == TRT_PRIVATE_VERSION:
+        initialize_worker()
     connector = config.get("kv_connector_config") or {}
     if connector.get("connector_module") == "xinference.model.llm.trt_llm.connector":
         initialize_pd_connector()

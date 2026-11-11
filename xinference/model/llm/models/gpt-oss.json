@@ -3,6 +3,7 @@
     "version": 2,
     "context_length": 131072,
     "model_name": "gpt-oss",
+    "reasoning_effort": {"values": ["low", "medium", "high"]},
     "model_lang": [
       "en"
     ],

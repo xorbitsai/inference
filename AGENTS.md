@@ -184,6 +184,9 @@ than assuming that the workflow will update the PR.
 - Preserve platform guards for Linux-only, CUDA-only, and macOS Metal/MLX paths.
 - For distributed runtime changes, consider both local mode and
   supervisor/worker mode.
+- For engine-facing changes, account for every registered engine. Check native
+  and shared paths, including P/D when applicable, and document any unsupported
+  configuration.
 - For OpenAI-compatible behavior, verify request/response fields and streaming
   behavior against existing API and client tests.
 

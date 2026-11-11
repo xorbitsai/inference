@@ -23,6 +23,8 @@ import numpy as np
 import torch
 from packaging import version
 
+from ...utils import dependency_import_guard
+
 logger = logging.getLogger(__name__)
 
 
@@ -110,14 +112,11 @@ def _audio_stream_generator_with_torchcodec(
     output_generator: typing.Iterator[typing.Any],
     output_chunk_transformer: Callable,
 ):
-    try:
+    with dependency_import_guard(
+        "torchcodec",
+        install_hint="Install a TorchCodec build compatible with the installed PyTorch version.",
+    ):
         from torchcodec import encoders as torchcodec_encoders
-    except ImportError as exc:
-        raise ImportError(
-            "Failed to import 'torchcodec'. It is required for audio streaming "
-            "when 'torchaudio.io.StreamWriter' is unavailable. Install a "
-            "TorchCodec build compatible with the installed PyTorch version."
-        ) from exc
 
     normalized_format = response_format.lower().lstrip(".")
     response_pcm = normalized_format == "pcm"
@@ -248,6 +247,23 @@ def audio_stream_generator(
             writer.add_audio_stream(sample_rate=sample_rate, num_channels=1)
         strip_header = True
         last_pos = 0
+
+        def read_encoded_bytes() -> typing.Optional[bytes]:
+            nonlocal last_pos, strip_header
+
+            new_last_pos = out.tell()
+            if new_last_pos == last_pos:
+                return None
+            out.seek(last_pos)
+            encoded_bytes = out.read()
+            last_pos = new_last_pos
+            if response_pcm and strip_header:
+                # http://soundfile.sapp.org/doc/WaveFormat
+                encoded_bytes = _extract_pcm_from_wav_bytes(encoded_bytes)
+                strip_header = False
+            return encoded_bytes
+
+        has_audio = False
         with writer.open():
             for chunk in output_generator:
                 trans_chunk = output_chunk_transformer(chunk)
@@ -257,17 +273,18 @@ def audio_stream_generator(
                         (trans_chunk * 32767).clamp(-32768, 32767).to(torch.int16)
                     )
                 writer.write_audio_chunk(0, trans_chunk)
-                new_last_pos = out.tell()
-                if new_last_pos != last_pos:
-                    out.seek(last_pos)
-                    encoded_bytes = out.read()
-                    if response_pcm and strip_header:
-                        # http://soundfile.sapp.org/doc/WaveFormat
-                        yield _extract_pcm_from_wav_bytes(encoded_bytes)
-                        strip_header = False
-                    else:
-                        yield encoded_bytes
-                    last_pos = new_last_pos
+                has_audio = True
+                encoded_bytes = read_encoded_bytes()
+                if encoded_bytes is not None:
+                    yield encoded_bytes
+
+        # Closing the writer flushes the frames the encoder still buffers
+        # (e.g. the MP3/AAC encoder delay), which land after the last read.
+        if has_audio:
+            out.seek(0, io.SEEK_END)
+            encoded_bytes = read_encoded_bytes()
+            if encoded_bytes:
+                yield encoded_bytes
 
 
 def audio_to_bytes(response_format: str, sample_rate: int, tensor: "torch.Tensor"):

@@ -73,7 +73,10 @@ def test_tokenizer_and_cache_defaults(monkeypatch, tmp_path, model_name):
 
 
 @pytest.mark.asyncio
-async def test_native_prompt_encoder(model_name):
+# vLLM's real DeepSeek-V4.1 tokenizer inherits transformers' get_chat_template,
+# which raises when no Jinja template is set.
+@pytest.mark.parametrize("raises_on_template_lookup", [False, True])
+async def test_native_prompt_encoder(model_name, raises_on_template_lookup):
     model = object.__new__(core.VLLMMultiModel)
     model.model_uid = "deepseek-v41-test"
     model.model_family = _model_for_config("DeepseekV41ForCausalLM").model_family
@@ -102,7 +105,16 @@ async def test_native_prompt_encoder(model_name):
             assert "chat_template" not in kwargs
             return "v41-native-prompt"
 
-    tokenizer = Tokenizer()
+    class TemplateLookupTokenizer(Tokenizer):
+        def get_chat_template(self, chat_template=None, tools=None):
+            assert chat_template is None
+            raise ValueError(
+                "Cannot use chat template functions because "
+                "tokenizer.chat_template is not set and no template argument "
+                "was passed!"
+            )
+
+    tokenizer = TemplateLookupTokenizer() if raises_on_template_lookup else Tokenizer()
 
     async def get_tokenizer(_):
         return tokenizer

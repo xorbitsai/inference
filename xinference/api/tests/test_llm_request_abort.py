@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from .. import restful_api
 
@@ -25,8 +26,9 @@ from .. import restful_api
 class _Request:
     client = "test-client"
 
-    def __init__(self, body):
+    def __init__(self, body, headers=None):
         self._body = body
+        self.headers = headers or {}
         self.state = SimpleNamespace()
 
     async def json(self):
@@ -43,6 +45,130 @@ def _new_api():
     return api
 
 
+@pytest.mark.asyncio
+async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
+    model = SimpleNamespace(
+        uid=b"affinity-model-rep1",
+        chat=AsyncMock(return_value=b'{"choices": []}'),
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+    )
+    supervisor = SimpleNamespace(
+        get_model=AsyncMock(return_value=model),
+        get_chat_model=AsyncMock(return_value=(model, True)),
+        describe_model=AsyncMock(return_value={"model_family": "test-family"}),
+    )
+    model.release_chat_reservation = AsyncMock()
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    body = {
+        "model": "affinity-model",
+        "messages": [{"role": "user", "content": "hello"}],
+    }
+
+    for key, credential in (("task-1", "a"), ("task-1", "a"), ("task-1", "b")):
+        response = await api.create_chat_completion(
+            _Request(
+                dict(body, routing_key=key), {"authorization": f"Bearer {credential}"}
+            )
+        )
+        assert response.body == b'{"choices": []}'
+        call = model.chat.await_args
+        assert "routing_key" not in call.args[1]
+        assert "routing_key" not in call.kwargs["raw_params"]
+        reservation_id = supervisor.get_chat_model.await_args.args[2]
+        assert call.kwargs["_chat_reservation_id"] == reservation_id
+        model.release_chat_reservation.assert_not_awaited()
+        supervisor.describe_model.assert_awaited_with(
+            "affinity-model", selected_replica_uid="affinity-model-rep1"
+        )
+    keys = [call.args[1] for call in supervisor.get_chat_model.await_args_list]
+    assert keys[0] == keys[1] != keys[2]
+    assert "task-1" not in keys
+
+    await api.create_chat_completion(_Request(body))
+    supervisor.get_model.assert_awaited_with("affinity-model")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("peer_ready", [True, False])
+async def test_chat_describes_live_peer_when_selected_replica_was_removed(
+    monkeypatch, peer_ready
+):
+    from ...core.supervisor import SupervisorActor
+    from ...core.utils import build_replica_model_uid
+
+    model = SimpleNamespace(
+        uid=b"affinity-race-rep1",
+        chat=AsyncMock(return_value=b'{"choices": []}'),
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(2)
+    supervisor._model_uid_to_replica_info = {"affinity-race": info}
+    worker = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_family": "test-family"})
+    )
+    supervisor._replica_model_uid_to_worker = (
+        {build_replica_model_uid("affinity-race", 0): worker} if peer_ready else {}
+    )
+
+    async def get_model(*args, **kwargs):
+        info.active_replica_ids.remove(1)
+        return model, True
+
+    supervisor.get_chat_model = AsyncMock(side_effect=get_model)
+    model.release_chat_reservation = AsyncMock()
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "affinity-race",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+        }
+    )
+    if peer_ready:
+        response = await api.create_chat_completion(request)
+        assert response.body == b'{"choices": []}'
+        worker.describe_model.assert_awaited_once_with(model_uid="affinity-race-rep0")
+        model.chat.assert_awaited_once()
+        model.release_chat_reservation.assert_not_awaited()
+    else:
+        with pytest.raises(HTTPException) as caught:
+            await api.create_chat_completion(request)
+        assert caught.value.status_code == 503
+        assert caught.value.headers["Retry-After"] == "30"
+        model.chat.assert_not_awaited()
+        model.release_chat_reservation.assert_awaited_once_with(
+            supervisor.get_chat_model.await_args.args[2]
+        )
+    api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key", [False, 42, "", " ", "a" * 129])
+async def test_chat_rejects_invalid_routing_keys_before_dispatch(key):
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock()
+    with pytest.raises(HTTPException, match="routing_key") as error:
+        await api.create_chat_completion(
+            _Request(
+                {
+                    "model": "affinity-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "routing_key": key,
+                }
+            )
+        )
+    assert error.value.status_code == 400
+    api._get_supervisor_ref.assert_not_awaited()
+
+
 async def _create_streaming_response(
     monkeypatch, kind, source, extra_body=None, is_vllm=True, limit_getter=None
 ):
@@ -56,6 +182,7 @@ async def _create_streaming_response(
     model = SimpleNamespace(
         uid=f"{kind}-model".encode(),
         abort_request=AsyncMock(return_value="DONE"),
+        release_chat_reservation=AsyncMock(),
         decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
         is_vllm_backend=AsyncMock(return_value=is_vllm),
         get_limit_mm_per_prompt=limit_getter or AsyncMock(return_value=None),
@@ -63,10 +190,10 @@ async def _create_streaming_response(
         **{method: AsyncMock(return_value=source)},
     )
 
-    async def require_model(*_args, **_kwargs):
-        return model
-
-    monkeypatch.setattr(restful_api, "require_model", require_model)
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    monkeypatch.setattr(
+        restful_api, "require_chat_model", AsyncMock(return_value=(model, True))
+    )
     monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
     api = _new_api()
     if kind == "completion":
@@ -94,6 +221,99 @@ async def _create_streaming_response(
     )
     response = await create(_Request(body))
     return response, model, decrease_completed
+
+
+@pytest.mark.asyncio
+async def test_chat_releases_reservation_if_stream_never_starts(monkeypatch):
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, "chat", None, extra_body={"routing_key": "task"}
+    )
+    reservation_id = restful_api.require_chat_model.await_args.kwargs["reservation_id"]
+    await response.background()
+    model.chat.assert_not_awaited()
+    model.release_chat_reservation.assert_awaited_once_with(reservation_id)
+
+
+@pytest.mark.asyncio
+async def test_failed_chat_releases_reservation(monkeypatch):
+    error = RuntimeError("chat failed")
+    model = SimpleNamespace(
+        uid=b"model-rep0",
+        is_vllm_backend=AsyncMock(return_value=False),
+        chat=AsyncMock(side_effect=error),
+        release_chat_reservation=AsyncMock(),
+    )
+    supervisor = SimpleNamespace(
+        get_chat_model=AsyncMock(return_value=(model, True)),
+        describe_model=AsyncMock(return_value={}),
+    )
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._get_model_last_error = AsyncMock(return_value=error)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+        }
+    )
+    with pytest.raises(HTTPException) as caught:
+        await api.create_chat_completion(request)
+    assert caught.value.status_code == 500
+    model.release_chat_reservation.assert_awaited_once_with(
+        model.chat.await_args.kwargs["_chat_reservation_id"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_vllm_non_streaming_disconnect_releases_pending_reservation(monkeypatch):
+    dispatched = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def chat(*args, **kwargs):
+        dispatched.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
+
+    async def receive():
+        await dispatched.wait()
+        return {"type": "http.disconnect"}
+
+    model = SimpleNamespace(
+        uid=b"model-rep0",
+        is_vllm_backend=AsyncMock(return_value=True),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
+        chat=AsyncMock(side_effect=chat),
+        abort_request=AsyncMock(return_value="DONE"),
+        release_chat_reservation=AsyncMock(),
+    )
+    supervisor = SimpleNamespace(
+        get_chat_model=AsyncMock(return_value=(model, True)),
+        describe_model=AsyncMock(return_value={}),
+    )
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+            "request_id": "chat-request",
+        }
+    )
+    request.receive = receive
+
+    response = await asyncio.wait_for(api.create_chat_completion(request), 5)
+    assert response.status_code == 499
+    assert cancelled.is_set()
+    model.abort_request.assert_awaited_once_with("chat-request")
+    model.release_chat_reservation.assert_awaited_once_with(
+        model.chat.await_args.kwargs["_chat_reservation_id"]
+    )
 
 
 @pytest.mark.asyncio
@@ -161,6 +381,18 @@ def _tracked_stream(*, wait_after_first):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("hint", [True, -1.0, "-1", 0, -2])
+async def test_chat_does_not_forward_invalid_priority_hint(monkeypatch, hint):
+    stream, _, _ = _tracked_stream(wait_after_first=False)
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, "chat", stream, extra_body={"priority_hint": hint}
+    )
+    assert [item async for item in response.body_iterator]
+    model.chat.assert_awaited_once()
+    assert "priority_hint" not in model.chat.await_args.kwargs["raw_params"]
+
+
+@pytest.mark.asyncio
 async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
     async def disconnected_stream():
         yield b'{"choices": []}'
@@ -210,7 +442,10 @@ async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
 async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, phase):
     source, closed, next_item_started = _tracked_stream(wait_after_first=True)
     response, model, decrease_completed = await _create_streaming_response(
-        monkeypatch, kind, source
+        monkeypatch,
+        kind,
+        source,
+        extra_body={"routing_key": "task"} if kind == "chat" else None,
     )
 
     await _run_asgi_disconnect(response, phase, next_item_started)
@@ -219,6 +454,12 @@ async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, p
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
     assert decrease_completed.is_set()
+    if kind == "chat":
+        assert (
+            model.chat.await_args.kwargs["_chat_reservation_id"]
+            == restful_api.require_chat_model.await_args.kwargs["reservation_id"]
+        )
+        model.release_chat_reservation.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -323,6 +564,43 @@ async def test_normal_stream_completion_does_not_abort(monkeypatch, kind):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("is_vllm", [False, True])
+async def test_disconnect_after_stream_completion_does_not_abort(
+    monkeypatch, kind, is_vllm
+):
+    source, closed, _ = _tracked_stream(wait_after_first=False)
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, source, is_vllm=is_vllm
+    )
+    completed = asyncio.Event()
+
+    async def receive():
+        await completed.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] != "http.response.body":
+            return
+        if b"[DONE]" in message.get("body", b"") or not message.get("more_body", False):
+            completed.set()
+            # Let the ASGI disconnect listener run after generation finished.
+            await asyncio.Event().wait()
+
+    await asyncio.wait_for(
+        response(
+            {"type": "http", "method": "POST", "asgi": {"version": "3.0"}},
+            receive,
+            send,
+        ),
+        timeout=5,
+    )
+    model.abort_request.assert_not_awaited()
+    model.decrease_serve_count.assert_awaited_once()
+    assert closed.is_set() and decrease_completed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
 async def test_iterator_close_failure_still_releases_serve_count(monkeypatch, kind):
     close_attempted = asyncio.Event()
 
@@ -419,7 +697,7 @@ async def test_non_vllm_chat_keeps_request_id_in_generation_config(monkeypatch):
     assert response.body == b'{"choices": []}'
     call = model.chat.await_args
     assert call.args[1]["request_id"] == "chat-request"
-    assert "request_id" not in call.kwargs
+    assert call.kwargs["request_id"] == "chat-request"
 
 
 @pytest.mark.asyncio
@@ -490,3 +768,53 @@ async def test_vllm_terminal_error_reaches_http_or_sse_error(monkeypatch, stream
         for call in api._report_error_event.await_args_list
     )
     assert not engine_model._active_request_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_completion_reports_the_model_error_when_generation_cannot_start(
+    monkeypatch, stream
+):
+    import json
+
+    import httpx
+    from fastapi import FastAPI
+
+    from ...core.model import ModelActor
+
+    backend = SimpleNamespace(
+        generate=MagicMock(), model_family=SimpleNamespace(to_description=dict)
+    )
+    model = ModelActor("supervisor", "worker", backend, "completion-model-0")
+    # A failed reload leaves the actor here; _require_ready raises RuntimeError.
+    model._model_state = "error"
+    model.record_metrics = AsyncMock()
+    model.is_vllm_backend = AsyncMock(return_value=False)
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    api = _new_api()
+    api.handle_request_limit_error = restful_api.RESTfulAPI.handle_request_limit_error
+    api._get_supervisor_ref = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    app = FastAPI()
+    app.add_api_route("/v1/completions", api.create_completion, methods=["POST"])
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/completions",
+            json={"model": "completion-model", "prompt": "hello", "stream": stream},
+        )
+
+    if stream:
+        assert response.status_code == 200
+        events = [
+            json.loads(line[len("data:") :])
+            for line in response.text.splitlines()
+            if line.startswith("data:")
+        ]
+        assert events == [{"error": "Model is in error state"}]
+    else:
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Model is in error state"}
+    backend.generate.assert_not_called()

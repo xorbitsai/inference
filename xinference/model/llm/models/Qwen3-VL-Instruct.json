@@ -831,8 +831,7 @@
         "model_src": {
           "huggingface": {
             "quantizations": [
-              "4bit",
-              "8bit"
+              "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}",
             "model_metadata_by_quantization": {
@@ -852,8 +851,7 @@
           },
           "modelscope": {
             "quantizations": [
-              "4bit",
-              "8bit"
+              "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-235B-A22B-Instruct-{quantization}",
             "model_metadata_by_quantization": {

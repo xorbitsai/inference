@@ -301,6 +301,9 @@ def test_manual_budget_requires_native_support(monkeypatch, supported, strict):
     else:
         with pytest.raises(NotImplementedError, match="thinking budgets"):
             instance._apply_thinking_budget(config)
+    assert instance.get_reasoning_capabilities()["supports_thinking_budget"] is (
+        supported and strict
+    )
 
 
 @pytest.mark.asyncio

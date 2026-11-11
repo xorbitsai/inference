@@ -162,5 +162,7 @@ export const ALL_FORM_KEYS = [
   'enable_virtual_env',
   'virtual_env_packages',
   'virtual_env_find_links',
+  'virtual_env_index_url',
+  'virtual_env_extra_index_urls',
   'envs',
 ];

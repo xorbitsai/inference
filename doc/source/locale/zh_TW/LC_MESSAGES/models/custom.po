@@ -463,3 +463,7 @@ msgstr "以程式碼的方式登出自訂模型"
 
 #~ msgid "``architectures`` and other model metadata (when available)"
 #~ msgstr ""
+
+#: ../../source/models/custom.rst:305
+msgid "``quantization_method``: An optional field in ``model_specs`` for an already quantized checkpoint's method; currently only ``compressed-tensors`` is supported. vLLM detects the checkpoint's quantization configuration when loading. Omit this field when quantization is performed at runtime."
+msgstr "``quantization_method``：``model_specs`` 中的選用欄位，用於指定已量化檢查點採用的方法；目前僅支援 ``compressed-tensors``。vLLM 會在載入時辨識檢查點的量化設定。如果在執行階段進行量化，請省略此欄位。"

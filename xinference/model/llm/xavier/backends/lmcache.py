@@ -45,7 +45,8 @@ def check_lmcache_available() -> None:
         from lmcache.v1.distributed.storage_manager import StorageManager  # noqa: F401
     except (ImportError, OSError) as error:
         raise RuntimeError(
-            "Xavier LMCache requires a compatible LMCache storage manager build"
+            "Xavier LMCache requires a compatible LMCache storage manager build. "
+            f"Import failed: {type(error).__name__}: {error}"
         ) from error
 
 
@@ -90,7 +91,8 @@ class _LMCacheStorage:
                 )
             except (ImportError, OSError) as error:
                 raise RuntimeError(
-                    "Xavier LMCache filesystem storage requires the native FS extension"
+                    "Xavier LMCache filesystem storage requires the native FS extension. "
+                    f"Import failed: {type(error).__name__}: {error}"
                 ) from error
             self._disk_path = Path(config["disk_path"]) / namespace
             adapter = FSNativeL2AdapterConfig(
@@ -107,7 +109,8 @@ class _LMCacheStorage:
             except (ImportError, OSError) as error:
                 raise RuntimeError(
                     "Xavier LMCache Mooncake storage requires LMCache built with "
-                    "BUILD_MOONCAKE=1 and compatible Mooncake headers/libraries"
+                    "BUILD_MOONCAKE=1 and compatible Mooncake headers/libraries. "
+                    f"Import failed: {type(error).__name__}: {error}"
                 ) from error
             adapter = MooncakeStoreL2AdapterConfig(
                 setup_config=config["mooncake_config"]
@@ -128,7 +131,10 @@ class _LMCacheStorage:
                 ),
                 eviction_config=EvictionConfig("LRU"),
                 l2_adapter_config=L2AdaptersConfig([adapter]),
-                prefetch_policy="retain",
+                # Disk read buffers must be released after their owned copy is
+                # returned. Retaining each batch can fill L1 halfway through a
+                # long-prefix restore, before LMCache's eviction loop runs.
+                prefetch_policy="default",
             )
         )
         if self._remote_keys is not None:
@@ -317,7 +323,7 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         # Staging/leased copies are transient and have their own bounded budget.
         super().__init__(min(capacity, config["cpu_bytes"] // allocation_bytes))
         self._config = dict(config)
-        self._known: OrderedDict[int, None] = OrderedDict()
+        self._known: OrderedDict[int, object] = OrderedDict()
         self._directory_capacity = (
             config["cpu_bytes"] + storage_bytes
         ) // allocation_bytes
@@ -331,6 +337,8 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
             config, namespace + "-" + identity[:16], self._page_bytes
         )
         self._pending: Optional[asyncio.Task] = None
+        self._prefetch_idle = asyncio.Event()
+        self._prefetch_idle.set()
         self._closing = False
         self._counts = dict(
             stored_pages=0, l1_hits=0, l2_hits=0, misses=0, timeouts=0, read_seconds=0.0
@@ -375,10 +383,11 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
                         "Xavier LMCache payload differs from its KV schema"
                     )
                 parts.append(tensor.reshape(-1).view(torch.uint8))
-            if key in self._known or self._storage.store(key, torch.cat(parts)):
-                if key not in self._known:
-                    self._counts["stored_pages"] += 1
-                self._known[key] = None
+            # L2 can evict an object without updating our directory. Let
+            # LMCache admit complete new payloads even for known keys.
+            if self._storage.store(key, torch.cat(parts)):
+                self._counts["stored_pages"] += 1
+                self._known[key] = object()
                 self._known.move_to_end(key)
                 if key not in accepted:
                     accepted.append(key)
@@ -402,17 +411,46 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         return [key for key in accepted if key in self._known]
 
     async def prefetch(self, keys: List[int]) -> bool:
+        if self._closing:
+            return False
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self._config["read_timeout"]
+        admitted = False
+        try:
+            # Include admission behind a healthy reader in the same timeout.
+            # Only an abandoned I/O job should make a later read fail fast.
+            while not self._prefetch_idle.is_set():
+                await asyncio.wait_for(
+                    self._prefetch_idle.wait(), max(0, deadline - loop.time())
+                )
+            # Claim and publish in the caller's task so it can reserve its read
+            # lease before another consumer recycles the staged pages.
+            self._prefetch_idle.clear()
+            admitted = True
+            return await self._prefetch(keys, deadline)
+        except asyncio.TimeoutError:
+            self._counts["timeouts"] += 1
+            return False
+        finally:
+            if admitted:
+                self._prefetch_idle.set()
+
+    async def _prefetch(self, keys: List[int], deadline: float) -> bool:
         if self._closing or not self.can_stage(set(keys)):
             return False
         missing = [key for key in dict.fromkeys(keys) if key not in self.ready]
         if not missing:
             return True
-        if not set(missing).issubset(self._known):
+        publications = {key: self._known[key] for key in missing if key in self._known}
+        if len(publications) != len(missing):
             return False
         # Bound abandoned or timed-out I/O to one job per actor. The job still
         # consumes the LMCache result and releases locks after caller cancellation.
         if self._pending is not None and not self._pending.done():
             return False
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
         started = time.monotonic()
         task = self._pending = asyncio.create_task(
             asyncio.to_thread(self._storage.load, missing)
@@ -427,11 +465,10 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         task.add_done_callback(completed)
         try:
             pages, absent, l1_hits, l2_hits = await asyncio.wait_for(
-                asyncio.shield(task), self._config["read_timeout"]
+                asyncio.shield(task), remaining
             )
         except asyncio.TimeoutError:
-            self._counts["timeouts"] += 1
-            return False
+            raise
         except Exception:
             logger.warning(
                 "Xavier LMCache prefetch failed; recomputing locally", exc_info=True
@@ -443,8 +480,10 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
         self._counts["l2_hits"] += l2_hits
         self._counts["misses"] += len(missing) - len(pages)
         for key in absent:
-            self._known.pop(key, None)
-            self.evicted.add(key)
+            # A miss can only invalidate the publication it was reading.
+            if self._known.get(key) is publications[key]:
+                del self._known[key]
+                self.evicted.add(key)
         if len(pages) != len(missing) or not self.can_stage(set(keys)):
             return False
         if any(
@@ -491,6 +530,7 @@ class LMCacheSnapshotBackend(KVSnapshotStore):
             "l2_backend": self._config.get("l2_backend", "filesystem"),
             "pages": len(self._known),
             "resident_pages": len(self.ready),
+            "directory_capacity": self._directory_capacity,
             "capacity": self.capacity,
         }
 

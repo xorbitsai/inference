@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import sys
 from types import ModuleType
 
@@ -27,8 +28,21 @@ def test_audio_stream_generator_reports_missing_torchcodec(monkeypatch):
     monkeypatch.setitem(sys.modules, "torchcodec", None)
     monkeypatch.setitem(sys.modules, "torchcodec.encoders", None)
 
-    with pytest.raises(ImportError, match="Failed to import 'torchcodec'"):
+    with pytest.raises(ImportError, match="ModuleNotFoundError") as exc_info:
         list(audio_utils.audio_stream_generator("mp3", 24000, iter(()), lambda x: x))
+
+    assert "Install a TorchCodec build" in str(exc_info.value)
+
+
+def test_audio_stream_generator_reports_broken_torchcodec(monkeypatch):
+    monkeypatch.setitem(sys.modules, "torchaudio", ModuleType("torchaudio"))
+    monkeypatch.setitem(sys.modules, "torchcodec", ModuleType("torchcodec"))
+    monkeypatch.delitem(sys.modules, "torchcodec.encoders", raising=False)
+
+    with pytest.raises(ImportError, match="cannot import name 'encoders'") as exc_info:
+        list(audio_utils.audio_stream_generator("mp3", 24000, iter(()), lambda x: x))
+
+    assert "Install a TorchCodec build" not in str(exc_info.value)
 
 
 def test_audio_stream_generator_uses_torchcodec_and_flushes_tail(monkeypatch):
@@ -159,3 +173,76 @@ def test_audio_stream_generator_legacy_path_with_real_audio_encoder(monkeypatch)
 
     assert decoded.sample_rate == sample_rate
     assert decoded.data.shape == (1, 2400)
+
+
+@pytest.mark.parametrize(
+    "response_format, expected",
+    [
+        ("mp3", [b"header-chunk", b"chunk", b"tail"]),
+        ("pcm", [b"chunk", b"chunk", b"tail"]),
+    ],
+)
+def test_audio_stream_generator_flushes_stream_writer_tail(
+    monkeypatch, response_format, expected
+):
+    captured = {}
+
+    class FakeStreamWriter:
+        def __init__(self, destination, *, format):
+            self._destination = destination
+            captured["format"] = format
+
+        def add_audio_stream(self, **kwargs):
+            captured["stream"] = kwargs
+
+        @contextlib.contextmanager
+        def open(self):
+            self._destination.write(b"header-")
+            yield self
+            # Encoders such as LAME keep the last frames until the writer closes.
+            self._destination.write(b"tail")
+
+        def write_audio_chunk(self, index, chunk):
+            captured.setdefault("chunks", []).append(chunk)
+            self._destination.write(b"chunk")
+
+    torchaudio = ModuleType("torchaudio")
+    torchaudio.io = ModuleType("torchaudio.io")
+    torchaudio.io.StreamWriter = FakeStreamWriter
+    monkeypatch.setitem(sys.modules, "torchaudio", torchaudio)
+    monkeypatch.setattr(
+        audio_utils, "_extract_pcm_from_wav_bytes", lambda data: data[len(b"header-") :]
+    )
+
+    chunks = [torch.zeros((4, 1)), torch.zeros((3, 1))]
+    result = list(
+        audio_utils.audio_stream_generator(
+            response_format, 24000, chunks, lambda chunk: chunk
+        )
+    )
+
+    assert result == expected
+    assert len(captured["chunks"]) == 2
+    assert captured["format"] == ("wav" if response_format == "pcm" else "mp3")
+
+
+def test_audio_stream_generator_stream_writer_without_audio(monkeypatch):
+    class FakeStreamWriter:
+        def __init__(self, destination, *, format):
+            self._destination = destination
+
+        def add_audio_stream(self, **kwargs):
+            pass
+
+        @contextlib.contextmanager
+        def open(self):
+            self._destination.write(b"header-")
+            yield self
+            self._destination.write(b"tail")
+
+    torchaudio = ModuleType("torchaudio")
+    torchaudio.io = ModuleType("torchaudio.io")
+    torchaudio.io.StreamWriter = FakeStreamWriter
+    monkeypatch.setitem(sys.modules, "torchaudio", torchaudio)
+
+    assert list(audio_utils.audio_stream_generator("mp3", 24000, [], lambda x: x)) == []

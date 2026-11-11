@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Tuple, Union
 
 from ..utils import has_cuda_device, virtual_env_allows_missing_engine
 from .ace_step import AceStepModel, is_ace_step_python_supported
+from .audio8_tts import Audio8TTSModel
+from .audio8_tts_sglang import SGLangOmniAudio8TTSModel
 from .breeze_tts import BreezeTTS2Model
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
@@ -35,6 +37,7 @@ from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .vllm import VLLMQwen3ASRModel
+from .vllm_omni import VLLMOmniTTSModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
@@ -103,7 +106,7 @@ class TransformersQwen3ASRAudioModel(Qwen3ASRModel, AudioEngineModel):
 
 
 class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
-    required_libs = ("qwen_asr", "vllm")
+    required_libs = ("vllm", "silero_vad", "onnxruntime")
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
@@ -111,11 +114,35 @@ class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
             return False
         if not has_cuda_device():
             return False
-        return model_family.model_family == "qwen3_asr"
+        return cls.is_model_family_supported(model_family)
 
     @classmethod
     def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return model_family.model_family == "qwen3_asr"
+        return (
+            model_family.model_family == "qwen3_asr"
+            and model_family.model_format == "pytorch"
+        )
+
+
+class VLLMQwen3TTSAudioModel(VLLMOmniTTSModel, AudioEngineModel):
+    required_libs = ("vllm", "vllm_omni")
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            platform.system() == "Linux"
+            and has_cuda_device()
+            and cls.is_model_family_supported(model_family)
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_family == "qwen3_tts"
+            and model_family.model_format == "pytorch"
+            and model_family.model_name
+            in {"Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen3-TTS-12Hz-1.7B-CustomVoice"}
+        )
 
 
 class TransformersWhisperAudioModel(WhisperModel, AudioEngineModel):
@@ -194,6 +221,36 @@ class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
             model_family.model_name == "Breeze-TTS-2"
             and model_family.model_family == "Breeze-TTS-2"
         )
+
+
+class TransformersAudio8TTSAudioModel(Audio8TTSModel, AudioEngineModel):
+    required_libs = ("torch", "transformers", "torchaudio", "soundfile")
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "transformers")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "audio8_tts"
+
+
+class SGLangOmniAudio8TTSAudioModel(SGLangOmniAudio8TTSModel, AudioEngineModel):
+    required_libs = ("torch", "transformers", "sglang", "sglang_omni")
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            platform.system() == "Linux"
+            and has_cuda_device()
+            and cls.is_model_family_supported(model_family)
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "audio8_tts"
 
 
 class PyTorchMingTTSAudioModel(MingTTSModel, AudioEngineModel):
@@ -468,8 +525,9 @@ def register_builtin_audio_engines() -> None:
     SUPPORTED_ENGINES["transformers"] = [
         TransformersQwen3ASRAudioModel,
         TransformersWhisperAudioModel,
+        TransformersAudio8TTSAudioModel,
     ]
-    SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel]
+    SUPPORTED_ENGINES["SGLang-Omni"] = [SGLangOmniAudio8TTSAudioModel]
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchAceStepAudioModel,
         PyTorchYuE2AudioModel,
@@ -484,6 +542,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchMeloTTSAudioModel,
         PyTorchVoxCPMAudioModel,
     ]
+    SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel, VLLMQwen3TTSAudioModel]
     SUPPORTED_ENGINES["MLX"] = [
         MLXWhisperAudioModel,
         MLXF5TTSAudioModel,

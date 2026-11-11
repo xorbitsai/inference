@@ -88,8 +88,8 @@ msgid "MLX replicas"
 msgstr "Repliche MLX"
 
 #: source/user_guide/vllm_enhancement.rst:18
-msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
-msgstr "Per i modelli che usano solo attention su vLLM V1, Xavier mantiene l’impostazione ``enforce_eager`` del modello, consentendo l’esecuzione con CUDA Graph. Impostare ``enforce_eager=True`` all’avvio del modello per usare l’esecuzione eager. I modelli ricorrenti continuano a usare l’esecuzione eager per impostazione predefinita."
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent handoff uses eager execution by default. Ordinary hybrid attention replicas preserve vLLM's ``enforce_eager`` setting."
+msgstr "Per i modelli che usano solo attention su vLLM V1, Xavier mantiene l’impostazione ``enforce_eager`` del modello, consentendo l’esecuzione con CUDA Graph. Impostare ``enforce_eager=True`` all’avvio del modello per usare l’esecuzione eager. Il trasferimento dello stato ricorrente usa l’esecuzione eager per impostazione predefinita. Le repliche ordinarie con attenzione ibrida mantengono l’impostazione ``enforce_eager`` di vLLM."
 
 #: ../../source/user_guide/vllm_enhancement.rst:52
 msgid "Request-scoped cache isolation"
@@ -214,16 +214,16 @@ msgid "Select the backend when launching the model:"
 msgstr "Selezionare il backend all’avvio del modello:"
 
 #: source/user_guide/vllm_enhancement.rst:57
-msgid "``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). vLLM creates one instance per replica; SGLang and TRT-LLM share one supervisor-owned instance per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory."
-msgstr "``cpu_bytes`` limita il pool DRAM di ogni istanza LMCache (predefinito: 512 MiB). vLLM crea un'istanza per replica; SGLang e TRT-LLM condividono un'istanza del supervisor per distribuzione. ``disk_path`` deve essere un percorso assoluto locale all'host di storage; ``disk_bytes`` è la capacità disco positiva per istanza. LMCache gestisce scritture asincrone, prefetch ed espulsione nei livelli. L'espulsione dal disco usa soglie: la capacità configurata non è una quota del file system. Xavier usa anche staging CPU e copie di lettura temporanei limitati, fino ad altri ``2 * cpu_bytes`` per istanza. Pool KV del motore, buffer di importazione posseduti, serializzazione e trasferimento richiedono memoria aggiuntiva."
+msgid "``cpu_bytes`` bounds each LMCache instance's DRAM pool (default: 512 MiB). Legacy vLLM transfer actors each own an instance; hybrid offload, SGLang, TRT-LLM and MLX use one shared storage actor per deployment. ``disk_path`` must be absolute and local to that storage host, and ``disk_bytes`` is the positive disk capacity per instance. LMCache manages asynchronous writes, prefetch and eviction within these tiers. Disk eviction uses watermarks, so the configured disk capacity is not a filesystem quota. Xavier also uses bounded transient CPU staging and read copies, up to another ``2 * cpu_bytes`` per instance; engine KV pools, owned import buffers, serialization and transfer buffers consume additional memory."
+msgstr "``cpu_bytes`` limita il pool DRAM di ogni istanza LMCache (predefinito: 512 MiB). Ogni attore di trasferimento vLLM tradizionale possiede un’istanza; offload ibrido, SGLang, TRT-LLM e MLX usano un attore di archiviazione condiviso per distribuzione. ``disk_path`` deve essere un percorso assoluto locale all'host di storage; ``disk_bytes`` è la capacità disco positiva per istanza. LMCache gestisce scritture asincrone, prefetch ed espulsione nei livelli. L'espulsione dal disco usa soglie: la capacità configurata non è una quota del file system. Xavier usa anche staging CPU e copie di lettura temporanei limitati, fino ad altri ``2 * cpu_bytes`` per istanza. Pool KV del motore, buffer di importazione posseduti, serializzazione e trasferimento richiedono memoria aggiuntiva."
 
 #: source/user_guide/vllm_enhancement.rst:59
 msgid "``read_timeout`` bounds a cache lookup's wait in seconds (default: 30). Missing, unavailable or timed-out cache reads fall back to local prefill. At most one LMCache prefetch job runs per storage instance; a timed-out or cancelled job still releases its LMCache read locks. Reads exceeding the transient capacity return a bounded prefix or fall back to local prefill. Compare TTFT and read latency against prefill cost for your workload."
 msgstr "``read_timeout`` limita l'attesa di una ricerca nella cache in secondi (predefinito: 30). Letture mancanti, non disponibili o scadute ricorrono al prefill locale. Per ogni istanza di storage viene eseguito al massimo un prefetch LMCache; anche dopo timeout o annullamento vengono rilasciati i lock di lettura. Le letture oltre la capacità temporanea restituiscono un prefisso limitato o ricorrono al prefill locale. Confrontare TTFT e latenza di lettura con il costo del prefill per il proprio carico."
 
-#: source/user_guide/vllm_enhancement.rst:61
-msgid "For filesystem storage, the LMCache backend requires multiple ordinary replicas of the same engine and preserves that engine's existing Xavier model, dtype and parallelism limits. P/D roles, legacy vLLM V0 and MLX are unsupported; P/D KV handoff remains a separate transport concern. Use backend ``cpu_bytes`` instead of the native ``xavier_cache_bytes`` or ``xavier_gpu_cache_bytes`` budgets. Backend selection does not enable cross-engine cache sharing or change existing cache-salt behavior. Each deployment and storage instance owns a separate namespace and directory; relaunching does not recover old entries. Graceful shutdown removes that directory; after a process crash, remove abandoned deployment directories when they are no longer in use."
-msgstr "Per lo storage su filesystem: Il backend LMCache richiede più repliche ordinarie dello stesso motore e mantiene i limiti Xavier esistenti per modelli, dtype e parallelismo. Ruoli P/D, vecchio vLLM V0 e MLX non sono supportati; il passaggio KV P/D resta responsabilità di un trasporto separato. Usare ``cpu_bytes`` del backend anziché i budget nativi ``xavier_cache_bytes`` o ``xavier_gpu_cache_bytes``. La scelta del backend non abilita la condivisione tra motori né cambia il comportamento esistente di cache-salt. Ogni distribuzione e istanza di storage ha uno spazio dei nomi e una directory separati; il riavvio non recupera le vecchie voci. La chiusura normale elimina la directory; dopo un arresto anomalo eliminare le directory abbandonate quando non sono più in uso."
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary deployments support one or more replicas of the same engine and retain existing Xavier model, dtype and parallelism limits. MLX requires a Linux supervisor for LMCache storage; Metal model workers remain separate. Hybrid vLLM uses ``xavier_gpu_cache_bytes=0`` and backend ``cpu_bytes`` for its offload tier. Legacy vLLM V0 and mixed-engine ordinary LMCache groups remain unsupported. For P/D history, see :ref:`xavier-pd-lmcache`. Namespaces are deployment-scoped; entries are not recovered after relaunch and graceful shutdown removes the owned directory. Single-replica vLLM requires a recurrent-hybrid model and vLLM >= 0.32."
+msgstr "Le distribuzioni ordinarie supportano una o più repliche dello stesso motore e mantengono i limiti Xavier di modello, dtype e parallelismo. MLX richiede un supervisore Linux per LMCache; i worker Metal rimangono separati. vLLM ibrido usa ``xavier_gpu_cache_bytes=0`` e ``cpu_bytes`` del backend per il livello di offload. vLLM V0 e i gruppi LMCache ordinari con motori misti restano esclusi. Per la cronologia P/D, vedere :ref:`xavier-pd-lmcache`. I namespace appartengono alla distribuzione; il riavvio non recupera le voci e l’arresto ordinato elimina la directory posseduta. vLLM con una sola replica richiede un modello ibrido ricorrente e vLLM >= 0.32."
 
 #: source/user_guide/vllm_enhancement.rst:34
 msgid "LMCache storage for ordinary vLLM V1, SGLang and TRT-LLM replicas."
@@ -272,15 +272,53 @@ msgstr "Connettore V1"
 
 #: ../../source/user_guide/vllm_enhancement.rst:73
 msgid ""
-"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
-"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
-"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
-"model requirements and GPU history settings."
+"The V1 connector requires vLLM >= ``0.21.0``, PP=1 and no LoRA. "
+"Prompt-embedding inputs are unsupported. Versions 0.11 through 0.20 are "
+"unsupported. Use the P/D guide for recurrent model requirements and GPU "
+"history settings."
 msgstr ""
-"Il connettore V1 richiede vLLM >= ``0.21.0``, TP=1, PP=1 e modelli di solo "
-"testo senza LoRA. Input multimodali e prompt embedding non sono supportati, "
-"né le versioni da 0.11 a 0.20. Consultare la guida P/D per modelli "
-"ricorrenti e impostazioni della cronologia GPU."
+"Il connettore V1 richiede vLLM >= ``0.21.0`` e PP=1, senza LoRA. Gli input "
+"prompt embedding non sono supportati, né le versioni da 0.11 a 0.20. "
+"Consultare la guida P/D per i requisiti dei modelli ricorrenti e le "
+"impostazioni della cronologia GPU."
+
+#: ../../source/user_guide/vllm_enhancement.rst:80
+msgid ""
+"Ordinary replicas that share CPU snapshots (``xavier_gpu_cache_bytes`` and "
+"``xavier_cache_bytes`` unset) can span several GPUs with tensor parallelism "
+"and serve multimodal models. Give every replica the same "
+"``tensor_parallel_size`` and ``n_gpu``. Each TP rank stores and loads its "
+"own shard of a block; a block is shared once all of its shards are stored. "
+"Blocks that cover image placeholders are keyed by the image content. Only "
+"the cache groups that vLLM itself reuses for prefix hits are shared; vLLM "
+"rebuilds per-request state such as sliding windows. These cache groups must "
+"use one block size, so models that mix block sizes are rejected with TP>1 "
+"or multimodal inputs. P/D roles, ``xavier_gpu_cache_bytes``, "
+"``xavier_cache_bytes`` and recurrent models still require TP=1 and "
+"text-only prompts."
+msgstr ""
+"Le repliche ordinarie che condividono snapshot su CPU "
+"(``xavier_gpu_cache_bytes`` e ``xavier_cache_bytes`` non impostati) possono "
+"estendersi su più GPU con il parallelismo tensoriale e servire modelli "
+"multimodali. Assegnare a ogni replica gli stessi ``tensor_parallel_size`` e "
+"``n_gpu``. Ogni rango TP memorizza e carica il proprio frammento di un "
+"blocco; un blocco viene condiviso quando tutti i suoi frammenti sono "
+"memorizzati. I blocchi che coprono segnaposto di immagini sono identificati "
+"dal contenuto dell’immagine. Vengono condivisi solo i gruppi di cache che "
+"vLLM stesso riutilizza per le corrispondenze di prefisso; vLLM ricostruisce "
+"lo stato per richiesta, come le finestre scorrevoli. Questi gruppi di cache "
+"devono usare un’unica dimensione di blocco, quindi i modelli che mescolano "
+"dimensioni di blocco vengono rifiutati con TP>1 o input multimodali. I "
+"ruoli P/D, ``xavier_gpu_cache_bytes``, ``xavier_cache_bytes`` e i modelli "
+"ricorrenti richiedono ancora TP=1 e prompt di solo testo."
+
+#: ../../source/user_guide/vllm_enhancement.rst:82
+msgid ""
+"With TP>1, do not set ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; "
+"Xavier starts vLLM's multiprocessing executor itself."
+msgstr ""
+"Con TP>1 non impostare ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; "
+"Xavier avvia autonomamente l’esecutore multiprocesso di vLLM."
 
 #: ../../source/user_guide/vllm_enhancement.rst:86
 msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."
@@ -402,9 +440,9 @@ msgstr "TRT-LLM non supporta ``cache_salt`` tramite questo adattatore."
 msgid "Mooncake Store"
 msgstr "Mooncake Store"
 
-#: source/user_guide/vllm_enhancement.rst:189
-msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse; P/D transport and supported engine/model combinations remain the same."
-msgstr "Impostare ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` per usare l’adattatore Mooncake Store di LMCache. Il valore predefinito ``l2_backend=\"filesystem\"`` conserva la configurazione del disco riportata sopra. Questa opzione seleziona lo storage per il normale riuso della cache dei prefissi; il trasporto P/D e le combinazioni di motore e modello supportate restano invariati."
+#: source/user_guide/vllm_enhancement.rst
+msgid "Set ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` to use LMCache's Mooncake Store adapter. The default ``l2_backend=\"filesystem\"`` preserves the disk configuration above. This selects storage for ordinary prefix-cache reuse or P-side history; P/D transport and supported engine/model combinations remain the same."
+msgstr "Impostare ``l2_backend=\"mooncake\"`` in ``xavier_cache_backend_config`` per usare l’adattatore Mooncake Store di LMCache. Il valore predefinito ``l2_backend=\"filesystem\"`` conserva la configurazione del disco riportata sopra. Questa opzione seleziona lo storage per il normale riuso della cache dei prefissi o la cronologia sul lato P; il trasporto P/D e le combinazioni di motore e modello supportate restano invariati."
 
 #: source/user_guide/vllm_enhancement.rst:191
 msgid "The storage environment needs LMCache built with ``BUILD_MOONCAKE=1`` and compatible Mooncake SDK headers and libraries. Start the Mooncake master, metadata service and storage pool first. Use a reachable ``local_hostname`` without a port; Mooncake allocates a distinct port for each storage actor. Replace the endpoints in this TCP example with reachable service addresses, and pass the object as ``xavier_cache_backend_config``:"
@@ -503,3 +541,81 @@ msgstr "Misurare la TTFT dei prefissi ripetuti rispetto al prefill locale sul mo
 #: user_guide/vllm_enhancement.rst
 msgid "Requests must use options supported by every engine in the deployment. TRT-LLM rejects tools, ``response_format``, log probabilities, ``echo`` and ``n>1``. MLX Xavier rejects structured ``response_format``, forced tool choice and thinking budgets. Otherwise, success can depend on which replica receives the request."
 msgstr "Le richieste devono usare opzioni supportate da tutti i motori della distribuzione. TRT-LLM rifiuta strumenti, ``response_format``, probabilità logaritmiche, ``echo`` e ``n>1``. MLX Xavier rifiuta ``response_format`` strutturato, la scelta forzata degli strumenti e i budget di ragionamento. Altrimenti, il successo può dipendere dalla replica che riceve la richiesta."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "LMCache history for P/D"
+msgstr "Cronologia LMCache per P/D"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Select ``xavier_cache_backend=\"lmcache\"`` and pass the backend configuration above when launching Xavier P/D roles. Prefill can run on vLLM, SGLang, TRT-LLM or MLX, including cross-engine deployments. Decode keeps the existing Xavier handoff and does not access LMCache. Native NIXL deployments cannot use this option."
+msgstr "All’avvio dei ruoli Xavier P/D, scegliere ``xavier_cache_backend=\"lmcache\"`` e passare la configurazione precedente. Prefill può usare vLLM, SGLang, TRT-LLM o MLX, anche tra motori diversi. Decode mantiene il passaggio Xavier esistente e non accede a LMCache. I deployment NIXL nativi non possono usare questa opzione."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "P restores compatible historical prefix pages before computing the remaining prompt. Owned CPU snapshots enter a worker-local write queue bounded by ``cpu_bytes`` per P replica; LMCache writes run in the background. A full queue or failed write drops optional history. Missing or failed reads compute locally, while live P/D transfer failures still raise errors. CPU snapshot packing and local enqueueing remain part of prefill latency; asynchronous writes do not remove those costs."
+msgstr "P ripristina pagine storiche di prefissi compatibili prima di calcolare il resto del prompt. Gli snapshot CPU con memoria propria entrano in una coda locale al worker, limitata da ``cpu_bytes`` per replica P; LMCache scrive in background. Se la coda è piena o una scrittura fallisce, la cronologia facoltativa viene scartata. Letture mancanti o fallite comportano il calcolo locale; gli errori di trasferimento P/D attivo restano errori. Il confezionamento degli snapshot CPU e l’inserimento locale in coda fanno ancora parte della latenza di prefill; le scritture asincrone non eliminano tali costi."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "One shared LMCache history store runs on the first CUDA worker; install ``xinference[xavier-lmcache]`` in that worker's environment. All-MLX groups require a Linux model-service host for the store. Each P replica adds a bounded CPU write queue and owned read buffers; SGLang also allocates its native HiCache host pool. Include these allocations in addition to the LMCache memory budgets above. Disk paths belong to the storage host."
+msgstr "Uno store condiviso della cronologia LMCache viene eseguito sul primo worker CUDA; installare ``xinference[xavier-lmcache]`` nel suo ambiente. I gruppi solo MLX richiedono un host Linux di servizi dei modelli per lo store. Ogni replica P aggiunge una coda CPU limitata e buffer di lettura propri; SGLang alloca anche il pool host HiCache nativo. Considerare queste allocazioni oltre ai budget LMCache indicati sopra. I percorsi del disco si riferiscono all’host di storage."
+
+#: user_guide/vllm_enhancement.rst:248
+msgid ""
+"This option uses the canonical P/D model contract and its model, dtype, "
+"single-device and 64-token page restrictions, even for same-engine CUDA "
+"groups. CUDA P/D also uses the canonical request path, which rejects "
+"logprobs and structured outputs (``guided_*``, ``structured_outputs``, "
+"``json_schema`` and JSON ``response_format``). See "
+":ref:`user_guide_pd_separation`. Engine-local prefix reuse remains available"
+" on vLLM, SGLang and MLX P. TRT-LLM isolates native prefix reuse per request"
+" and uses LMCache for historical reuse. Different cache salts remain "
+"isolated; TRT-LLM's existing rejection of ``cache_salt`` is unchanged. "
+"Historical entries are scoped to the deployment and are not recovered after "
+"relaunch."
+msgstr ""
+"Questa opzione usa il contratto P/D canonico con i relativi limiti di "
+"modello, dtype, singolo dispositivo e pagine da 64 token, anche per gruppi "
+"CUDA dello stesso motore. CUDA P/D usa anche il percorso di richiesta "
+"canonico, che rifiuta logprobs e output strutturati (``guided_*``, "
+"``structured_outputs``, ``json_schema`` e ``response_format`` JSON). Vedere "
+":ref:`user_guide_pd_separation`. Il riuso locale dei prefissi resta "
+"disponibile su P con vLLM, SGLang e MLX. TRT-LLM isola il riuso nativo per "
+"richiesta e usa LMCache per riutilizzare prefissi storici. Cache salt "
+"diversi restano isolati; il rifiuto esistente di ``cache_salt`` in TRT-LLM "
+"resta invariato. Le voci storiche sono limitate al deployment e non vengono "
+"recuperate dopo il riavvio."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For MLX prefill, ``xavier_cache_bytes`` still bounds live host handoff pages independently of LMCache. CUDA P/D may omit ``xavier_gpu_cache_bytes`` or set it to ``0``; retained Xavier GPU history is disabled with this backend."
+msgstr "Per prefill MLX, ``xavier_cache_bytes`` limita ancora le pagine host del passaggio attivo, indipendentemente da LMCache. CUDA P/D può omettere ``xavier_gpu_cache_bytes`` o impostarlo a ``0``; questo backend non conserva la cronologia GPU Xavier."
+
+#: user_guide/vllm_enhancement.rst:250
+msgid ""
+"On vLLM P, each scheduler-side history RPC has a one-second deadline; "
+"``read_timeout`` bounds the proxy's storage work."
+msgstr ""
+"Su vLLM P, ogni RPC della cronologia lato scheduler ha un limite di un "
+"secondo; ``read_timeout`` limita il lavoro di archiviazione del proxy."
+
+#: ../../source/user_guide/vllm_enhancement.rst:88
+msgid "Hybrid attention replicas"
+msgstr "Repliche con attenzione ibrida"
+
+#: ../../source/user_guide/vllm_enhancement.rst:91
+msgid "For hybrid attention models such as Qwen3.5, ordinary vLLM replicas can share attention KV and recurrent state with vLLM >= ``0.32.0``. Launch multiple replicas with ``enable_xavier=True``. For CPU-only sharing, set a positive ``xavier_cache_bytes``. Use ``language_model_only=True`` for multimodal checkpoints. This path uses ``mamba_cache_mode=\"align\"`` and requires prefix caching, single-GPU replicas, and no LoRA or speculative decoding."
+msgstr "Per modelli con attenzione ibrida come Qwen3.5, le repliche vLLM ordinarie possono condividere la cache KV dell’attenzione e lo stato ricorrente con vLLM >= ``0.32.0``. Avvia più repliche con ``enable_xavier=True``. Per condividere la cache solo su CPU, imposta un valore positivo per ``xavier_cache_bytes``. Per i checkpoint multimodali usa ``language_model_only=True``. Questa modalità usa ``mamba_cache_mode=\"align\"`` e richiede la cache dei prefissi e una GPU per replica, senza LoRA o decodifica speculativa."
+
+#: ../../source/user_guide/vllm_enhancement.rst:93
+msgid "``xavier_cache_bytes`` sets the shared CPU cache capacity and the CPU staging capacity of each replica. Size the budget for the prefix you want to reuse, including recurrent state. A cache miss or failed import triggers local prefill."
+msgstr "``xavier_cache_bytes`` imposta la capacità della cache CPU condivisa e quella del buffer CPU di ogni replica. Dimensiona il budget per il prefisso da riutilizzare, incluso lo stato ricorrente. In caso di cache miss o di errore di importazione, il prefill viene eseguito localmente."
+
+#: ../../source/user_guide/vllm_enhancement.rst:95
+msgid "Set ``xavier_gpu_cache_bytes=0`` to share aligned prefixes directly from resident GPU cache blocks. Add ``xavier_cache_bytes`` to enable CPU fallback. Direct GPU sharing requires NVIDIA GPUs, ``xoscar[nixl]>=0.11.1`` and ``async_scheduling=False``."
+msgstr "Usa ``xavier_gpu_cache_bytes=0`` per condividere i prefissi allineati direttamente dai blocchi di cache residenti sulla GPU. Aggiungi ``xavier_cache_bytes`` per abilitare il fallback su CPU. La condivisione diretta richiede GPU NVIDIA, ``xoscar[nixl]>=0.11.1`` e ``async_scheduling=False``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:215
+msgid "Hybrid vLLM offload also requires ``xinference[xavier-lmcache]`` on the shared storage host (model-service/supervisor) when it uses a separate environment from the transfer actors. Install the extra in both environments; the per-transfer-actor requirement above also applies to legacy vLLM."
+msgstr "L’offload di vLLM ibrido richiede ``xinference[xavier-lmcache]`` anche sull’host di archiviazione condiviso (model-service/supervisor) quando usa un ambiente separato dagli attori di trasferimento. Installare l’extra in entrambi gli ambienti; il requisito indicato sopra per ogni attore di trasferimento vale anche per vLLM precedente."
+
+#: ../../source/user_guide/vllm_enhancement.rst:97
+msgid "With vLLM's single-process or multiprocessing executor on one node, Xavier automatically chooses finer prefix matching when the hybrid cache layout supports it. An explicit ``prefix_match_unit`` takes precedence. Other executors use vLLM's normal defaults. Whole-block checkpoints are still available when finer checkpoints cannot be reused."
+msgstr "Con l’esecutore vLLM a uno o più processi su un solo nodo, Xavier sceglie automaticamente una corrispondenza dei prefissi più precisa se il layout della cache ibrida lo consente. Un valore esplicito di ``prefix_match_unit`` ha la precedenza. Gli altri esecutori usano le impostazioni predefinite di vLLM. I checkpoint ai limiti dei blocchi restano disponibili quando quelli più precisi non possono essere riutilizzati."

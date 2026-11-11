@@ -48,6 +48,7 @@ async def test_async_reload_client_releases_responses():
     client = AsyncClient.__new__(AsyncClient)
     client.base_url = "http://localhost:9997"
     client._headers = {"Authorization": "Bearer test"}
+    client._cluster_authed = True
     client.session = MagicMock()
     client.session.closed = True
     response = MagicMock(status=202)
@@ -126,3 +127,44 @@ def test_reload_cli_can_select_an_installed_model_environment(monkeypatch):
     client.reload_model.assert_called_once_with(
         "test", {}, 300.0, python_executable="/opt/new/bin/python"
     )
+
+
+def test_runtime_client_keeps_auth_and_reports_unknown():
+    client = Client.__new__(Client)
+    client.base_url = "http://localhost:9997"
+    client._headers = {"Authorization": "Bearer test"}
+    client.session = MagicMock()
+    response = client.session.get.return_value
+    response.status_code = 200
+    response.json.return_value = {"runtime_context_length": None, "replicas": []}
+    assert client.get_model_runtime_info("model/name")["runtime_context_length"] is None
+    client.session.get.assert_called_once_with(
+        "http://localhost:9997/v1/models/model%2Fname/runtime", headers=client._headers
+    )
+    response.status_code = 404
+    response.json.return_value = {"detail": "Model not found"}
+    with pytest.raises(RuntimeError, match="Model not found"):
+        client.get_model_runtime_info("missing")
+
+
+@pytest.mark.asyncio
+async def test_async_runtime_client_releases_success_and_error_responses():
+    client = AsyncClient.__new__(AsyncClient)
+    client.base_url = "http://localhost:9997"
+    client._headers = {"Authorization": "Bearer test"}
+    client._cluster_authed = True
+    client.session = MagicMock()
+    client.session.closed = True
+    response = MagicMock(status=200)
+    response.wait_for_close = AsyncMock()
+    response.json = AsyncMock(return_value={"runtime_context_length": 4096})
+    client.session.get = AsyncMock(return_value=response)
+    assert (await client.get_model_runtime_info("demo"))[
+        "runtime_context_length"
+    ] == 4096
+    response.release.assert_called_once()
+    response.status = 404
+    response.json.return_value = {"detail": "Model not found"}
+    with pytest.raises(RuntimeError, match="Model not found"):
+        await client.get_model_runtime_info("missing")
+    assert response.release.call_count == 2

@@ -1,3 +1,4 @@
+# CI: linux
 import asyncio
 import json
 import logging
@@ -838,7 +839,7 @@ def test_payload_thinking_alias(key: str) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("key", ["enable_thinking", "thinking"])
+@pytest.mark.parametrize("key", ["enable_thinking", "thinking", "thinking_budget"])
 async def test_thinking_request_is_rejected_before_tokenization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
@@ -863,7 +864,9 @@ async def test_thinking_request_is_rejected_before_tokenization(
                 json={
                     "model": "router-model",
                     "messages": [{"role": "user", "content": "hello"}],
-                    "chat_template_kwargs": json.dumps({key: True}),
+                    "chat_template_kwargs": json.dumps(
+                        {key: 4 if key == "thinking_budget" else True}
+                    ),
                     "max_tokens": 8,
                 },
             )
@@ -875,6 +878,62 @@ async def test_thinking_request_is_rejected_before_tokenization(
     assert_rejection_metrics(
         metrics, router_uid=config.router_uid, result="thinking_not_allowed"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("location", ["top", "template", "template_json"])
+async def test_budget_only_request_obeys_thinking_reject_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, location: str
+) -> None:
+    from dataclasses import replace
+
+    from xinference.router.tokenizer import DeepSeekV4TokenEstimator
+
+    config = make_config(tmp_path)
+    config = replace(
+        config,
+        rules=(
+            RoutingRule(
+                "thinking-policy",
+                100,
+                RuleMatch(thinking=True),
+                RouteAction(type="reject", reason="thinking_not_allowed"),
+            ),
+        ),
+    )
+    app = create_app(config)
+    estimator = DeepSeekV4TokenEstimator(
+        config.tokenizer_path, reserve_tokens=0, default_output_tokens=4096
+    )
+    tokenization = app.state.runtime.current.tokenization
+    estimate = AsyncMock(side_effect=lambda payload, **_: estimator.estimate(payload))
+    monkeypatch.setattr(tokenization, "estimate", estimate)
+    payload = {
+        "model": "router-model",
+        "messages": [{"role": "user", "content": "hello"}],
+        "max_tokens": 4096,
+    }
+    if location == "top":
+        payload["thinking_budget"] = 1024
+    else:
+        context = {"thinking_budget": 1024}
+        payload["chat_template_kwargs"] = (
+            json.dumps(context) if location == "template_json" else context
+        )
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json=payload,
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "thinking_not_allowed"
+    estimate.assert_awaited_once()
 
 
 @pytest.mark.asyncio

@@ -245,9 +245,178 @@ msgid "Before streaming starts, system-message ordering errors on strict templat
 msgstr "스트리밍이 시작되기 전에 엄격한 템플릿의 시스템 메시지 순서 오류나 감지된 vLLM 프롬프트별 멀티모달 제한 위반이 있으면 HTTP 400을 반환합니다. 현재 제한을 조회할 수 없으면 검증을 작업자에게 맡깁니다."
 
 #: ../../source/user_guide/client_api.rst
+msgid "``/v1/chat/completions`` and ``/v1/completions`` return HTTP 400 when the request body is not valid JSON, or is valid JSON but not an object, such as ``[]`` or ``null``. This check runs before a model is looked up or streaming starts. A JSON object that fails request-schema validation returns HTTP 422."
+msgstr "요청 본문이 유효한 JSON이 아니거나, 유효한 JSON이지만 객체가 아닌 경우(예: ``[]`` 또는 ``null``) ``/v1/chat/completions``와 ``/v1/completions``는 HTTP 400을 반환합니다. 이 검사는 모델을 조회하거나 스트리밍을 시작하기 전에 수행됩니다. 요청 스키마 검증에 실패한 JSON 객체는 HTTP 422를 반환합니다."
+
+#: ../../source/user_guide/client_api.rst
 msgid "For non-streaming requests, recognized context-length violations and known media or cache-salt validation errors return HTTP 400; rate-limit errors return HTTP 429. Messages describe the failure without exposing worker details. Unrecognized worker failures return HTTP 500."
 msgstr "비스트리밍 요청에서 인식된 컨텍스트 길이 초과와 알려진 미디어 또는 cache-salt 검증 오류는 HTTP 400을 반환하고, 요청 속도 제한은 HTTP 429를 반환합니다. 메시지는 작업자 내부 정보를 노출하지 않고 오류 원인을 설명합니다. 인식되지 않은 작업자 오류는 HTTP 500을 반환합니다."
 
 #: ../../source/user_guide/client_api.rst
 msgid "After a streaming response starts, its HTTP status remains 200. Failures are sent in an SSE ``error`` payload. Recognized context-length and rate-limit failures retain distinct safe messages; unexpected failures use the generic message."
 msgstr "스트리밍 응답이 시작된 후에는 HTTP 상태가 200으로 유지됩니다. 오류는 SSE ``error`` 페이로드로 전송됩니다. 인식된 컨텍스트 길이 및 요청 속도 제한 오류에는 서로 다른 안전한 메시지를 사용하고, 예기치 않은 오류에는 일반 메시지를 사용합니다."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Chat replica affinity"
+msgstr "채팅 복제본 세션 선호도"
+
+#: ../../source/user_guide/client_api.rst:108
+msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
+msgstr "일반 채팅 복제본을 사용하는 모델에서는 같은 세션의 모든 요청에 동일한 선택적 ``routing_key`` 값을 보냅니다. Xinference는 모델, 인증 정보, 키 조합에 대해 마지막으로 선택한 복제본을 우선 사용합니다. 해당 복제본을 사용할 수 없거나 설정된 요청 한도에 도달하면 다른 복제본을 시도합니다. 키가 없는 요청은 라운드 로빈으로 분배합니다. 키는 공백이 아닌 문자를 하나 이상 포함하는 최대 128자의 문자열이며 캐시 격리를 제어하지 않습니다."
+
+#: ../../source/user_guide/client_api.rst:110
+msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
+msgstr "OpenAI 클라이언트에서는 ``extra_body`` 필드에, Xinference 클라이언트에서는 ``generate_config`` 필드에 ``routing_key`` 값을 설정합니다. 이 기능을 지원하는 모델의 경우 ``GET /v1/models/{model_uid}`` 응답에 ``supports_chat_session_affinity: true`` 값이 포함됩니다."
+
+#: ../../source/user_guide/client_api.rst:112
+msgid ""
+"Xinference retains at most 4096 routing keys per model in a least-recently-"
+"used table shared across credentials. High key churn from one credential can"
+" evict another credential's affinity; this affects replica preference only."
+msgstr ""
+"Xinference는 모델별로 최대 4096개의 라우팅 키를 자격 증명 간에 공유되는 LRU 테이블에 보관합니다. 한 자격 증명에서 새 "
+"키를 대량으로 사용하면 다른 자격 증명의 친화성 항목이 제거될 수 있으며, 이는 선호 복제본 선택에만 영향을 줍니다."
+
+#: ../../source/user_guide/client_api.rst
+msgid "Agent cache lifecycle"
+msgstr "에이전트 캐시 수명 주기"
+
+#: ../../source/user_guide/client_api.rst
+msgid "Supported Xavier adapters for vLLM hybrid models, SGLang, TRT-LLM and MLX advertise ``supports_agent_cache_lifecycle: true``. Attach ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` to chat requests through the OpenAI client's ``extra_body`` or the Xinference client's ``generate_config``. Session IDs are scoped to the request credential. Cache isolation still uses ``cache_salt``."
+msgstr "vLLM 하이브리드 모델, SGLang, TRT-LLM, MLX용 지원 Xavier 어댑터는 ``supports_agent_cache_lifecycle: true`` 를 알립니다. OpenAI 클라이언트의 ``extra_body`` 또는 Xinference 클라이언트의 ``generate_config`` 를 통해 채팅 요청에 ``cache_session={\"id\": \"run-1\", \"revision\": 0}`` 을 추가합니다. 세션 ID는 요청 자격 증명별로 분리됩니다. 캐시 격리는 계속 ``cache_salt`` 를 사용합니다."
+
+#: ../../source/user_guide/client_api.rst:103
+msgid ""
+"Send ``id``, an integer ``revision``, and ``phase`` (``waiting``, ``active``"
+" or ``finished``) to ``POST /v1/models/{model_uid}/cache_sessions``. Chat "
+"marks the session active. Older revisions and phase changes at the same "
+"revision are rejected. Increase the revision after chat before sending "
+"``waiting``. Repeating the same revision and phase refreshes the 300-second "
+"TTL. Xagent sends phase changes automatically; waits longer than five "
+"minutes require explicit refreshes."
+msgstr ""
+"``id``, 정수 ``revision``, ``phase`` (``waiting``, ``active`` 또는 "
+"``finished``)를 ``POST /v1/models/{model_uid}/cache_sessions``로 보냅니다. 채팅은 세션을"
+" 활성 상태로 표시합니다. 이전 리비전과 동일 리비전에서의 단계 변경은 거부됩니다. 채팅 후 ``waiting``을 보내기 전에 리비전을"
+" 증가시키세요. 동일 리비전과 단계를 다시 보내면 300초 TTL이 갱신됩니다. Xagent는 단계 변경을 자동으로 보내지만, 5분 이상"
+" 대기할 경우 명시적인 갱신이 필요합니다."
+
+#: ../../source/user_guide/client_api.rst:105
+msgid "Waiting prefixes receive a soft retention preference: vLLM reorders free hybrid GPU blocks; all four adapters refresh shared CPU prefixes, and LMCache can prefetch a bounded prefix from disk. Finished or expired sessions lose this preference without deleting shared pages. Blocks remain allocatable; active requests and transfer leases keep ownership. Storage failures fall back to prefill. P/D lifecycle hints are not supported."
+msgstr "대기 중인 접두사는 우선 보존됩니다. vLLM은 사용 가능한 하이브리드 GPU 블록 순서를 조정하고, 네 어댑터 모두 공유 CPU 접두사를 갱신하며, LMCache는 제한된 접두사를 디스크에서 미리 읽을 수 있습니다. 종료되거나 만료된 세션은 공유 페이지를 삭제하지 않고 우선권을 잃습니다. 블록은 계속 할당 가능하며 활성 요청과 전송 임대는 소유권을 유지합니다. 스토리지 오류 시 프리필로 돌아갑니다. P/D 수명 주기 힌트는 지원하지 않습니다."
+
+#: ../../source/user_guide/client_api.rst:101
+msgid ""
+"A single replica can use ``enable_xavier=True`` and "
+"``xavier_gpu_cache_bytes=0`` for lifecycle-aware resident prefixes. This "
+"mode requires vLLM >= 0.32 and a recurrent-hybrid model combining attention "
+"with recurrent state. Non-hybrid single-replica launches are rejected."
+msgstr ""
+"단일 복제본에서도 ``enable_xavier=True`` 및 ``xavier_gpu_cache_bytes=0``을 사용하여 수명 주기에"
+" 따른 상주 접두사를 활용할 수 있습니다. 이 모드에는 vLLM >= 0.32와 어텐션 및 순환 상태를 결합한 순환 하이브리드 모델이 "
+"필요합니다. 비하이브리드 모델의 단일 복제본 시작은 거부됩니다."
+
+#: ../../source/user_guide/client_api.rst:107
+msgid ""
+"The registry holds at most 4096 sessions per model and 1024 per credential "
+"scope. Requests without credentials share one anonymous scope. Lifecycle IDs"
+" are independent of ``cache_salt``; use distinct session IDs for independent"
+" workflows, including workflows with different salts."
+msgstr ""
+"레지스트리는 모델별 최대 4096개, 자격 증명 범위별 최대 1024개 세션을 보관합니다. 자격 증명이 없는 요청은 하나의 익명 범위를 "
+"공유합니다. 수명 주기 ID는 ``cache_salt``와 독립적입니다. 서로 다른 salt를 사용하는 경우를 포함하여 독립된 "
+"워크플로에는 서로 다른 세션 ID를 사용하세요."
+
+#: source/user_guide/client_api.rst:509
+msgid "Request priority"
+msgstr "요청 우선순위"
+
+#: source/user_guide/client_api.rst:511
+msgid "All LLM engines (vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, and TensorRT-LLM) support an integer ``priority`` from ``-10000`` to ``10000`` on ``/v1/chat/completions`` and ``/v1/completions``, including streaming requests. The default is ``0``; lower values have higher priority. Priority applies within a model replica; it does not select a replica or bypass request limits."
+msgstr "vLLM, SGLang, Transformers, MLX, MLX-VLM, llama.cpp, TensorRT-LLM에서는 ``/v1/chat/completions`` 및 ``/v1/completions`` 의 LLM 요청에 정수 ``priority`` 값을 지정할 수 있으며 스트리밍 요청도 지원합니다. 기본값은 ``0`` 입니다. 값이 작을수록 우선순위가 높습니다. 우선순위는 단일 모델 복제본 내의 스케줄링에 적용되며 복제본을 선택하거나 요청 수 제한을 우회하지 않습니다. ``priority`` 의 유효 범위는 ``[-10000, 10000]`` 입니다."
+
+#: source/user_guide/client_api.rst:513
+msgid "vLLM and SGLang use native priority scheduling. Enable it at model launch with ``scheduling_policy=\"priority\"`` for vLLM (0.6.3 or later), or ``enable_priority_scheduling=True`` for a SGLang version that supports priority scheduling. Xinference converts SGLang priorities to its configured ordering, so lower values always mean higher priority in the Xinference API, regardless of ``schedule_low_priority_values_first``."
+msgstr "vLLM과 SGLang은 네이티브 우선순위 스케줄링을 사용합니다. 모델을 시작할 때 우선순위 스케줄링을 활성화하세요. vLLM(0.6.3 이상)에는 ``scheduling_policy=\"priority\"`` 값을, 우선순위 스케줄링을 지원하는 SGLang 버전에는 ``enable_priority_scheduling=True`` 값을 설정합니다. Xinference가 SGLang의 정렬 설정에 따라 우선순위를 변환하므로 ``schedule_low_priority_values_first`` 설정과 관계없이 Xinference API에서는 값이 작을수록 우선순위가 높습니다."
+
+#: source/user_guide/client_api.rst:515
+msgid "Other engines use a per-replica priority queue before engine submission. Active requests are bounded by the engine's configured batch or parallel capacity; serial paths run one request at a time. Waiting requests run in priority order, with FIFO for equal priorities. This queue does not preempt running requests. Non-batching Transformers models now run one request at a time even when priority is omitted. Waiting requests count toward ``request_limits``; a full limit also rejects later requests with higher priority."
+msgstr "다른 엔진은 엔진에 요청을 제출하기 전에 복제본별 우선순위 큐를 사용합니다. 활성 요청 수는 엔진에 설정된 배치 또는 병렬 처리 용량으로 제한되며 직렬 경로에서는 한 번에 하나의 요청을 실행합니다. 대기 중인 요청은 우선순위 순으로 실행되고 우선순위가 같으면 도착 순서를 따릅니다. 이 큐는 실행 중인 요청을 선점하지 않습니다. 배치 처리를 사용하지 않는 Transformers 모델은 이제 priority를 생략해도 한 번에 요청 하나만 실행합니다. 대기 중인 요청도 ``request_limits``에 포함되며, 한도에 도달하면 나중에 도착한 우선순위가 더 높은 요청도 거부됩니다."
+
+#: source/user_guide/client_api.rst:517
+msgid "With the Xinference Python client, pass ``generate_config={\"priority\": -10}`` to ``model.chat()`` or ``model.generate()``. With the OpenAI Python client, use ``extra_body``:"
+msgstr "Xinference Python 클라이언트에서는 ``model.chat()`` 또는 ``model.generate()`` 호출 시 ``generate_config={\"priority\": -10}`` 값을 전달합니다. OpenAI Python 클라이언트에서는 ``extra_body`` 필드를 사용합니다:"
+
+#: source/user_guide/client_api.rst:532
+msgid "Invalid priority types or values outside ``[-10000, 10000]`` return HTTP 422; strings, booleans, and fractional numbers are not converted to integers. Nonzero priorities require native priority scheduling to be enabled for vLLM, SGLang, and TRT-LLM versions with a native priority API; otherwise non-streaming requests fail with HTTP 400. For streaming requests, engine configuration and version checks happen after HTTP 200 is sent, so these errors appear in the SSE stream."
+msgstr "잘못된 우선순위 유형이나 ``[-10000, 10000]`` 범위를 벗어난 값은 HTTP 422를 반환합니다. 문자열, 불리언, 소수는 정수로 변환되지 않습니다. vLLM, SGLang 및 네이티브 우선순위 API를 제공하는 TRT-LLM에서 0이 아닌 우선순위를 사용하려면 네이티브 우선순위 스케줄링을 활성화해야 합니다. 그렇지 않으면 비스트리밍 요청은 HTTP 400을 반환합니다. 스트리밍 요청의 엔진 설정 및 버전 검사는 HTTP 200을 전송한 뒤 수행되므로 이러한 오류는 SSE 스트림에 표시됩니다."
+
+#: source/user_guide/client_api.rst:515
+msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
+msgstr "네이티브 ``priority`` 매개변수가 있는 TRT-LLM은 일반 및 P/D 복제본에서 네이티브 스케줄링을 사용합니다. Xinference는 ``scheduler_config.waiting_queue_policy`` 기본값을 ``\"priority\"`` 로 설정하고 정수 범위를 선형 변환합니다. ``-10000`` 은 ``1.0``, ``0`` 은 ``0.5``, ``10000`` 은 ``0.0`` 에 대응합니다. 1.2.1을 포함한 이전 버전은 명시적으로 전달한 ``priority`` 에 대해 값이 ``0`` 이어도 HTTP 400(비스트리밍 요청)을 반환합니다. 이전 버전에서는 이 필드를 생략하세요. TRT-LLM에는 공통 큐 대체 경로가 적용되지 않습니다."
+
+#: ../../source/user_guide/client_api.rst:114
+msgid ""
+"With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
+"the number of data-parallel ranks served by the replica as an advisory "
+"capacity. External load balancing serves one rank; hybrid load balancing "
+"counts local ranks. Invalid capacity values disable this engine-specific "
+"probe. Below this capacity, requests keep affinity and can batch. If all "
+"replicas are busy, Xinference keeps the preferred replica and its normal "
+"queueing and admission behavior. This probe counts requests, so requests "
+"with ``n > 1`` may consume more sequence slots than counted. Moving to "
+"another replica may incur prefix recomputation or KV transfer; the policy "
+"does not estimate these costs or reserve capacity."
+msgstr ""
+"vLLM에서는 양의 정수 ``max_num_seqs``에 해당 복제본이 처리하는 데이터 병렬 순위 수를 곱한 값을 친화성 라우팅의 참고 "
+"용량으로 사용합니다. 외부 부하 분산은 한 순위를 처리하고, 하이브리드 부하 분산은 로컬 순위를 계산합니다. 잘못된 용량 값은 이 엔진별"
+" 검사를 비활성화합니다. 용량 미만에서는 요청이 친화성을 유지하며 배치 처리될 수 있습니다. 모든 복제본이 바쁘면 Xinference는 "
+"선호 복제본과 일반적인 대기열 및 수락 동작을 유지합니다. 이 검사는 요청 수를 세므로 ``n > 1``인 요청은 계산된 수보다 더 많은"
+" 시퀀스 슬롯을 소비할 수 있습니다. 다른 복제본으로 전환하면 접두사 재계산이나 KV 전송이 필요할 수 있으며, 정책은 이러한 비용을 "
+"추정하거나 용량을 예약하지 않습니다."
+
+msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
+msgstr "Xinference는 이제 ``priority``가 없는 요청을 포함해 모든 엔진에서 클라이언트가 지정한 ``request_id``를 검사합니다. 같은 복제본의 활성 요청은 고유한 ID를 사용해야 합니다. 중단 후 해당 ID는 기본적으로 30초 동안 차단됩니다. 재시도에는 새 ID를 사용하거나 중단 요청의 ``block_duration``으로 차단 시간을 설정하세요."
+
+#: user_guide/client_api.rst:10
+msgid "Loaded context length"
+msgstr "로드된 모델의 컨텍스트 길이"
+
+#: user_guide/client_api.rst:10
+msgid ""
+"``client.get_model_runtime_info(model_uid)`` and its asynchronous equivalent"
+" call the Xinference-specific ``GET /v1/models/{model_uid}/runtime`` "
+"endpoint. ``runtime_context_length`` is the loaded adapter's total input-"
+"plus-output limit in tokens, or ``null`` if unknown. ``replicas`` lists each"
+" ``replica_uid`` and its limit. The model-wide value is the minimum only "
+"when every active replica reports a value. Queries follow the serving "
+"generation after reload; the model details panel fetches this information on"
+" entry and after a reload."
+msgstr ""
+"``client.get_model_runtime_info(model_uid)`` 및 비동기 버전은 Xinference 전용 ``GET "
+"/v1/models/{model_uid}/runtime`` 엔드포인트를 호출합니다. ``runtime_context_length``는 "
+"로드된 어댑터의 입력과 출력을 합한 토큰 한도이며, 알 수 없으면 ``null``입니다. ``replicas``에는 각 "
+"``replica_uid``와 해당 한도가 나열됩니다. 모든 활성 복제본이 값을 보고할 때만 최솟값을 모델 전체 한도로 반환합니다. 다시"
+" 로드한 후에는 현재 서비스 중인 인스턴스를 조회하며, 모델 상세 패널은 페이지를 열 때와 다시 로드가 완료된 후에 정보를 조회합니다."
+
+#: user_guide/client_api.rst:10
+msgid ""
+"The registered ``context_length`` and OpenAI/Anthropic model, generation, "
+"and streaming response formats remain unchanged. vLLM, Transformers, MLX, "
+"and TRT-LLM report their adapter limit; SGLang queries its runtime. "
+"llama.cpp reads its resolved per-slot ``n_ctx`` from the loaded server's "
+"``/props`` endpoint, rather than dividing the launch-time total capacity. "
+"Older runtimes without a query interface report ``null``. The limit does not"
+" guarantee available memory."
+msgstr ""
+"등록된 ``context_length``와 OpenAI/Anthropic의 모델, 생성 및 스트리밍 응답 형식은 유지됩니다. vLLM, "
+"Transformers, MLX, TRT-LLM은 어댑터 한도를 보고하고 SGLang은 런타임을 조회합니다. llama.cpp는 시작 시"
+" 총용량을 슬롯 수로 나누는 대신 로드된 서버의 ``/props``에서 실제 슬롯별 ``n_ctx``를 읽습니다. 조회 인터페이스가 없는"
+" 이전 런타임은 ``null``을 반환합니다. 이 한도가 요청에 필요한 가용 메모리를 보장하지는 않습니다."
+
+msgid "Clients may send ``priority_hint: -1`` in chat requests when the running model description advertises ``supports_chat_priority``. The selected replica applies the hint through native scheduling or the Xinference priority queue. In prefill/decode deployments, both stages must support priority. An explicit ``priority`` takes precedence. Only ``/v1/chat/completions`` uses this hint. Values other than the integer ``-1`` are ignored. Anthropic Messages and OpenAI Responses ignore the hint."
+msgstr "실행 중인 모델의 설명에 ``supports_chat_priority`` 가 표시되면 클라이언트는 채팅 요청에 ``priority_hint: -1`` 을 보낼 수 있습니다. 선택된 복제본은 엔진의 기본 스케줄러 또는 Xinference의 우선순위 큐에서 힌트를 적용합니다. prefill/decode 분리 배포에서는 두 단계 모두 우선순위를 지원해야 합니다. 명시적으로 지정한 ``priority`` 가 우선합니다. 이 힌트는 ``/v1/chat/completions`` 에서만 사용됩니다. 정수 ``-1`` 이외의 값은 무시됩니다. Anthropic Messages와 OpenAI Responses는 이 힌트를 무시합니다."
+
+#: ../../source/user_guide/client_api.rst:139
+msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
+msgstr "``stream=True`` 인 경우 도구 호출 인덱스별로 ``delta.tool_calls[].function.arguments`` 조각을 이어 붙입니다. ``finish_reason=\"tool_calls\"`` 를 기다린 후 합쳐진 JSON을 검증하고 도구를 실행하세요. ``finish_reason=\"length\"`` 인 경우 호출에 ID와 이름이 있어도 인자가 불완전할 수 있습니다. 해당 응답의 호출은 실행하지 마세요."

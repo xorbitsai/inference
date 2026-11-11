@@ -55,6 +55,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ....utils import dependency_import_guard
 from ...utils import check_dependency_available
 from ..context_length import ContextLengthExceeded
 from ..core import LLM, chat_context_var
@@ -89,6 +90,23 @@ logger = logging.getLogger(__name__)
 _mlx_vlm_stream_lock = threading.Lock()
 _mlx_executor_lock = threading.Lock()
 _DEFAULT_MLX_PROMPT_CACHE_SIZE = 2
+
+
+async def _await_mlx_cleanup(task: asyncio.Future) -> None:
+    """Retain native ownership if cancellation arrives during cleanup itself."""
+    try:
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if not task.cancelled():
+            task.exception()
+        raise
 
 
 def _ensure_mlx_vlm_thread_local_stream() -> Any:
@@ -589,33 +607,36 @@ class MLXBatchModel:
             insert_options["external_cache"] = external_cache
         if cache_salt is not None:
             insert_options["cache_salt"] = cache_salt
-        inserted_uid, cached_prompt_tokens, cache_boundary = self._insert_request(
-            *insert_args, **insert_options
-        )
-        if cache_salt is not None:
-            gen_dict.setdefault("cache_salts", {})[inserted_uid] = cache_salt
-        remote_cached_tokens = external_cache[1] if external_cache is not None else 0
-        if (
-            getattr(self, "_xavier", None) is not None
-            and remote_cached_tokens < input_echo_len - 1
-        ):
-            gen_dict["xavier_prompts"][inserted_uid] = (
-                prompt_tokens,
-                remote_cached_tokens,
-            )
-        if cache_boundary is not None:
-            gen_dict["cache_boundaries"][inserted_uid] = cache_boundary
-
-        logger.debug(
-            "Inserted request %s into batch (temp=%s, top_p=%s, top_k=%s)",
-            inserted_uid,
-            temperature,
-            top_p,
-            top_k,
-        )
-
-        # Add to active requests set
+        # Acquire before native insertion: cancellation while waiting must not
+        # leave an unregistered native UID outside the cleanup owner.
         async with MLXBatchModel._get_lock():
+            inserted_uid, cached_prompt_tokens, cache_boundary = self._insert_request(
+                *insert_args, **insert_options
+            )
+            if cache_salt is not None:
+                gen_dict.setdefault("cache_salts", {})[inserted_uid] = cache_salt
+            remote_cached_tokens = (
+                external_cache[1] if external_cache is not None else 0
+            )
+            if (
+                getattr(self, "_xavier", None) is not None
+                and remote_cached_tokens < input_echo_len - 1
+            ):
+                gen_dict["xavier_prompts"][inserted_uid] = (
+                    prompt_tokens,
+                    remote_cached_tokens,
+                )
+            if cache_boundary is not None:
+                gen_dict["cache_boundaries"][inserted_uid] = cache_boundary
+
+            logger.debug(
+                "Inserted request %s into batch (temp=%s, top_p=%s, top_k=%s)",
+                inserted_uid,
+                temperature,
+                top_p,
+                top_k,
+            )
+
             gen_dict["active"].add(inserted_uid)
             gen_dict["queues"][inserted_uid] = queue
 
@@ -743,28 +764,30 @@ class MLXBatchModel:
             }
             yield completion_chunk
         finally:
-            # Clean up queue using the correct uid
-            async with MLXBatchModel._get_lock():
-                if not removed and (
-                    not finished or getattr(self, "_xavier", None) is not None
-                ):
-                    batch_generator.remove([inserted_uid])
-                if inserted_uid in gen_dict["queues"]:
-                    del gen_dict["queues"][inserted_uid]
-                    logger.debug(f"Cleaned up queue for uid {inserted_uid}")
-                # Also clean up any pending results
-                if inserted_uid in gen_dict["pending"]:
-                    del gen_dict["pending"][inserted_uid]
-                # And remove from active set (in case it's still there)
-                if inserted_uid in gen_dict["active"]:
-                    gen_dict["active"].remove(inserted_uid)
-                gen_dict["cache_boundaries"].pop(inserted_uid, None)
-                gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
+
+            async def cleanup():
+                # Clean up queue using the correct uid.
+                async with MLXBatchModel._get_lock():
+                    if not removed and (
+                        not finished or getattr(self, "_xavier", None) is not None
+                    ):
+                        batch_generator.remove([inserted_uid])
+                    if inserted_uid in gen_dict["queues"]:
+                        del gen_dict["queues"][inserted_uid]
+                        logger.debug(f"Cleaned up queue for uid {inserted_uid}")
+                    if inserted_uid in gen_dict["pending"]:
+                        del gen_dict["pending"][inserted_uid]
+                    if inserted_uid in gen_dict["active"]:
+                        gen_dict["active"].remove(inserted_uid)
+                    gen_dict["cache_boundaries"].pop(inserted_uid, None)
+                    gen_dict.get("cache_salts", {}).pop(inserted_uid, None)
+                    if getattr(self, "_xavier", None) is not None:
+                        gen_dict["xavier_prompts"].pop(inserted_uid, None)
                 if getattr(self, "_xavier", None) is not None:
-                    gen_dict["xavier_prompts"].pop(inserted_uid, None)
-            if getattr(self, "_xavier", None) is not None:
-                write = gen_dict["xavier_writes"].pop(inserted_uid, None)
-                await self._xavier.flush([write] if write is not None else [])
+                    write = gen_dict["xavier_writes"].pop(inserted_uid, None)
+                    await self._xavier.flush([write] if write is not None else [])
+
+            await _await_mlx_cleanup(asyncio.create_task(cleanup()))
 
     async def generate(
         self,
@@ -894,6 +917,34 @@ class _CachedTextVisionModel:
 
 
 class MLXModel(LLM, ChatModelMixin):
+    _cancel_async_request_on_abort = True
+
+    def get_request_priority_capacity(
+        self, generate_config: Optional[Dict] = None
+    ) -> int:
+        if getattr(self, "_batch_model", None) is None:
+            return 1
+        if generate_config is not None:
+            config = generate_config
+            try:
+                context = (
+                    self._get_chat_template_kwargs_from_generate_config(config) or {}
+                )
+            except TypeError:
+                # Completions ignore chat-only options; defer their validation to chat.
+                return 1
+            if (
+                normalize_response_format(config.get("response_format"))
+                or is_forced_tool_choice(config)
+                or config.get("_mlx_thinking_budget") is not None
+                or context.get("thinking_budget") is not None
+                or config.get("_mlx_cache_boundaries")
+                # Chat resolves these checkpoints after rendering the prompt.
+                or config.get("_anthropic_cache_control")
+            ):
+                return 1
+        return self._model_config.get("batch_size", 4)
+
     supports_cache_salt = True
     supports_tool_controls = True
     _rank_to_addresses: Optional[Dict[int, str]]
@@ -1015,6 +1066,25 @@ class MLXModel(LLM, ChatModelMixin):
             generate_config["max_tokens"] = max_tokens  # type: ignore
         return generate_config
 
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        config = super().prepare_reasoning_request(config)
+        if config.get("_mlx_thinking_budget") is not None:
+            if getattr(self, "_xavier", None) is not None:
+                raise NotImplementedError(
+                    "MLX Xavier models do not support thinking budgets"
+                )
+            if (
+                isinstance(self, MLXVisionModel)
+                and "logits_processors"
+                not in inspect.signature(
+                    _ensure_mlx_vlm_thread_local_stream().generate_step
+                ).parameters
+            ):
+                raise NotImplementedError(
+                    "Installed mlx-vlm does not support thinking budgets"
+                )
+        return config
+
     def prepare_anthropic_request(
         self, messages: List[Dict], config: Dict
     ) -> Dict[str, Any]:
@@ -1106,6 +1176,10 @@ class MLXModel(LLM, ChatModelMixin):
         return prompt
 
     def _apply_thinking_budget(self, config: Dict) -> None:
+        if (config.get("_pd_kv_transfer_params") or {}).get("do_remote_decode"):
+            # Prefill uses the same prompt but generates only a handoff token.
+            config.pop("_mlx_thinking_budget", None)
+            return
         context = (
             self._get_chat_template_kwargs_from_generate_config(
                 config, self.reasoning_parser
@@ -1113,11 +1187,8 @@ class MLXModel(LLM, ChatModelMixin):
             or {}
         )
         budget = context.get("thinking_budget")
-        if (
-            not context.get("_anthropic_request")
-            or budget is None
-            or not context.get("enable_thinking")
-        ):
+        # 0 is a template-level budget (Seed-OSS), never an engine budget.
+        if not budget or not context.get("enable_thinking"):
             return
         parser = self.reasoning_parser
         if parser is None or not (
@@ -1370,17 +1441,9 @@ class MLXModel(LLM, ChatModelMixin):
                 "Speculative decoding is only supported by the MLX vision engine "
                 "for now, e.g. gemma-4 with its `*-it-assistant` drafter."
             )
-        try:
+        with dependency_import_guard("mlx_lm"):
             import mlx.core as mx
             from mlx_lm import load
-        except ImportError:
-            error_message = "Failed to import module 'mlx_lm'"
-            installation_guide = [
-                "Please make sure 'mlx_lm' is installed. ",
-                "You can install it by `pip install mlx_lm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         tokenizer_config = dict(
             use_fast=self._use_fast_tokenizer,
@@ -1454,17 +1517,9 @@ class MLXModel(LLM, ChatModelMixin):
         return model, tokenizer
 
     def _load_model_shard(self, **kwargs):
-        try:
+        with dependency_import_guard("mlx_lm"):
             import mlx.core as mx
             from mlx_lm.utils import load_model, load_tokenizer
-        except ImportError:
-            error_message = "Failed to import module 'mlx_lm'"
-            installation_guide = [
-                "Please make sure 'mlx_lm' is installed. ",
-                "You can install it by `pip install mlx_lm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         # Ensure some attributes correctly inited by model actor
         assert (
@@ -1537,14 +1592,21 @@ class MLXModel(LLM, ChatModelMixin):
 
         model_type = config["model_type"]
         model_type = MODEL_REMAPPING.get(model_type, model_type)
+        arch_module = f"xinference.model.llm.mlx.distributed_models.{model_type}"
         try:
-            arch = importlib.import_module(
-                f"xinference.model.llm.mlx.distributed_models.{model_type}"
-            )
-        except ImportError:
-            msg = f"Model type {model_type} not supported for distributed inference."
+            arch = importlib.import_module(arch_module)
+        except ImportError as exc:
+            if isinstance(exc, ModuleNotFoundError) and exc.name == arch_module:
+                msg = (
+                    f"Model type {model_type} not supported for distributed inference."
+                )
+            else:
+                msg = (
+                    f"Failed to import distributed model type {model_type}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
             logger.error(msg)
-            raise ValueError(msg)
+            raise ValueError(msg) from exc
 
         return arch.Model, arch.ModelArgs
 
@@ -2063,7 +2125,9 @@ class MLXModel(LLM, ChatModelMixin):
             finally:
                 try:
                     # Queued behind an in-flight decode even when the caller cancels.
-                    await asyncio.shield(loop.run_in_executor(executor, iterator.close))
+                    await _await_mlx_cleanup(
+                        loop.run_in_executor(executor, iterator.close)
+                    )
                 finally:
                     with _mlx_executor_lock:
                         self._fallback_active = False
@@ -2072,6 +2136,10 @@ class MLXModel(LLM, ChatModelMixin):
                             self._fallback_executor = None
                     if stopping:
                         executor.shutdown(wait=False)
+
+    def supports_agent_cache_lifecycle(self) -> bool:
+        cache = getattr(self, "_xavier", None)
+        return cache is not None and cache.role is None
 
     async def async_generate(
         self,
@@ -2162,6 +2230,17 @@ class MLXModel(LLM, ChatModelMixin):
             if not isinstance(prompt, str):
                 raise ValueError("MLX Xavier requires a text prompt")
             tokens = self._tokenizer.encode(prompt)
+            from ..xavier.cache_lifecycle import CACHE_SESSION_ARG, bind_cache_session
+
+            cache_session = cast(Dict[str, Any], generate_config).pop(
+                CACHE_SESSION_ARG, None
+            )
+            if self.supports_agent_cache_lifecycle() and cache_session is not None:
+                await bind_cache_session(
+                    xavier.config,
+                    cache_session,
+                    xavier.keys(tokens[:-1], generate_config.get("cache_salt")),
+                )
             # Claim/copy/release the lease before returning a lazy stream. Even
             # an unconsumed or disconnected response cannot strand the handoff.
             xavier_inputs = dict(
@@ -2742,16 +2821,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 raise err.with_traceback(tb)
 
     def _load_model(self, **kwargs):
-        try:
+        with dependency_import_guard("mlx_vlm"):
             from mlx_vlm import load
-        except ImportError:
-            error_message = "Failed to import module 'mlx_vlm'"
-            installation_guide = [
-                "Please make sure 'mlx_vlm' is installed. ",
-                "You can install it by `pip install mlx_vlm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         self._prompt_cache = PromptCache()
 
@@ -2775,11 +2846,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         model, so that both share one thread-local generation stream."""
         try:
             from mlx_vlm.speculative.drafters import load_drafter
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "Speculative decoding requires mlx-vlm>=0.5.0, "
-                "you can upgrade it by `pip install -U mlx-vlm`"
-            )
+                "Speculative decoding requires mlx-vlm>=0.5.0. "
+                f"Import failed: {type(exc).__name__}: {exc}"
+            ) from exc
 
         generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step
         if "draft_model" not in inspect.signature(generate_step).parameters:

@@ -72,8 +72,10 @@ async def router():
 @pytest.mark.parametrize("method", ["chat", "generate"])
 async def test_infer_preserves_decode_config(router, method):
     actor, prefill, decode = router
-    config = {"max_tokens": 32, "stream": False}
-    raw = {"max_tokens": 32, "stream": False}
+    config = {"max_tokens": 32, "stream": False, "priority": -10}
+    raw = {"max_tokens": 32, "stream": False, "priority": -10}
+    if method == "chat":
+        raw["priority_hint"] = -1
     result = await actor._infer(
         method, "prompt", config, raw_params=raw, request_id="r"
     )
@@ -83,6 +85,10 @@ async def test_infer_preserves_decode_config(router, method):
     d_call = getattr(decode, method).call_args
     assert p_call.args[1]["max_tokens"] == 1
     assert d_call.args[1]["max_tokens"] == 32
+    assert p_call.args[1]["priority"] == d_call.args[1]["priority"] == -10
+    if method == "chat":
+        assert p_call.kwargs["raw_params"]["priority_hint"] == -1
+        assert d_call.kwargs["raw_params"]["priority_hint"] == -1
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
     prefill.free_model_cache.assert_not_awaited()
@@ -1159,3 +1165,79 @@ async def test_cross_engine_router_releases_trt_source_owner(
     prefill.release_trt_pd_request.assert_awaited_once()
     assert prefill.release_trt_pd_request.call_args.args == ("trt",)
     assert not actor._trt_prefill_requests and not actor._request_set
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unsupported", [False, True])
+async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupported):
+    actor, prefill, decode = router
+    config = {
+        "chat_template_kwargs": {"enable_thinking": True, "thinking_budget": 1024},
+        "max_tokens": 2048,
+    }
+    decode.prepare_reasoning_request = AsyncMock(
+        return_value={**config, "thinking_token_budget": 1024}
+    )
+    other = MagicMock()
+    error = {"error": {"status": 501, "message": "unsupported budget"}}
+    other.prepare_reasoning_request = AsyncMock(
+        return_value=json.dumps(error if unsupported else config).encode()
+    )
+    await actor.add_decode_actor("d2", other)
+    result = await actor.prepare_reasoning_request(config)
+    assert result == (error if unsupported else config)
+    decode.prepare_reasoning_request.assert_awaited_once()
+    other.prepare_reasoning_request.assert_awaited_once()
+    assert "thinking_token_budget" not in config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("supported", [True, False])
+async def test_reasoning_capability_requires_all_decoders(router, supported):
+    actor, _, decode = router
+    decode.get_reasoning_capabilities = AsyncMock(
+        return_value=b'{"supports_thinking_budget": true}'
+    )
+    second = SimpleNamespace(
+        get_reasoning_capabilities=AsyncMock(
+            return_value={"supports_thinking_budget": supported}
+        )
+    )
+    await actor.add_decode_actor("d2", second)
+    assert await actor.get_reasoning_capabilities() == {
+        "supports_thinking_budget": supported
+    }
+    assert decode.get_reasoning_capabilities.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "prefill_support,decode_support", [(True, True), (False, True), (True, False)]
+)
+async def test_priority_capability_requires_both_stages(
+    router, prefill_support, decode_support
+):
+    actor, prefill, decode = router
+    prefill.supports_chat_priority = AsyncMock(return_value=prefill_support)
+    decode.supports_chat_priority = AsyncMock(return_value=decode_support)
+    supported = await actor_call(
+        actor, "supports_chat_priority", _rpc_correlation_id="describe-model"
+    )
+    assert supported is (prefill_support and decode_support)
+
+    await actor.remove_decode_actor("d")
+    assert not await actor.supports_chat_priority()
+
+
+@pytest.mark.asyncio
+async def test_priority_capability_is_unavailable_if_pd_replicas_change(router):
+    actor, prefill, decode = router
+    prefill.supports_chat_priority = AsyncMock(return_value=True)
+
+    async def supports_chat_priority():
+        await actor.remove_decode_actor("d")
+        return True
+
+    decode.supports_chat_priority = AsyncMock(side_effect=supports_chat_priority)
+    assert not await actor.supports_chat_priority()
+    decode.supports_chat_priority.assert_awaited_once()

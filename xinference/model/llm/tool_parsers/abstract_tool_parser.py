@@ -1,5 +1,5 @@
 from contextvars import ContextVar
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional
 
 # Tools of the request whose output is being parsed. One parser instance serves
 # every request to a model, so the chat helpers set this around each parse call
@@ -7,6 +7,12 @@ from typing import Any, Dict, Iterable, List, Optional
 request_tools_var: ContextVar[Optional[List[Dict[str, Any]]]] = ContextVar(
     "request_tools", default=None
 )
+
+
+class ToolArgumentsDelta(NamedTuple):
+    """An already serialized fragment of OpenAI function arguments."""
+
+    value: str
 
 
 class ToolParser:
@@ -42,6 +48,10 @@ class ToolParser:
             "AbstractToolParser.extract_tool_calls_streaming has not been "
             "implemented!"
         )
+
+    def flush_streaming_content(self, text: str) -> Optional[str]:
+        """Release any plain text withheld at the end of a stream."""
+        return None
 
     @staticmethod
     def _is_string_parameter(function_name: Optional[str], parameter_name: str) -> bool:
