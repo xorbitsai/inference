@@ -111,8 +111,9 @@ class TestResolveJinaTaskV3:
         assert task == prompt_name
 
     def test_document(self):
+        """'document' maps to the 'retrieval.passage' adapter and prompt for v3."""
         prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "document")
-        assert prompt_name == "document"
+        assert prompt_name == "retrieval.passage"
         assert task == prompt_name
 
     def test_invalid_task_raises(self):
@@ -322,6 +323,7 @@ class _V3Encoder:
         ("retrieval.query", "retrieval.query"),
         ("retrieval.passage", "retrieval.passage"),
         ("passage", "retrieval.passage"),
+        ("document", "retrieval.passage"),
         (None, None),
     ],
 )
@@ -349,3 +351,25 @@ async def test_v3_request_task_selects_lora_adapter_and_prompt(task, adapter):
     # encode() also tokenizes the prompt alone to measure its length
     assert encoder.tokenized[-1] == prompt + "Berlin weather"
     assert encoder.forward_kwargs == [{"task": adapter} if adapter else {}]
+
+
+async def test_v3_request_custom_prompt_keeps_the_task_adapter():
+    # A custom ``prompt`` replaces the task's instruction, but the task still
+    # selects the LoRA adapter.
+    from ...embed_family import BUILTIN_EMBEDDING_MODELS
+    from ..core import SentenceTransformerEmbeddingModel
+
+    family = BUILTIN_EMBEDDING_MODELS["jina-embeddings-v3"][0]
+    model = SentenceTransformerEmbeddingModel("test", "/unused", family)
+    model._model = encoder = _V3Encoder()
+    try:
+        result = await model.create_embedding(
+            ["Berlin weather"], model_uid="jina", task="document", prompt="passage: "
+        )
+    finally:
+        model._process_batch_task.cancel()
+        await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert len(result["data"]) == 1
+    assert encoder.tokenized[-1] == "passage: Berlin weather"
+    assert encoder.forward_kwargs == [{"task": "retrieval.passage"}]

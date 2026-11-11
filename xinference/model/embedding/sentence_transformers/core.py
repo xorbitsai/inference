@@ -283,7 +283,8 @@ JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "retrieval": "retrieval.passage",
     "passage": "retrieval.passage",
     "query": "retrieval.query",
-    "document": "document",
+    # v3 has no "document" adapter or prompt; documents use the passage one.
+    "document": "retrieval.passage",
 }
 
 # jina-embeddings-v4: custom forward() consumes task param directly, bypasses prompt_name
