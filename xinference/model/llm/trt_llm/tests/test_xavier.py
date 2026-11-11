@@ -78,6 +78,7 @@ def test_pd_prefill_imports_history_and_still_pins_live_gpu_pages(
         config=dict(role="prefill", prefix_cache={}),
         pd_gpu=True,
         tensor_parallel_size=1,
+        shared=None,
     )
     history = SimpleNamespace(
         contract=c,
@@ -87,6 +88,7 @@ def test_pd_prefill_imports_history_and_still_pins_live_gpu_pages(
         read_prefix=lambda keys: seed,
         rpc=rpc,
         tensor_parallel_size=1,
+        shared=None,
     )
     monkeypatch.setattr(
         connector,
@@ -309,6 +311,7 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
         read_prefix=read,
         config={},
         tensor_parallel_size=1,
+        shared=None,
     )
     request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(12)))
     assert scheduler.get_num_new_matched_tokens(request, 0) == (8, False)
@@ -604,6 +607,7 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
         capacity_bytes=3 * contract.num_layers * contract.layer_nbytes,
         rpc=rpc,
         tensor_parallel_size=1,
+        pages=lambda: None,
     )
     worker.rank = 0
     worker._publisher = None
@@ -687,6 +691,7 @@ def shared_worker(connector, monkeypatch):
             namespace=c.fingerprint,
             capacity_bytes=store.capacity_bytes,
             rpc=lambda method, *args: getattr(store, method)(*args),
+            pages=lambda: None,
         )
         monkeypatch.setattr(connector, "XavierClient", lambda: client)
         worker = connector.XavierConnectorWorker(None)

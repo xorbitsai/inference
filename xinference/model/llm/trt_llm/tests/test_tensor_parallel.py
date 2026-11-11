@@ -167,8 +167,20 @@ def _meta(request_id, blocks, computed, scheduled):
     )
 
 
+def _flushed(worker):
+    return worker._publisher is None or worker._publisher.flush(10)
+
+
 @pytest.mark.asyncio
-async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connector):
+@pytest.mark.parametrize("version", ["1.2.1", NEW])
+async def test_tensor_parallel_replicas_exchange_rank_shards(
+    monkeypatch, tmp_path, connector, version
+):
+    # TRT 1.4 maps the cache actor's shared-memory pages; older versions and
+    # remote actors exchange the same pages through actor RPC.
+    from ...xavier.backends.torch import shared_pages
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
     # One rank holds one of two KV heads: 2 layers x K/V x 4 tokens x 1 head x 4.
     contract = KVCacheContract(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 1, 4, 4, "bfloat16"
@@ -191,6 +203,7 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connec
                     "uid": "trt-tp-cache",
                     "contract": contract.to_dict(),
                     "tensor_parallel_size": 2,
+                    "engine_version": version,
                 }
             ),
         )
@@ -227,7 +240,7 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connec
         await asyncio.to_thread(
             source[0].wait_for_save, SimpleNamespace(synchronize=lambda: None)
         )
-        assert await asyncio.to_thread(source[0]._publisher.flush, 10)
+        assert await asyncio.to_thread(_flushed, source[0])
         request.request_id = 2
         request.get_tokens = lambda beam: [*range(10), 100]
         assert await asyncio.to_thread(b.get_num_new_matched_tokens, request, 0) == (
@@ -238,7 +251,7 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connec
         await asyncio.to_thread(
             source[1].wait_for_save, SimpleNamespace(synchronize=lambda: None)
         )
-        assert await asyncio.to_thread(source[1]._publisher.flush, 10)
+        assert await asyncio.to_thread(_flushed, source[1])
         assert (await actor.get_stats())["stored_pages"] == 4
         # Republishing an already stored prefix copies nothing to the host.
         for worker in source:
@@ -246,7 +259,7 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connec
             await asyncio.to_thread(
                 worker.wait_for_save, SimpleNamespace(synchronize=lambda: None)
             )
-            assert worker._publisher.in_flight == 0
+            assert worker._publisher is None or worker._publisher.in_flight == 0
         assert (await actor.get_stats())["stored_pages"] == 4
 
         request.request_id = 3
@@ -263,7 +276,12 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(monkeypatch, connec
         )
         b.update_state_after_alloc(request, [2, 0, 1])
         metadata = b.build_connector_meta(_meta(3, [2, 0, 1], 0, 3))
-        assert [slot for slot, _ in metadata.shard_loads] == [2, 0]
+        assert [slot for slot, _, _ in metadata.shard_loads] == [2, 0]
+        shared = version == NEW
+        assert all((slots is not None) == shared for *_, slots in metadata.shard_loads)
+        assert (await actor.get_stats())["backend_stats"].get("shared_memory") == (
+            shared or None
+        )
         assert not metadata.loads
         for worker in target:
             worker.bind_connector_meta(metadata)
@@ -364,3 +382,47 @@ def test_tensor_parallel_defaults_to_allocated_gpus(
     with pytest.raises(Stop):
         model.load()
     assert seen.get("tensor_parallel_size") == expected
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA")
+def test_staged_publication_copies_pages_after_the_engine_stream(connector, tmp_path):
+    from ...xavier.backends.torch.shared_pages import SharedPageArena
+
+    pool = torch.arange(4 * 2048, dtype=torch.float32, device="cuda").reshape(4, 2048)
+    page_bytes = pool[0].numel() * pool.element_size()
+    arena = SharedPageArena(str(tmp_path), "pages", page_bytes, 4)
+    allocated = {}
+
+    def rpc(method, namespace, keys, *args):
+        if method == "allocate_shared":
+            slots = arena.allocate([hash(key) for key in keys])
+            allocated.update(zip(keys, slots))
+            return slots
+        assert method == "commit_shared"
+        slots, ok = args
+        assert ok
+        return arena.commit([hash(key) for key in keys], slots)
+
+    client = SimpleNamespace(namespace="ns", rpc=rpc, pages=lambda: arena.pages)
+    writer = connector._StagedWriter(client, pool, budget=2 * page_bytes)
+    try:
+        stream = torch.cuda.Stream()
+        with torch.cuda.stream(stream):
+            torch.cuda._sleep(50_000_000)  # A long forward pass still writing.
+            pool[3].fill_(7)
+        # Two rows: the third page is left to the synchronous fallback.
+        assert writer.submit(pool, stream, [("a", 3), ("b", 1), ("c", 2)]) == 2
+        # The engine reuses slot 3 right after; the staged copy keeps old bytes.
+        with torch.cuda.stream(stream):
+            pool[3].fill_(-1)
+        assert writer.flush(30)
+        expected = torch.full((2048,), 7, dtype=torch.float32)
+        page = arena.pages[allocated["a"]].view(torch.float32)
+        assert torch.equal(page, expected)
+        assert torch.equal(
+            arena.pages[allocated["b"]].view(torch.float32), pool[1].cpu()
+        )
+        assert len(arena.ready) == 2
+    finally:
+        writer.close()
+        arena.pages = None

@@ -115,6 +115,25 @@ class XavierCacheActor(xo.StatelessActor):
         if self.capacity_bytes < page_bytes:
             raise ValueError("Xavier CPU cache budget cannot hold one complete page")
         self._page_elements = page_bytes // 2
+        if storage_format.get("shared_memory") and self._backend_name == "native":
+            from . import shared_pages
+
+            try:
+                self._store = shared_pages.SharedPageArena(
+                    shared_pages.shared_directory(),
+                    f"xinference-xavier-{self._deployment[:12]}-{namespace[:16]}",
+                    page_bytes,
+                    self.capacity_bytes // page_bytes,
+                )
+            except OSError:
+                # Engines then exchange pages through this actor's RPCs.
+                logging.getLogger(__name__).warning(
+                    "Cannot create Xavier shared pages; using actor transfers",
+                    exc_info=True,
+                )
+            else:
+                self._namespace = namespace
+                return namespace
         self._store = create_snapshot_backend(
             self.capacity_bytes // page_bytes,
             self._backend_name,
@@ -263,6 +282,46 @@ class XavierCacheActor(xo.StatelessActor):
             if key not in ready:
                 return index
         return len(storage_keys)
+
+    def _shared(self, namespace):
+        from .shared_pages import SharedPageArena
+
+        self._keys(namespace, [])
+        return self._store if isinstance(self._store, SharedPageArena) else None
+
+    def shared_pages(self, namespace) -> Optional[dict]:
+        """Describe the page file that same-host engines may map, if any."""
+        arena = self._shared(namespace)
+        return None if arena is None else arena.info()
+
+    def allocate_shared(self, namespace, keys):
+        """Reserve slots for new pages; -1 marks stored keys, None no room."""
+        self._order_waiting_prefixes()
+        return self._shared(namespace).allocate(self._keys(namespace, keys, 4096))
+
+    def commit_shared(self, namespace, keys, slots, written: bool = True):
+        """Publish slots after their bytes were written, or return them."""
+        arena = self._shared(namespace)
+        storage_keys = self._keys(namespace, keys, 4096)
+        if not written:
+            arena.abort(storage_keys, slots)
+            return 0
+        published = arena.commit(storage_keys, slots)
+        self._counts["stored_pages"] += published
+        self._counts["evicted_pages"] += len(arena.take_evicted())
+        return published
+
+    def reserve_shared(self, namespace, keys):
+        """Pin stored pages and return their slots, or None if any is missing."""
+        self._expire_handoffs()
+        arena = self._shared(namespace)
+        storage_keys = self._keys(namespace, keys, 4096)
+        ticket = uuid.uuid4().hex
+        if not arena.reserve(ticket, storage_keys):
+            return None
+        self._handoffs[ticket] = (storage_keys, time.monotonic() + 300, False)
+        self._counts["read_pages"] += len(storage_keys)
+        return {"ticket": ticket, "slots": arena.locate(storage_keys)}
 
     def record_import(self, namespace, pages: int):
         self._keys(namespace, [])
