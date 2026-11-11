@@ -19,6 +19,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -56,6 +57,36 @@ def _get_causal_lm_rerank_forward_kwargs(model: Any) -> Dict[str, Any]:
     if "use_cache" in parameters:
         kwargs["use_cache"] = False
     return kwargs
+
+
+@contextmanager
+def _count_forward_tokens(model: Any):
+    """Collect the non-padding token count of each ``model.forward`` call.
+
+    JinaForRanking.rerank() calls ``self.forward(**batch)`` directly, so a
+    module forward hook would not see it; wrap the instance attribute instead.
+    """
+    counts: List[int] = []
+    forward = getattr(model, "forward", None)
+    if forward is None:
+        yield counts
+        return
+    instance_forward = vars(model).get("forward")
+
+    def counting_forward(*args, **kwargs):
+        mask = kwargs.get("attention_mask")
+        if mask is not None:
+            counts.append(int(mask.sum()))
+        return forward(*args, **kwargs)
+
+    model.forward = counting_forward
+    try:
+        yield counts
+    finally:
+        if instance_forward is None:
+            del model.forward
+        else:
+            model.forward = instance_forward
 
 
 class SentenceTransformerRerankModel(RerankModel, BatchMixin):
@@ -187,7 +218,14 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, trust_remote_code=True
             )
-            model_kwargs: Dict[str, Any] = {"device_map": "auto", "torch_dtype": "auto"}
+            model_kwargs: Dict[str, Any] = {
+                "device_map": "auto",
+                "torch_dtype": "auto",
+                # JinaForRanking replaces lm_head with nn.Identity() and the
+                # checkpoint has no lm_head weight, but the config enables
+                # tie_word_embeddings; Transformers 5 then fails to load it.
+                "tie_word_embeddings": False,
+            }
             if enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
             model_kwargs.update(self._kwargs)
@@ -478,20 +516,24 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 similarity_scores = []
             else:
                 similarity_scores = [0.0] * len(documents)
-                if batch_offsets is not None:
-                    for offset, n in batch_offsets:
-                        req_docs = documents[offset : offset + n]
-                        if not req_docs:
-                            continue
+                # rerank() runs one forward per block of documents. Record
+                # each request's non-padding tokens on its first document, so
+                # the per-request slice sums below give its own count.
+                per_doc_tokens = [0] * len(documents)
+                for offset, n in batch_offsets or [(0, len(documents))]:
+                    req_docs = documents[offset : offset + n]
+                    if not req_docs:
+                        continue
+                    with _count_forward_tokens(self._model) as counts:
                         results = self._model.rerank(query[offset], req_docs)
-                        for r in results:
-                            similarity_scores[offset + int(r["index"])] = float(
-                                r["relevance_score"]
-                            )
-                else:
-                    results = self._model.rerank(query[0], documents)
+                    per_doc_tokens[offset] = sum(counts)
                     for r in results:
-                        similarity_scores[int(r["index"])] = float(r["relevance_score"])
+                        similarity_scores[offset + int(r["index"])] = float(
+                            r["relevance_score"]
+                        )
+                if return_len:
+                    self._token_tracking_data.input_tokens = per_doc_tokens
+                    self._token_tracking_data.n_tokens = sum(per_doc_tokens)
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "r3-rerank" in self.model_family.model_name.lower()
