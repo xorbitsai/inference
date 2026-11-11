@@ -17,6 +17,8 @@ import logging
 import os
 import queue
 import threading
+import time
+import uuid
 import weakref
 from dataclasses import dataclass, field
 
@@ -56,6 +58,9 @@ _KEY_BATCH = 128
 _PUBLISH_BUDGET = 2 * 1024**3
 # GPU bytes each rank may hold for pages still being copied to shared memory.
 _STAGING_BUDGET = 512 * 1024**2
+# Longest a rank trusts that a page it published is still stored. Mapped
+# shared pages expire hints at the first eviction; this bounds the rest.
+_HINT_TTL = 60.0
 
 
 def shard_key(key: str, rank: int, tensor_parallel_size: int) -> str:
@@ -102,6 +107,11 @@ class XavierClient:
         # Shared-memory pages, when the cache actor runs on this host.
         self.shared = None
         self._pages = None
+        self._evictions = None
+        # Identifies this client's pending shared-memory writes in the store.
+        self.writer = uuid.uuid4().hex
+        self._writes = 0
+        self._writes_lock = threading.Lock()
         self._ref = None
         self._closed = False
         ready = threading.Event()
@@ -261,11 +271,15 @@ class XavierClient:
         if self.shared is None:
             return None
         if self._pages is None:
-            from ..xavier.backends.torch.shared_pages import map_pages
+            from ..xavier.backends.torch.shared_pages import (
+                evictions_of,
+                map_file,
+                pages_of,
+            )
 
             info = self.shared
             try:
-                pages = map_pages(
+                mapped = map_file(
                     info["path"],
                     bytes.fromhex(info["nonce"]),
                     info["page_bytes"],
@@ -276,10 +290,20 @@ class XavierClient:
                 logger.info("Xavier shared pages are not mapped; using actor RPC")
                 self.shared = None
                 return None
+            pages = pages_of(mapped, info["page_bytes"], info["slots"])
             if torch.cuda.is_available() and info["path"].startswith("/dev/shm/"):
                 _page_lock(pages)
+            self._evictions = evictions_of(mapped)
             self._pages = pages
         return self._pages
+
+    def evictions(self):
+        """The store's eviction count, read from shared memory, or None."""
+        return None if self.pages() is None else int(self._evictions[0])
+
+    def writing(self, delta):
+        with self._writes_lock:
+            self._writes += delta
 
     def pin_sharded_prefix(self, keys):
         """Pin the leading pages present on every rank.
@@ -345,6 +369,15 @@ class XavierClient:
 
     def close(self):
         if not self._closed:
+            if self.shared is not None and self._writes == 0:
+                # No copy into this client's slots is pending: return the
+                # slots of writes that never completed.
+                try:
+                    self.rpc("release_writer", self.namespace, self.writer)
+                except Exception:
+                    logger.warning(
+                        "Could not release Xavier write slots", exc_info=True
+                    )
             self._closed = True
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._thread.join(timeout=6)
@@ -362,6 +395,52 @@ def close_clients():
         client.close()
 
 
+class _StoredHints:
+    """Pages this rank knows are stored, so it need not publish them again.
+
+    A hint is added only after the store acknowledged the page: a commit, an
+    allocation reporting it stored, a successful upload, or an import of a
+    pinned page. It records the store's eviction count read while the page was
+    known to be stored, and is valid only while that count is unchanged and
+    for at most ``ttl`` seconds. Any eviction therefore makes the page
+    eligible for publication again.
+    """
+
+    def __init__(self, limit, ttl=_HINT_TTL):
+        self.limit = max(1, limit)
+        self.ttl = ttl
+        self._lock = threading.Lock()
+        self._keys: collections.OrderedDict = collections.OrderedDict()
+        # Latest eviction count reported through actor RPC.
+        self.reported = None
+
+    def add(self, keys, evictions):
+        now = time.monotonic()
+        with self._lock:
+            for key in keys:
+                self._keys[key] = (evictions, now)
+                self._keys.move_to_end(key)
+            while len(self._keys) > self.limit:
+                self._keys.popitem(last=False)
+
+    def report(self, evictions):
+        with self._lock:
+            if self.reported is None or evictions > self.reported:
+                self.reported = evictions
+
+    def unknown(self, keys, evictions):
+        """Return the keys without a valid hint."""
+        expired = time.monotonic() - self.ttl
+        with self._lock:
+            missing = []
+            for key in keys:
+                hint = self._keys.get(key)
+                if hint is None or hint[0] != evictions or hint[1] < expired:
+                    self._keys.pop(key, None)
+                    missing.append(key)
+            return missing
+
+
 class _Publisher:
     """Upload staged pages to the shared store off the engine thread.
 
@@ -370,9 +449,10 @@ class _Publisher:
     beyond the in-flight budget are skipped and later requests recompute them.
     """
 
-    def __init__(self, client, budget=_PUBLISH_BUDGET):
+    def __init__(self, client, budget=_PUBLISH_BUDGET, hints=None):
         self.client = client
         self.budget = budget
+        self.hints = hints
         self.in_flight = 0
         self._idle = threading.Condition()
         self._queue: queue.Queue = queue.Queue()
@@ -410,15 +490,21 @@ class _Publisher:
     def _put(self, keys, pages):
         for offset in range(0, len(keys), _KEY_BATCH):
             batch = keys[offset : offset + _KEY_BATCH]
+            evictions = self.client.rpc("eviction_count", self.client.namespace)
             # Another replica may have stored this prefix meanwhile.
             stored = self.client.rpc("exists", self.client.namespace, batch)
+            acknowledged = batch[:stored]
             if stored < len(batch):
-                self.client.rpc(
+                results = self.client.rpc(
                     "put",
                     self.client.namespace,
                     batch[stored:],
                     pages[offset + stored : offset + len(batch)],
                 )
+                acknowledged += [k for k, ok in zip(batch[stored:], results) if ok]
+            if self.hints is not None:
+                self.hints.report(evictions)
+                self.hints.add(acknowledged, evictions)
 
     def _run(self):
         while (item := self._queue.get()) is not None:
@@ -440,41 +526,69 @@ class _Publisher:
         self._thread.join(timeout=5)
 
 
-def _store_shared(client, keys, copy, synchronize):
+def _store_shared(client, keys, copy, synchronize, hints=None):
     """Allocate shared-memory slots, copy page i into its slot, then commit.
 
     Returns the allocation: a slot, -1 for pages already stored, or None when
-    the store has no room.
+    the store has no room. Slots return to the store only by commit, by an
+    abort after every copy into them drained, or by the writer's release.
     """
     pages = client.pages()
-    slots = []
-    for offset in range(0, len(keys), 4096):
-        slots += client.rpc(
-            "allocate_shared", client.namespace, keys[offset : offset + 4096]
-        )
-    written = [
-        (i, slot) for i, slot in enumerate(slots) if slot is not None and slot >= 0
-    ]
-    ok = False
+    evictions = client.evictions()
+    client.writing(1)
     try:
-        for index, slot in written:
-            copy(index, pages[slot])
-        synchronize()
-        ok = True
-    finally:
-        if written:
+        slots = []
+        for offset in range(0, len(keys), 4096):
+            slots += client.rpc(
+                "allocate_shared",
+                client.namespace,
+                keys[offset : offset + 4096],
+                client.writer,
+            )
+        written = [
+            (i, slot) for i, slot in enumerate(slots) if slot is not None and slot >= 0
+        ]
+        try:
+            for index, slot in written:
+                copy(index, pages[slot])
+            synchronize()
+        except BaseException:
             try:
-                client.rpc(
-                    "commit_shared",
-                    client.namespace,
-                    [keys[index] for index, _ in written],
-                    [slot for _, slot in written],
-                    ok,
+                synchronize()
+            except BaseException:
+                # A copy may still be in flight: keep the slots reserved.
+                logger.warning(
+                    "Could not drain Xavier shared-memory writes", exc_info=True
                 )
-            except Exception:
-                # Uncommitted slots return to the store after a timeout.
-                logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
-    return slots
+            else:
+                _commit_shared(client, keys, written, False)
+            raise
+        _commit_shared(client, keys, written, True)
+        if hints is not None:
+            hints.add(
+                [key for key, slot in zip(keys, slots) if slot is not None], evictions
+            )
+        return slots
+    finally:
+        client.writing(-1)
+
+
+def _commit_shared(client, keys, written, ok):
+    if not written:
+        return
+    try:
+        client.rpc(
+            "commit_shared",
+            client.namespace,
+            [keys[index] for index, _ in written],
+            [slot for _, slot in written],
+            ok,
+        )
+    except Exception:
+        # The slots stay with this writer until it releases them on shutdown.
+        logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
+        if ok:
+            raise
 
 
 class _StagedWriter:
@@ -486,12 +600,13 @@ class _StagedWriter:
     rows are exhausted, callers copy the remaining pages synchronously.
     """
 
-    def __init__(self, client, pool, budget=_STAGING_BUDGET):
+    def __init__(self, client, pool, budget=_STAGING_BUDGET, hints=None):
         page_bytes = pool[0].numel() * pool.element_size()
         rows = budget // page_bytes
         if rows < 1:
             raise ValueError("Xavier staging budget is smaller than one page")
         self.client = client
+        self.hints = hints
         self.staging = torch.empty(
             (rows, page_bytes), dtype=torch.uint8, device=pool.device
         )
@@ -529,7 +644,7 @@ class _StagedWriter:
                     def copy(index, target):
                         target.copy_(self.staging[rows[index]], non_blocking=True)
 
-                    _store_shared(self.client, keys, copy, side.synchronize)
+                    _store_shared(self.client, keys, copy, side.synchronize, self.hints)
             except Exception:
                 # Publishing is optional; failure leaves subsequent requests cold.
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
@@ -787,9 +902,14 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
         self._publisher = None
         self._writer = None
         self._writer_failed = False
-        # Keys this rank stored or imported. The store is shared and busy with
-        # uploads, so skipping known pages must not need a round trip.
-        self._known_keys: collections.OrderedDict = collections.OrderedDict()
+        # Pages this rank knows are stored. Skipping them needs no round trip
+        # to the cache actor, which may be busy receiving uploads.
+        self._hints = _StoredHints(
+            self.client.capacity_bytes
+            // (self.contract.num_layers * self.contract.layer_nbytes)
+            if getattr(self.client, "capacity_bytes", 0)
+            else 1
+        )
         self._waiting_saves = set()
         self._finished_saves = set()
         self._loading = {}
@@ -860,7 +980,8 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 )
             if self.pool.is_cuda:
                 torch.cuda.current_stream(self.pool.device).synchronize()
-            self._remember(keys)
+            # The pin kept these pages stored while this rank copied them.
+            self._hints.add(keys, self._evictions())
             if self.rank == 0:
                 try:
                     self.client.rpc(
@@ -908,17 +1029,9 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             except Exception:
                 logger.warning("Could not record TRT-LLM Xavier imports", exc_info=True)
 
-    def _remember(self, keys):
-        limit = max(
-            1,
-            self.client.capacity_bytes
-            // (self.contract.num_layers * self.contract.layer_nbytes),
-        )
-        for key in keys:
-            self._known_keys[key] = None
-            self._known_keys.move_to_end(key)
-        while len(self._known_keys) > limit:
-            self._known_keys.popitem(last=False)
+    def _evictions(self):
+        evictions = self.client.evictions()
+        return self._hints.reported if evictions is None else evictions
 
     def _write_shared(self, saves):
         """Copy new pages from the pool straight into shared-memory slots."""
@@ -934,17 +1047,14 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
                 torch.cuda.current_stream(pool.device).synchronize()
 
         try:
-            slots = _store_shared(self.client, keys, copy, synchronize)
+            _store_shared(self.client, keys, copy, synchronize, self._hints)
         except Exception:
             logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
-            return
-        # Stored by another replica (-1) or written here: never copy again.
-        self._remember([key for key, target in zip(keys, slots) if target is not None])
 
     def _staged_writer(self):
         if self._writer is None and not self._writer_failed:
             try:
-                self._writer = _StagedWriter(self.client, self.pool)
+                self._writer = _StagedWriter(self.client, self.pool, hints=self._hints)
             except (RuntimeError, ValueError):
                 # No GPU memory for staging: copy synchronously instead.
                 logger.warning("No GPU staging for Xavier publication", exc_info=True)
@@ -992,28 +1102,24 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             tp = self.client.tensor_parallel_size
             # Imported and repeated prefixes are already stored. Skip them
             # instead of copying every page to the host again.
-            saves = [
-                (key, slot)
-                for key, slot in (
-                    (shard_key(key, self.rank, tp), slot) for key, slot in saves
-                )
-                if key not in self._known_keys
-            ]
+            saves = [(shard_key(key, self.rank, tp), slot) for key, slot in saves]
+            missing = set(
+                self._hints.unknown([key for key, _ in saves], self._evictions())
+            )
+            saves = [(key, slot) for key, slot in saves if key in missing]
             if saves and self.client.pages() is not None:
                 staged = 0
                 if self.pool.is_cuda and isinstance(stream, torch.cuda.Stream):
                     writer = self._staged_writer()
                     if writer is not None:
                         staged = writer.submit(self.pool, stream, saves)
-                        self._remember([key for key, _ in saves[:staged]])
                 if staged < len(saves):
                     self._write_shared(saves[staged:])
             elif saves:
                 if self._publisher is None:
-                    self._publisher = _Publisher(self.client)
+                    self._publisher = _Publisher(self.client, hints=self._hints)
                     _publishers.add(self._publisher)
-                staged = self._publisher.submit(self.pool, saves)
-                self._remember([key for key, _ in saves[:staged]])
+                self._publisher.submit(self.pool, saves)
             return
         start = 0
         # Request prefixes are causal: keeping their first occurrence also

@@ -294,13 +294,34 @@ class XavierCacheActor(xo.StatelessActor):
         arena = self._shared(namespace)
         return None if arena is None else arena.info()
 
-    def allocate_shared(self, namespace, keys):
-        """Reserve slots for new pages; -1 marks stored keys, None no room."""
+    def allocate_shared(self, namespace, keys, writer: str = ""):
+        """Reserve slots for new pages; -1 marks stored keys, None no room.
+
+        The slots stay with ``writer`` until it commits them, aborts them
+        after its copies drained, or calls ``release_writer``.
+        """
         self._order_waiting_prefixes()
-        return self._shared(namespace).allocate(self._keys(namespace, keys, 4096))
+        arena = self._shared(namespace)
+        slots = arena.allocate(self._keys(namespace, keys, 4096), writer)
+        self._counts["evicted_pages"] += len(arena.take_evicted())
+        return slots
+
+    def release_writer(self, namespace, writer: str) -> int:
+        """Return the pending slots of a writer that will not write again."""
+        return self._shared(namespace).release_writer(writer)
+
+    def eviction_count(self, namespace) -> int:
+        """Pages evicted so far; any change invalidates engines' stored hints."""
+        self._keys(namespace, [])
+        if self._store is not None:
+            self._counts["evicted_pages"] += len(self._store.take_evicted())
+        return self._counts["evicted_pages"]
 
     def commit_shared(self, namespace, keys, slots, written: bool = True):
-        """Publish slots after their bytes were written, or return them."""
+        """Publish slots after their bytes were written, or return them.
+
+        Pass ``written=False`` only once no copy into the slots is pending.
+        """
         arena = self._shared(namespace)
         storage_keys = self._keys(namespace, keys, 4096)
         if not written:

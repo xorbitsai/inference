@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0.
 
 import asyncio
-import collections
 import importlib.util
 import json
 import sys
@@ -595,11 +594,14 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
     worker.pool = native
     worker._metadata = connector.XavierMetadata(saves=list(zip(keys, slots)))
 
-    def rpc(method, namespace, out_keys, *args):
+    def rpc(method, namespace, out_keys=None, *args):
+        if method == "eviction_count":
+            return 0
         if method == "exists":
             return 0
         pages, *start = args
         published.append((out_keys, pages))
+        return [True] * len(out_keys)
 
     worker.client = SimpleNamespace(
         config={"shared_prefix": shared_prefix},
@@ -608,10 +610,11 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
         rpc=rpc,
         tensor_parallel_size=1,
         pages=lambda: None,
+        evictions=lambda: None,
     )
     worker.rank = 0
     worker._publisher = None
-    worker._known_keys = collections.OrderedDict()
+    worker._hints = connector._StoredHints(16)
     copies = []
     original_cpu = torch.Tensor.cpu
 

@@ -7,13 +7,21 @@ which slot, LRU order, pins and pending writes. Engines on the same host map
 the file and copy page bytes directly between GPU memory and their slots, so
 the actor never carries page payloads. Engines elsewhere use the actor's
 ordinary put/get RPCs, which read and write the same slots.
+
+A slot being written belongs to its writer until the writer commits it,
+aborts it after its copies have drained, or releases all of its slots when it
+shuts down. Nothing else reclaims it: a writer may resume at any time, and a
+reused slot would receive its late bytes. Slots of a writer that dies without
+releasing them stay reserved until the actor exits.
+
+The header holds an eviction counter that mapped engines read directly, so
+their hints about stored pages expire as soon as any page is evicted.
 """
 
 import os
 import shutil
 import struct
 import tempfile
-import time
 import uuid
 from collections import OrderedDict
 from typing import Dict, List, Optional, Set
@@ -22,8 +30,8 @@ import torch
 
 MAGIC = b"XINFXAVIERPAGES1"
 HEADER_BYTES = 4096
-# A writer that neither commits nor aborts within this time has died.
-_WRITE_TIMEOUT = 120.0
+# Byte offset of the little-endian uint64 eviction counter in the header.
+EVICTIONS_OFFSET = 64
 
 
 def shared_directory() -> str:
@@ -62,9 +70,11 @@ class SharedPageArena:
         os.close(fd)
         self.page_bytes = page_bytes
         self.capacity = capacity
-        self.pages = map_pages(self.path, self.nonce, page_bytes, capacity)
+        mapped = map_file(self.path, self.nonce, page_bytes, capacity)
+        self.pages = pages_of(mapped, page_bytes, capacity)
+        self._evictions = evictions_of(mapped)
         self.slots: OrderedDict[int, int] = OrderedDict()  # ready keys, LRU
-        self.writing: Dict[int, tuple] = {}  # key -> (slot, deadline)
+        self.writing: Dict[int, tuple] = {}  # key -> (slot, writer)
         self.free: List[int] = list(range(capacity - 1, -1, -1))
         self.ready: Set[int] = set()
         self.leases: Dict[str, Set[int]] = {}
@@ -84,12 +94,11 @@ class SharedPageArena:
     def _pinned(self) -> Set[int]:
         return set().union(*self.leases.values()) if self.leases else set()
 
+    @property
+    def evictions(self) -> int:
+        return int(self._evictions[0])
+
     def _take_slot(self, pinned: Set[int]) -> Optional[int]:
-        now = time.monotonic()
-        for key, (slot, deadline) in list(self.writing.items()):
-            if deadline <= now:
-                del self.writing[key]
-                self.free.append(slot)
         if self.free:
             return self.free.pop()
         for key in self.slots:
@@ -97,13 +106,14 @@ class SharedPageArena:
                 slot = self.slots.pop(key)
                 self.ready.discard(key)
                 self.evicted.add(key)
+                # Publish the eviction before the slot can be rewritten.
+                self._evictions[0] += 1
                 return slot
         return None
 
-    def allocate(self, keys: List[int]) -> List[Optional[int]]:
+    def allocate(self, keys: List[int], writer: str = "") -> List[Optional[int]]:
         """Reserve a slot per new key; -1 marks a stored key, None no room."""
         pinned = self._pinned()
-        deadline = time.monotonic() + _WRITE_TIMEOUT
         result: List[Optional[int]] = []
         for key in keys:
             if key in self.ready:
@@ -114,7 +124,7 @@ class SharedPageArena:
             else:
                 slot = self._take_slot(pinned)
                 if slot is not None:
-                    self.writing[key] = (slot, deadline)
+                    self.writing[key] = (slot, writer)
                 result.append(slot)
         return result
 
@@ -131,10 +141,18 @@ class SharedPageArena:
         return published
 
     def abort(self, keys: List[int], slots: List[int]) -> None:
+        """Return slots whose writes have drained without being published."""
         for key, slot in zip(keys, slots):
             if self.writing.get(key, (None,))[0] == slot:
                 del self.writing[key]
                 self.free.append(slot)
+
+    def release_writer(self, writer: str) -> int:
+        """Return every slot of a writer that has stopped writing for good."""
+        keys = [key for key, (_, owner) in self.writing.items() if owner == writer]
+        for key in keys:
+            self.free.append(self.writing.pop(key)[0])
+        return len(keys)
 
     def locate(self, keys: List[int]) -> List[int]:
         return [self.slots[key] for key in keys]
@@ -214,12 +232,24 @@ class SharedPageArena:
             pass
 
 
-def map_pages(path: str, nonce: bytes, page_bytes: int, slots: int) -> torch.Tensor:
+def map_file(path: str, nonce: bytes, page_bytes: int, slots: int) -> torch.Tensor:
     """Map a page file created by this deployment's cache actor."""
     nbytes = HEADER_BYTES + page_bytes * slots
     with open(path, "rb") as file:
         header = file.read(len(_header(nonce, page_bytes, slots)))
     if header != _header(nonce, page_bytes, slots) or os.path.getsize(path) < nbytes:
         raise ValueError("Xavier shared pages belong to another cache")
-    mapped = torch.from_file(path, shared=True, size=nbytes, dtype=torch.uint8)
+    return torch.from_file(path, shared=True, size=nbytes, dtype=torch.uint8)
+
+
+def pages_of(mapped: torch.Tensor, page_bytes: int, slots: int) -> torch.Tensor:
     return mapped[HEADER_BYTES:].view(slots, page_bytes)
+
+
+def evictions_of(mapped: torch.Tensor) -> torch.Tensor:
+    """The eviction counter: one aligned int64 the actor alone increments."""
+    return mapped[EVICTIONS_OFFSET : EVICTIONS_OFFSET + 8].view(torch.int64)
+
+
+def map_pages(path: str, nonce: bytes, page_bytes: int, slots: int) -> torch.Tensor:
+    return pages_of(map_file(path, nonce, page_bytes, slots), page_bytes, slots)

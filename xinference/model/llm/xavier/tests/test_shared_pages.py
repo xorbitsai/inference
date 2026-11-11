@@ -44,20 +44,34 @@ def test_writers_publish_only_committed_slots(arena):
         map_pages(info["path"], os.urandom(16), 8, 2)
 
 
-def test_eviction_skips_pins_and_writers(arena, monkeypatch):
+def test_eviction_skips_pins_and_writers(arena):
     slots = arena.allocate([1, 2])
     arena.commit([1, 2], slots)
     assert arena.reserve("reader", [1])
-    (slot,) = arena.allocate([3])
+    assert arena.evictions == 0
+    (slot,) = arena.allocate([3], "w")
     assert slot == slots[1] and arena.ready_keys([1, 2]) == [1]
+    assert arena.evictions == 1  # Mapped engines see this immediately.
     assert arena.allocate([4]) == [None]  # Key 1 is pinned, key 3 being written.
     arena.release("reader")
-    # A writer that never commits gives its slot back after the timeout.
-    later = shared_pages.time.monotonic() + 1000
-    monkeypatch.setattr(shared_pages.time, "monotonic", lambda: later)
-    assert arena.allocate([5]) == [slot]
-    assert arena.allocate([6]) == [slots[0]]
+    assert arena.allocate([5]) == [slots[0]]
     assert sorted(arena.take_evicted()) == [1, 2]
+
+
+def test_write_slots_stay_with_their_writer_until_released(arena):
+    """A slow writer may resume at any time: nothing reuses its slot."""
+    (a,) = arena.allocate([1], "slow")
+    (b,) = arena.allocate([2], "fast")
+    arena.commit([2], [b])
+    # However long the slow writer stalls, new keys can only evict key 2.
+    assert arena.allocate([3], "fast") == [b]
+    assert arena.allocate([4], "fast") == [None]
+    arena.pages[a].fill_(9)  # The slow writer resumes and finishes its copy.
+    assert arena.commit([1], [a]) == 1
+    assert arena.read("page", [1]).view(torch.uint8).tolist()[0] == [9] * 8
+    # A writer that shut down cleanly returns slots it never committed.
+    assert arena.release_writer("fast") == 1
+    assert arena.allocate([4], "next") == [b]
 
 
 @pytest.mark.asyncio

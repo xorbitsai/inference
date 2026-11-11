@@ -319,13 +319,16 @@ async def test_tensor_parallel_replicas_exchange_rank_shards(
 def test_publication_is_bounded_and_survives_store_failures(connector):
     calls = []
 
-    def rpc(method, namespace, keys, pages=None):
+    def rpc(method, namespace, keys=None, pages=None):
+        if method == "eviction_count":
+            return 0
         if method == "exists":
             # "e" is already stored by another replica.
             return int(keys[0] == "e")
         calls.append((keys, [bytes(page) for page in pages]))
         if len(calls) == 1:
             raise RuntimeError("store unavailable")
+        return [True] * len(keys)
 
     pool = torch.arange(24, dtype=torch.bfloat16).reshape(3, 1, 2, 4)
     page_bytes = pool[0].numel() * pool.element_size()
@@ -426,3 +429,118 @@ def test_staged_publication_copies_pages_after_the_engine_stream(connector, tmp_
     finally:
         writer.close()
         arena.pages = None
+
+
+@pytest.mark.asyncio
+async def test_a_page_evicted_by_another_writer_is_published_again(
+    monkeypatch, tmp_path, connector
+):
+    from ...xavier.backends.torch import shared_pages
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        # The store holds a single page.
+        actor = await xo.create_actor(
+            XavierCacheActor, page_bytes, address=pool.external_address, uid="one"
+        )
+        monkeypatch.delenv(WORKER_CONFIG_ENV, raising=False)
+        monkeypatch.setenv(
+            CONFIG_ENV,
+            json.dumps(
+                {
+                    "address": actor.address,
+                    "uid": "one",
+                    "contract": contract.to_dict(),
+                    "engine_version": NEW,
+                }
+            ),
+        )
+        worker = await asyncio.to_thread(connector.XavierConnectorWorker, None)
+        worker.register_kv_caches(torch.ones(2, 1, 2, 8, dtype=torch.bfloat16))
+        assert worker.client.pages() is not None
+        namespace = (await actor.get_stats())["namespace"]
+
+        async def save():
+            worker.bind_connector_meta(connector.XavierMetadata(saves=[("A", 1)]))
+            await asyncio.to_thread(
+                worker.wait_for_save, SimpleNamespace(synchronize=lambda: None)
+            )
+            return (await actor.get_stats())["stored_pages"]
+
+        assert await save() == 1
+        assert await save() == 1  # A known page is not copied again.
+        # Another writer evicts A from the one-page store.
+        await actor.put(namespace, ["B"], [torch.zeros(page_bytes, dtype=torch.uint8)])
+        assert await actor.exists(namespace, ["A"]) == 0
+        assert await save() == 3  # The stale hint is dropped; A is stored again.
+        assert await actor.exists(namespace, ["A"]) == 1
+        await asyncio.to_thread(connector.close_clients)
+
+
+def test_failed_shared_writes_return_slots_only_after_draining(connector, tmp_path):
+    from ...xavier.backends.torch.shared_pages import SharedPageArena
+
+    arena = SharedPageArena(str(tmp_path), "pages", 4, 2)
+    calls = []
+
+    def rpc(method, namespace, *args):
+        calls.append(method)
+        if method == "allocate_shared":
+            keys, writer = args
+            return arena.allocate(keys, writer)
+        if method == "commit_shared":
+            keys, slots, ok = args
+            if ok:
+                return arena.commit(keys, slots)
+            return arena.abort(keys, slots)
+        assert method == "release_writer"
+        return arena.release_writer(args[0])
+
+    client = SimpleNamespace(
+        namespace="ns",
+        rpc=rpc,
+        writer="w",
+        pages=lambda: arena.pages,
+        evictions=lambda: arena.evictions,
+        writing=lambda delta: None,
+    )
+
+    def broken(index, target):
+        raise RuntimeError("copy failed")
+
+    # Drained copies: the writer gives the slot back at once.
+    with pytest.raises(RuntimeError):
+        connector._store_shared(client, ["a"], broken, lambda: None)
+    assert calls[-1] == "commit_shared" and len(arena.free) == 2
+
+    # A copy that may still be running keeps its slot reserved.
+    def stuck():
+        raise RuntimeError("device lost")
+
+    with pytest.raises(RuntimeError):
+        connector._store_shared(client, ["b"], broken, stuck)
+    (spare,) = arena.free
+    assert arena.allocate(["c"], "x") == [spare]
+    assert arena.allocate(["d"], "x") == [None]
+    # Only the writer's own release returns it.
+    assert arena.release_writer("w") == 1
+    arena.pages = None
+
+
+def test_stored_hints_expire_on_eviction_and_age(connector, monkeypatch):
+    hints = connector._StoredHints(limit=2, ttl=10)
+    now = [100.0]
+    monkeypatch.setattr(connector.time, "monotonic", lambda: now[0])
+    hints.add(["a", "b"], 5)
+    assert hints.unknown(["a", "b", "c"], 5) == ["c"]
+    assert hints.unknown(["a"], 6) == ["a"]  # Any eviction invalidates it.
+    hints.add(["a"], 6)
+    now[0] += 11
+    assert hints.unknown(["a"], 6) == ["a"]  # Too old.
+    hints.add(["x", "y", "z"], 6)
+    assert hints.unknown(["x", "y", "z"], 6) == ["x"]  # Bounded size.
