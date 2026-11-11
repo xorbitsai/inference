@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 import asyncio
+import collections
 import importlib.util
 import json
 import sys
@@ -73,7 +74,10 @@ def test_pd_prefill_imports_history_and_still_pins_live_gpu_pages(
             return [True] * len(args[1])
 
     main = SimpleNamespace(
-        contract=c, config=dict(role="prefill", prefix_cache={}), pd_gpu=True
+        contract=c,
+        config=dict(role="prefill", prefix_cache={}),
+        pd_gpu=True,
+        tensor_parallel_size=1,
     )
     history = SimpleNamespace(
         contract=c,
@@ -82,6 +86,7 @@ def test_pd_prefill_imports_history_and_still_pins_live_gpu_pages(
         capacity_bytes=4 * c.num_layers * c.layer_nbytes,
         read_prefix=lambda keys: seed,
         rpc=rpc,
+        tensor_parallel_size=1,
     )
     monkeypatch.setattr(
         connector,
@@ -198,6 +203,8 @@ async def test_two_instances_restore_owned_prefix_after_eviction(
         await asyncio.to_thread(
             source.wait_for_save, SimpleNamespace(synchronize=lambda: None)
         )
+        # Uploads leave the engine thread; wait for this one to finish.
+        assert await asyncio.to_thread(source._publisher.flush, 10)
         stats = await actor.get_stats()
         assert stats["stored_pages"] == 2
         assert stats["backend"] == backend
@@ -295,8 +302,13 @@ def test_prefix_lookup_leaves_last_token_and_respects_local_hits(connector):
 
     scheduler._pd_sources = {}
     scheduler._pd_destinations = {}
+    scheduler._loading_pins = {}
     scheduler.client = SimpleNamespace(
-        pd_gpu=False, capacity_bytes=4096, read_prefix=read, config={}
+        pd_gpu=False,
+        capacity_bytes=4096,
+        read_prefix=read,
+        config={},
+        tensor_parallel_size=1,
     )
     request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(12)))
     assert scheduler.get_num_new_matched_tokens(request, 0) == (8, False)
@@ -591,7 +603,11 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
         namespace=contract.fingerprint,
         capacity_bytes=3 * contract.num_layers * contract.layer_nbytes,
         rpc=rpc,
+        tensor_parallel_size=1,
     )
+    worker.rank = 0
+    worker._publisher = None
+    worker._known_keys = collections.OrderedDict()
     copies = []
     original_cpu = torch.Tensor.cpu
 
@@ -601,7 +617,11 @@ def test_shared_prefix_save_avoids_discarded_native_cpu_copies(
 
     monkeypatch.setattr(torch.Tensor, "cpu", cpu)
     worker.wait_for_save(SimpleNamespace(synchronize=lambda: None))
-    assert len(copies) == (1 if shared_prefix else len(slots))
+    if not shared_prefix:
+        # Native pages are staged with one copy each, then uploaded off-thread.
+        assert worker._publisher.flush(10)
+        worker._publisher.close()
+    assert len(copies) == (1 if shared_prefix else 0)
     assert published[0][0] == keys
     if shared_prefix:
         assert published[0][1] == expected

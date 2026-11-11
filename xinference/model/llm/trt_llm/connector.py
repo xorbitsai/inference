@@ -10,9 +10,11 @@ overlap scheduling, and eviction/replay are disabled.
 """
 
 import asyncio
+import collections
 import json
 import logging
 import os
+import queue
 import threading
 import weakref
 from dataclasses import dataclass, field
@@ -42,19 +44,43 @@ except ModuleNotFoundError as exc:
 from ..xavier.actor_loop import acquire_actor_loop, release_actor_loop
 from ..xavier.contract import KVCacheContract, build_prefix_keys, fingerprint_metadata
 from .pd import request_state
-from .xavier import CONFIG_ENV
+from .xavier import CONFIG_ENV, WORKER_CONFIG_ENV
 
 logger = logging.getLogger(__name__)
 _clients: weakref.WeakSet = weakref.WeakSet()
+_publishers: weakref.WeakSet = weakref.WeakSet()
+# One store RPC carries at most this many page keys.
+_KEY_BATCH = 128
+# Host bytes each rank may hold for publications still being uploaded.
+_PUBLISH_BUDGET = 2 * 1024**3
+
+
+def shard_key(key: str, rank: int, tensor_parallel_size: int) -> str:
+    """Name one tensor-parallel rank's share of a page; TP1 keys are unchanged."""
+    return key if tensor_parallel_size == 1 else f"{key}@tp{rank}"
+
+
+def _local_rank() -> int:
+    try:
+        import tensorrt_llm
+
+        return int(tensorrt_llm.mpi_rank())
+    except Exception:
+        return 0
+
+
+def _load_config() -> dict:
+    # Tensor-parallel ranks run in MPI workers that receive only TRTLLM* names.
+    raw = os.environ.get(WORKER_CONFIG_ENV) or os.environ[CONFIG_ENV]
+    return json.loads(raw)
 
 
 class XavierClient:
     def __init__(self, config=None):
-        self.config = (
-            json.loads(os.environ[CONFIG_ENV]) if config is None else dict(config)
-        )
+        self.config = _load_config() if config is None else dict(config)
         self.contract = KVCacheContract.from_dict(self.config["contract"])
         self.pd_gpu = self.config.get("role") in ("prefill", "decode")
+        self.tensor_parallel_size = int(self.config.get("tensor_parallel_size", 1))
         self._ref = None
         self._closed = False
         ready = threading.Event()
@@ -93,16 +119,22 @@ class XavierClient:
                 ]
                 self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
             else:
+                storage_format = {
+                    "engine": "trt-llm",
+                    "version": self.config.get("engine_version", "1.2.1"),
+                    "layout": "layer_first",
+                    "physical_layout": "block-layer-kv-packed",
+                    "hash_format": "xavier-prefix-v1",
+                }
+                if self.tensor_parallel_size > 1:
+                    # The contract describes one rank's KV heads. Each page is
+                    # stored once per rank, so differing TP layouts never mix.
+                    storage_format.update(
+                        tensor_parallel_size=self.tensor_parallel_size,
+                        shard="kv-heads",
+                    )
                 self.namespace = self.rpc(
-                    "configure",
-                    self.contract.to_dict(),
-                    {
-                        "engine": "trt-llm",
-                        "version": self.config.get("engine_version", "1.2.1"),
-                        "layout": "layer_first",
-                        "physical_layout": "block-layer-kv-packed",
-                        "hash_format": "xavier-prefix-v1",
-                    },
+                    "configure", self.contract.to_dict(), storage_format
                 )
                 self.capacity_bytes = self.rpc("get_stats")["capacity_bytes"]
         except BaseException:
@@ -186,6 +218,63 @@ class XavierClient:
             return []
         return pages
 
+    def stored_prefix(self, keys):
+        """Count leading keys whose pages are all present in the store."""
+        count = 0
+        for offset in range(0, len(keys), _KEY_BATCH):
+            batch = keys[offset : offset + _KEY_BATCH]
+            found = self.rpc("exists", self.namespace, batch)
+            count += found
+            if found < len(batch):
+                break
+        return count
+
+    def pin_sharded_prefix(self, keys):
+        """Pin the leading pages present on every rank; return (pages, ticket)."""
+        tp = self.tensor_parallel_size
+        keys = keys[: 4096 // tp]
+        sharded = [shard_key(key, rank, tp) for key in keys for rank in range(tp)]
+        try:
+            pages = self.stored_prefix(sharded) // tp
+            while pages:
+                # Pages can be evicted between the lookup and the pin.
+                ticket = self.rpc(
+                    "reserve_handoff", self.namespace, sharded[: pages * tp]
+                )
+                if ticket is not None:
+                    return pages, ticket
+                pages = self.stored_prefix(sharded[: pages * tp]) // tp
+        except Exception:
+            # Nothing has been admitted yet: remote loss can safely be a miss.
+            logger.warning(
+                "TRT-LLM Xavier lookup failed; recomputing prefix", exc_info=True
+            )
+        return 0, None
+
+    def release(self, ticket):
+        try:
+            self.rpc("release_handoff", ticket)
+        except Exception:
+            # The store also expires abandoned pins.
+            logger.warning("Could not release TRT-LLM Xavier pages", exc_info=True)
+
+    def read_pinned(self, keys):
+        """Read pages that the scheduler pinned for this step."""
+        pages = []
+        expected = self.contract.layer_nbytes * self.contract.num_layers
+        for offset in range(0, len(keys), _KEY_BATCH):
+            batch = self.rpc("get", self.namespace, keys[offset : offset + _KEY_BATCH])
+            for page in batch:
+                if (
+                    page is None
+                    or page.dtype != torch.uint8
+                    or page.device.type != "cpu"
+                    or page.numel() != expected
+                ):
+                    raise RuntimeError("A pinned TRT-LLM Xavier page is unavailable")
+                pages.append(page)
+        return pages
+
     def close(self):
         if not self._closed:
             self._closed = True
@@ -199,8 +288,88 @@ def close_clients():
     from .gpu import close_service
 
     close_service()
+    for publisher in list(_publishers):
+        publisher.close()
     for client in list(_clients):
         client.close()
+
+
+class _Publisher:
+    """Upload staged pages to the shared store off the engine thread.
+
+    The engine thread copies pages into host memory before TRT can reuse their
+    slots; only the store RPC runs here. Publication is best effort: pages
+    beyond the in-flight budget are skipped and later requests recompute them.
+    """
+
+    def __init__(self, client, budget=_PUBLISH_BUDGET):
+        self.client = client
+        self.budget = budget
+        self.in_flight = 0
+        self._idle = threading.Condition()
+        self._queue: queue.Queue = queue.Queue()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def submit(self, pool, saves):
+        """Stage leading pages within the budget; return how many were staged."""
+        page_bytes = pool[0].numel() * pool.element_size()
+        with self._idle:
+            count = min(len(saves), (self.budget - self.in_flight) // page_bytes)
+            if count <= 0:
+                return 0
+            self.in_flight += count * page_bytes
+        try:
+            pin = pool.is_cuda
+            pages = []
+            for _, slot in saves[:count]:
+                page = torch.empty(page_bytes, dtype=torch.uint8, pin_memory=pin)
+                page.copy_(pool[slot].view(torch.uint8).reshape(-1), non_blocking=pin)
+                pages.append(page)
+            if pin:
+                torch.cuda.current_stream(pool.device).synchronize()
+        except BaseException:
+            self._done(count * page_bytes)
+            raise
+        self._queue.put(([key for key, _ in saves[:count]], pages))
+        return count
+
+    def _done(self, nbytes):
+        with self._idle:
+            self.in_flight -= nbytes
+            self._idle.notify_all()
+
+    def _put(self, keys, pages):
+        for offset in range(0, len(keys), _KEY_BATCH):
+            batch = keys[offset : offset + _KEY_BATCH]
+            # Another replica may have stored this prefix meanwhile.
+            stored = self.client.rpc("exists", self.client.namespace, batch)
+            if stored < len(batch):
+                self.client.rpc(
+                    "put",
+                    self.client.namespace,
+                    batch[stored:],
+                    pages[offset + stored : offset + len(batch)],
+                )
+
+    def _run(self):
+        while (item := self._queue.get()) is not None:
+            keys, pages = item
+            try:
+                self._put(keys, pages)
+            except Exception:
+                # Publishing is optional; failure leaves subsequent requests cold.
+                logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
+            finally:
+                self._done(sum(page.numel() for page in pages))
+
+    def flush(self, timeout=None):
+        with self._idle:
+            return self._idle.wait_for(lambda: self.in_flight == 0, timeout)
+
+    def close(self):
+        self._queue.put(None)
+        self._thread.join(timeout=5)
 
 
 @dataclass
@@ -209,6 +378,8 @@ class XavierMetadata:
     saves: list = field(default_factory=list)
     pd_loads: list = field(default_factory=list)
     pd_saves: list = field(default_factory=list)
+    # (slot, page key) pairs that every tensor-parallel rank reads itself.
+    shard_loads: list = field(default_factory=list)
 
 
 class XavierConnectorScheduler(KvCacheConnectorScheduler):
@@ -232,6 +403,13 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         self._pd_requests = {}
         self._pd_sources = {}
         self._pd_destinations = {}
+        # Pins for sharded loads, released once every rank has copied them.
+        self._loading_pins = {}
+
+    def _forget_pending(self, request_id):
+        pending = self._pending.pop(request_id, None)
+        if pending is not None and len(pending) == 3:
+            self.client.release(pending[2])
 
     def _keys(self, tokens):
         if self.client.config.get("shared_prefix") or self._history is not None:
@@ -242,7 +420,7 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
         request_id = request.request_id
-        self._pending.pop(request_id, None)
+        self._forget_pending(request_id)
         state = request_state(request)
         if state is not None:
             if tuple(request.get_tokens(0)) != state.tokens:
@@ -275,8 +453,18 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         keys = self._keys(tokens[: max(len(tokens) - 1, 0)])
         start = num_computed_tokens // block
         page_bytes = self.contract.layer_nbytes * self.contract.num_layers
+        if client.tensor_parallel_size > 1:
+            # Each rank reads its own shards: pin pages here, copy them later.
+            count, ticket = client.pin_sharded_prefix(keys[start:])
+            if count:
+                self._pending[request.request_id] = (
+                    start,
+                    keys[start : start + count],
+                    ticket,
+                )
+            return count * block, False
         pending_bytes = sum(
-            len(pages) * page_bytes for _, pages in self._pending.values()
+            len(pending[1]) * page_bytes for pending in self._pending.values()
         )
         available = max(client.capacity_bytes - pending_bytes, 0) // page_bytes
         pages = client.read_prefix(keys[start : start + available])
@@ -297,6 +485,11 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         )
 
     def build_connector_meta(self, scheduler_output):
+        # Ranks copy pinned pages before the forward pass whose collectives
+        # complete the previous step, so those pins are no longer needed.
+        for ticket in self._loading_pins.values():
+            self.client.release(ticket)
+        self._loading_pins.clear()
         metadata = XavierMetadata()
         # TRT omits newly suspended async loads from new_requests. Allocated
         # decode requests must still reach the worker to start their transfer.
@@ -350,12 +543,19 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
                 continue
             imported = 0
             if pending is not None:
-                start, pages = pending
+                start, pages = pending[:2]
                 if start + len(pages) > len(blocks):
+                    if len(pending) == 3:
+                        self.client.release(pending[2])
                     raise ValueError(
                         "TRT-LLM allocated too few blocks for Xavier prefix"
                     )
-                metadata.loads.extend(zip(blocks[start : start + len(pages)], pages))
+                loads = zip(blocks[start : start + len(pages)], pages)
+                if len(pending) == 3:
+                    metadata.shard_loads.extend(loads)
+                    self._loading_pins[request_id] = pending[2]
+                else:
+                    metadata.loads.extend(loads)
                 imported = len(pages) * self.contract.block_size
             complete = (
                 request.computed_position + imported + request.num_scheduled_tokens
@@ -364,7 +564,10 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         return metadata
 
     def request_finished(self, request, cache_block_ids):
-        self._pending.pop(request.request_id, None)
+        self._forget_pending(request.request_id)
+        ticket = self._loading_pins.pop(request.request_id, None)
+        if ticket is not None:
+            self.client.release(ticket)
         self._allocations.pop(request.request_id, None)
         self._pd_requests.pop(request.request_id, None)
         destination = self._pd_destinations.pop(request.request_id, None)
@@ -400,6 +603,11 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             else None
         )
         self.pool = None
+        self.rank = _local_rank()
+        self._publisher = None
+        # Keys this rank stored or imported. The store is shared and busy with
+        # uploads, so skipping known pages must not need a round trip.
+        self._known_keys: collections.OrderedDict = collections.OrderedDict()
         self._waiting_saves = set()
         self._finished_saves = set()
         self._loading = {}
@@ -444,8 +652,33 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             return
         self._validate_slots(
             [slot for slot, _ in metadata.loads]
+            + [slot for slot, _ in metadata.shard_loads]
             + [slot for _, slots in metadata.pd_loads for slot in slots]
         )
+        if metadata.shard_loads:
+            tp = self.client.tensor_parallel_size
+            pages = self.client.read_pinned(
+                [shard_key(key, self.rank, tp) for _, key in metadata.shard_loads]
+            )
+            for (slot, _), page in zip(metadata.shard_loads, pages):
+                self.pool[slot].copy_(
+                    page.view(self.pool.dtype).reshape(self.pool.shape[1:]),
+                    non_blocking=False,
+                )
+            self._remember(
+                [shard_key(key, self.rank, tp) for _, key in metadata.shard_loads]
+            )
+            if self.rank == 0:
+                try:
+                    self.client.rpc(
+                        "record_import",
+                        self.client.namespace,
+                        len(metadata.shard_loads),
+                    )
+                except Exception:
+                    logger.warning(
+                        "Could not record TRT-LLM Xavier imports", exc_info=True
+                    )
         if metadata.loads and (
             self.client.config.get("shared_prefix") or self._history is not None
         ):
@@ -482,6 +715,18 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             except Exception:
                 logger.warning("Could not record TRT-LLM Xavier imports", exc_info=True)
 
+    def _remember(self, keys):
+        limit = max(
+            1,
+            self.client.capacity_bytes
+            // (self.contract.num_layers * self.contract.layer_nbytes),
+        )
+        for key in keys:
+            self._known_keys[key] = None
+            self._known_keys.move_to_end(key)
+        while len(self._known_keys) > limit:
+            self._known_keys.popitem(last=False)
+
     def wait_for_layer_load(self, layer_idx, stream):
         pass  # Async requests resume only after get_finished confirms GPU writes.
 
@@ -517,64 +762,65 @@ class XavierConnectorWorker(KvCacheConnectorWorker):
             max(1, min(128, 32 * 1024**2 // page_bytes)) if shared_prefix else 128
         )
         saves = metadata.saves
-        start = 0
-        if shared_prefix:
-            # Request prefixes are causal: keeping their first occurrence also
-            # keeps every head before its suffix, including overlapping requests.
-            slots_by_key = {}
-            for key, slot in saves:
-                slots_by_key.setdefault(key, slot)
-            saves = list(slots_by_key.items())[
-                : min(cache_client.capacity_bytes // page_bytes, 4096)
-            ]
-            keys = [key for key, _ in saves]
-            try:
-                start = cache_client.rpc(
-                    ("pending_prefix" if self._history is not None else "exists"),
-                    cache_client.namespace,
-                    keys,
+        if not shared_prefix:
+            tp = self.client.tensor_parallel_size
+            # Imported and repeated prefixes are already stored. Skip them
+            # instead of copying every page to the host again.
+            saves = [
+                (key, slot)
+                for key, slot in (
+                    (shard_key(key, self.rank, tp), slot) for key, slot in saves
                 )
-            except Exception:
-                logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
-                return
+                if key not in self._known_keys
+            ]
+            if saves:
+                if self._publisher is None:
+                    self._publisher = _Publisher(self.client)
+                    _publishers.add(self._publisher)
+                staged = self._publisher.submit(self.pool, saves)
+                self._remember([key for key, _ in saves[:staged]])
+            return
+        start = 0
+        # Request prefixes are causal: keeping their first occurrence also
+        # keeps every head before its suffix, including overlapping requests.
+        slots_by_key = {}
+        for key, slot in saves:
+            slots_by_key.setdefault(key, slot)
+        saves = list(slots_by_key.items())[
+            : min(cache_client.capacity_bytes // page_bytes, 4096)
+        ]
+        keys = [key for key, _ in saves]
+        try:
+            start = cache_client.rpc(
+                ("pending_prefix" if self._history is not None else "exists"),
+                cache_client.namespace,
+                keys,
+            )
+        except Exception:
+            logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
+            return
+        from ..xavier.backends.torch.prefix import pack_pages
+        from .cross_engine import canonical_trt_views
+
         for offset in range(start, len(saves), batch_size):
             batch = saves[offset : offset + batch_size]
             try:
-                if shared_prefix:
-                    from ..xavier.backends.torch.prefix import pack_pages
-                    from .cross_engine import canonical_trt_views
-
-                    pages = pack_pages(
-                        canonical_trt_views(self.pool, self.contract),
-                        [slot for _, slot in batch],
-                        self.contract,
-                    )
-                    cache_client.rpc(
-                        "put",
-                        cache_client.namespace,
-                        keys[: offset + len(batch)],
-                        pages,
-                        offset,
-                    )
-                else:
-                    pages = [
-                        self.pool[slot]
-                        .detach()
-                        .cpu()
-                        .contiguous()
-                        .view(torch.uint8)
-                        .reshape(-1)
-                        .clone()
-                        for _, slot in batch
-                    ]
-                    self.client.rpc(
-                        "put", self.client.namespace, [key for key, _ in batch], pages
-                    )
+                pages = pack_pages(
+                    canonical_trt_views(self.pool, self.contract),
+                    [slot for _, slot in batch],
+                    self.contract,
+                )
+                cache_client.rpc(
+                    "put",
+                    cache_client.namespace,
+                    keys[: offset + len(batch)],
+                    pages,
+                    offset,
+                )
             except Exception:
                 # Publishing is optional; failure leaves subsequent requests cold.
                 logger.warning("TRT-LLM Xavier publication failed", exc_info=True)
-                if shared_prefix:
-                    break
+                break
 
     def get_finished(self, finished_gen_req_ids, started_loading_req_ids):
         if not self.client.pd_gpu:

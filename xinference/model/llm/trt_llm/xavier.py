@@ -10,6 +10,8 @@ from pathlib import Path
 from ..xavier.pd_contract import build_pd_contract
 
 CONFIG_ENV = "XINFERENCE_TRTLLM_XAVIER_CONFIG"
+# TRT's MPI pool forwards only TRTLLM*/TLLM* variables to tensor-parallel ranks.
+WORKER_CONFIG_ENV = "TRTLLM_XINFERENCE_XAVIER_CONFIG"
 EXECUTION_OPTIONS = {
     "backend",
     "dtype",
@@ -32,7 +34,7 @@ def configure_xavier(
     model_path: str, config: dict, cache_config: dict, *, engine_version: str = "1.2.1"
 ) -> None:
     if cache_config.get("role") not in (None, "prefill", "decode"):
-        raise ValueError("TRT-LLM Xavier requires a prefill or decode role")
+        raise ValueError("TRT-LLM Xavier role must be prefill, decode or unset")
     if (
         cache_config.get("heterogeneous")
         and cache_config.get("logical_dtype") != "bfloat16"
@@ -44,13 +46,27 @@ def configure_xavier(
         if type(cache_config.get("rank")) is not int:
             raise ValueError("TRT-LLM Xavier P/D requires a replica rank")
         gpu_pool_options(cache_config.get("host", ""), dict(os.environ))
-    for name in (
-        "tensor_parallel_size",
-        "pipeline_parallel_size",
-        "context_parallel_size",
-    ):
+    from .compat import supports_tensor_parallel
+
+    ordinary = cache_config.get("role") is None and not cache_config.get(
+        "heterogeneous"
+    )
+    parallel_runtime = supports_tensor_parallel(engine_version)
+    tensor_parallel = config.get("tensor_parallel_size", 1)
+    if type(tensor_parallel) is not int or tensor_parallel < 1:
+        raise ValueError("tensor_parallel_size must be a positive integer")
+    if tensor_parallel > 1 and not (ordinary and parallel_runtime):
+        raise ValueError(
+            "TRT-LLM Xavier P/D requires TP=PP=CP=1; ordinary Xavier replicas "
+            "support TP>1 with tensorrt-llm>=1.4.0rc3"
+        )
+    for name in ("pipeline_parallel_size", "context_parallel_size"):
         if config.get(name, 1) != 1:
-            raise ValueError("TRT-LLM Xavier currently requires TP=PP=CP=1")
+            raise ValueError("TRT-LLM Xavier currently requires PP=CP=1")
+    if tensor_parallel > 1 and cache_config.get("read_timeout") is not None:
+        # Ranks read their own KV shards after the scheduler pins them. Only
+        # the native store can pin pages against eviction.
+        raise ValueError("TRT-LLM Xavier with TP>1 requires the native cache backend")
     if set(config) - EXECUTION_OPTIONS or config.get("trust_remote_code"):
         raise ValueError("TRT-LLM Xavier does not allow model or execution overrides")
     if config.get("dtype", "bfloat16") not in ("auto", "bfloat16"):
@@ -76,21 +92,48 @@ def configure_xavier(
         raise ValueError("TRT-LLM Xavier requires a BF16 checkpoint")
     contract = replace(contract, logical_dtype="bfloat16")
     kv = dict(config.get("kv_cache_config") or {})
-    if set(kv) - {
-        "max_tokens",
-        "free_gpu_memory_fraction",
-        "tokens_per_block",
-        "enable_block_reuse",
-    }:
+    if (
+        set(kv)
+        - {
+            "max_tokens",
+            "free_gpu_memory_fraction",
+            "tokens_per_block",
+            "enable_block_reuse",
+            "enable_partial_reuse",
+            "host_cache_size",
+        }
+        or kv.get("host_cache_size", 0) != 0
+    ):
         raise ValueError(
             "TRT-LLM Xavier requires a single GPU KV pool without offload or quantization"
         )
     if (
         kv.get("tokens_per_block", 64) != 64
         or kv.get("enable_block_reuse", True) is not True
+        or kv.get("enable_partial_reuse", False) is not False
     ):
-        raise ValueError("TRT-LLM Xavier requires 64-token pages and block reuse")
-    kv.update(tokens_per_block=64, enable_block_reuse=True)
+        raise ValueError(
+            "TRT-LLM Xavier requires 64-token pages and whole-page block reuse"
+        )
+    # A partially reused local page leaves the computed prefix off a page
+    # boundary, where an imported page cannot continue it.
+    kv.update(tokens_per_block=64, enable_block_reuse=True, enable_partial_reuse=False)
+    if parallel_runtime:
+        # TRT 1.4 provisions a host KV tier by default. A connector addresses
+        # GPU page slots, which host offload would reassign.
+        kv["host_cache_size"] = 0
+    elif "host_cache_size" in kv:
+        del kv["host_cache_size"]
+    if tensor_parallel > 1:
+        # Each rank owns num_kv_heads / TP heads of every page. The shared
+        # store keeps one page per rank, all described by this shard contract.
+        if contract.num_kv_heads % tensor_parallel:
+            raise ValueError(
+                "TRT-LLM Xavier requires num_key_value_heads divisible by TP"
+            )
+        contract = replace(
+            contract, num_kv_heads=contract.num_kv_heads // tensor_parallel
+        )
     config.update(
         dtype="bfloat16",
         kv_cache_config=kv,
@@ -106,7 +149,9 @@ def configure_xavier(
     cache_config["contract"] = contract.to_dict()
     # The model process owns its environment and hosts TRT's embedded worker.
     # The connector receives only the native engine arguments.
-    os.environ[CONFIG_ENV] = json.dumps(
+    if tensor_parallel > 1:
+        cache_config["tensor_parallel_size"] = tensor_parallel
+    worker_config = json.dumps(
         {
             **cache_config,
             "engine_version": engine_version,
@@ -115,3 +160,8 @@ def configure_xavier(
             or checkpoint_config["max_position_embeddings"],
         }
     )
+    os.environ[CONFIG_ENV] = worker_config
+    if tensor_parallel > 1:
+        os.environ[WORKER_CONFIG_ENV] = worker_config
+    else:
+        os.environ.pop(WORKER_CONFIG_ENV, None)

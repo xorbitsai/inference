@@ -72,6 +72,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
             config.pop(name, None)
         if config.pop("n_worker", 1) != 1:
             raise ValueError("TRT-LLM currently requires one worker per replica")
+        from .compat import supports_tensor_parallel
+
+        if "tensor_parallel_size" not in config and supports_tensor_parallel(
+            runtime_version
+        ):
+            from ....utils import cuda_count
+
+            # Like vLLM, shard over every GPU allocated to this replica.
+            if (devices := cuda_count()) > 1:
+                config["tensor_parallel_size"] = devices
         cache_config = config.pop("_xavier_cache_config", None)
         native_pd = config.pop("_nixl_config", None)
         if cache_config is not None and native_pd is not None:
@@ -305,11 +315,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
     def _usage(output) -> CompletionUsage:
         prompt = len(output.prompt_token_ids)
         generated = sum(len(choice.token_ids) for choice in output.outputs)
-        return CompletionUsage(
+        usage = CompletionUsage(
             prompt_tokens=prompt,
             completion_tokens=generated,
             total_tokens=prompt + generated,
         )
+        # TRT reports reused prompt tokens, including connector imports.
+        cached = getattr(output, "cached_tokens", None)
+        if type(cached) is int:
+            usage["prompt_tokens_details"] = {"cached_tokens": cached}
+        return usage
 
     async def async_generate(
         self,
