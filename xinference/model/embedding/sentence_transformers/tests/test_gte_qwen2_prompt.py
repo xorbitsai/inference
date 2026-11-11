@@ -60,12 +60,14 @@ class _GteQwen2Encoder:
     "kwargs,prompt",
     [
         ({}, QUERY_PROMPT),
+        # Clients that serialize an unset prompt as null keep the default.
+        ({"prompt": None}, QUERY_PROMPT),
         ({"prompt_name": "query"}, QUERY_PROMPT),
         # The model card encodes documents without a prompt.
         ({"prompt_name": None}, ""),
         ({"prompt": "Instruct: find code\nQuery: "}, "Instruct: find code\nQuery: "),
     ],
-    ids=["default", "query-prompt-name", "no-prompt", "custom-prompt"],
+    ids=["default", "null-prompt", "query-prompt-name", "no-prompt", "custom-prompt"],
 )
 async def test_request_prompt_overrides_the_default_query_prompt(kwargs, prompt):
     family = BUILTIN_EMBEDDING_MODELS["gte-Qwen2"][0]
