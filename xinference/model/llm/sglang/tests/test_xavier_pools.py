@@ -380,18 +380,19 @@ def _storage_config(model_config):
     return json.loads(model_config["hicache_storage_backend_extra_config"])
 
 
-def test_deepseek_v41_shares_quantized_multimodal_pools_at_tp4(
-    deepseek_path, monkeypatch
-):
-    hashed = []
+@pytest.fixture(autouse=True)
+def fingerprint_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(xavier_config, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
 
-    def fingerprint(files, **kwargs):
-        hashed.extend(files)
-        return "f" * 64
 
-    monkeypatch.setattr(xavier_config, "fingerprint_files", fingerprint)
+def test_deepseek_v41_shares_quantized_multimodal_pools_at_tp4(deepseek_path):
     model_config = {"tp_size": 4}
-    cache = {"address": "worker:1234", "uid": "cache", "replica": "rep0"}
+    cache = {
+        "address": "worker:1234",
+        "uid": "cache",
+        "replica": "rep0",
+        "sglang_version": "0.5.23",
+    }
     configure_xavier(str(deepseek_path), model_config, cache)
     storage = _storage_config(model_config)
     assert storage["pools"] is True and storage["replica"] == "rep0"
@@ -403,14 +404,46 @@ def test_deepseek_v41_shares_quantized_multimodal_pools_at_tp4(
     assert model_config["hicache_ratio"] == 0.5
     assert "hicache_host_memory_fraction" not in model_config
     assert cache["pools"] is True and cache["identity"] == storage["identity"]
-    # Weights are identified by their manifest; only the tokenizer is hashed.
-    assert hashed == ["tokenizer.json"]
-    identity = storage["identity"]
-    (deepseek_path / "model-00002-of-00002.safetensors").write_bytes(b"three")
     changed = {"tp_size": 4}
     configure_xavier(str(deepseek_path), changed, {**cache, "replicas": 2})
-    assert _storage_config(changed)["identity"]["weights"] != identity["weights"]
+    assert _storage_config(changed)["identity"] == storage["identity"]
     assert changed["hicache_ratio"] == 0.25
+
+
+def test_checkpoints_with_equal_sizes_but_different_tensors_cannot_share(
+    deepseek_path, tmp_path
+):
+    # Same file names, sizes, shard index, config and tokenizer; other tensors.
+    other = tmp_path / "other-copy"
+    other.mkdir()
+    for file in deepseek_path.iterdir():
+        if file.is_file():
+            (other / file.name).write_bytes(file.read_bytes())
+    (other / "model-00002-of-00002.safetensors").write_bytes(b"TWO")
+    cache = {"address": "a", "uid": "c"}
+    first, second = {"tp_size": 4}, {"tp_size": 4}
+    configure_xavier(str(deepseek_path), first, dict(cache))
+    configure_xavier(str(other), second, dict(cache))
+    first_id = _storage_config(first)["identity"]
+    second_id = _storage_config(second)["identity"]
+    assert first_id["weights"] != second_id["weights"]
+    store = PoolPageStore(4096)
+    schema = {"kv": {"page_bytes": 0}}
+    store.configure(first_id, schema)
+    with pytest.raises(ValueError, match="differs between replicas"):
+        store.configure(second_id, schema)
+
+
+@pytest.mark.parametrize("version", ["0.5.21", "0.5.22"])
+def test_pool_sharing_requires_the_host_pool_callback(deepseek_path, version):
+    # These releases never call on_host_pools_registered(), which publishes
+    # the shared namespace, so multi-pool sharing is refused at launch.
+    with pytest.raises(ValueError, match="0.5.23"):
+        configure_xavier(
+            str(deepseek_path),
+            {"tp_size": 4},
+            {"address": "a", "uid": "c", "sglang_version": version},
+        )
 
 
 def test_tensor_parallel_text_models_use_pools_with_64_token_pages(tmp_path):

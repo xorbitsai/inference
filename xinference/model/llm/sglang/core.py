@@ -217,7 +217,8 @@ LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 # generic five-minute server wait, especially for replicas loading together.
 DEEPSEEK_V41_SGLANG_LAUNCH_TIMEOUT = 3600.0
 MINICPMV47_MIN_SGLANG_VERSION = Version("0.5.23")
-DEEPSEEK_V41_MIN_SGLANG_VERSION = Version("0.5.21")
+# deepseek-recipe rendering (sglang.srt.parser.deepseek_recipe_renderer).
+DEEPSEEK_V41_MIN_SGLANG_VERSION = Version("0.5.23")
 
 
 def _prompt_payload(prompt: Union[str, List[int]], input_ids=None) -> Dict[str, Any]:
@@ -351,6 +352,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             cache_config.setdefault(
                 "replica", os.environ.get("XINFERENCE_MODEL_UID") or self.model_uid
             )
+            cache_config["sglang_version"] = sgl.__version__
             configure_xavier(self.model_path, self._model_config, cache_config)
             self._xavier_cache_config = cache_config
             if cache_config.get("role"):

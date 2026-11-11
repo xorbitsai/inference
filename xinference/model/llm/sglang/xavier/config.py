@@ -6,6 +6,8 @@ import json
 import logging
 from pathlib import Path
 
+from packaging.version import Version
+
 from .....constants import XINFERENCE_CACHE_DIR
 from ...xavier.contract import KVCacheContract, fingerprint_files, fingerprint_metadata
 
@@ -17,6 +19,10 @@ _PAGE_MODEL_TYPES = ("qwen2", "qwen3", "llama")
 # SGLang offloads these as several host pools with replicated MLA pages.
 _POOL_MODEL_TYPES = _PAGE_MODEL_TYPES + ("deepseek_v4", "deepseek_v41")
 _SELF_PAGED_MODEL_TYPES = ("deepseek_v4", "deepseek_v41")
+# Multi-pool storage needs SGLang's host-pool registration callback.
+POOL_SHARING_MIN_SGLANG_VERSION = Version("0.5.23")
+# Shards hashed at once when fingerprinting a multi-file checkpoint.
+_FINGERPRINT_WORKERS = 8
 _TOKENIZER_FILES = (
     "tokenizer.json",
     "tokenizer_config.json",
@@ -300,6 +306,15 @@ def _configure_pools(
         raise ValueError(
             "SGLang Xavier supports full-attention Qwen2, Qwen3 and Llama text models"
         )
+    version = cache_config.get("sglang_version")
+    if version is not None and Version(version) < POOL_SHARING_MIN_SGLANG_VERSION:
+        # Older releases lack the host-pool registration callback that
+        # publishes the namespace, and the multi-pool storage interface.
+        raise ValueError(
+            "SGLang Xavier needs SGLang >= "
+            f"{POOL_SHARING_MIN_SGLANG_VERSION} for tensor-parallel, quantized "
+            f"or DeepSeek-V4 caches; found {version}"
+        )
     path = Path(model_path)
     weights = sorted(path.glob("*.safetensors"))
     tokenizer = {
@@ -312,19 +327,14 @@ def _configure_pools(
         raise ValueError(
             "SGLang Xavier requires local safetensors weights and tokenizer assets"
         )
-    index = path / "model.safetensors.index.json"
-    # One deployment loads one model path; a manifest of names, sizes and the
-    # shard index separates checkpoints without hashing hundreds of gigabytes.
+    # Replicas on different workers may hold different local copies of one
+    # configured path, so weights are identified by content. Digests are cached
+    # per file and reused while the file's identity metadata is unchanged.
     identity = {
-        "weights": fingerprint_metadata(
-            {
-                "files": {file.name: file.stat().st_size for file in weights},
-                "index": (
-                    json.loads(index.read_text()).get("weight_map")
-                    if index.is_file()
-                    else None
-                ),
-            }
+        "weights": fingerprint_files(
+            {file.name: file for file in weights},
+            cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
+            workers=_FINGERPRINT_WORKERS,
         ),
         "tokenizer": fingerprint_files(tokenizer),
         "config": fingerprint_metadata(config),

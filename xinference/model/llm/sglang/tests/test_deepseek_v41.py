@@ -139,7 +139,7 @@ def test_token_prompts_are_sent_as_input_ids():
     assert _prompt_payload("text", [4]) == {"input_ids": [4]}
 
 
-@pytest.mark.parametrize("installed,ok", [("0.5.20", False), ("0.5.21", True)])
+@pytest.mark.parametrize("installed,ok", [("0.5.22", False), ("0.5.23", True)])
 def test_vision_engine_requires_sglang_with_deepseek_v41(monkeypatch, installed, ok):
     monkeypatch.setattr(SGLANGVisionModel, "_has_cuda_device", lambda: True)
     monkeypatch.setattr(SGLANGVisionModel, "_is_linux", lambda: True)
@@ -156,7 +156,7 @@ def test_vision_engine_requires_sglang_with_deepseek_v41(monkeypatch, installed,
     result = SGLANGVisionModel.match_json(family, spec, "fp8")
     assert (result is True) is ok
     if not ok:
-        assert "0.5.21" in result[1]
+        assert "0.5.23" in result[1]
 
 
 def test_large_checkpoint_gets_a_longer_server_wait(model):
