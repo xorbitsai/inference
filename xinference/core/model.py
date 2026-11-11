@@ -129,6 +129,35 @@ class _RealtimeFileStream:
         self.done = asyncio.get_running_loop().create_future()
 
 
+class _RequestStream:
+    def __init__(self, stream):
+        self.stream = stream
+        self.entry_task = asyncio.current_task()
+        self.task: Optional[asyncio.Task] = None
+        self.cancelled = False
+        self.done = asyncio.Event()
+
+    async def abort(self, model, request_id: str):
+        self.cancelled = True
+        task = self.task
+        caller = asyncio.current_task()
+        if task is not None and task is not caller:
+            task.cancel()
+        try:
+            abort = getattr(model, "abort_request", None)
+            if abort is not None:
+                await abort(request_id)
+        finally:
+            if inspect.isasyncgen(self.stream):
+                if task is not caller:
+                    if self.stream.ag_running:
+                        await self.done.wait()
+                    else:
+                        await self.stream.aclose()
+            elif not self.stream.gi_running:
+                await asyncio.to_thread(self.stream.close)
+
+
 def register_batching_multimodal_models(*model_names: str):
     def decorator(cls):
         for name in model_names:
@@ -227,6 +256,13 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                     {"labels": self._metrics_labels, "value": self._serve_count},
                 )
                 ret = await fn(self, *args, **kwargs)
+                if isinstance(ret, IteratorWrapper):
+                    for state in tuple(
+                        self.__dict__.get("_request_streams", {}).values()
+                    ):
+                        if state.entry_task is asyncio.current_task():
+                            state.stream = self._generators[ret._uid]
+                            state.entry_task = None
             except Exception:
                 _error = True
                 raise
@@ -524,10 +560,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
 
+    def _get_request_stream(self, generator_uid: str):
+        for stream in tuple(self.__dict__.get("_request_streams", {}).values()):
+            if stream.stream is self._generators.get(generator_uid):
+                return stream
+        return None
+
     async def __xoscar_next__(self, generator_uid: str):
+        stream = self._get_request_stream(generator_uid)
         if (
             not getattr(self._model, "realtime_native_async", False)
             and self.__dict__.get("_request_priority_scheduler") is None
+            and stream is None
         ):
             return await super().__xoscar_next__(generator_uid)
         if generator_uid in self._native_stream_next:
@@ -535,27 +579,42 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         task = asyncio.create_task(super().__xoscar_next__(generator_uid))
         self._native_stream_next[generator_uid] = task
         try:
+            if stream is not None and inspect.isgenerator(stream.stream):
+                try:
+                    return await _await_owned_task(task)
+                except asyncio.CancelledError:
+                    await _await_owned_task(
+                        asyncio.create_task(asyncio.to_thread(stream.stream.close))
+                    )
+                    raise
             return await task
         finally:
             self._native_stream_next.pop(generator_uid, None)
 
     async def __xoscar_destroy_generator__(self, generator_uid: str):
+        stream = self._get_request_stream(generator_uid)
         if (
             not getattr(self._model, "realtime_native_async", False)
             and self.__dict__.get("_request_priority_scheduler") is None
+            and stream is None
         ):
             return await super().__xoscar_destroy_generator__(generator_uid)
         caller = asyncio.current_task()
 
         async def close():
+            if stream is not None:
+                stream.cancelled = True
             pending = self._native_stream_next.get(generator_uid)
             if pending is not None and pending is not caller:
-                pending.cancel()
+                if stream is None or inspect.isasyncgen(stream.stream):
+                    pending.cancel()
                 with suppress(asyncio.CancelledError, Exception):
                     await pending
             generator = self._generators.pop(generator_uid, None)
             if inspect.isasyncgen(generator):
                 await generator.aclose()
+            elif stream is not None and inspect.isgenerator(generator):
+                await asyncio.to_thread(generator.close)
 
         await _await_owned_task(asyncio.create_task(close()))
 
@@ -1427,9 +1486,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         request_id = kwargs.pop("_priority_request_id", None) or kwargs.get(
             "request_id"
         )
+        streams = self.__dict__.setdefault("_request_streams", {})
+        if request_id in streams and request_id not in self._running_tasks:
+            raise Exception(f"Duplicate request id: {request_id}")
         self._add_running_task(request_id)
         if priority is None:
-            return await self._call_wrapper_inner(output_type, fn, *args, **kwargs)
+            result = await self._call_wrapper_inner(output_type, fn, *args, **kwargs)
+            return await self._track_stream(result, request_id)
 
         scheduler = self.__dict__.get("_request_priority_scheduler")
         if scheduler is None:
@@ -1449,11 +1512,71 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 # including streams closed before their first client read.
                 await stream.__anext__()
                 transferred = True
-                return stream
+                return await self._track_stream(stream, request_id)
             return result
         finally:
             if not transferred:
                 self._release_request_priority(scheduler, capacity)
+
+    async def _track_stream(self, iterator, request_id: Optional[str]):
+        if (
+            request_id is None
+            or not (inspect.isgenerator(iterator) or inspect.isasyncgen(iterator))
+            or any(
+                lease.request_id == request_id
+                for lease in self.__dict__.get("_realtime_file_streams", ())
+            )
+        ):
+            return iterator
+        streams = self.__dict__["_request_streams"]
+        state = _RequestStream(iterator)
+        exhausted = object()
+
+        def release():
+            streams.pop(request_id, None)
+            state.done.set()
+
+        def sync_stream():
+            try:
+                yield None  # Prime cleanup without advancing inference.
+                for item in iterator:
+                    if state.cancelled:
+                        return
+                    yield item
+            finally:
+                try:
+                    iterator.close()
+                finally:
+                    release()
+
+        async def async_stream():
+            try:
+                yield None
+                while not state.cancelled:
+                    state.task = asyncio.current_task()
+                    try:
+                        item = await anext(iterator, exhausted)
+                    finally:
+                        state.task = None
+                    if item is exhausted or state.cancelled:
+                        return
+                    yield item
+            finally:
+                try:
+                    await iterator.aclose()
+                finally:
+                    release()
+
+        if inspect.isasyncgen(iterator):
+            state.stream = async_stream()
+            await state.stream.__anext__()
+        else:
+            state.stream = sync_stream()
+            next(state.stream)
+        streams[request_id] = state
+        if self._running_tasks.get(request_id) is asyncio.current_task():
+            self._running_tasks.pop(request_id, None)
+        return state.stream
 
     async def _priority_stream(self, iterator, scheduler, request_id, capacity=None):
         exhausted = object()
@@ -1550,19 +1673,16 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     self._lock.release()
         elif self._lock is None or priority_managed:
             ret = await _invoke()
+            close_on_exit = priority_managed or kwargs.get("request_id") is not None
 
             if inspect.isgenerator(ret):
-                gen = self._to_generator(
-                    output_type, ret, close_on_exit=priority_managed
-                )
-                if priority_managed:
+                gen = self._to_generator(output_type, ret, close_on_exit=close_on_exit)
+                if close_on_exit:
                     next(gen)
                 return gen
             if inspect.isasyncgen(ret):
-                gen = self._to_async_gen(
-                    output_type, ret, close_on_exit=priority_managed
-                )
-                if priority_managed:
+                gen = self._to_async_gen(output_type, ret, close_on_exit=close_on_exit)
+                if close_on_exit:
                     await gen.__anext__()
                 return gen
         else:
@@ -1849,6 +1969,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             ):
                 raise active_error
             return generation_result
+
+        stream = self.__dict__.get("_request_streams", {}).get(request_id)
+        if stream is not None:
+            self._cancel_running_task(request_id, block_duration)
+            await stream.abort(self._model, request_id)
+            return AbortRequestMessage.DONE.name
 
         # Always cancel the running task first
         task = self._running_tasks.get(request_id)
