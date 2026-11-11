@@ -2052,7 +2052,10 @@ class SGLANGVisionModel(SGLANGModel):
         from io import BytesIO
 
         has_architecture = getattr(self.model_family, "has_architecture", None)
-        if has_architecture is not None and has_architecture("DeepseekV41ForCausalLM"):
+        if (
+            has_architecture is not None
+            and has_architecture("DeepseekV41ForCausalLM") is True
+        ):
             return await self._prepare_deepseek_v41_inputs(messages, generate_config)
 
         from PIL import Image
