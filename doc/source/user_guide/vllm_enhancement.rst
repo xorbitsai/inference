@@ -145,7 +145,7 @@ see :ref:`user_guide_pd_separation`.
 
    With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor parallelism. Give every replica the same ``n_gpu``; ``tensor_parallel_size`` defaults to it. Each rank stores and loads its own share of the KV heads, and a page is reused only once every rank has stored its share. ``num_key_value_heads`` must be divisible by TP, and TP>1 requires the native cache backend. P/D roles still require TP=1. Because chunked prefill is disabled, prompts must fit in ``max_num_tokens``; raise it for long prompts.
 
-   Pages are uploaded in the background with at most 2 GiB in flight per rank; pages beyond that are not shared. Restoring a page through the cache actor can be slower than recomputing it for models with large KV caches, such as dense 8B models on H200. Compare cross-replica TTFT with local prefill before enabling Xavier.
+   With TRT-LLM 1.4, the cache actor keeps pages in a file under ``/dev/shm`` when that tmpfs can hold ``xavier_cache_bytes``. Ranks on the same host as the actor copy pages directly between GPU memory and this file, and each rank uses up to 512 MiB of GPU memory to stage new pages. Otherwise, pages travel through the actor, with at most 2 GiB per rank being uploaded at a time; restoring them this way can be slower than recomputing them for models with large KV caches. Give containers enough shared memory, for example with ``--shm-size``.
 
 MLX replicas
 ~~~~~~~~~~~~

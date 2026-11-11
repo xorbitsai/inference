@@ -262,7 +262,7 @@ The example launches two independent replicas with a shared 512 MiB Xavier CPU c
        xavier_cache_bytes=512 * 1024**2,
    )
 
-Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica through actor RPC. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction. New pages are copied to host memory during the forward step and uploaded in the background, so another replica can reuse them once the upload finishes; restores remain synchronous.
+Xavier publishes complete 64-token BF16 KV pages and restores matching prefixes in another replica. Partial pages and the final prompt token are computed locally. The shared cache uses bounded storage and LRU eviction; :ref:`xavier-trt-llm` describes how pages are transferred.
 
 Same-engine P/D requires TP=PP=CP=1. Shared caching also accepts TP>1 with ``tensorrt-llm>=1.4.0rc3,<1.5``; see :ref:`xavier-trt-llm`. Both require BF16 weights and KV, and disabled chunked prefill and overlap scheduling. Quantization, hybrid attention, multimodal input, LoRA, speculative decoding and ``cache_salt`` are not supported in these configurations. Ordinary replicas support :ref:`speculative_decoding` with NGram or Draft/Target. For supported cross-engine P/D combinations, see :ref:`user_guide_pd_separation`.
 
