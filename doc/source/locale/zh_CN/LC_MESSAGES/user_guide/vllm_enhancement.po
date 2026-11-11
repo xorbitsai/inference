@@ -82,8 +82,8 @@ msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-
 msgstr "张量并行或量化的 Qwen2、Qwen3 和 Llama 模型，以及 DeepSeek-V4 和 V4.1（包括图片输入）改为共享 SGLang 自身的 HiCache 主机内存池。所有副本必须基于相同的检查点文件、SGLang 版本和缓存设置注册相同的内存池；检查点文件按文件名、大小和分片索引识别，而不是按内容识别。在各张量并行 rank 间复制的 MLA 页面由每个副本写入一次，并由所有张量并行 rank 读取；分片的页面按 rank 分别存储。DeepSeek-V4.1 需要 SGLang >= ``0.5.21`` 及其 ``deepseek-recipe`` 包。"
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically."
-msgstr "SGLang 根据主机空闲内存确定每个副本的 HiCache 主机内存池大小，但不会考虑其他副本。除非设置了 ``hicache_ratio``、``hicache_size`` 或 ``hicache_host_memory_fraction``，Xavier 会将 ``hicache_host_memory_fraction`` 设为 ``0.5`` 除以副本数；对于 SGLang 无法自动确定主机内存池大小的 DeepSeek-V4，则设置 ``hicache_ratio=1.2``。"
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang 根据主机空闲内存确定每个副本的 HiCache 主机内存池大小，但不会考虑其他副本。除非设置了 ``hicache_ratio``、``hicache_size`` 或 ``hicache_host_memory_fraction``，Xavier 会将 ``hicache_host_memory_fraction`` 设为 ``0.5`` 除以副本数。DeepSeek-V4 的主机内存池无法自动确定大小，而且要镜像数千万个压缩后的设备端 token，因此 Xavier 改为将 ``hicache_ratio`` 设为同样的值。"
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"

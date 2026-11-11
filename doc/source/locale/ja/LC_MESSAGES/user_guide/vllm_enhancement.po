@@ -84,8 +84,8 @@ msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-
 msgstr "テンソル並列または量子化された Qwen2、Qwen3、Llama モデル、および画像入力を含む DeepSeek-V4 と V4.1 は、代わりに SGLang 自身の HiCache ホストプールを共有します。すべてのレプリカは、同じチェックポイントファイル、SGLang バージョン、キャッシュ設定から同じプールを登録する必要があります。チェックポイントファイルは内容ではなく、名前、サイズ、シャードインデックスで識別されます。テンソル並列ランク間で複製される MLA ページはレプリカごとに 1 回書き込まれ、すべてのテンソル並列ランクから読み取られます。シャード化されたページはランクごとに保存されます。DeepSeek-V4.1 には SGLang >= ``0.5.21`` とその ``deepseek-recipe`` パッケージが必要です。"
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically."
-msgstr "SGLang は他のレプリカを考慮せずに、ホストの空きメモリから各レプリカの HiCache ホストプールのサイズを決めます。``hicache_ratio``、``hicache_size``、``hicache_host_memory_fraction`` のいずれも指定されていない場合、Xavier は ``hicache_host_memory_fraction`` を ``0.5`` をレプリカ数で割った値に設定します。SGLang がホストプールのサイズを自動で決められない DeepSeek-V4 では ``hicache_ratio=1.2`` を設定します。"
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang は他のレプリカを考慮せずに、ホストの空きメモリから各レプリカの HiCache ホストプールのサイズを決めます。``hicache_ratio``、``hicache_size``、``hicache_host_memory_fraction`` のいずれも指定されていない場合、Xavier は ``hicache_host_memory_fraction`` を ``0.5`` をレプリカ数で割った値に設定します。DeepSeek-V4 のホストプールは自動でサイズを決められず、圧縮されたデバイス側の数千万トークンをミラーするため、Xavier は代わりに ``hicache_ratio`` を同じ値に設定します。"
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"

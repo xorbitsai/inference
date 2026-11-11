@@ -400,15 +400,17 @@ def test_deepseek_v41_shares_quantized_multimodal_pools_at_tp4(
     assert "page_size" not in model_config and "dtype" not in model_config
     assert model_config["enable_hierarchical_cache"] is True
     # DeepSeek-V4 host pools cannot be auto-sized; Xavier sets a ratio.
-    assert model_config["hicache_ratio"] == 1.2
+    assert model_config["hicache_ratio"] == 0.5
     assert "hicache_host_memory_fraction" not in model_config
     assert cache["pools"] is True and cache["identity"] == storage["identity"]
     # Weights are identified by their manifest; only the tokenizer is hashed.
     assert hashed == ["tokenizer.json"]
     identity = storage["identity"]
     (deepseek_path / "model-00002-of-00002.safetensors").write_bytes(b"three")
-    configure_xavier(str(deepseek_path), changed := {"tp_size": 4}, dict(cache))
+    changed = {"tp_size": 4}
+    configure_xavier(str(deepseek_path), changed, {**cache, "replicas": 2})
     assert _storage_config(changed)["identity"]["weights"] != identity["weights"]
+    assert changed["hicache_ratio"] == 0.25
 
 
 def test_tensor_parallel_text_models_use_pools_with_64_token_pages(tmp_path):

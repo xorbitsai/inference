@@ -234,8 +234,6 @@ def _check_engine_options(model_config: dict) -> None:
 # ranks; replicas launched together would each claim the same memory. Xavier
 # splits this share among replicas and leaves room for its shared CPU cache.
 _HOST_MEMORY_FRACTION = 0.5
-# DeepSeek-V4 host pools cannot be auto-sized or given a fixed size.
-_SELF_PAGED_HICACHE_RATIO = 1.2
 
 
 def _size_host_pools(model_config: dict, replicas: int, self_paged: bool) -> None:
@@ -244,12 +242,14 @@ def _size_host_pools(model_config: dict, replicas: int, self_paged: bool) -> Non
         for name in ("hicache_ratio", "hicache_size", "hicache_host_memory_fraction")
     ):
         return
+    share = round(_HOST_MEMORY_FRACTION / max(1, replicas), 4)
     if self_paged:
-        model_config["hicache_ratio"] = _SELF_PAGED_HICACHE_RATIO
+        # DeepSeek-V4 host pools cannot be auto-sized or given a fixed size.
+        # Its compressed device pools hold tens of millions of tokens, so the
+        # host mirror is scaled down by the same share.
+        model_config["hicache_ratio"] = share
     elif replicas > 1:
-        model_config["hicache_host_memory_fraction"] = round(
-            _HOST_MEMORY_FRACTION / replicas, 4
-        )
+        model_config["hicache_host_memory_fraction"] = share
 
 
 def _enable_hicache(model_config: dict, storage_config: dict) -> None:

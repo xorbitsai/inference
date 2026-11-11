@@ -85,8 +85,8 @@ msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-
 msgstr "텐서 병렬 또는 양자화된 Qwen2, Qwen3, Llama 모델과 이미지 입력을 포함한 DeepSeek-V4 및 V4.1은 대신 SGLang 자체의 HiCache 호스트 풀을 공유합니다. 모든 레플리카는 동일한 체크포인트 파일, SGLang 버전, 캐시 설정으로 동일한 풀을 등록해야 하며, 체크포인트 파일은 내용이 아니라 이름, 크기, 샤드 인덱스로 식별됩니다. 텐서 병렬 랭크 간에 복제되는 MLA 페이지는 레플리카마다 한 번 기록되고 모든 텐서 병렬 랭크가 읽습니다. 샤딩된 페이지는 랭크별로 저장됩니다. DeepSeek-V4.1에는 SGLang >= ``0.5.21`` 과 해당 ``deepseek-recipe`` 패키지가 필요합니다."
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically."
-msgstr "SGLang은 다른 레플리카를 고려하지 않고 호스트의 여유 메모리를 기준으로 각 레플리카의 HiCache 호스트 풀 크기를 정합니다. ``hicache_ratio``, ``hicache_size``, ``hicache_host_memory_fraction`` 중 어느 것도 설정하지 않으면 Xavier는 ``hicache_host_memory_fraction`` 을 ``0.5`` 를 레플리카 수로 나눈 값으로 설정하고, SGLang이 호스트 풀 크기를 자동으로 정할 수 없는 DeepSeek-V4에는 ``hicache_ratio=1.2`` 를 설정합니다."
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang은 다른 레플리카를 고려하지 않고 호스트의 여유 메모리를 기준으로 각 레플리카의 HiCache 호스트 풀 크기를 정합니다. ``hicache_ratio``, ``hicache_size``, ``hicache_host_memory_fraction`` 중 어느 것도 설정하지 않으면 Xavier는 ``hicache_host_memory_fraction`` 을 ``0.5`` 를 레플리카 수로 나눈 값으로 설정합니다. DeepSeek-V4의 호스트 풀은 크기를 자동으로 정할 수 없고 압축된 디바이스 토큰 수천만 개를 미러링하므로, Xavier는 대신 ``hicache_ratio`` 를 같은 값으로 설정합니다."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
