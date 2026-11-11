@@ -308,7 +308,7 @@ def test_other_gguf_models_keep_generic_adapter(fake_xllamacpp):
     assert XllamaCppEmbeddingModel.match_json(family, spec, "Q8_0") is True
     params = SimpleNamespace()
     XllamaCppEmbeddingModel.__new__(XllamaCppEmbeddingModel)._configure_params(params)
-    # The generic adapter keeps the pooling declared by the GGUF.
-    assert not hasattr(params, "pooling_type")
+    # With no GGUF pooling declaration to read, the generic adapter keeps LAST.
+    assert params.pooling_type == 3
     assert params.n_parallel >= 1
     assert not hasattr(params, "embd_normalize")

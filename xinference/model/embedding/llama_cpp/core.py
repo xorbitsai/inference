@@ -32,6 +32,19 @@ from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 logger = logging.getLogger(__name__)
 
 
+def _gguf_declares_pooling(model_path: Optional[str]) -> bool:
+    if not model_path:
+        return False
+    from ...llm.gguf_model_metadata import read_gguf_config
+
+    try:
+        with open(model_path, "rb") as stream:
+            config, _, _ = read_gguf_config(stream, limit=64 * 1024**2)
+    except (OSError, ValueError):
+        return False
+    return "pooling_type" in config
+
+
 class _Done:
     pass
 
@@ -103,10 +116,15 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     def _is_linux(self):
         return sys.platform.startswith("linux")
 
-    def _configure_params(self, params: Any) -> None:
+    def _configure_params(self, params: Any, model_path: Optional[str] = None) -> None:
+        from xllamacpp import llama_pooling_type
+
         params.n_parallel = min(8, os.cpu_count() or 1)
-        # Leave pooling_type unspecified so llama.cpp uses the pooling the GGUF
-        # declares (e.g. CLS for bge-m3, last-token for Qwen3-Embedding).
+        # llama.cpp applies the pooling a GGUF declares (e.g. CLS for bge-m3).
+        # GGUFs that declare none (e.g. the pinned Qwen3-Embedding files) would
+        # get no pooling at all, so keep last-token pooling for those.
+        if not _gguf_declares_pooling(model_path):
+            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
 
     def load(self):
         # add truncate_dim args hint
@@ -168,7 +186,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
             if projector_path:
                 params.mmproj.path = projector_path
             # Defaults may be overwritten by _llamacpp_model_config.
-            self._configure_params(params)
+            self._configure_params(params, model_path)
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
