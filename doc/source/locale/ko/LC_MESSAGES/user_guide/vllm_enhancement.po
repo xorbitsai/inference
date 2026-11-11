@@ -62,7 +62,7 @@ msgstr "SGLang 복제본"
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
-msgstr "SGLang >= ``0.5.21``은 Xavier의 HiCache 스토리지 백엔드를 통해 프리픽스 KV 캐시를 공유할 수 있습니다. ``model_engine=\"SGLang\"``과 ``enable_xavier=True``로 여러 레플리카를 시작합니다. 각 레플리카는 하나의 worker에서 실행되며, PP, DP, 컨텍스트 병렬, LoRA, 추측 디코딩은 지원되지 않습니다."
+msgstr "SGLang >= ``0.5.21`` 은 Xavier의 HiCache 스토리지 백엔드를 통해 프리픽스 KV 캐시를 공유할 수 있습니다. ``model_engine=\"SGLang\"`` 과 ``enable_xavier=True`` 로 여러 레플리카를 시작합니다. 각 레플리카는 하나의 worker에서 실행되며, PP, DP, 컨텍스트 병렬, LoRA, 추측 디코딩은 지원되지 않습니다."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -82,11 +82,11 @@ msgstr "TP=1에서 풀 어텐션을 사용하는 비양자화 Qwen2, Qwen3, Llam
 
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings; checkpoint files are identified by name, size and shard index rather than by content. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 requires SGLang >= ``0.5.21`` with its ``deepseek-recipe`` package."
-msgstr "텐서 병렬 또는 양자화된 Qwen2, Qwen3, Llama 모델과 이미지 입력을 포함한 DeepSeek-V4 및 V4.1은 대신 SGLang 자체의 HiCache 호스트 풀을 공유합니다. 모든 레플리카는 동일한 체크포인트 파일, SGLang 버전, 캐시 설정으로 동일한 풀을 등록해야 하며, 체크포인트 파일은 내용이 아니라 이름, 크기, 샤드 인덱스로 식별됩니다. 텐서 병렬 랭크 간에 복제되는 MLA 페이지는 레플리카마다 한 번 기록되고 모든 텐서 병렬 랭크가 읽습니다. 샤딩된 페이지는 랭크별로 저장됩니다. DeepSeek-V4.1에는 SGLang >= ``0.5.21``과 해당 ``deepseek-recipe`` 패키지가 필요합니다."
+msgstr "텐서 병렬 또는 양자화된 Qwen2, Qwen3, Llama 모델과 이미지 입력을 포함한 DeepSeek-V4 및 V4.1은 대신 SGLang 자체의 HiCache 호스트 풀을 공유합니다. 모든 레플리카는 동일한 체크포인트 파일, SGLang 버전, 캐시 설정으로 동일한 풀을 등록해야 하며, 체크포인트 파일은 내용이 아니라 이름, 크기, 샤드 인덱스로 식별됩니다. 텐서 병렬 랭크 간에 복제되는 MLA 페이지는 레플리카마다 한 번 기록되고 모든 텐서 병렬 랭크가 읽습니다. 샤딩된 페이지는 랭크별로 저장됩니다. DeepSeek-V4.1에는 SGLang >= ``0.5.21`` 과 해당 ``deepseek-recipe`` 패키지가 필요합니다."
 
 #: ../../user_guide/vllm_enhancement.rst
 msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count, and ``hicache_ratio=1.2`` for DeepSeek-V4, whose host pools SGLang cannot size automatically."
-msgstr "SGLang은 다른 레플리카를 고려하지 않고 호스트의 여유 메모리를 기준으로 각 레플리카의 HiCache 호스트 풀 크기를 정합니다. ``hicache_ratio``, ``hicache_size``, ``hicache_host_memory_fraction`` 중 어느 것도 설정하지 않으면 Xavier는 ``hicache_host_memory_fraction``을 ``0.5``를 레플리카 수로 나눈 값으로 설정하고, SGLang이 호스트 풀 크기를 자동으로 정할 수 없는 DeepSeek-V4에는 ``hicache_ratio=1.2``를 설정합니다."
+msgstr "SGLang은 다른 레플리카를 고려하지 않고 호스트의 여유 메모리를 기준으로 각 레플리카의 HiCache 호스트 풀 크기를 정합니다. ``hicache_ratio``, ``hicache_size``, ``hicache_host_memory_fraction`` 중 어느 것도 설정하지 않으면 Xavier는 ``hicache_host_memory_fraction`` 을 ``0.5`` 를 레플리카 수로 나눈 값으로 설정하고, SGLang이 호스트 풀 크기를 자동으로 정할 수 없는 DeepSeek-V4에는 ``hicache_ratio=1.2`` 를 설정합니다."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
