@@ -29,6 +29,11 @@ def test_writers_publish_only_committed_slots(arena):
     assert arena.commit([1], [first]) == 1
     arena.abort([2], [second])
     assert arena.allocate([1]) == [-1]  # Stored keys are never copied again.
+    assert arena.has_layer("page", [1]) and not arena.has_layer("page", [2])
+    assert arena.can_stage({1, 2}) and not arena.can_stage({1, 2, 3})
+    assert arena.reserve("7:lookup", [1])
+    arena.release_consumer(7)
+    assert not arena.leases
     # Another process maps the same bytes.
     info = arena.info()
     peer = map_pages(

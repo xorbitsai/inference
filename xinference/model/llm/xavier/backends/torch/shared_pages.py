@@ -157,6 +157,23 @@ class SharedPageArena:
             self.pages[slot].copy_(tensor.reshape(-1).view(torch.uint8))
             self.commit([key], [slot])
 
+    def stage_packed_blocks(self, keys, packed, layers, *, retain_storage=False):
+        raise NotImplementedError("Shared Xavier pages store whole pages only")
+
+    def can_stage(self, keys: Set[int]) -> bool:
+        return len(keys | self._pinned()) <= self.capacity
+
+    async def prefetch(self, keys: List[int]) -> bool:
+        return set(keys).issubset(self.ready)
+
+    def has_layer(self, layer, keys, logical_dtype=None) -> bool:
+        return layer == "page" and all(key in self.ready for key in keys)
+
+    def release_consumer(self, rank: int):
+        for lease in list(self.leases):
+            if lease.startswith(f"{rank}:"):
+                self.release(lease)
+
     def publish(self, keys: List[int], layers: Set[str]) -> List[int]:
         return [key for key in keys if key in self.ready]
 
