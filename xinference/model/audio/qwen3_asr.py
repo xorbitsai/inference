@@ -28,6 +28,7 @@ from ...device_utils import (
 )
 from ...utils import dependency_import_guard, make_hashable
 from ..batch import BatchMixin
+from .vllm import transcription_language
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -284,6 +285,8 @@ class Qwen3ASRModel(BatchMixin):
         if response_format not in ("json", "verbose_json"):
             raise ValueError(f"Unsupported response format: {response_format}")
 
+        # qwen_asr takes language names ("Chinese"), not OpenAI's ISO-639-1 codes.
+        language = transcription_language(language)
         kw = dict(getattr(self._model_spec, "default_transcription_config", None) or {})
         kw.update(kwargs)
         return await self._batch_transcribe(audio, language, response_format, kw)

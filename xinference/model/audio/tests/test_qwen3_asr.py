@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 from contextlib import suppress
 from pathlib import Path
@@ -167,3 +169,46 @@ async def test_qwen3_asr_groups_model_kwargs_and_survives_cancellation():
         assert model._model.calls[2]["payloads"] == ["after"]
     finally:
         await _shutdown_batch_processor(model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "language, expected",
+    [("zh", "Chinese"), ("en", "English"), ("yue", "Cantonese"), ("auto", None)],
+)
+async def test_qwen3_asr_accepts_openai_language_codes(language, expected):
+    # qwen_asr normalizes the language to "Xxxx" and accepts only the names in
+    # its SUPPORTED_LANGUAGES list, so an ISO-639-1 code alone is rejected.
+    supported = {"Chinese", "English", "Cantonese"}
+
+    class StrictQwenASR(_FakeQwenASR):
+        def transcribe(self, audio, language, **kwargs):
+            for lang in language:
+                if lang is not None:
+                    name = lang.strip()[:1].upper() + lang.strip()[1:].lower()
+                    if name not in supported:
+                        raise ValueError(f"Unsupported language: {name}")
+            return super().transcribe(audio, language, **kwargs)
+
+    model = _new_model()
+    model._model = StrictQwenASR()
+    try:
+        result = await model.transcriptions(b"audio", language=language)
+    finally:
+        await _shutdown_batch_processor(model)
+
+    assert result == {"text": "audio"}
+    assert model._model.calls[0]["language"] == [expected]
+
+
+@pytest.mark.asyncio
+async def test_qwen3_asr_rejects_unknown_language_as_invalid_input():
+    from ....core.exceptions import InvalidAudioInputError
+
+    model = _new_model()
+    try:
+        with pytest.raises(InvalidAudioInputError):
+            await model.transcriptions(b"audio", language="xx")
+    finally:
+        await _shutdown_batch_processor(model)
+    assert model._model.calls == []
