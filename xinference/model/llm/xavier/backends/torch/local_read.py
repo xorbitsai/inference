@@ -5,6 +5,7 @@
 import logging
 import mmap
 import os
+import sys
 import tempfile
 import uuid
 from typing import Optional, Tuple
@@ -12,15 +13,22 @@ from typing import Optional, Tuple
 import torch
 
 from ...local_directory import _boot_id
-from .request_transfer import MAX_REQUEST_BYTES
+from .request_transfer import MAX_REQUEST_BYTES, MAX_SHARED_BUFFER_BYTES
 
 _HEADER = 64
 logger = logging.getLogger(__name__)
 
 
+def _reserve(fd: int, size: int) -> None:
+    # Fail here with ENOSPC rather than with SIGBUS on a later write when the
+    # shared memory filesystem is too small.
+    if sys.platform == "linux":
+        os.posix_fallocate(fd, 0, size)
+
+
 class SharedReadBuffer:
-    def __init__(self, capacity: int = MAX_REQUEST_BYTES):
-        if not 0 < capacity <= MAX_REQUEST_BYTES:
+    def __init__(self, capacity: int = MAX_REQUEST_BYTES, *, reserve: bool = False):
+        if not 0 < capacity <= MAX_SHARED_BUFFER_BYTES:
             raise ValueError("Invalid shared receive capacity")
         self.capacity = capacity
         self.token = uuid.uuid4().bytes
@@ -29,6 +37,8 @@ class SharedReadBuffer:
         )
         try:
             os.ftruncate(self._file.fileno(), _HEADER + capacity)
+            if reserve:
+                _reserve(self._file.fileno(), _HEADER + capacity)
             self._data = mmap.mmap(self._file.fileno(), _HEADER + capacity)
             self._data[:16] = self.token
             self._data[16] = 1
@@ -84,24 +94,28 @@ class SharedReadBuffer:
 
 class LocalReadBuffer:
     @classmethod
-    def attach(cls, metadata: Optional[dict]) -> Optional["LocalReadBuffer"]:
+    def attach(
+        cls, metadata: Optional[dict], *, writable: bool = False
+    ) -> Optional["LocalReadBuffer"]:
         if metadata is None:
             return None
         try:
             if metadata["boot_id"] != _boot_id():
                 return None
-            return cls(metadata)
+            return cls(metadata, writable=writable)
         except (OSError, ValueError):
             return None
 
-    def __init__(self, metadata: dict):
+    def __init__(self, metadata: dict, *, writable: bool = False):
         capacity = metadata["capacity"]
-        if not 0 < capacity <= MAX_REQUEST_BYTES:
+        if not 0 < capacity <= MAX_SHARED_BUFFER_BYTES:
             raise ValueError("Invalid shared receive capacity")
         self.capacity = capacity
         self.token = metadata["token"]
         self._path = metadata["path"]
-        self._fd = os.open(self._path, os.O_RDONLY | os.O_CLOEXEC)
+        self._fd = os.open(
+            self._path, (os.O_RDWR if writable else os.O_RDONLY) | os.O_CLOEXEC
+        )
         try:
             stat = os.fstat(self._fd)
             if stat.st_size != _HEADER + capacity:
@@ -109,8 +123,11 @@ class LocalReadBuffer:
             self._identity = (stat.st_dev, stat.st_ino)
             # Private writable views let torch read without a read-only-buffer
             # warning. Consumer writes cannot modify the actor's shared payload.
+            # A writable attachment fills the owner's payload on its behalf.
             self._data = mmap.mmap(
-                self._fd, _HEADER + capacity, access=mmap.ACCESS_COPY
+                self._fd,
+                _HEADER + capacity,
+                access=mmap.ACCESS_WRITE if writable else mmap.ACCESS_COPY,
             )
             if self._data[:16] != self.token or not self._data[16]:
                 raise ValueError("Shared receive owner changed")
@@ -136,7 +153,8 @@ class LocalReadBuffer:
             and bool(self._data[16])
         )
 
-    def copy(self, lease: bytes, nbytes: int, *, pin_memory: bool) -> torch.Tensor:
+    def view(self, lease: bytes, nbytes: int) -> torch.Tensor:
+        """The leased payload itself: valid only until the owner releases it."""
         if (
             not self.valid()
             or self._data[24:40] != lease
@@ -144,7 +162,10 @@ class LocalReadBuffer:
         ):
             raise RuntimeError("Shared receive lease or owner changed")
         assert self._payload is not None
-        payload = self._payload[:nbytes]
+        return self._payload[:nbytes]
+
+    def copy(self, lease: bytes, nbytes: int, *, pin_memory: bool) -> torch.Tensor:
+        payload = self.view(lease, nbytes)
         # The actor can reuse its receive slot immediately after the caller's
         # release RPC. H2D must own an independent pinned allocation first.
         if pin_memory:

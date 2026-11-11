@@ -31,6 +31,8 @@ class PrefixMetadata(XavierConnectorMetadata):
 
 
 class PrefixConnector(XavierConnector):
+    _shards_snapshots = False
+
     def __init__(self, vllm_config, role, kv_cache_config, *, cache_config=None):
         super().__init__(vllm_config, role, kv_cache_config)
         if cache_config is not None:
