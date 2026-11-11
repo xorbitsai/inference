@@ -33,6 +33,7 @@ def test_docanalyze_response_preserves_serialized_json(monkeypatch):
     result = [{"type": "text", "text": "document content"}]
     actor = SimpleNamespace(_lock=None, _add_running_task=Mock())
     actor._call_wrapper_inner = MethodType(ModelActor._call_wrapper_inner, actor)
+    actor._track_stream = MethodType(ModelActor._track_stream, actor)
     payload = asyncio.run(
         ModelActor._call_wrapper(actor, "json", AsyncMock(return_value=result))
     )
