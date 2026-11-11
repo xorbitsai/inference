@@ -141,6 +141,12 @@ to local prefill. Model weights, engine KV pools and transfer buffers consume
 additional memory. Xavier P/D instead transfers live KV pages through NIXL;
 see :ref:`user_guide_pd_separation`.
 
+.. versionchanged:: v4.3.0
+
+   With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor parallelism. Give every replica the same ``n_gpu``; ``tensor_parallel_size`` defaults to it. Each rank stores and loads its own share of the KV heads, and a page is reused only once every rank has stored its share. ``num_key_value_heads`` must be divisible by TP, and TP>1 requires the native cache backend. P/D roles still require TP=1. Because chunked prefill is disabled, prompts must fit in ``max_num_tokens``; raise it for long prompts.
+
+   Pages are uploaded in the background with at most 2 GiB in flight per rank; pages beyond that are not shared. Restoring a page through the cache actor can be slower than recomputing it for models with large KV caches, such as dense 8B models on H200. Compare cross-replica TTFT with local prefill before enabling Xavier.
+
 MLX replicas
 ~~~~~~~~~~~~
 
