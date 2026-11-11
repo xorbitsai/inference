@@ -3,6 +3,7 @@ import type { AxiosRequestConfig } from 'axios';
 import { RequestEvents, NO_AUTH } from '@/constants';
 import { eventBus } from '@/lib/event-bus';
 import { requestManager } from '@/lib/request-manager';
+import { validateRequestErrorExtensions } from '@/lib/request-extension-types';
 import { requestErrorExtensions } from '@/lib/request-extensions';
 import { getApiUrl } from '@/lib/utils';
 import {
@@ -145,15 +146,6 @@ requestInstance.interceptors.response.use(
       error.message ||
       'Unknown error';
 
-    const extension = requestErrorExtensions.find((rule) => rule.statuses.includes(status));
-    if (extension) {
-      const release = requestManager.acquireErrorLock(extension.event);
-      if (release) {
-        eventBus.emit(extension.event, { status, message: errorMessage, error, release });
-      }
-      return Promise.reject(error);
-    }
-
     if (status === 429 && !originalRequest?.errorMessages?.[status]) {
       // Keep compatibility with servers that predate the machine-readable header.
       const banCode =
@@ -174,6 +166,18 @@ requestInstance.interceptors.response.use(
         }
         return Promise.reject(error);
       }
+    }
+
+    const extension = validateRequestErrorExtensions(requestErrorExtensions).find((rule) =>
+      rule.statuses.includes(status)
+    );
+    if (extension && status !== 401 && status !== 403 && status !== 499) {
+      if (originalRequest?.suppressGlobalError) return Promise.reject(error);
+      const release = requestManager.acquireErrorLock(extension.event);
+      if (release) {
+        eventBus.emit(extension.event, { status, message: errorMessage, error, release });
+      }
+      return Promise.reject(error);
     }
 
     switch (status) {

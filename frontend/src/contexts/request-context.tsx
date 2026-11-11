@@ -1,6 +1,6 @@
 'use client';
 
-import { PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { Component, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { eventBus } from '@/lib/event-bus';
@@ -11,6 +11,7 @@ import type { AuthBanNotification } from '@/lib/request';
 import { useI18n } from '@/contexts/i18n-context';
 
 import { requestErrorExtensions } from '@/lib/request-extensions';
+import { validateRequestErrorExtensions } from '@/lib/request-extension-types';
 import type { RequestErrorEvent, RequestErrorExtension } from '@/lib/request-extension-types';
 
 function ExtensionListener({ extension }: { extension: RequestErrorExtension }) {
@@ -30,6 +31,7 @@ function ExtensionListener({ extension }: { extension: RequestErrorExtension }) 
           }
         },
       };
+      active.current?.release();
       active.current = current;
       setError(current);
     };
@@ -43,7 +45,7 @@ function ExtensionListener({ extension }: { extension: RequestErrorExtension }) 
   }, [extension.event]);
 
   const Handler = extension.Handler;
-  return <Handler error={error} />;
+  return <Handler event={error} />;
 }
 
 export default function RequestProvider({ children }: PropsWithChildren) {
@@ -106,12 +108,31 @@ export default function RequestProvider({ children }: PropsWithChildren) {
     };
   }, [router, t]);
 
+  return <>{children}</>;
+}
+
+class ExtensionErrorBoundary extends Component<PropsWithChildren, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.error('Request error extension failed', error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/** Mount inside the app providers so extension handlers can use their contexts. */
+export function RequestExtensionHandlers() {
   return (
     <>
-      {requestErrorExtensions.map((extension) => (
-        <ExtensionListener key={extension.event} extension={extension} />
+      {validateRequestErrorExtensions(requestErrorExtensions).map((extension) => (
+        <ExtensionErrorBoundary key={extension.event}>
+          <ExtensionListener extension={extension} />
+        </ExtensionErrorBoundary>
       ))}
-      {children}
     </>
   );
 }

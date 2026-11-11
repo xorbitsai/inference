@@ -221,7 +221,7 @@ const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
     : '-';
 };
 
-const RunningModel = ({ modelUid }: { modelUid?: string } = {}) => {
+const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const { t } = useI18n();
   const router = useRouter();
   const { clusterAuth } = useGlobal();

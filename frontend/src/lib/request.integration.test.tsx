@@ -6,11 +6,13 @@ import axios, { AxiosError } from 'axios';
 // @ts-expect-error -- jsdom has no declarations in this dependency tree.
 import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
+import type { RequestErrorExtension, RequestErrorEvent } from '@/lib/request-extension-types';
 import type { Locale } from '@/types/common';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 Object.assign(globalThis, {
   window: dom.window,
+  Event: dom.window.Event,
   document: dom.window.document,
   localStorage: dom.window.localStorage,
   sessionStorage: dom.window.sessionStorage,
@@ -20,6 +22,7 @@ Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.
 
 let responseHeaders: Record<string, string>;
 let detail: string;
+let responseStatus = 429;
 axios.defaults.adapter = async (config) => {
   throw new AxiosError(
     'Request failed with status code 429',
@@ -29,7 +32,7 @@ axios.defaults.adapter = async (config) => {
     {
       config,
       data: { detail },
-      status: 429,
+      status: responseStatus,
       statusText: 'Too Many Requests',
       headers: responseHeaders,
     }
@@ -45,12 +48,33 @@ const { I18nProvider } =
   require('@/contexts/i18n-context') as typeof import('@/contexts/i18n-context');
 const RequestProvider = require('@/contexts/request-context')
   .default as typeof import('@/contexts/request-context').default;
+const { RequestExtensionHandlers } =
+  require('@/contexts/request-context') as typeof import('@/contexts/request-context');
+const { requestManager } = require('./request-manager') as typeof import('./request-manager');
+const { validateRequestErrorExtensions } =
+  require('./request-extension-types') as typeof import('./request-extension-types');
+const extensions = (require('./request-extensions') as typeof import('./request-extensions'))
+  .requestErrorExtensions as RequestErrorExtension[];
+let received: RequestErrorEvent | null = null;
+function Handler({ event }: { event: RequestErrorEvent | null }) {
+  received = event;
+  return event ? <button onClick={event.release}>release extension</button> : null;
+}
+function register(statuses = [503], event = 'extension:test:unavailable', handler = Handler) {
+  extensions.push({ statuses, event, Handler: handler });
+}
 const request = require('./request').default as typeof import('./request').default;
 let notifications: { message: unknown; options: unknown }[];
 let root: Root;
 let host: HTMLDivElement;
 
-beforeEach(() => {
+beforeEach((context) => {
+  (context as import('node:test').TestContext).mock.timers.enable({ apis: ['setTimeout'] });
+  extensions.length = 0;
+  received = null;
+  responseStatus = 429;
+  requestManager.reset401();
+  requestManager.reset403();
   responseHeaders = { 'x-xinference-error-code': 'ip_banned', 'retry-after': '120' };
   detail = 'Too many failed attempts. IP temporarily banned.';
   notifications = [];
@@ -76,7 +100,10 @@ async function render(locale: Locale = 'zh') {
   await act(async () => {
     root.render(
       <I18nProvider initialLocale={locale}>
-        <RequestProvider>app</RequestProvider>
+        <RequestProvider>
+          <RequestExtensionHandlers />
+          app
+        </RequestProvider>
       </I18nProvider>
     );
   });
@@ -139,3 +166,117 @@ for (const [locale, expected] of [
     assert.match(String(notifications[0].message), /120/);
   });
 }
+
+it('dispatches one extension event, honors suppression and releases on close/unmount', async () => {
+  register();
+  responseStatus = 503;
+  await render();
+  await act(async () => {
+    await assert.rejects(request.get('/models', { suppressGlobalError: true }));
+  });
+  assert.equal(received, null);
+  await act(async () => {
+    await Promise.all([
+      assert.rejects(request.get('/models')),
+      assert.rejects(request.get('/models')),
+    ]);
+  });
+  const first = received!;
+  assert.equal(first.status, 503);
+  assert.equal(notifications.length, 0);
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  assert.equal(received, first);
+  await act(async () => first.release());
+  assert.equal(received, null);
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  assert.notEqual(received, first);
+  await act(async () => root.render(<div>app</div>));
+  const release = requestManager.acquireErrorLock('extension:test:unavailable');
+  assert.ok(release);
+  release();
+});
+it('preserves ban notifications and authentication handling over extensions', async () => {
+  register([401, 403, 429]);
+  await render();
+  await assert.rejects(request.get('/models'));
+  assert.equal(received, null);
+  assert.deepEqual(notifications[0].options, { id: 'auth-ban-ip' });
+  responseStatus = 401;
+  sessionStorage.setItem('token', 'expired');
+  sessionStorage.setItem('refresh_token', 'expired-refresh');
+  await assert.rejects(request.get('/models', { skipAuthRefresh: true }));
+  assert.deepEqual(navigations, ['/login']);
+  assert.equal(sessionStorage.getItem('token'), null);
+  assert.equal(sessionStorage.getItem('refresh_token'), null);
+  assert.equal(received, null);
+  responseStatus = 403;
+  await assert.rejects(request.get('/models'));
+  assert.equal(notifications.at(-1)?.message, 'Server error: 403 No auth');
+  assert.equal(received, null);
+});
+it('allows ordinary 429 extensions after ban detection', async () => {
+  register([429]);
+  responseHeaders = {};
+  detail = 'Model rate limit';
+  await render();
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  assert.equal(received!.message, 'Model rate limit');
+  assert.equal(notifications.length, 0);
+});
+it('expires abandoned locks without allowing stale releases to unlock a new owner', (context) => {
+  const first = requestManager.acquireErrorLock('extension:test:lock')!;
+  assert.equal(requestManager.acquireErrorLock('extension:test:lock'), null);
+  context.mock.timers.tick(30_000);
+  const second = requestManager.acquireErrorLock('extension:test:lock');
+  assert.ok(second);
+  first();
+  assert.equal(requestManager.acquireErrorLock('extension:test:lock'), null);
+  second();
+});
+it('recovers from errors emitted before subscription and toast-only handlers', async (context) => {
+  register();
+  responseStatus = 503;
+  await assert.rejects(request.get('/models'));
+  context.mock.timers.tick(30_000);
+  await render();
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  const first = received;
+  await act(async () => context.mock.timers.tick(30_000));
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  assert.notEqual(received, first);
+});
+it('rejects duplicate and non-namespaced events including built-in names', () => {
+  register();
+  assert.equal(validateRequestErrorExtensions(extensions), extensions);
+  register();
+  assert.throws(() => validateRequestErrorExtensions(extensions), /Duplicate/);
+  extensions.pop();
+  extensions[0].event = 'SERVER_ERROR';
+  assert.throws(() => validateRequestErrorExtensions(extensions), /Invalid/);
+});
+it('isolates a throwing extension and releases its active lock', async () => {
+  register([503], 'extension:test:broken', ({ event }) => {
+    if (event) throw new Error('broken handler');
+    return null;
+  });
+  mock.method(console, 'error', () => {});
+  responseStatus = 503;
+  await render();
+  await act(async () => {
+    await assert.rejects(request.get('/models'));
+  });
+  assert.match(host.textContent!, /app/);
+  const release = requestManager.acquireErrorLock('extension:test:broken');
+  assert.ok(release);
+  release();
+});

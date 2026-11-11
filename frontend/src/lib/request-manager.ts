@@ -6,10 +6,13 @@ class RequestManager {
     if (this.errorLocks.has(event)) return null;
     const owner = Symbol(event);
     this.errorLocks.set(event, owner);
-    return () => {
+    const timer = setTimeout(() => release(), 30_000);
+    const release = () => {
+      clearTimeout(timer);
       // A stale release must never unlock a newer event.
       if (this.errorLocks.get(event) === owner) this.errorLocks.delete(event);
     };
+    return release;
   }
 
   /**

@@ -10,7 +10,7 @@ export interface RequestErrorEvent {
 }
 
 export interface RequestErrorHandlerProps {
-  error: RequestErrorEvent | null;
+  event: RequestErrorEvent | null;
 }
 
 /** Statuses sharing an event also share a lock and a global React handler. */
@@ -18,4 +18,19 @@ export interface RequestErrorExtension {
   statuses: readonly number[];
   event: string;
   Handler: ComponentType<RequestErrorHandlerProps>;
+}
+
+/** Reject ambiguous registrations before dispatching or mounting handlers. */
+export function validateRequestErrorExtensions(extensions: readonly RequestErrorExtension[]) {
+  const events = new Set<string>();
+  for (const extension of extensions) {
+    if (!/^extension:[a-z0-9-]+:[a-z0-9-]+$/.test(extension.event)) {
+      throw new Error('Invalid request extension event: ' + extension.event);
+    }
+    if (events.has(extension.event)) {
+      throw new Error('Duplicate request extension event: ' + extension.event);
+    }
+    events.add(extension.event);
+  }
+  return extensions;
 }
