@@ -4736,10 +4736,17 @@ class RESTfulAPI(CancelMixin):
             else:
                 model_size = ""
 
+            # The uploaded files are passed as image and mask_image below, so
+            # the same names in the extra options must not reach the model.
+            extra_options = {
+                k: v
+                for k, v in parsed_kwargs.items()
+                if k not in ("image", "mask_image")
+            }
             model_params: dict[str, Any] = {
                 "denoising_strength": 0.75,
                 "negative_prompt": " ",
-                **parsed_kwargs,
+                **extra_options,
                 "prompt": prompt,
                 "n": n or 1,
                 "size": model_size,

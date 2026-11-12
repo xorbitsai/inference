@@ -89,3 +89,63 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
         else:
             assert image.mode == "RGB"
             assert image.getpixel((0, 0)) == (255, 255, 255)
+
+
+def _png_upload(filename):
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), (255, 0, 0)).save(buffer, format="PNG")
+    buffer.seek(0)
+    return UploadFile(buffer, filename=filename)
+
+
+@pytest.mark.parametrize(
+    "with_mask, extra_options",
+    [
+        (False, '{"image": null}'),
+        (True, '{"mask_image": null}'),
+    ],
+)
+def test_image_edits_uploaded_files_take_precedence_over_extra_options(
+    monkeypatch, with_mask, extra_options
+):
+    model_ref = SimpleNamespace(
+        image_to_image=AsyncMock(return_value=b'{"data": []}'),
+        inpainting=AsyncMock(return_value=b'{"data": []}'),
+    )
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_name": "Qwen-Image-Edit-2511"})
+    )
+    api = SimpleNamespace(
+        _get_supervisor_ref=AsyncMock(return_value=supervisor),
+        _report_error_event=AsyncMock(),
+        _set_trace_model=Mock(),
+        _set_trace_model_type=Mock(),
+        _check_model_access=Mock(),
+        _add_running_task=Mock(),
+    )
+    monkeypatch.setattr(
+        "xinference.api.restful_api.require_model",
+        AsyncMock(return_value=model_ref),
+    )
+    response = asyncio.run(
+        RESTfulAPI.create_image_edits(
+            api,
+            request=Mock(),
+            prompt="Edit",
+            images=[_png_upload("image.png")],
+            mask=_png_upload("mask.png") if with_mask else None,
+            model="custom-model-uid",
+            n=1,
+            size="original",
+            response_format="b64_json",
+            stream=False,
+            kwargs=extra_options,
+        )
+    )
+
+    assert response.status_code == 200
+    called = model_ref.inpainting if with_mask else model_ref.image_to_image
+    call_kwargs = called.call_args.kwargs
+    assert call_kwargs["image"].size == (8, 8)
+    if with_mask:
+        assert call_kwargs["mask_image"].size == (8, 8)
