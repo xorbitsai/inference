@@ -285,7 +285,10 @@ class Qwen3ASRModel(BatchMixin):
         if response_format not in ("json", "verbose_json"):
             raise ValueError(f"Unsupported response format: {response_format}")
 
-        # qwen_asr takes language names ("Chinese"), not OpenAI's ISO-639-1 codes.
+        # qwen_asr takes language names ("Chinese"), not OpenAI's ISO-639-1 codes,
+        # and treats a blank language as automatic detection.
+        if isinstance(language, str) and not language.strip():
+            language = None
         language = transcription_language(language)
         kw = dict(getattr(self._model_spec, "default_transcription_config", None) or {})
         kw.update(kwargs)

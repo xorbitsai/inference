@@ -174,7 +174,14 @@ async def test_qwen3_asr_groups_model_kwargs_and_survives_cancellation():
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "language, expected",
-    [("zh", "Chinese"), ("en", "English"), ("yue", "Cantonese"), ("auto", None)],
+    [
+        ("zh", "Chinese"),
+        ("en", "English"),
+        ("yue", "Cantonese"),
+        ("auto", None),
+        ("", None),
+        ("   ", None),
+    ],
 )
 async def test_qwen3_asr_accepts_openai_language_codes(language, expected):
     # qwen_asr normalizes the language to "Xxxx" and accepts only the names in
