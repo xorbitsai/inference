@@ -18,7 +18,7 @@ import math
 import mimetypes
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
@@ -118,7 +118,7 @@ class XllamaCppEmbeddingGemma2Model(XllamaCppEmbeddingModel):
         self._dimensions = self._kwargs.get("dimensions")
         validate_dimensions(self._dimensions)
 
-    def _configure_params(self, params: Any) -> None:
+    def _configure_params(self, params: Any, model_path: Optional[str] = None) -> None:
         from xllamacpp import ggml_type, llama_pooling_type
 
         config = self._llamacpp_model_config
