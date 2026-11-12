@@ -1179,18 +1179,37 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     async def abort_request(self, request_id: str) -> str:
         import aiohttp
 
+        # Explicit abort and interrupted-stream cleanup share one native operation.
+        pending = self.__dict__.setdefault("_abort_request_futures", {})
+        if request_id in pending:
+            return await asyncio.shield(pending[request_id])
         if request_id not in self._active_request_ids:
             return "NO_OP"
         assert self._engine is not None
-        async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=5), trust_env=True
-        ) as session:
-            async with session.post(
-                self._engine.url + "/abort_request",
-                json={"rid": request_id},
-                headers=self._engine_headers(),
-            ) as response:
-                response.raise_for_status()
+        future = pending[request_id] = asyncio.get_running_loop().create_future()
+        try:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=5), trust_env=True
+            ) as session:
+                async with session.post(
+                    self._engine.url + "/abort_request",
+                    json={"rid": request_id},
+                    headers=self._engine_headers(),
+                ) as response:
+                    response.raise_for_status()
+        except BaseException as exc:
+            pending.pop(request_id, None)
+            # A joined stream cleanup was not cancelled itself: give it a plain error.
+            future.set_exception(
+                exc
+                if isinstance(exc, Exception)
+                else RuntimeError(
+                    f"Abort of SGLang request {request_id} was interrupted"
+                )
+            )
+            future.exception()  # Also consume failures when there are no joiners.
+            raise
+        future.set_result("DONE")  # Retain success until the active stream is released.
         return "DONE"
 
     def _validate_structured_reasoning(self, thinking: bool) -> None:
@@ -1611,16 +1630,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 completed = True
                 return result
             finally:
-                if not completed:
-                    try:
-                        await self.abort_request(request_id)
-                    except Exception:
-                        logger.warning(
-                            "Failed to abort SGLang request %s",
-                            request_id,
-                            exc_info=True,
-                        )
-                self._active_request_ids.discard(request_id)
+                try:
+                    if not completed:
+                        try:
+                            await self.abort_request(request_id)
+                        except Exception:
+                            logger.warning(
+                                "Failed to abort SGLang request %s",
+                                request_id,
+                                exc_info=True,
+                            )
+                finally:
+                    self._active_request_ids.discard(request_id)
+                    self.__dict__.get("_abort_request_futures", {}).pop(
+                        request_id, None
+                    )
                 if handoff is not None:
                     await release_handoff(handoff, failed=not completed)
                 if pending_handoff is not None:
@@ -1759,16 +1783,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                         yield chunk
                     completed = True
                 finally:
-                    if not completed:
-                        try:
-                            await self.abort_request(request_id)
-                        except Exception:
-                            logger.warning(
-                                "Failed to abort SGLang request %s",
-                                request_id,
-                                exc_info=True,
-                            )
-                    self._active_request_ids.discard(request_id)
+                    try:
+                        if not completed:
+                            try:
+                                await self.abort_request(request_id)
+                            except Exception:
+                                logger.warning(
+                                    "Failed to abort SGLang request %s",
+                                    request_id,
+                                    exc_info=True,
+                                )
+                    finally:
+                        self._active_request_ids.discard(request_id)
+                        self.__dict__.get("_abort_request_futures", {}).pop(
+                            request_id, None
+                        )
                     if handoff is not None:
                         await release_handoff(handoff, failed=not completed)
 

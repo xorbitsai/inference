@@ -130,32 +130,39 @@ class _RealtimeFileStream:
 
 
 class _RequestStream:
-    def __init__(self, stream):
+    def __init__(self, stream, release: Callable[[], None]):
         self.stream = stream
+        self.release = release
         self.entry_task = asyncio.current_task()
         self.task: Optional[asyncio.Task] = None
         self.cancelled = False
+        self.aborting = 0
         self.done = asyncio.Event()
 
     async def abort(self, model, request_id: str):
+        self.aborting += 1
         self.cancelled = True
         task = self.task
         caller = asyncio.current_task()
-        if task is not None and task is not caller:
+        if self.aborting == 1 and task is not None and task is not caller:
             task.cancel()
         try:
             abort = getattr(model, "abort_request", None)
             if abort is not None:
                 await abort(request_id)
         finally:
-            if inspect.isasyncgen(self.stream):
-                if task is not caller:
-                    if self.stream.ag_running:
-                        await self.done.wait()
-                    else:
-                        await self.stream.aclose()
-            elif not self.stream.gi_running:
-                await asyncio.to_thread(self.stream.close)
+            try:
+                if inspect.isasyncgen(self.stream):
+                    if task is not caller:
+                        if self.stream.ag_running:
+                            await self.done.wait()
+                        else:
+                            await self.stream.aclose()
+                elif not self.stream.gi_running:
+                    await asyncio.to_thread(self.stream.close)
+            finally:
+                self.aborting -= 1
+                self.release()
 
 
 def register_batching_multimodal_models(*model_names: str):
@@ -1529,12 +1536,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         ):
             return iterator
         streams = self.__dict__["_request_streams"]
-        state = _RequestStream(iterator)
+        entry_task = asyncio.current_task()
         exhausted = object()
 
         def release():
-            streams.pop(request_id, None)
-            state.done.set()
+            if (
+                state.done.is_set()
+                and not state.aborting
+                and streams.get(request_id) is state
+            ):
+                if self._running_tasks.get(request_id) is entry_task:
+                    self._running_tasks.pop(request_id, None)
+                streams.pop(request_id, None)
+
+        state = _RequestStream(iterator, release)
 
         def sync_stream():
             try:
@@ -1547,6 +1562,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 try:
                     iterator.close()
                 finally:
+                    state.done.set()
                     release()
 
         async def async_stream():
@@ -1556,6 +1572,11 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     state.task = asyncio.current_task()
                     try:
                         item = await anext(iterator, exhausted)
+                    except asyncio.CancelledError:
+                        # An explicit abort is EOF; consumer cancellation propagates.
+                        if not state.aborting:
+                            raise
+                        return
                     finally:
                         state.task = None
                     if item is exhausted or state.cancelled:
@@ -1565,6 +1586,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 try:
                     await iterator.aclose()
                 finally:
+                    state.done.set()
                     release()
 
         if inspect.isasyncgen(iterator):
@@ -1970,6 +1992,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
         stream = self.__dict__.get("_request_streams", {}).get(request_id)
         if stream is not None:
+            # The entry task may now be serving SSE; cancel only the owned read.
+            task = self._running_tasks.get(request_id)
+            if task is not None and task.get_name() != self._CANCEL_TASK_NAME:
+                self._running_tasks.pop(request_id, None)
             self._cancel_running_task(request_id, block_duration)
             await stream.abort(self._model, request_id)
             return AbortRequestMessage.DONE.name
