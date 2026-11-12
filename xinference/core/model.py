@@ -1574,8 +1574,6 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             state.stream = sync_stream()
             next(state.stream)
         streams[request_id] = state
-        if self._running_tasks.get(request_id) is asyncio.current_task():
-            self._running_tasks.pop(request_id, None)
         return state.stream
 
     async def _priority_stream(self, iterator, scheduler, request_id, capacity=None):
