@@ -4147,6 +4147,8 @@ class _RecoverWorkerStub:
     recover_sub_pool call exercises the genuine eviction path.
     """
 
+    _recover_sub_pool = WorkerActor._recover_sub_pool
+
     def __init__(
         self,
         supervisor_ref,

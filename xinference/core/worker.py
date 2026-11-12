@@ -1020,6 +1020,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         ] = None  # type: ignore
         self._pending_cache_inventory_ref = None
         self._pending_control_faults: Dict[str, Dict[str, _ControlFaultModel]] = {}
+        self._recovering_control_faults: Set[str] = set()
         self._retrying_control_faults = False
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
         self._launch_progressors: Dict[str, "Progressor"] = {}
@@ -1392,6 +1393,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @management_operation
     async def recover_sub_pool(self, address):
+        if getattr(self, "_control_fence", None) is None:
+            return await self._recover_sub_pool(address)
+        if address in self._recovering_control_faults:
+            return
+        self._recovering_control_faults.add(address)
+        try:
+            return await self._recover_sub_pool(address)
+        finally:
+            self._recovering_control_faults.discard(address)
+
+    async def _recover_sub_pool(self, address):
         logger.warning("Process %s is down.", address)
         fence = getattr(self, "_control_fence", None)
         pending = None

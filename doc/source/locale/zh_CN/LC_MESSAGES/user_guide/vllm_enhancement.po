@@ -58,8 +58,8 @@ msgid "SGLang replicas"
 msgstr "SGLang 副本"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始适配器支持使用全注意力、未量化 FP16 权重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文本模型；不支持 LoRA、推测解码、混合注意力和多模态输入。"
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。每个副本运行在一个 worker 上；不支持 PP、DP、上下文并行、LoRA 和推测解码。"
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -74,8 +74,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "普通 SGLang 副本共享 CPU HiCache 页面。显式 prefill/decode 角色使用 Xavier GPU 直传。同引擎或跨引擎 P/D 及各副本的引擎配置方式见 :ref:`user_guide_pd_separation`。"
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier 将 BF16 检查点加载为 FP16 并发出警告。权重和 KV 缓存均使用 FP16。"
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "TP=1、使用全注意力的未量化 Qwen2、Qwen3 和 Llama 文本模型共享规范 FP16 页面，跨引擎共享和 P/D 也使用这种页面。Xavier 为这些页面将 BF16 检查点加载为 FP16 并发出警告。"
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package."
+msgstr "张量并行或量化的 Qwen2、Qwen3 和 Llama 模型，以及 DeepSeek-V4 和 V4.1（包括图片输入）改为共享 SGLang 自身的 HiCache 主机内存池，这需要 SGLang >= ``0.5.23``。所有副本必须基于相同的检查点文件、SGLang 版本和缓存设置注册相同的内存池。检查点文件按内容识别，因此首次启动会完整读取每个权重文件一次；摘要按文件缓存。在各张量并行 rank 间复制的 MLA 页面由每个副本写入一次，并由所有张量并行 rank 读取；分片的页面按 rank 分别存储。在 SGLang 上运行 DeepSeek-V4.1 需要 SGLang >= ``0.5.23`` 及其 ``deepseek-recipe`` 包。"
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang 根据主机空闲内存确定每个副本的 HiCache 主机内存池大小，但不会考虑其他副本。除非设置了 ``hicache_ratio``、``hicache_size`` 或 ``hicache_host_memory_fraction``，Xavier 会将 ``hicache_host_memory_fraction`` 设为 ``0.5`` 除以副本数。DeepSeek-V4 的主机内存池无法自动确定大小，而且要镜像数千万个压缩后的设备端 token，因此 Xavier 改为将 ``hicache_ratio`` 设为同样的值。"
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
@@ -245,13 +253,44 @@ msgstr "V1 连接器"
 
 #: ../../source/user_guide/vllm_enhancement.rst:73
 msgid ""
-"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
-"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
-"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
-"model requirements and GPU history settings."
+"The V1 connector requires vLLM >= ``0.21.0``, PP=1 and no LoRA. "
+"Prompt-embedding inputs are unsupported. Versions 0.11 through 0.20 are "
+"unsupported. Use the P/D guide for recurrent model requirements and GPU "
+"history settings."
 msgstr ""
-"V1 连接器要求 vLLM >= ``0.21.0``、TP=1、PP=1，且仅支持无 LoRA 的文本模型。不支持多模态和 prompt "
-"embedding 输入，也不支持 0.11 至 0.20 版本。循环模型要求和 GPU 历史缓存设置请参见 P/D 指南。"
+"V1 连接器要求 vLLM >= ``0.21.0``、PP=1，且不使用 LoRA。不支持 prompt embedding 输入，也不支持 "
+"0.11 至 0.20 版本。循环模型要求和 GPU 历史缓存设置请参见 P/D 指南。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:80
+msgid ""
+"Ordinary replicas that share CPU snapshots (``xavier_gpu_cache_bytes`` and "
+"``xavier_cache_bytes`` unset) can span several GPUs with tensor parallelism "
+"and serve multimodal models. Give every replica the same "
+"``tensor_parallel_size`` and ``n_gpu``. Each TP rank stores and loads its "
+"own shard of a block; a block is shared once all of its shards are stored. "
+"Blocks that cover image placeholders are keyed by the image content. Only "
+"the cache groups that vLLM itself reuses for prefix hits are shared; vLLM "
+"rebuilds per-request state such as sliding windows. These cache groups must "
+"use one block size, so models that mix block sizes are rejected with TP>1 "
+"or multimodal inputs. P/D roles, ``xavier_gpu_cache_bytes``, "
+"``xavier_cache_bytes`` and recurrent models still require TP=1 and "
+"text-only prompts."
+msgstr ""
+"共享 CPU 快照的普通副本（未设置 ``xavier_gpu_cache_bytes`` 和 "
+"``xavier_cache_bytes``）可以通过张量并行跨多张 GPU，并可部署多模态模型。所有副本需使用相同的 "
+"``tensor_parallel_size`` 和 ``n_gpu``。每个 TP rank 存取各自的 block 分片；一个 block "
+"的所有分片都存入后才会被共享。覆盖图片占位符的 block 以图片内容作为缓存键的一部分。只共享 vLLM "
+"自身用于前缀命中的缓存组；滑动窗口等按请求的状态由 vLLM 重建。这些缓存组必须使用同一 block 大小，因此混用多种 block 大小的模型在 "
+"TP>1 或多模态输入下会被拒绝。P/D 角色、``xavier_gpu_cache_bytes``、``xavier_cache_bytes`` "
+"和循环模型仍要求 TP=1 且仅支持文本提示。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:82
+msgid ""
+"With TP>1, do not set ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; "
+"Xavier starts vLLM's multiprocessing executor itself."
+msgstr ""
+"TP>1 时不要设置 ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``；Xavier 会自行启动 vLLM "
+"的多进程执行器。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:86
 msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."

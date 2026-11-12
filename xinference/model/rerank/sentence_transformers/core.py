@@ -428,12 +428,15 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         logger.info("Rerank with kwargs: %s, model: %s", kwargs, self._model)
+        # ``instruction`` is applied to the query text below; it is not an
+        # argument of CrossEncoder.predict() or of the model forward.
+        instruction = kwargs.pop("instruction", None)
 
         sentence_combinations = [
             [
                 preprocess_sentence(
                     pre_query,
-                    kwargs.get("instruction", None),
+                    instruction,
                     self.model_family.model_name,
                 ),
                 doc,
@@ -453,9 +456,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 similarity_scores = []
             else:
                 score_kwargs = dict(kwargs)
-                # The instruction, when supplied, has already been prepended by
-                # preprocess_sentence() while building sentence_combinations.
-                score_kwargs.pop("instruction", None)
                 score_kwargs.setdefault("max_length", self.model_family.max_tokens)
                 similarity_scores = self._model.compute_score(
                     sentence_combinations, **score_kwargs
@@ -560,7 +560,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 sub_docs = documents[i : i + micro_bs]
                 sub_queries = query[i : i + micro_bs]
                 pairs = [
-                    format_instruction(kwargs.get("instruction", None), pre_query, doc)
+                    format_instruction(instruction, pre_query, doc)
                     for doc, pre_query in zip(sub_docs, sub_queries)
                 ]
                 # Tokenize the input texts

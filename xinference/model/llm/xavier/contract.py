@@ -97,7 +97,10 @@ def _asset_digest(path: Path, cache_dir: Optional[Path]) -> str:
 
 
 def fingerprint_files(
-    files: Mapping[str, Path], *, cache_dir: Optional[Path] = None
+    files: Mapping[str, Path],
+    *,
+    cache_dir: Optional[Path] = None,
+    workers: int = 1,
 ) -> str:
     """Hash a complete, adapter-selected asset manifest without local root paths.
 
@@ -105,13 +108,21 @@ def fingerprint_files(
     The adapter must include every relevant weight/tokenizer asset and any custom
     implementation affecting the model. Byte-identical manifests compare equal
     after relocation. Different sharding/serialization conservatively differs.
+    ``workers`` hashes that many files at once, for multi-shard checkpoints.
     """
     if not files or any(not isinstance(name, str) or not name for name in files):
         raise ValueError("A nonempty asset manifest with named files is required")
-    manifest = {}
-    for name, path in sorted(files.items()):
-        manifest[name] = _asset_digest(path, cache_dir)
-    return fingerprint_metadata(manifest)
+    items = sorted(files.items())
+    if workers > 1 and len(items) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(min(workers, len(items))) as pool:
+            digests = list(
+                pool.map(lambda item: _asset_digest(item[1], cache_dir), items)
+            )
+    else:
+        digests = [_asset_digest(path, cache_dir) for _, path in items]
+    return fingerprint_metadata({name: d for (name, _), d in zip(items, digests)})
 
 
 def _require_digest(name: str, value: str) -> None:

@@ -3,6 +3,8 @@ import type { AxiosRequestConfig } from 'axios';
 import { RequestEvents, NO_AUTH } from '@/constants';
 import { eventBus } from '@/lib/event-bus';
 import { requestManager } from '@/lib/request-manager';
+import { validateRequestErrorExtensions } from '@/lib/request-extension-types';
+import { requestErrorExtensions } from '@/lib/request-extensions';
 import { getApiUrl } from '@/lib/utils';
 import {
   getAccessToken,
@@ -33,6 +35,15 @@ interface TokenResponse {
 export interface AuthBanNotification {
   kind: 'ip' | 'key';
   remainingSeconds?: number;
+}
+
+function normalizeExtensionMessage(message: unknown): string {
+  if (typeof message === 'string') return message;
+  try {
+    return JSON.stringify(message) ?? 'Unknown error';
+  } catch {
+    return 'Unknown error';
+  }
 }
 
 const requestInstance = axios.create({
@@ -164,6 +175,23 @@ requestInstance.interceptors.response.use(
         }
         return Promise.reject(error);
       }
+    }
+
+    const extension = validateRequestErrorExtensions(requestErrorExtensions).find((rule) =>
+      rule.statuses.includes(status)
+    );
+    if (extension && status !== 401 && status !== 403 && status !== 499) {
+      if (originalRequest?.suppressGlobalError) return Promise.reject(error);
+      const release = requestManager.acquireErrorLock(extension.event);
+      if (release) {
+        eventBus.emit(extension.event, {
+          status,
+          message: normalizeExtensionMessage(errorMessage),
+          error,
+          release,
+        });
+      }
+      return Promise.reject(error);
     }
 
     switch (status) {

@@ -63,8 +63,8 @@ msgid "SGLang replicas"
 msgstr "Répliques SGLang"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` peut partager le cache KV de préfixe via le backend de stockage HiCache de Xavier. Lancez plusieurs répliques avec ``model_engine=\"SGLang\"`` et ``enable_xavier=True``. L'adaptateur initial prend en charge les modèles textuels Qwen2, Qwen3 et Llama FP16 non quantifiés, avec attention complète et TP=PP=DP=1 ; LoRA, le décodage spéculatif, l'attention hybride et les entrées multimodales ne sont pas pris en charge."
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` peut partager le cache KV des préfixes via le backend de stockage HiCache de Xavier. Lancez plusieurs réplicas avec ``model_engine=\"SGLang\"`` et ``enable_xavier=True``. Chaque réplica s'exécute sur un seul worker ; PP, DP, le parallélisme de contexte, LoRA et le décodage spéculatif ne sont pas pris en charge."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -82,8 +82,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "Les répliques SGLang ordinaires partagent des pages HiCache en CPU. Les rôles explicites de prefill/decode utilisent à la place le transfert GPU à GPU de Xavier. Pour le P/D avec un même moteur ou entre moteurs et les paramètres du moteur par réplique, consultez :ref:`user_guide_pd_separation`."
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier charge les checkpoints BF16 en FP16 et émet un avertissement. Les poids et les caches KV utilisent FP16."
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "Les modèles de texte Qwen2, Qwen3 et Llama non quantifiés, à attention complète et avec TP=1, partagent des pages FP16 canoniques, également utilisées par le partage inter-moteurs et le P/D. Xavier charge les checkpoints BF16 en FP16 pour ces pages et émet un avertissement."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package."
+msgstr "Les modèles Qwen2, Qwen3 et Llama en parallélisme de tenseurs ou quantifiés, ainsi que DeepSeek-V4 et V4.1, y compris avec des images en entrée, partagent à la place les pools hôte HiCache propres à SGLang ; cela nécessite SGLang >= ``0.5.23``. Tous les réplicas doivent enregistrer les mêmes pools à partir des mêmes fichiers de checkpoint, de la même version de SGLang et des mêmes paramètres de cache. Les fichiers de checkpoint sont identifiés par leur contenu ; le premier lancement lit donc chaque fichier de poids une fois, et les empreintes sont mises en cache par fichier. Les pages MLA répliquées sont écrites une fois par réplica et lues par chaque rang de parallélisme de tenseurs ; les pages partitionnées sont stockées par rang. DeepSeek-V4.1 sur SGLang nécessite SGLang >= ``0.5.23`` avec son paquet ``deepseek-recipe``."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang dimensionne le pool hôte HiCache de chaque réplica à partir de la mémoire libre de l'hôte sans tenir compte des autres réplicas. Sauf si ``hicache_ratio``, ``hicache_size`` ou ``hicache_host_memory_fraction`` est défini, Xavier règle ``hicache_host_memory_fraction`` sur ``0.5`` divisé par le nombre de réplicas. Les pools hôte de DeepSeek-V4 ne peuvent pas être dimensionnés automatiquement et reflètent des dizaines de millions de tokens compressés du périphérique ; Xavier règle donc plutôt ``hicache_ratio`` sur la même valeur."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
@@ -278,15 +286,54 @@ msgstr "Connecteur V1"
 
 #: ../../source/user_guide/vllm_enhancement.rst:73
 msgid ""
-"The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only "
-"models and no LoRA. Multimodal and prompt-embedding inputs are unsupported. "
-"Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent "
-"model requirements and GPU history settings."
+"The V1 connector requires vLLM >= ``0.21.0``, PP=1 and no LoRA. "
+"Prompt-embedding inputs are unsupported. Versions 0.11 through 0.20 are "
+"unsupported. Use the P/D guide for recurrent model requirements and GPU "
+"history settings."
 msgstr ""
-"Le connecteur V1 nécessite vLLM >= ``0.21.0``, TP=1, PP=1 et des modèles "
-"texte sans LoRA. Les entrées multimodales et prompt embeddings ne sont pas "
-"pris en charge, ni les versions 0.11 à 0.20. Consultez le guide P/D pour les"
-" modèles récurrents et les réglages de l’historique GPU."
+"Le connecteur V1 nécessite vLLM >= ``0.21.0`` et PP=1, sans LoRA. Les "
+"entrées prompt embeddings ne sont pas prises en charge, ni les versions "
+"0.11 à 0.20. Consultez le guide P/D pour les modèles récurrents et les "
+"réglages de l’historique GPU."
+
+#: ../../source/user_guide/vllm_enhancement.rst:80
+msgid ""
+"Ordinary replicas that share CPU snapshots (``xavier_gpu_cache_bytes`` and "
+"``xavier_cache_bytes`` unset) can span several GPUs with tensor parallelism "
+"and serve multimodal models. Give every replica the same "
+"``tensor_parallel_size`` and ``n_gpu``. Each TP rank stores and loads its "
+"own shard of a block; a block is shared once all of its shards are stored. "
+"Blocks that cover image placeholders are keyed by the image content. Only "
+"the cache groups that vLLM itself reuses for prefix hits are shared; vLLM "
+"rebuilds per-request state such as sliding windows. These cache groups must "
+"use one block size, so models that mix block sizes are rejected with TP>1 "
+"or multimodal inputs. P/D roles, ``xavier_gpu_cache_bytes``, "
+"``xavier_cache_bytes`` and recurrent models still require TP=1 and "
+"text-only prompts."
+msgstr ""
+"Les réplicas ordinaires qui partagent des instantanés CPU "
+"(``xavier_gpu_cache_bytes`` et ``xavier_cache_bytes`` non définis) peuvent "
+"s’étendre sur plusieurs GPU grâce au parallélisme tensoriel et servir des "
+"modèles multimodaux. Donnez à chaque réplica les mêmes "
+"``tensor_parallel_size`` et ``n_gpu``. Chaque rang TP stocke et charge son "
+"propre fragment d’un bloc ; un bloc est partagé une fois tous ses fragments "
+"stockés. Les blocs couvrant des emplacements d’image sont identifiés par le "
+"contenu de l’image. Seuls les groupes de cache que vLLM réutilise lui-même "
+"pour les correspondances de préfixe sont partagés ; vLLM reconstruit l’état "
+"propre à chaque requête, comme les fenêtres glissantes. Ces groupes de "
+"cache doivent utiliser une seule taille de bloc ; les modèles qui mélangent "
+"plusieurs tailles de bloc sont donc refusés avec TP>1 ou des entrées "
+"multimodales. Les rôles P/D, ``xavier_gpu_cache_bytes``, "
+"``xavier_cache_bytes`` et les modèles récurrents exigent toujours TP=1 et "
+"des prompts textuels."
+
+#: ../../source/user_guide/vllm_enhancement.rst:82
+msgid ""
+"With TP>1, do not set ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; "
+"Xavier starts vLLM's multiprocessing executor itself."
+msgstr ""
+"Avec TP>1, ne définissez pas ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp`` "
+"; Xavier démarre lui-même l’exécuteur multiprocessus de vLLM."
 
 #: ../../source/user_guide/vllm_enhancement.rst:86
 msgid "Retained vLLM GPU history, configured with ``xavier_gpu_cache_bytes``."

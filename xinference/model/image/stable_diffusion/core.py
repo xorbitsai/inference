@@ -1266,7 +1266,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             mask_image = model.mask_processor.blur(mask_image, blur_factor=mask_blur)  # type: ignore
 
         if "width" not in kwargs:
-            kwargs["width"], kwargs["height"] = map(int, re.split(r"[^\d]+", size))
+            if size:
+                kwargs["width"], kwargs["height"] = map(int, re.split(r"[^\d]+", size))
+            else:
+                # /v1/images/edits sends an empty size to keep the input's size.
+                kwargs["width"], kwargs["height"] = image.size
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 inpainting requires image's height and width is times of 16

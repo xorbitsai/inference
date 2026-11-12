@@ -1,4 +1,20 @@
 class RequestManager {
+  private errorLocks = new Map<string, symbol>();
+
+  /** Acquire before emitting so concurrent failures produce a single UI action. */
+  acquireErrorLock(event: string): (() => void) | null {
+    if (this.errorLocks.has(event)) return null;
+    const owner = Symbol(event);
+    this.errorLocks.set(event, owner);
+    const timer = setTimeout(() => release(), 30_000);
+    const release = () => {
+      clearTimeout(timer);
+      // A stale release must never unlock a newer event.
+      if (this.errorLocks.get(event) === owner) this.errorLocks.delete(event);
+    };
+    return release;
+  }
+
   /**
    * Is 401 being processed?
    */
@@ -38,5 +54,4 @@ class RequestManager {
   }
 }
 
-export const requestManager =
-  new RequestManager();
+export const requestManager = new RequestManager();

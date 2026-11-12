@@ -485,6 +485,8 @@ async def test_shared_cpu_xavier_avoids_vllm_collective(launch_runtime, engine):
         assert launch["_xavier_cache_config"] == {
             "address": supervisor.address,
             "uid": "xavier-cache-pd",
+            # SGLang splits its HiCache host share among replicas.
+            **({"replicas": 2} if engine == "SGLang" else {}),
         }
         worker.start_transfer_for_vllm.assert_not_awaited()
         worker.launch_rank0_model.assert_not_awaited()
@@ -555,7 +557,8 @@ async def test_trt_pd_invalid_launch_has_no_side_effects(launch_runtime, options
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "model_format,quantization", [("pytorch", None), ("ggufv2", "4bit")]
+    "model_format,quantization",
+    [("pytorch", None), ("fp8", "fp8"), ("ggufv2", "4bit"), ("mlx", "4bit")],
 )
 async def test_single_sglang_replica_uses_shared_xavier(
     launch_runtime, model_format, quantization
@@ -572,8 +575,10 @@ async def test_single_sglang_replica_uses_shared_xavier(
     )
     kwargs["replica_config"] = kwargs["replica_config"][:1]
     kwargs["replica_config"][0].role = None
-    if quantization:
-        with pytest.raises(ValueError, match="unquantized PyTorch"):
+    if model_format in ("ggufv2", "mlx"):
+        # Quantized CUDA checkpoints share SGLang's own host pools; formats
+        # SGLang cannot serve are rejected before any actor is created.
+        with pytest.raises(ValueError, match="FP8, FP4, GPTQ"):
             await supervisor.launch_builtin_model(**kwargs)
         assert not actors
         return
@@ -1602,6 +1607,7 @@ async def test_lmcache_shared_actor_launch_and_cleanup(
             "address": supervisor.address,
             "uid": "xavier-cache-pd",
             "read_timeout": 45,
+            **({"replicas": 2} if engine == "SGLang" else {}),
         }
         assert "xavier_cache_backend" not in launch
         worker.start_transfer_for_vllm.assert_not_awaited()

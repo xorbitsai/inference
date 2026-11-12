@@ -70,10 +70,16 @@ V1 connector
 
 .. versionadded:: v3.4.0
 
-The V1 connector requires vLLM >= ``0.21.0``, TP=1 and PP=1, with text-only
-models and no LoRA. Multimodal and prompt-embedding inputs are unsupported.
+The V1 connector requires vLLM >= ``0.21.0``, PP=1 and no LoRA.
+Prompt-embedding inputs are unsupported.
 Versions 0.11 through 0.20 are unsupported. Use the P/D guide for recurrent
 model requirements and GPU history settings.
+
+.. versionchanged:: v4.3.0
+
+   Ordinary replicas that share CPU snapshots (``xavier_gpu_cache_bytes`` and ``xavier_cache_bytes`` unset) can span several GPUs with tensor parallelism and serve multimodal models. Give every replica the same ``tensor_parallel_size`` and ``n_gpu``. Each TP rank stores and loads its own shard of a block; a block is shared once all of its shards are stored. Blocks that cover image placeholders are keyed by the image content. Only the cache groups that vLLM itself reuses for prefix hits are shared; vLLM rebuilds per-request state such as sliding windows. These cache groups must use one block size, so models that mix block sizes are rejected with TP>1 or multimodal inputs. P/D roles, ``xavier_gpu_cache_bytes``, ``xavier_cache_bytes`` and recurrent models still require TP=1 and text-only prompts.
+
+   With TP>1, do not set ``XINFERENCE_VLLM_EXECUTOR_BACKEND=native_mp``; Xavier starts vLLM's multiprocessing executor itself.
 
 The vLLM GPU transfer path requires NVIDIA GPUs.
 
@@ -107,9 +113,13 @@ SGLang replicas
 
 .. versionadded:: v4.0.0
 
-SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported.
+SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported.
 
-Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16.
+Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning.
+
+Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package.
+
+SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead.
 
 ``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`.
 

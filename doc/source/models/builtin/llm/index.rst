@@ -137,7 +137,7 @@ The following is a list of built-in LLM in Xinference:
      - DeepSeek-V2.5 is an upgraded version that combines DeepSeek-V2-Chat and DeepSeek-Coder-V2-Instruct. The new model integrates the general and coding abilities of the two previous versions.
 
    * - :ref:`deepseek-v3 <models_llm_deepseek-v3>`
-     - chat
+     - chat, tools
      - 163840
      - DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. 
 

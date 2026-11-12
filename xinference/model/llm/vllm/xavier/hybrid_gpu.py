@@ -55,6 +55,8 @@ class XavierHybridTieredConnector(MultiConnector):
 
 
 class XavierHybridGPUConnector(XavierConnector):
+    _shards_snapshots = False
+
     @property
     def requires_kv_delivery(self) -> bool:
         return False

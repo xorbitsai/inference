@@ -180,6 +180,23 @@ class KVSnapshotStore:
         tensors: torch.Tensor,
         logical_dtype: torch.dtype | None = None,
     ):
+        self._stage(layer, keys, tensors, logical_dtype or tensors.dtype, True)
+
+    def stage_owned(
+        self,
+        layer: str,
+        keys: List[int],
+        tensors: List[torch.Tensor],
+        logical_dtype: torch.dtype,
+    ):
+        """Stage host tensors without copying them: the caller gives them up.
+
+        Each tensor must own its storage, so that evicting one block frees
+        it. The caller can then copy outside the actor's event loop.
+        """
+        self._stage(layer, keys, tensors, logical_dtype, False)
+
+    def _stage(self, layer, keys, tensors, logical_dtype, copy):
         pinned = set().union(*self.leases.values()) if self.leases else set()
         for key, tensor in zip(keys, tensors):
             if key not in self.blocks:
@@ -190,8 +207,10 @@ class KVSnapshotStore:
             self.blocks.move_to_end(key)
             # Identical content is immutable, including while a reader holds it.
             if layer not in self.blocks[key]:
-                self.blocks[key][layer] = tensor.clone().contiguous()
-                self.logical_dtypes[key][layer] = logical_dtype or tensors.dtype
+                self.blocks[key][layer] = (
+                    tensor.clone().contiguous() if copy else tensor
+                )
+                self.logical_dtypes[key][layer] = logical_dtype
 
     def stage_packed_blocks(
         self,

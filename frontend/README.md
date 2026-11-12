@@ -59,3 +59,32 @@ Notes on the static export:
   needed.
 - To build a self-contained Node server instead (no static export), use
   `NEXT_OUTPUT=standalone npm run build`.
+
+## Distribution request-error handlers
+
+A distribution can replace src/lib/request-extensions.ts at build time, exporting
+requestErrorExtensions as a readonly RequestErrorExtension array. The community
+registry is empty. Import types from @/lib/request-extension-types and register
+statuses, event, and a React Handler receiving { event } (null while idle).
+Events must be unique and follow extension:<distribution>:<name>, using lowercase
+letters, digits and hyphens in both names. Multiple statuses may share one entry;
+if status lists overlap, the first matching entry wins.
+
+Token refresh runs first. Built-in 401, 403 and client-cancelled 499 handling is
+reserved; authentication-ban 429 responses are detected before extension dispatch.
+Other 429 responses may be handled by extensions. suppressGlobalError skips
+extension dispatch while the request still rejects. Request-specific errorMessages
+supply the event message and preserve the existing 429 ban-message override.
+
+Call event.release() after a toast/action finishes or when a dialog closes. Each
+event shares a lock across concurrent requests. Locks expire after 30 seconds as
+a fallback for missed subscriptions or handlers that forget to release; dialogs
+lasting longer may receive another event. Stale release callbacks cannot unlock a
+newer event. Listener unmount also releases the active event.
+
+RequestExtensionHandlers is mounted inside I18nProvider, GlobalProvider and
+ThemeProvider alongside Toaster in the root layout. Handlers can use those contexts
+and toast APIs, but cannot assume page-local providers exist. Each handler has an
+error boundary: rendering failures disable that handler until remount and leave
+the app running. Custom layouts must retain RequestProvider for built-in events
+and mount RequestExtensionHandlers within the desired app contexts.

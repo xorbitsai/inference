@@ -347,10 +347,21 @@ def test_pd_rejects_decode_radix_cache_at_launch(model_path, role):
         )
 
 
+@pytest.mark.parametrize("option,value", [("tp_size", 2), ("quantization", "awq")])
+def test_pd_keeps_single_pool_requirements(model_path, option, value):
+    # Replica sharing stores SGLang's own host pools; P/D still moves
+    # canonical single-GPU pages and rejects what that contract cannot hold.
+    with pytest.raises(ValueError):
+        configure_xavier(
+            model_path,
+            {option: value},
+            {"address": "worker:1234", "uid": "cache", "role": "decode"},
+        )
+
+
 @pytest.mark.parametrize(
     "option,value",
     [
-        ("tp_size", 2),
         ("pp_size", 2),
         ("dp_size", 2),
         ("nnodes", 2),
@@ -363,7 +374,6 @@ def test_pd_rejects_decode_radix_cache_at_launch(model_path, role):
         ("model_loader_extra_config", '{"custom": true}'),
         ("dtype", "bfloat16"),
         ("kv_cache_dtype", "fp8"),
-        ("quantization", "awq"),
         ("enable_lora", True),
         ("speculative_algorithm", "EAGLE"),
         ("hicache_mem_layout", "page_first"),

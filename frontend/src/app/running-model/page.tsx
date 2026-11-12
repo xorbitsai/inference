@@ -1,6 +1,5 @@
-import RunningModel from '@/components/pages/running-model';
+import RunningModelPageEntry from '@/components/pages/running-model/page-entry';
 
-const RunningModelPages = () => {
-  return <RunningModel />;
-};
-export default RunningModelPages;
+export default function RunningModelPage() {
+  return <RunningModelPageEntry />;
+}
