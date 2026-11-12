@@ -117,6 +117,9 @@ test('a custom Lightning checkpoint requires steps while Lightning is enabled', 
 
   await submit();
   assert.equal(submissions.length, 0);
+  await act(async () => form.setFieldValue('num_inference_steps', 1.5));
+  await submit();
+  assert.equal(submissions.length, 0);
   await act(async () => form.setFieldValue('num_inference_steps', 8));
   await submit();
   assert.equal(submissions[0].num_inference_steps, 8);
