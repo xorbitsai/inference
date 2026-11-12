@@ -16,10 +16,13 @@ logger = logging.getLogger(__name__)
 
 PROTOCOL_VERSION = 1
 
-# These reads resolve routes or poll the current Router configuration. They
-# remain available while management drains and the target rebuilds its registry.
+# These serving calls resolve routes, cancel requests, or poll the current Router
+# configuration. They remain available while management drains and the target
+# rebuilds its registry.
 INFERENCE_READS = {
     "get_model",
+    "get_chat_model",
+    "abort_request",
     "describe_model",
     "describe_running_model",
     "get_model_status",
