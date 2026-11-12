@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -196,8 +197,11 @@ async def _create_streaming_response(
     )
     monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
     api = _new_api()
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_family": "test-family"})
+    )
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     if kind == "completion":
-        api._get_supervisor_ref = AsyncMock()
         body = {
             "model": "completion-model",
             "prompt": "hello",
@@ -205,10 +209,6 @@ async def _create_streaming_response(
             "request_id": "completion-request",
         }
     else:
-        supervisor = SimpleNamespace(
-            describe_model=AsyncMock(return_value={"model_family": "test-family"})
-        )
-        api._get_supervisor_ref = AsyncMock(return_value=supervisor)
         body = {
             "model": "chat-model",
             "messages": [{"role": "user", "content": "hello"}],
@@ -818,3 +818,82 @@ async def test_completion_reports_the_model_error_when_generation_cannot_start(
         assert response.status_code == 500
         assert response.json() == {"detail": "Model is in error state"}
     backend.generate.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["chat", "completion"])
+@pytest.mark.parametrize("failure", ["duplicate", "limit"])
+async def test_rejected_stream_setup_does_not_abort_request_owner(
+    monkeypatch, kind, failure
+):
+    from ...core.utils import CancelMixin
+
+    owner = CancelMixin()
+    request_id = "rejected-request"
+    running_id = request_id if failure == "duplicate" else "other-request"
+    entered, release = asyncio.Event(), asyncio.Event()
+    disconnect_handlers = []
+
+    async def running_request():
+        owner._add_running_task(running_id)
+        entered.set()
+        await release.wait()
+
+    async def last_error(self, model_uid, error):
+        return error
+
+    async def reject(*args, **kwargs):
+        if failure == "duplicate":
+            owner._add_running_task(request_id)
+            pytest.fail("The duplicate request must be rejected")
+        raise RuntimeError("Rate limit reached for the model")
+
+    async def abort(rejected_id):
+        owner._cancel_running_task(rejected_id, block_duration=30)
+        return "DONE"
+
+    monkeypatch.setattr(restful_api.RESTfulAPI, "_get_model_last_error", last_error)
+    monkeypatch.setattr(
+        restful_api,
+        "_observe_sse_disconnect",
+        lambda response, handler: disconnect_handlers.append(handler),
+    )
+
+    first = asyncio.create_task(running_request())
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        response, model, _ = await _create_streaming_response(
+            monkeypatch,
+            kind,
+            None,
+            extra_body={"request_id": request_id},
+        )
+        method = "generate" if kind == "completion" else "chat"
+        getattr(model, method).side_effect = reject
+        model.abort_request.side_effect = abort
+
+        event = await anext(response.body_iterator)
+        assert "error" in json.loads(event["data"])
+        model.abort_request.assert_not_awaited()
+
+        # Disconnect while the error is yielded, before the generator's finally.
+        assert len(disconnect_handlers) == 1
+        await disconnect_handlers[0]({"type": "http.disconnect"})
+        model.abort_request.assert_not_awaited()
+        model.decrease_serve_count.assert_not_awaited()
+        with pytest.raises(StopAsyncIteration):
+            await anext(response.body_iterator)
+        assert not first.done()
+        assert owner._running_tasks[running_id] is first
+
+        if failure == "limit":
+            # Rejected setup must not install an abort block for this fresh ID.
+            owner._add_running_task(request_id)
+            assert owner._running_tasks[request_id] is asyncio.current_task()
+    finally:
+        release.set()
+        tasks = {first, *list(owner._running_tasks.values())}
+        tasks.discard(asyncio.current_task())
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
