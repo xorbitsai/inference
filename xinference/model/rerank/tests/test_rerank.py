@@ -93,6 +93,62 @@ async def test_qwen3_reranker_return_len_counts_input_tokens():
     assert result["meta"]["tokens"] == {"input_tokens": 8, "output_tokens": 8}
 
 
+@pytest.mark.parametrize(
+    "kwargs, expected_query",
+    [
+        ({}, "Query: what is panda?"),
+        (
+            {"instruction": "Instruction: Find the answer. Query: "},
+            "Instruction: Find the answer. Query: what is panda?",
+        ),
+    ],
+)
+async def test_minicpm_reranker_instruction_is_not_passed_to_predict(
+    kwargs, expected_query
+):
+    import asyncio
+
+    import torch
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    class CrossEncoderStub:
+        """Has the keyword arguments of sentence-transformers' CrossEncoder.predict()."""
+
+        def __init__(self):
+            self.calls = []
+
+        def predict(
+            self,
+            sentences,
+            batch_size=32,
+            show_progress_bar=None,
+            activation_fn=None,
+            apply_softmax=False,
+            convert_to_numpy=True,
+            convert_to_tensor=False,
+        ):
+            self.calls.append(sentences)
+            return torch.tensor([0.1, 0.9][: len(sentences)])
+
+    family = BUILTIN_RERANK_MODELS["minicpm-reranker"][0]
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model._model = CrossEncoderStub()
+    documents = ["hi", "The giant panda is a bear species endemic to China."]
+    try:
+        result = await model.rerank(
+            documents, "what is panda?", None, None, True, False, **kwargs
+        )
+    finally:
+        if model._process_batch_task is not None:
+            model._process_batch_task.cancel()
+            await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert model._model.calls == [[[expected_query, doc] for doc in documents]]
+    assert [r["index"] for r in result["results"]] == [1, 0]
+
+
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
 @pytest.mark.parametrize(
     "model_engine",
