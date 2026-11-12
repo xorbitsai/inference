@@ -14,6 +14,7 @@ import xoscar as xo
 
 from ...cache_lifecycle import SessionPrefixPolicy
 from ...contract import KVCacheContract, fingerprint_metadata
+from ..bytes.pools import PoolPageStore
 from ..config import normalize_cache_backend
 from .backend import SnapshotBackend, create_snapshot_backend, read_page_snapshots
 
@@ -55,6 +56,7 @@ class XavierCacheActor(xo.StatelessActor):
         self._handoffs: dict[str, tuple[list[int], float, bool]] = {}
         self._sessions = SessionPrefixPolicy()
         self._session_warmup = None
+        self._pools: Optional[PoolPageStore] = None
 
     def get_cache_sessions(self, session_ids):
         return self._sessions.registry.get(session_ids)
@@ -102,6 +104,8 @@ class XavierCacheActor(xo.StatelessActor):
 
     def configure(self, contract: dict, storage_format: dict) -> str:
         contract_obj = KVCacheContract.from_dict(contract)
+        if self._pools is not None:
+            raise ValueError("Xavier cache already serves a multi-pool layout")
         if storage_format.get("layout") != "layer_first":
             raise ValueError("Unsupported Xavier storage page layout")
         namespace = fingerprint_metadata(
@@ -124,6 +128,37 @@ class XavierCacheActor(xo.StatelessActor):
         )
         self._namespace = namespace
         return namespace
+
+    def configure_pools(self, identity: dict, schema: dict) -> str:
+        """Register an engine host cache made of several page pools.
+
+        SGLang offloads MLA and hybrid models (DeepSeek-V4, for example) as one
+        object per pool and page. Pages are opaque bytes; the engine validates
+        and restores them into its own host pools.
+        """
+        if self._namespace is not None:
+            raise ValueError("Xavier cache already serves a single-pool layout")
+        if self._backend_name != "native":
+            raise ValueError(
+                "Multi-pool Xavier caches currently require the native CPU backend"
+            )
+        if self._pools is None:
+            self._pools = PoolPageStore(self.capacity_bytes)
+        return self._pools.configure(identity, schema)
+
+    def _require_pools(self) -> PoolPageStore:
+        if self._pools is None:
+            raise ValueError("Unregistered Xavier pool namespace")
+        return self._pools
+
+    def put_pool_pages(self, namespace, entries, pages, writer=""):
+        return self._require_pools().put(namespace, entries, pages, writer)
+
+    def get_pool_pages(self, namespace, entries):
+        return self._require_pools().get(namespace, entries)
+
+    def contains_pool_pages(self, namespace, entries):
+        return self._require_pools().contains(namespace, entries)
 
     def _keys(self, namespace, keys, limit=128):
         if self._namespace is None or namespace != self._namespace:
@@ -272,6 +307,13 @@ class XavierCacheActor(xo.StatelessActor):
 
     def get_stats(self):
         self._expire_handoffs()
+        if self._pools is not None:
+            return {
+                **self._pools.get_stats(),
+                "backend": self._backend_name,
+                "imported_pages": self._counts["imported_pages"],
+                "active_handoffs": 0,
+            }
         backend_stats = self._store.get_stats() if self._store else {}
         return {
             **self._counts,

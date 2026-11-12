@@ -597,6 +597,8 @@ jobs:
             xinference/model/llm/sglang/tests/test_runtime.py
             xinference/model/llm/sglang/tests/test_anthropic_controls.py
             xinference/model/llm/sglang/tests/test_reasoning_adapter.py
+            xinference/model/llm/sglang/tests/test_xavier_pools.py
+            xinference/model/llm/sglang/tests/test_deepseek_v41.py
             xinference/model/llm/vllm/tests/test_anthropic_controls.py
             xinference/model/llm/vllm/tests/test_cache_salt.py
             xinference/model/llm/vllm/tests/test_reasoning_adapter.py
