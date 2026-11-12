@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 # CI: linux
 import asyncio
+import itertools
 import pickle
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -12,8 +13,11 @@ import xoscar as xo
 from xinference import extensions
 
 from ..control_session import CONTROL_CONTEXT_KEY, ControlSessionRejected
-from ..supervisor import SupervisorActor
+from ..model import ModelActor
+from ..supervisor import ReplicaInfo, SupervisorActor
 from ..supervisor_control import SupervisorControl, SupervisorControlPort
+from ..supervisor_upgrade import SupervisorGateway
+from ..utils import CancelMixin, build_replica_model_uid
 from ..worker import WorkerActor, _bounded_control_report
 from .test_control_session import command, session, setup_fence
 
@@ -413,6 +417,111 @@ async def test_management_pause_preserves_routes_after_first_activation():
     settings = port.settings()
     settings["example"] = False
     assert owner._system_settings["example"]
+
+
+class ServingModel(ModelActor):
+    """Use production request tracking and abort without a model engine."""
+
+    def __init__(self):
+        xo.StatelessActor.__init__(self)
+        CancelMixin.__init__(self)
+        self._model = SimpleNamespace()
+        self._replica_model_uid = build_replica_model_uid("model", 0)
+        self.entered = asyncio.Event()
+
+    async def __post_create__(self):
+        pass
+
+    async def __pre_destroy__(self):
+        pass
+
+    async def run_request(self, request_id: str) -> None:
+        self._add_running_task(request_id)
+        self.entered.set()
+        await asyncio.Event().wait()
+
+
+class ServingWorker(WorkerActor):
+    def __init__(self, model):
+        xo.StatelessActor.__init__(self)
+        self._model_uid_to_model = {build_replica_model_uid("model", 0): model}
+        self._model_uid_to_model_status = {}
+        self._control_fence, _ = setup_fence()
+
+    async def __post_create__(self):
+        pass
+
+    async def __pre_destroy__(self):
+        pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["get_chat_model", "abort_request"])
+@pytest.mark.parametrize("gate", ["pause", "gateway"])
+async def test_serving_calls_remain_available_during_management(method, gate):
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    running = None
+    try:
+        model = await xo.create_actor(ServingModel, address=pool.external_address)
+        worker = await xo.create_actor(
+            ServingWorker, model, address=pool.external_address
+        )
+        supervisor = await xo.create_actor(
+            InterceptedSupervisor, address=pool.external_address
+        )
+        receiver = pool._actors[supervisor.uid]
+        owner, state, port = controlled_owner()
+        receiver._controller_control = owner._controller_control
+        receiver._pd_model_mapping = {}
+        receiver._model_uid_to_replica_info = {
+            "model": ReplicaInfo(1, itertools.cycle([0]), active_replica_ids=[0])
+        }
+        receiver._replica_model_uid_to_worker = {
+            build_replica_model_uid("model", 0): worker
+        }
+        args, kwargs = (
+            (("model", "key", "reservation"), {})
+            if method == "get_chat_model"
+            else (("model", "active-request"), {"block_duration": 0})
+        )
+        with pytest.raises(ControlSessionRejected, match="fence_pending"):
+            await getattr(supervisor, method)(*args, **kwargs)
+        await port.pause(1)
+        state.phase = "active"
+        await port.resume()
+        if method == "abort_request":
+            running = asyncio.create_task(model.run_request("active-request"))
+            await asyncio.wait_for(pool._actors[model.uid].entered.wait(), 1)
+        target = supervisor
+        if gate == "pause":
+            await port.pause(1)
+            assert not port.status()["ready"]
+            with pytest.raises(ControlSessionRejected, match="fence_pending"):
+                await target.nested_cleanup("model-rep0")
+        else:
+            target = await xo.create_actor(
+                SupervisorGateway, address=pool.external_address
+            )
+            await target.select_supervisor(supervisor)
+            await target.prepare_supervisor_switch()
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(target.nested_cleanup("model-rep0"), 0.1)
+        assert await asyncio.wait_for(target.get_model("model"), 1) == model
+        if method == "abort_request":
+            assert not running.done()
+        result = await asyncio.wait_for(getattr(target, method)(*args, **kwargs), 1)
+        if method == "get_chat_model":
+            assert result == (model, False)
+        else:
+            assert result == {"msg": "DONE"}
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(running, 1)
+            assert running.cancelled()
+    finally:
+        if running is not None:
+            running.cancel()
+            await asyncio.gather(running, return_exceptions=True)
+        await pool.stop()
 
 
 @pytest.mark.asyncio
