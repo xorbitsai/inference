@@ -2827,6 +2827,9 @@ class RESTfulAPI(CancelMixin):
                     await abort_controller.abort()
                     return
                 except Exception as ex:
+                    if iterator is None:
+                        # Failed setup did not acquire a stream to abort.
+                        abort_controller.mark_completed()
                     report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
                     ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Completion stream got an error: %s", ex)
@@ -5630,6 +5633,9 @@ class RESTfulAPI(CancelMixin):
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
                     return
                 except Exception as ex:
+                    if iterator is None:
+                        # Failed setup did not acquire a stream to abort.
+                        abort_controller.mark_completed()
                     report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
                     ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Chat completion stream got an error: %s", ex)
