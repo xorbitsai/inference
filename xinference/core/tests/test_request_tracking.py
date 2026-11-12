@@ -246,3 +246,37 @@ async def test_sglang_joined_abort_survives_first_caller_cancellation(monkeypatc
     with pytest.raises(RuntimeError, match="interrupted"):
         await asyncio.wait_for(joined, 5)
     assert not engine._abort_request_futures
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replacement", [False, True])
+async def test_stream_uid_abort_only_cancels_its_original_request(replacement):
+    actor, _, _ = _streaming_actor("generate", native=True)
+    old = await _start(actor, "generate")
+    current = None
+    try:
+        await anext(old)
+        assert (
+            await actor.abort_request("r", block_duration=0, stream_uid=old._uid)
+            == "DONE"
+        )
+        if replacement:
+            current = await _start(actor, "generate")
+            await anext(current)
+        assert await actor.abort_request("r", stream_uid=old._uid) == "NO_OP"
+        actor._model.abort_request.assert_awaited_once_with("r")
+        assert "r" not in actor._running_tasks or (
+            actor._running_tasks["r"].get_name() != actor._CANCEL_TASK_NAME
+        )
+    finally:
+        await _close(old)
+        if current is not None:
+            await _close(current)
+        blocks = [
+            t
+            for t in actor._running_tasks.values()
+            if t.get_name() == actor._CANCEL_TASK_NAME
+        ]
+        for task in blocks:
+            task.cancel()
+        await asyncio.gather(*blocks, return_exceptions=True)

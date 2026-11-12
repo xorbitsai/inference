@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 import asyncio
 from copy import deepcopy
@@ -260,16 +261,21 @@ async def test_rest_scheduler_identity(actor, runtime, monkeypatch, kind, client
     monkeypatch.setattr(scheduler, "add_request", register)
     method = "generate" if kind == "completion" else "chat"
 
+    stream_uid = None
+    actor.abort_request = AsyncMock(side_effect=actor.abort_request)
+
     async def invoke(*args, **kwargs):
+        nonlocal stream_uid
         result = await getattr(actor, method)(*args, **kwargs)
         result._actor_ref, result._gc_destroy = actor, False
+        stream_uid = result._uid
         return result
 
     model = SimpleNamespace(
         uid=b"tiny",
         is_vllm_backend=AsyncMock(return_value=False),
         is_transformers_batching_enabled=AsyncMock(return_value=True),
-        abort_request=AsyncMock(side_effect=runtime.abort_request),
+        abort_request=actor.abort_request,
         decrease_serve_count=AsyncMock(),
         **{method: invoke},
     )
@@ -300,7 +306,9 @@ async def test_rest_scheduler_identity(actor, runtime, monkeypatch, kind, client
         req.future_or_queue.put_nowait({"choices": []})
         await task
         await response.body_iterator.aclose()
-        model.abort_request.assert_awaited_once_with(effective_id)
+        model.abort_request.assert_awaited_once_with(
+            effective_id, stream_uid=stream_uid
+        )
         assert scheduler._abort_req_ids == {effective_id}
     finally:
         task.cancel()

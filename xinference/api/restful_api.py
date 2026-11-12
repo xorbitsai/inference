@@ -276,6 +276,18 @@ class _SSERequestAbortController:
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
         self._completed = False
+        self._model_iterator: Any = None
+
+    def bind_model_iterator(self, iterator: Any) -> None:
+        # Only ModelActor's tracked streams advertise this marker. Other
+        # streams retain their existing request-ID cancellation path.
+        from xoscar.api import IteratorWrapper
+
+        if (
+            isinstance(iterator, IteratorWrapper)
+            and getattr(iterator, "_xinference_stream_uid", None) == iterator._uid
+        ):
+            self._model_iterator = iterator
 
     def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
         self._body_iterator = body_iterator
@@ -290,7 +302,23 @@ class _SSERequestAbortController:
         if self._completed:
             return
         if self._abort_task is None:
-            operation = self._model.abort_request(self._request_id)
+
+            async def abort_model() -> None:
+                model = self._model
+                kwargs = {}
+                if self._model_iterator is not None:
+                    iterator = self._model_iterator
+                    # The selected model can forward into a serving generation.
+                    # Its iterator identifies the actor that admitted this stream.
+                    model = iterator._actor_ref
+                    if model is None:
+                        model = await xo.actor_ref(
+                            address=iterator._actor_addr, uid=iterator._actor_uid
+                        )
+                    kwargs["stream_uid"] = iterator._uid
+                await model.abort_request(self._request_id, **kwargs)
+
+            operation = abort_model()
             if self._abort_timeout is not None:
                 operation = asyncio.wait_for(operation, timeout=self._abort_timeout)
             self._abort_task = asyncio.create_task(operation)
@@ -2810,6 +2838,7 @@ class RESTfulAPI(CancelMixin):
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
                         raise
+                    abort_controller.bind_model_iterator(iterator)
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
@@ -3524,6 +3553,8 @@ class RESTfulAPI(CancelMixin):
             async def start_streaming_response() -> Response:
                 nonlocal iterator
                 iterator = await model.chat(messages, kwargs, **model_call_kwargs)
+                if abort_controller is not None:
+                    abort_controller.bind_model_iterator(iterator)
                 return response
 
             # Commit SSE headers only after model admission/startup succeeds.
@@ -5620,6 +5651,7 @@ class RESTfulAPI(CancelMixin):
                     )
                     # Admission consumed the reservation before returning the iterator.
                     stream_reservations.pop_all()
+                    abort_controller.bind_model_iterator(iterator)
                     observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),

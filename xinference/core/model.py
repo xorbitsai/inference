@@ -270,6 +270,7 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                         if state.entry_task is asyncio.current_task():
                             state.stream = self._generators[ret._uid]
                             state.entry_task = None
+                            ret._xinference_stream_uid = ret._uid
             except Exception:
                 _error = True
                 raise
@@ -1949,8 +1950,16 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self,
         request_id: str,
         block_duration: int = XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
+        stream_uid: Optional[str] = None,
     ) -> str:
         from ..model.scheduler.core import AbortRequestMessage
+
+        if stream_uid is not None:
+            stream = self.__dict__.get("_request_streams", {}).get(request_id)
+            if stream is None or self._get_request_stream(stream_uid) is not stream:
+                # A disconnected SSE response may outlive an explicit abort and
+                # a replacement with the same ID. Never cancel that replacement.
+                return AbortRequestMessage.NO_OP.name
 
         stream_cancelled = False
         for stream in self.__dict__.get("_realtime_file_streams", ()):

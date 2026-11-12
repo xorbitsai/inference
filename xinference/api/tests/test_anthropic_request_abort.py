@@ -295,7 +295,8 @@ async def test_disconnect_before_first_body_pull_releases_stream(calls, rpc_iter
     await asyncio.wait_for(task, 5)
     assert c.sent[0]["status"] == 200
     assert not c.body_sent.is_set()
-    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
+    c.model.abort_request.assert_awaited_once_with(c.engine_id, **expected)
     c.model.decrease_serve_count.assert_awaited_once()
     if rpc_iterator:
         c.iterator.destroy.assert_awaited_once()
@@ -312,7 +313,8 @@ async def test_handler_cancelled_after_stream_acquisition(calls, rpc_iterator):
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(task, 5)
     assert not c.sent
-    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
+    c.model.abort_request.assert_awaited_once_with(c.engine_id, **expected)
     c.model.decrease_serve_count.assert_awaited_once()
     if rpc_iterator:
         c.iterator.destroy.assert_awaited_once()
@@ -327,7 +329,9 @@ async def test_abort_timeout_still_releases_acquired_stream(
     c = calls(stream=True, block_start=True, rpc_iterator=rpc_iterator)
     entered, cancelled = asyncio.Event(), asyncio.Event()
 
-    async def abort(request_id):
+    async def abort(request_id, **kwargs):
+        expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
+        assert kwargs == expected
         entered.set()
         try:
             await asyncio.Event().wait()
@@ -350,7 +354,8 @@ async def test_abort_timeout_still_releases_acquired_stream(
     c.disconnected.set()
     await wait_for(task, 5)
     assert cancelled.is_set()
-    c.model.abort_request.assert_awaited_once_with(c.engine_id)
+    expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
+    c.model.abort_request.assert_awaited_once_with(c.engine_id, **expected)
     c.model.decrease_serve_count.assert_awaited_once()
     if rpc_iterator:
         c.iterator.destroy.assert_awaited_once()
@@ -419,3 +424,34 @@ async def test_shared_correlation_id_does_not_cancel_other_request(calls):
     second.release.set()
     await asyncio.wait_for(tasks[1], 5)
     first.model.abort_request.assert_awaited_once_with(first.engine_id)
+
+
+async def test_late_anthropic_disconnect_does_not_abort_replacement(calls):
+    old = calls(stream=True, block_send=True, rpc_iterator=True)
+    task = old.start()
+    replacement = calls(stream=True, key="replacement", rpc_iterator=True)
+    engine_abort = old.model._model.abort_request = AsyncMock(return_value="DONE")
+    try:
+        await asyncio.wait_for(old.body_sent.wait(), 3)
+        assert await old.model.abort_request(old.engine_id, block_duration=0) == "DONE"
+        assert not task.done()
+        iterator = await asyncio.create_task(
+            old.model.chat(
+                [{"role": "user", "content": "replacement"}],
+                {"stream": True},
+                request_id=old.engine_id,
+            )
+        )
+        assert await anext(iterator)
+        old.disconnected.set()
+        await asyncio.wait_for(task, 3)
+        replacement.release.set()
+        assert await anext(iterator)
+        engine_abort.assert_awaited_once_with(old.engine_id)
+    finally:
+        old.disconnected.set()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        if replacement.iterator is not None:
+            await replacement.iterator.destroy()
+            await old.model.decrease_serve_count()
