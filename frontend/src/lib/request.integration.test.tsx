@@ -21,7 +21,7 @@ Object.assign(globalThis, {
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
 
 let responseHeaders: Record<string, string>;
-let detail: string;
+let detail: unknown;
 let responseStatus = 429;
 axios.defaults.adapter = async (config) => {
   throw new AxiosError(
@@ -280,3 +280,46 @@ it('isolates a throwing extension and releases its active lock', async () => {
   assert.ok(release);
   release();
 });
+
+for (const [name, validation] of [
+  [
+    'validation array',
+    [{ type: 'missing', loc: ['body', 'model'], msg: 'Field required', input: {} }],
+  ],
+  ['detail object', { code: 'invalid_model', message: 'Invalid model' }],
+  ['numeric detail', 42],
+] as const) {
+  it(
+    'renders a string for ' + name + ' and keeps the handler available for a later event',
+    async () => {
+      register([422, 503], 'extension:test:displayable', ({ event }) => {
+        received = event;
+        return event ? <button onClick={event.release}>{event.message}</button> : null;
+      });
+      responseStatus = 422;
+      responseHeaders = {};
+      detail = validation;
+      await render();
+      let originalError: unknown;
+      await act(async () => {
+        await assert.rejects(request.get('/models'), (error: unknown) => {
+          originalError = error;
+          return true;
+        });
+      });
+      assert.equal(typeof received!.message, 'string');
+      assert.equal(host.querySelector('button')?.textContent, JSON.stringify(validation));
+      assert.equal(received!.error, originalError);
+      assert.deepEqual(received!.error.response?.data, { detail: validation });
+      await act(async () => host.querySelector<HTMLButtonElement>('button')!.click());
+      responseStatus = 503;
+      detail = 'Service temporarily unavailable';
+      await act(async () => {
+        await assert.rejects(request.get('/models'));
+      });
+      assert.equal(host.querySelector('button')?.textContent, detail);
+      assert.equal(received!.status, 503);
+      assert.equal(notifications.length, 0);
+    }
+  );
+}

@@ -37,6 +37,15 @@ export interface AuthBanNotification {
   remainingSeconds?: number;
 }
 
+function normalizeExtensionMessage(message: unknown): string {
+  if (typeof message === 'string') return message;
+  try {
+    return JSON.stringify(message) ?? 'Unknown error';
+  } catch {
+    return 'Unknown error';
+  }
+}
+
 const requestInstance = axios.create({
   baseURL: getApiUrl(),
   timeout: 60000,
@@ -175,7 +184,12 @@ requestInstance.interceptors.response.use(
       if (originalRequest?.suppressGlobalError) return Promise.reject(error);
       const release = requestManager.acquireErrorLock(extension.event);
       if (release) {
-        eventBus.emit(extension.event, { status, message: errorMessage, error, release });
+        eventBus.emit(extension.event, {
+          status,
+          message: normalizeExtensionMessage(errorMessage),
+          error,
+          release,
+        });
       }
       return Promise.reject(error);
     }
