@@ -669,3 +669,136 @@ async def test_admitted_pages_stay_pinned_for_a_slow_rank(
         scheduler.build_connector_meta(SimpleNamespace(new_requests=[]))
         assert (await actor.get_stats())["active_handoffs"] == 0
         await asyncio.to_thread(connector.close_clients)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version", ["1.2.1", NEW])
+async def test_pins_survive_lost_rpcs_until_released(
+    monkeypatch, tmp_path, connector, version
+):
+    from ...xavier.backends.torch import shared_pages
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        # Room for the two shards of one page.
+        actor = await xo.create_actor(
+            XavierCacheActor, 2 * page_bytes, address=pool.external_address, uid="r"
+        )
+        monkeypatch.delenv(CONFIG_ENV, raising=False)
+        monkeypatch.setenv(
+            WORKER_CONFIG_ENV,
+            json.dumps(
+                {
+                    "address": actor.address,
+                    "uid": "r",
+                    "contract": contract.to_dict(),
+                    "tensor_parallel_size": 2,
+                    "engine_version": version,
+                }
+            ),
+        )
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        client = scheduler.client
+        namespace = (await actor.get_stats())["namespace"]
+        key = scheduler._keys(list(range(4)))[0]
+        page = torch.full((page_bytes,), 7, dtype=torch.uint8)
+        await actor.put(namespace, [f"{key}@tp{r}" for r in range(2)], [page] * 2)
+        real = client.rpc
+        faults = {}
+
+        def flaky(method, *args):
+            queued = faults.get(method) or [None]
+            fault = queued.pop(0)
+            if fault == "before":
+                raise TimeoutError(f"{method} did not reach the actor")
+            result = real(method, *args)
+            if fault == "after":
+                raise TimeoutError(f"{method} reply was lost")
+            return result
+
+        monkeypatch.setattr(client, "rpc", flaky)
+
+        async def pins():
+            return (await actor.get_stats())["active_handoffs"]
+
+        serial = iter(range(100))
+
+        stored = []
+
+        async def replace():
+            others = [f"x{next(serial)}-{r}" for r in range(2)]
+            stored[:] = others
+            return await actor.put(namespace, others, [page] * 2)
+
+        request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(5)))
+
+        async def admit():
+            return await asyncio.to_thread(
+                scheduler.get_num_new_matched_tokens, request, 0
+            )
+
+        # 1. The reserve reply is lost: a miss, and the pin is released.
+        faults["reserve_shared" if version == NEW else "reserve_handoff"] = ["after"]
+        assert await admit() == (0, False)
+        assert await pins() == 0
+        # 2. A release that fails keeps the admitted pages pinned until a
+        #    later step retries it.
+        assert await admit() == (4, False)
+        scheduler.update_state_after_alloc(request, [1, 0])
+        scheduler.build_connector_meta(_meta(1, [1, 0], 0, 1))
+        # The release and its immediate retry both fail.
+        faults["release_handoff"] = ["before", "before"]
+        scheduler.build_connector_meta(SimpleNamespace(new_requests=[]))
+        assert await pins() == 1
+        assert await replace() == [False, False]  # Pinned pages cannot go.
+        scheduler.build_connector_meta(SimpleNamespace(new_requests=[]))
+        assert await pins() == 0
+        # 3. A release lost at shutdown: closing releases by owner.
+        request.request_id = 2
+        assert await admit() == (4, False)
+        faults["release_handoff"] = ["before"]
+        scheduler.request_finished(request, [])
+        assert await pins() == 1
+        await asyncio.to_thread(client.close)
+        assert await pins() == 0
+        assert await replace() == [True, True]
+        # A reserve still in flight from the closed owner is refused.
+        method = "reserve_shared" if version == NEW else "reserve_handoff"
+        args = (False,) if version != NEW else ()
+        late = await getattr(actor, method)(
+            namespace, stored, *args, "late", client.writer
+        )
+        assert late is None and await pins() == 0
+        assert await actor.exists(namespace, stored) == 2  # Refused, not missing.
+        await asyncio.to_thread(connector.close_clients)
+
+
+@pytest.mark.asyncio
+async def test_a_reserve_arriving_after_its_release_is_refused(tmp_path, monkeypatch):
+    from ...xavier.backends.torch import shared_pages
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierCacheActor, page_bytes, address=pool.external_address
+        )
+        namespace = await actor.configure(
+            contract.to_dict(), {"layout": "layer_first", "shared_memory": True}
+        )
+        await actor.put(namespace, ["A"], [torch.zeros(page_bytes, dtype=torch.uint8)])
+        await actor.release_handoff("t1")  # The release overtakes the reserve.
+        assert await actor.reserve_shared(namespace, ["A"], "t1", "o") is None
+        assert await actor.reserve_handoff(namespace, ["A"], False, "t1", "o") is None
+        assert (await actor.get_stats())["active_handoffs"] == 0
+        pinned = await actor.reserve_shared(namespace, ["A"], "t2", "o")
+        assert pinned is not None and (await actor.get_stats())["active_handoffs"] == 1

@@ -7,6 +7,7 @@ import hashlib
 import logging
 import time
 import uuid
+from collections import OrderedDict
 from typing import Optional
 
 import torch
@@ -53,6 +54,11 @@ class XavierCacheActor(xo.StatelessActor):
             imported_pages=0,
         )
         self._handoffs: dict[str, tuple[list[int], float, bool]] = {}
+        # Engine-owned pins: the owner that took each, the tickets released
+        # before their reserve arrived, and owners that have shut down.
+        self._pin_owners: dict[str, str] = {}
+        self._cancelled: "OrderedDict[str, None]" = OrderedDict()
+        self._closed_owners: set = set()
         self._sessions = SessionPrefixPolicy()
         self._session_warmup = None
 
@@ -163,26 +169,44 @@ class XavierCacheActor(xo.StatelessActor):
             if deadline <= time.monotonic():
                 self.release_handoff(ticket)
 
-    def reserve_handoff(self, namespace, keys, expires: bool = True):
+    def _owned_pin(self, ticket, owner) -> bool:
+        """Accept an engine-chosen ticket unless it was already cancelled."""
+        if ticket is None:
+            return True
+        if ticket in self._cancelled or owner in self._closed_owners:
+            return False
+        if ticket in self._handoffs:
+            raise ValueError("Xavier pin ticket is already in use")
+        return True
+
+    def reserve_handoff(
+        self, namespace, keys, expires: bool = True, ticket=None, owner=None
+    ):
         """Atomically pin a complete prompt prefix before P acknowledges D.
 
         ``expires=False`` keeps the pin until ``release_handoff``: an admitted
         cache hit whose ranks have yet to read the pages must never lose them.
+        Such callers choose ``ticket`` themselves, so they can release a pin
+        whose reply was lost, and name an ``owner`` for ``release_owner``.
         """
         self._require_native_handoff()
         self._expire_handoffs()
+        if not self._owned_pin(ticket, owner):
+            return None
         storage_keys = self._keys(namespace, keys, limit=4096)
         store = self._store
         assert store is not None  # _keys requires a configured namespace.
         if len(storage_keys) > store.capacity:
             raise ValueError("Xavier CPU cache budget cannot hold this PD prefix")
-        ticket = uuid.uuid4().hex
+        ticket = ticket or uuid.uuid4().hex
         if not store.reserve(ticket, storage_keys):
             return None
         # D releases on completion/cancellation; abandoned router processes are
         # bounded even when no explicit cleanup RPC can reach the store.
         deadline = time.monotonic() + 300 if expires else float("inf")
         self._handoffs[ticket] = (storage_keys, deadline, False)
+        if owner is not None:
+            self._pin_owners[ticket] = owner
         return ticket
 
     def prepare_handoff(self, namespace, keys):
@@ -218,6 +242,12 @@ class XavierCacheActor(xo.StatelessActor):
 
     def release_handoff(self, ticket):
         handoff = self._handoffs.pop(ticket, None)
+        self._pin_owners.pop(ticket, None)
+        if handoff is None:
+            # A reserve may still be on its way: make it fail when it arrives.
+            self._cancelled[ticket] = None
+            while len(self._cancelled) > 65536:
+                self._cancelled.popitem(last=False)
         if self._store is not None:
             self._store.release(ticket)
             if handoff and handoff[2]:
@@ -339,20 +369,34 @@ class XavierCacheActor(xo.StatelessActor):
         self._counts["evicted_pages"] += len(arena.take_evicted())
         return published
 
-    def reserve_shared(self, namespace, keys):
+    def release_owner(self, namespace, owner: str) -> int:
+        """Release every pin of an engine that stopped; refuse its later pins."""
+        self._keys(namespace, [])
+        self._closed_owners.add(owner)
+        tickets = [t for t, o in self._pin_owners.items() if o == owner]
+        for ticket in tickets:
+            self.release_handoff(ticket)
+        return len(tickets)
+
+    def reserve_shared(self, namespace, keys, ticket=None, owner=None):
         """Pin stored pages and return their slots, or None if any is missing.
 
         Engines copy straight from the returned slots, so the pin never
         expires: it lasts until ``release_handoff``, which the admitting
-        scheduler calls once every rank has copied, or when it shuts down.
+        scheduler calls once every rank has copied, or ``release_owner`` when
+        it shuts down. ``ticket`` and ``owner`` work as in ``reserve_handoff``.
         """
         self._expire_handoffs()
         arena = self._shared(namespace)
         storage_keys = self._keys(namespace, keys, 4096)
-        ticket = uuid.uuid4().hex
+        if not self._owned_pin(ticket, owner):
+            return None
+        ticket = ticket or uuid.uuid4().hex
         if not arena.reserve(ticket, storage_keys):
             return None
         self._handoffs[ticket] = (storage_keys, float("inf"), False)
+        if owner is not None:
+            self._pin_owners[ticket] = owner
         self._counts["read_pages"] += len(storage_keys)
         return {"ticket": ticket, "slots": arena.locate(storage_keys)}
 

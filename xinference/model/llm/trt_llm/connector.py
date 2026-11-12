@@ -114,7 +114,8 @@ class XavierClient:
         # finished. Either keeps this writer's slots reserved at shutdown.
         self._writes = 0
         self._writes_lock = threading.Lock()
-        # Read pins this client took and has not released.
+        # Read pins this client may hold: every ticket it sent in a reserve
+        # (whether or not the reply arrived) until a release is acknowledged.
         self._pins: set = set()
         self._ref = None
         self._closed = False
@@ -321,29 +322,42 @@ class XavierClient:
         try:
             pages = self.stored_prefix(sharded) // tp
             while pages:
-                # Pages can be evicted between the lookup and the pin.
-                if self.shared is not None:
-                    pinned = self.rpc(
-                        "reserve_shared", self.namespace, sharded[: pages * tp]
-                    )
-                    if pinned is not None:
-                        self._pins.add(pinned["ticket"])
-                        slots = pinned["slots"]
-                        return (
-                            pages,
-                            pinned["ticket"],
-                            [slots[i * tp : (i + 1) * tp] for i in range(pages)],
+                # Pages can be evicted between the lookup and the pin. The
+                # ticket is chosen here, so a pin whose reply is lost can
+                # still be released.
+                ticket = uuid.uuid4().hex
+                self._pins.add(ticket)
+                try:
+                    if self.shared is not None:
+                        pinned = self.rpc(
+                            "reserve_shared",
+                            self.namespace,
+                            sharded[: pages * tp],
+                            ticket,
+                            self.writer,
                         )
-                else:
-                    ticket = self.rpc(
-                        "reserve_handoff",
-                        self.namespace,
-                        sharded[: pages * tp],
-                        False,
-                    )
-                    if ticket is not None:
-                        self._pins.add(ticket)
+                    else:
+                        pinned = self.rpc(
+                            "reserve_handoff",
+                            self.namespace,
+                            sharded[: pages * tp],
+                            False,
+                            ticket,
+                            self.writer,
+                        )
+                except BaseException:
+                    self.release(ticket)
+                    raise
+                if pinned is not None:
+                    if self.shared is None:
                         return pages, ticket, None
+                    slots = pinned["slots"]
+                    return (
+                        pages,
+                        ticket,
+                        [slots[i * tp : (i + 1) * tp] for i in range(pages)],
+                    )
+                self._pins.discard(ticket)  # The store refused: nothing held.
                 pages = self.stored_prefix(sharded[: pages * tp]) // tp
         except Exception:
             # Nothing has been admitted yet: remote loss can safely be a miss.
@@ -353,12 +367,18 @@ class XavierClient:
         return 0, None, None
 
     def release(self, ticket):
-        self._pins.discard(ticket)
+        """Release a pin; keep the ticket for a retry until acknowledged."""
         try:
             self.rpc("release_handoff", ticket)
         except Exception:
-            # The store also expires abandoned pins.
             logger.warning("Could not release TRT-LLM Xavier pages", exc_info=True)
+        else:
+            self._pins.discard(ticket)
+
+    def retry_releases(self, active=()):
+        """Release pins whose earlier release or reserve reply failed."""
+        for ticket in list(self._pins - set(active)):
+            self.release(ticket)
 
     def read_pinned(self, keys):
         """Read pages that the scheduler pinned for this step."""
@@ -380,8 +400,15 @@ class XavierClient:
     def close(self):
         if not self._closed:
             # The engine has stopped: no rank will read these pins any more.
-            for ticket in list(self._pins):
-                self.release(ticket)
+            # Releasing by owner also covers pins whose reserve reply was
+            # lost, and makes any reserve still in flight fail on arrival.
+            if self._pins and not self.pd_gpu:
+                try:
+                    self.rpc("release_owner", self.namespace, self.writer)
+                except Exception:
+                    logger.warning("Could not release Xavier pins", exc_info=True)
+                else:
+                    self._pins.clear()
             if self.shared is not None and self._writes == 0:
                 # No copy into this client's slots is pending: return the
                 # slots of writes that never completed.
@@ -801,6 +828,11 @@ class XavierConnectorScheduler(KvCacheConnectorScheduler):
         for ticket in self._loading_pins.values():
             self.client.release(ticket)
         self._loading_pins.clear()
+        if getattr(self.client, "_pins", None):
+            # Retry releases that failed, except pins of hits not yet loaded.
+            self.client.retry_releases(
+                pending[2] for pending in self._pending.values() if len(pending) == 4
+            )
         metadata = XavierMetadata()
         # TRT omits newly suspended async loads from new_requests. Allocated
         # decode requests must still reach the worker to start their transfer.
