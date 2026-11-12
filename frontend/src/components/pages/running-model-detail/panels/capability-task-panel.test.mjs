@@ -61,6 +61,73 @@ test('image and video requests apply the selected Lightning mode and its step de
   }
 });
 
+function mountTestDom(t) {
+  const dom = new JSDOM('<div id="root"></div>');
+  const previous = {};
+  for (const [key, value] of Object.entries({
+    window: dom.window,
+    document: dom.window.document,
+    Event: dom.window.Event,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  })) {
+    previous[key] = Object.getOwnPropertyDescriptor(globalThis, key);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+  const root = createRoot(document.getElementById('root'));
+  t.after(async () => {
+    await act(async () => root.unmount());
+    dom.window.close();
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete globalThis[key];
+    }
+  });
+  return { dom, root };
+}
+
+test('a custom Lightning checkpoint requires steps while Lightning is enabled', async (t) => {
+  const { dom, root } = mountTestDom(t);
+  const { Form } = require('@/components/ui/form');
+  const { I18nProvider } = require('@/contexts/i18n-context');
+  const { createForm } = require('@/hooks/use-form');
+  const { TextToVideoPanel } = require('./form-panels.tsx');
+  const form = createForm();
+  const model = { lightning_inference_steps: null };
+  const submissions = [];
+  const initialValues = { prompt: 'test', use_lightning: true, num_inference_steps: '' };
+  await act(async () => {
+    root.render(
+      React.createElement(
+        I18nProvider,
+        null,
+        React.createElement(
+          Form,
+          { form, initialValues, onFinish: (values) => submissions.push(values) },
+          React.createElement(TextToVideoPanel, { form, model })
+        )
+      )
+    );
+  });
+  const submit = () =>
+    act(async () => {
+      document
+        .querySelector('form')
+        .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+  await submit();
+  assert.equal(submissions.length, 0);
+  await act(async () => form.setFieldValue('num_inference_steps', 8));
+  await submit();
+  assert.equal(submissions[0].num_inference_steps, 8);
+  await act(async () => {
+    form.setFieldValue('num_inference_steps', '');
+    form.setFieldValue('use_lightning', false);
+  });
+  await submit();
+  assert.equal(submissions[1].use_lightning, false);
+});
+
 async function mountPanel(
   t,
   {
@@ -70,16 +137,7 @@ async function mountPanel(
     getProgress = async () => ({ progress: 0.5 }),
   } = {}
 ) {
-  const dom = new JSDOM('<div id="root"></div>');
-  const previous = {};
-  for (const [key, value] of Object.entries({
-    window: dom.window,
-    document: dom.window.document,
-    IS_REACT_ACT_ENVIRONMENT: true,
-  })) {
-    previous[key] = Object.getOwnPropertyDescriptor(globalThis, key);
-    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
-  }
+  const { dom, root } = mountTestDom(t);
   const streams = [];
   const errors = [];
   const sleeps = [];
@@ -152,15 +210,6 @@ async function mountPanel(
     compiledModule,
     compiledModule.exports
   );
-  const root = createRoot(document.getElementById('root'));
-  t.after(async () => {
-    await act(async () => root.unmount());
-    dom.window.close();
-    for (const [key, descriptor] of Object.entries(previous)) {
-      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-      else delete globalThis[key];
-    }
-  });
   await act(async () =>
     root.render(
       React.createElement(compiledModule.exports.default, {

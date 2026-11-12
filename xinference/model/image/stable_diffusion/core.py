@@ -1013,9 +1013,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         **kwargs,
     ):
         model = model if model is not None else self._model
-        requested_lightning = kwargs.pop("use_lightning", None)
         use_lightning = resolve_request_lightning(
-            requested_lightning, self._lightning_scheduler is not None
+            kwargs.pop("use_lightning", None), self._lightning_scheduler is not None
         )
         if use_lightning and not kwargs.get("num_inference_steps"):
             if self._lightning_steps is None:
@@ -1061,7 +1060,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             self._request_loras(
                 model,
                 kwargs.pop("loras", None),
-                self._LIGHTNING_ADAPTER_NAME if requested_lightning is True else None,
+                self._LIGHTNING_ADAPTER_NAME if use_lightning else None,
             ),
             self._restore_reference_hooks(model),
         ):

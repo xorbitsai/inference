@@ -162,6 +162,11 @@ function InferenceStepsField({ form, model }: Pick<CapabilityFormProps, 'form' |
       label={t('runningModels.detail.inferenceSteps')}
       normalize={normalizeNumberInput}
       hidden={model.lightning_inference_steps != null && useLightning === true}
+      rules={
+        model.lightning_inference_steps === null && useLightning === true
+          ? [{ required: true, pattern: /^[1-9]\d*$/ }]
+          : undefined
+      }
     >
       <Input type="number" />
     </FormField>

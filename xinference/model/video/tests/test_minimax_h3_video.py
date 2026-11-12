@@ -21,6 +21,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from ....core.exceptions import InvalidModelRequestError
 from .. import diffusers as diffusers_module
 from .. import load_model_family_from_json
 from ..cache_manager import VideoCacheManager
@@ -214,6 +215,17 @@ def test_video_rejects_unsupported_lightning_before_cache(monkeypatch):
         )
 
     assert cache_called is False
+
+
+def test_minimax_h3_rejects_lightning_without_a_loaded_adapter():
+    model = DiffusersVideoModel("base", "/tmp/minimax-h3", _lightning_model_spec())
+
+    def generate(**kwargs):
+        pytest.fail("A request with an unavailable Lightning adapter reached inference")
+
+    model._model = generate
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        model.text_to_video("test", use_lightning=True)
 
 
 def test_minimax_h3_applies_lightning_version_config(monkeypatch):

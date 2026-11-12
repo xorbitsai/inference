@@ -22,6 +22,8 @@ from contextlib import nullcontext
 
 from PIL import ImageOps
 
+from ..lightning import resolve_request_lightning
+
 
 class SDAPIToDiffusersConverter:
     txt2img_identical_args = {
@@ -186,8 +188,11 @@ class SDAPIDiffusionModelMixin:
                 "SD WebUI extensions require a Stable Diffusion or SDXL model"
             )
         kwargs = self._check_kwargs(sd_type, params)
-        if params.get("use_lightning") is not None:
-            kwargs["use_lightning"] = params["use_lightning"]
+        if (use_lightning := params.get("use_lightning")) is not None:
+            adapter_loaded = getattr(self._model_spec, "lightning_model_loaded", False)
+            resolve_request_lightning(use_lightning, adapter_loaded)
+            if adapter_loaded:
+                kwargs["use_lightning"] = use_lightning
         for key in (
             "subseed",
             "subseed_strength",
@@ -231,6 +236,8 @@ class SDAPIDiffusionModelMixin:
             "SDXL",
         ):
             return await self._basic_sdapi_generate(sd_type, params)
+
+        resolve_request_lightning(params.get("use_lightning"), False)
 
         from .lora import process_loras
         from .prompt_converter import gen_prompt_embeds

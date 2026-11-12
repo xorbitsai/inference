@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import dataclasses
 import sys
 import types
@@ -21,6 +23,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from ....core.exceptions import InvalidModelRequestError
 from .. import BUILTIN_IMAGE_MODELS, _install
 from ..engine import SGLangImageModel
 from ..engine import platform as engine_platform
@@ -161,6 +164,7 @@ def test_build_sampling_params(fake_sglang_sampling_params):
             "true_cfg_scale": 1,  # diffusers-only, should be dropped
             "num_inference_steps": 20,
             "seed": 123,
+            "use_lightning": False,
         },
     )
     assert params["prompt"] == "a cat"
@@ -172,6 +176,9 @@ def test_build_sampling_params(fake_sglang_sampling_params):
     assert params["save_output"] is False
     assert params["return_frames"] is True
     assert "true_cfg_scale" not in params
+    assert "use_lightning" not in params
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        model._build_sampling_params("a cat", 2, 512, 768, {"use_lightning": True})
 
 
 @pytest.mark.parametrize(

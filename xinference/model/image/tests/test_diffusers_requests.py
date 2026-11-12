@@ -11,6 +11,7 @@ import pytest
 from PIL import Image
 
 from ....core.exceptions import InvalidModelRequestError
+from ....types import LoRA
 from ..core import match_diffusion
 from ..stable_diffusion.core import DiffusionModel
 
@@ -107,19 +108,25 @@ def test_qwen_image_versions_report_lightning_steps(name):
 
 
 @pytest.fixture
-def qwen_lightning(monkeypatch):
+def qwen_lightning(monkeypatch, request):
     spec = match_diffusion("Qwen-Image")
+    variant = getattr(request, "param", None)
+    fused_style = variant == "fused"
     model = DiffusionModel(
         "test",
         model_spec=spec,
         lightning_model_path="/tmp/local.safetensors",
-        lightning_version="4steps-V1.0-bf16",
+        lightning_version=None if variant == "unknown" else "4steps-V1.0-bf16",
+        lora_model=(
+            [LoRA("style", "/tmp/style.safetensors", 1.0)] if fused_style else None
+        ),
     )
     name = model._LIGHTNING_ADAPTER_NAME
 
     class Layer:
         active_adapters = ["style"]
-        lora_A = {}
+        lora_A = {"style": object()}
+        merged_adapters = ["style"] if fused_style else []
 
         def set_adapter(self, names):
             self.active_adapters = names
@@ -133,10 +140,16 @@ def qwen_lightning(monkeypatch):
         transformer = SimpleNamespace(modules=lambda: [layer])
         scheduler = base_scheduler
 
+        def unload_lora_weights(self):
+            assert layer.merged_adapters == ["style"]
+            layer.lora_A.clear()
+            layer.merged_adapters.clear()
+            layer.set_adapter([])
+
         def load_lora_weights(self, path, adapter_name):
             assert adapter_name == name
             layer.lora_A[adapter_name] = object()
-            layer.active_adapters = ["style", adapter_name]
+            layer.set_adapter([*layer.active_adapters, adapter_name])
 
         def __call__(self, prompt, image=None, mask_image=None, num_inference_steps=50):
             observations.append(
@@ -159,6 +172,50 @@ def qwen_lightning(monkeypatch):
     monkeypatch.setattr(model, "_get_model", lambda *args, **kwargs: model._model)
     monkeypatch.setattr(model, "_process_progressor", Mock())
     return model, observations, before_generate, base_scheduler, lightning_scheduler
+
+
+@pytest.mark.asyncio
+async def test_qwen_rejects_lightning_without_a_loaded_adapter():
+    model = DiffusionModel("base", model_spec=match_diffusion("Qwen-Image"))
+    model._model = Mock()
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        await model.text_to_image("test", use_lightning=True)
+    model._model.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("qwen_lightning", ["unknown"], indirect=True)
+async def test_qwen_requires_steps_for_unrecognized_lightning_checkpoint(
+    qwen_lightning,
+):
+    model, observed, _, base_scheduler, lightning_scheduler = qwen_lightning
+    assert model.model_family.to_description()["lightning_inference_steps"] is None
+    with pytest.raises(InvalidModelRequestError, match="Specify num_inference_steps"):
+        await model.text_to_image("test")
+    await model.text_to_image("test", use_lightning=False, _return_images=True)
+    await model.text_to_image("test", num_inference_steps=8, _return_images=True)
+    assert [(scheduler, steps) for _, scheduler, steps in observed] == [
+        (base_scheduler, 50),
+        (lightning_scheduler, 8),
+    ]
+
+
+@pytest.mark.parametrize("qwen_lightning", ["fused"], indirect=True)
+def test_qwen_detaches_fused_launch_lora_before_loading_lightning(qwen_lightning):
+    model, _, _, _, _ = qwen_lightning
+    (layer,) = model._model.transformer.modules()
+    assert list(layer.lora_A) == [model._LIGHTNING_ADAPTER_NAME]
+    assert layer.merged_adapters == []
+
+
+def test_qwen_launch_default_keeps_lightning_with_request_loras(qwen_lightning):
+    model, _, _, _, _ = qwen_lightning
+    loras = [LoRA("style", "/tmp/style.safetensors", 0.5)]
+    model._request_loras = Mock(return_value=contextlib.nullcontext())
+    model._call_model("url", prompt="test", loras=loras, _return_images=True)
+    model._request_loras.assert_called_once_with(
+        model._model, loras, model._LIGHTNING_ADAPTER_NAME
+    )
 
 
 @pytest.mark.asyncio
@@ -205,17 +262,30 @@ async def test_cancelled_qwen_request_cannot_leak_adapter_state(qwen_lightning):
     model, observed, before_generate, base_scheduler, lightning_scheduler = (
         qwen_lightning
     )
-    entered, finish = threading.Event(), threading.Event()
+    entered, finish, blocked = threading.Event(), threading.Event(), threading.Event()
+    lock = threading.RLock()
+
+    class TrackingLock:
+        def __enter__(self):
+            if not lock.acquire(blocking=False):
+                blocked.set()
+                lock.acquire()
+
+        def __exit__(self, *args):
+            lock.release()
+
+    model._lightning_lock = TrackingLock()
 
     def wait_for_cancel(prompt):
         if prompt == "base":
             entered.set()
-            assert finish.wait(5)
+            assert finish.wait(10)
 
     before_generate.side_effect = wait_for_cancel
     base = asyncio.create_task(
         model.text_to_image("base", use_lightning=False, _return_images=True)
     )
+    lightning = None
     try:
         assert await asyncio.to_thread(entered.wait, 5)
         base.cancel()
@@ -224,10 +294,12 @@ async def test_cancelled_qwen_request_cannot_leak_adapter_state(qwen_lightning):
         lightning = asyncio.create_task(
             model.text_to_image("next", use_lightning=True, _return_images=True)
         )
-        await asyncio.sleep(0)
+        assert await asyncio.to_thread(blocked.wait, 5)
+        before_generate.assert_called_once_with("base")
     finally:
         finish.set()
-    await asyncio.wait_for(lightning, 5)
+        if lightning is not None:
+            await asyncio.wait_for(lightning, 5)
     assert observed == [
         (("style",), base_scheduler, 50),
         (("style", model._LIGHTNING_ADAPTER_NAME), lightning_scheduler, 4),

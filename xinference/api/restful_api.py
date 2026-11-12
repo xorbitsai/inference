@@ -4750,7 +4750,7 @@ class RESTfulAPI(CancelMixin):
             }
             if reference_images:
                 model_params["reference_images"] = reference_images
-            if isinstance(use_lightning, bool):
+            if use_lightning is not None:
                 model_params["use_lightning"] = use_lightning
 
             # DEBUG: Log the number of files and model params before processing

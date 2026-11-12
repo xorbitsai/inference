@@ -875,6 +875,13 @@ class DiffusersVideoModel:
             device=get_available_device()
         ).manual_seed(seed)
 
+    def _base_generate_kwargs(self, kwargs: dict) -> dict:
+        generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
+        generate_kwargs.update(kwargs)
+        resolve_request_lightning(generate_kwargs.pop("use_lightning", None), False)
+        self._process_seed(generate_kwargs)
+        return generate_kwargs
+
     def text_to_video(
         self,
         prompt: str,
@@ -893,9 +900,7 @@ class DiffusersVideoModel:
                 response_format=response_format,
                 **kwargs,
             )
-        generate_kwargs = self._model_spec.default_generate_config.copy()
-        generate_kwargs.update(kwargs)
-        self._process_seed(generate_kwargs)
+        generate_kwargs = self._base_generate_kwargs(kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
         fps = generate_kwargs.pop("fps", 10)
         if num_inference_steps is None:
@@ -932,9 +937,7 @@ class DiffusersVideoModel:
                 response_format=response_format,
                 **kwargs,
             )
-        generate_kwargs = self._model_spec.default_generate_config.copy()
-        generate_kwargs.update(kwargs)
-        self._process_seed(generate_kwargs)
+        generate_kwargs = self._base_generate_kwargs(kwargs)
         if num_inference_steps:
             generate_kwargs["num_inference_steps"] = num_inference_steps
 
@@ -1014,9 +1017,7 @@ class DiffusersVideoModel:
                 response_format=response_format,
                 **kwargs,
             )
-        generate_kwargs = self._model_spec.default_generate_config.copy()
-        generate_kwargs.update(kwargs)
-        self._process_seed(generate_kwargs)
+        generate_kwargs = self._base_generate_kwargs(kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
         if num_inference_steps:
             generate_kwargs["num_inference_steps"] = num_inference_steps
