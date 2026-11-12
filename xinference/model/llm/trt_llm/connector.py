@@ -110,8 +110,12 @@ class XavierClient:
         self._evictions = None
         # Identifies this client's pending shared-memory writes in the store.
         self.writer = uuid.uuid4().hex
+        # Writes in progress, plus writes whose copies could not be confirmed
+        # finished. Either keeps this writer's slots reserved at shutdown.
         self._writes = 0
         self._writes_lock = threading.Lock()
+        # Read pins this client took and has not released.
+        self._pins: set = set()
         self._ref = None
         self._closed = False
         ready = threading.Event()
@@ -323,6 +327,7 @@ class XavierClient:
                         "reserve_shared", self.namespace, sharded[: pages * tp]
                     )
                     if pinned is not None:
+                        self._pins.add(pinned["ticket"])
                         slots = pinned["slots"]
                         return (
                             pages,
@@ -331,9 +336,13 @@ class XavierClient:
                         )
                 else:
                     ticket = self.rpc(
-                        "reserve_handoff", self.namespace, sharded[: pages * tp]
+                        "reserve_handoff",
+                        self.namespace,
+                        sharded[: pages * tp],
+                        False,
                     )
                     if ticket is not None:
+                        self._pins.add(ticket)
                         return pages, ticket, None
                 pages = self.stored_prefix(sharded[: pages * tp]) // tp
         except Exception:
@@ -344,6 +353,7 @@ class XavierClient:
         return 0, None, None
 
     def release(self, ticket):
+        self._pins.discard(ticket)
         try:
             self.rpc("release_handoff", ticket)
         except Exception:
@@ -369,6 +379,9 @@ class XavierClient:
 
     def close(self):
         if not self._closed:
+            # The engine has stopped: no rank will read these pins any more.
+            for ticket in list(self._pins):
+                self.release(ticket)
             if self.shared is not None and self._writes == 0:
                 # No copy into this client's slots is pending: return the
                 # slots of writes that never completed.
@@ -536,6 +549,7 @@ def _store_shared(client, keys, copy, synchronize, hints=None):
     pages = client.pages()
     evictions = client.evictions()
     client.writing(1)
+    drained = True
     try:
         slots = []
         for offset in range(0, len(keys), 4096):
@@ -556,7 +570,9 @@ def _store_shared(client, keys, copy, synchronize, hints=None):
             try:
                 synchronize()
             except BaseException:
-                # A copy may still be in flight: keep the slots reserved.
+                # A copy may still be in flight: keep the slots reserved, and
+                # keep counting the write so shutdown does not release them.
+                drained = False
                 logger.warning(
                     "Could not drain Xavier shared-memory writes", exc_info=True
                 )
@@ -570,7 +586,8 @@ def _store_shared(client, keys, copy, synchronize, hints=None):
             )
         return slots
     finally:
-        client.writing(-1)
+        if drained:
+            client.writing(-1)
 
 
 def _commit_shared(client, keys, written, ok):

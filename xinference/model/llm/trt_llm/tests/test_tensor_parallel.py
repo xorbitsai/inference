@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -398,7 +399,7 @@ def test_staged_publication_copies_pages_after_the_engine_stream(connector, tmp_
 
     def rpc(method, namespace, keys, *args):
         if method == "allocate_shared":
-            slots = arena.allocate([hash(key) for key in keys])
+            slots = arena.allocate([hash(key) for key in keys], *args)
             allocated.update(zip(keys, slots))
             return slots
         assert method == "commit_shared"
@@ -406,7 +407,14 @@ def test_staged_publication_copies_pages_after_the_engine_stream(connector, tmp_
         assert ok
         return arena.commit([hash(key) for key in keys], slots)
 
-    client = SimpleNamespace(namespace="ns", rpc=rpc, pages=lambda: arena.pages)
+    client = SimpleNamespace(
+        namespace="ns",
+        rpc=rpc,
+        writer="w",
+        pages=lambda: arena.pages,
+        evictions=lambda: arena.evictions,
+        writing=lambda delta: None,
+    )
     writer = connector._StagedWriter(client, pool, budget=2 * page_bytes)
     try:
         stream = torch.cuda.Stream()
@@ -544,3 +552,120 @@ def test_stored_hints_expire_on_eviction_and_age(connector, monkeypatch):
     assert hints.unknown(["a"], 6) == ["a"]  # Too old.
     hints.add(["x", "y", "z"], 6)
     assert hints.unknown(["x", "y", "z"], 6) == ["x"]  # Bounded size.
+
+
+@pytest.mark.asyncio
+async def test_undrained_writes_keep_their_slots_after_client_shutdown(
+    monkeypatch, tmp_path, connector
+):
+    from ...xavier.backends.torch import shared_pages
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        # A single slot: whoever reuses it would overwrite the stalled copy.
+        actor = await xo.create_actor(
+            XavierCacheActor, page_bytes, address=pool.external_address, uid="w"
+        )
+        config = {
+            "address": actor.address,
+            "uid": "w",
+            "contract": contract.to_dict(),
+            "engine_version": NEW,
+        }
+        first, second = [
+            await asyncio.to_thread(connector.XavierClient, config) for _ in range(2)
+        ]
+        pending = []
+
+        def deferred(index, target):
+            pending.append(target)  # The copy has not run yet.
+
+        def lost():
+            raise RuntimeError("device lost")
+
+        with pytest.raises(RuntimeError):
+            await asyncio.to_thread(
+                connector._store_shared, first, ["A"], deferred, lost
+            )
+        await asyncio.to_thread(first.close)
+        # The first writer never confirmed its copy: its slot stays reserved.
+        assert await asyncio.to_thread(
+            second.rpc, "allocate_shared", second.namespace, ["B"], second.writer
+        ) == [None]
+        pending[0].fill_(7)  # The stalled copy lands harmlessly.
+        await asyncio.to_thread(second.close)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version", ["1.2.1", NEW])
+async def test_admitted_pages_stay_pinned_for_a_slow_rank(
+    monkeypatch, tmp_path, connector, version
+):
+    from ...xavier.backends.torch import shared_pages, storage
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        # Room for exactly the two shards of one page.
+        actor = await xo.create_actor(
+            XavierCacheActor, 2 * page_bytes, address=pool.external_address, uid="p"
+        )
+        monkeypatch.delenv(CONFIG_ENV, raising=False)
+        monkeypatch.setenv(
+            WORKER_CONFIG_ENV,
+            json.dumps(
+                {
+                    "address": actor.address,
+                    "uid": "p",
+                    "contract": contract.to_dict(),
+                    "tensor_parallel_size": 2,
+                    "engine_version": version,
+                }
+            ),
+        )
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        ranks = []
+        for rank in range(2):
+            monkeypatch.setattr(connector, "_local_rank", lambda rank=rank: rank)
+            worker = await asyncio.to_thread(connector.XavierConnectorWorker, None)
+            worker.register_kv_caches(torch.zeros(2, 1, 2, 8, dtype=torch.bfloat16))
+            ranks.append(worker)
+        namespace = (await actor.get_stats())["namespace"]
+        key = scheduler._keys(list(range(4)))[0]
+        shards = [f"{key}@tp{rank}" for rank in range(2)]
+        await actor.put(
+            namespace, shards, [torch.full((page_bytes,), 7, dtype=torch.uint8)] * 2
+        )
+        request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(5)))
+        assert await asyncio.to_thread(
+            scheduler.get_num_new_matched_tokens, request, 0
+        ) == (4, False)
+        scheduler.update_state_after_alloc(request, [1, 0])
+        metadata = scheduler.build_connector_meta(_meta(1, [1, 0], 0, 1))
+        ranks[0].bind_connector_meta(metadata)
+        await asyncio.to_thread(ranks[0].start_load_kv, None)
+        # Rank 1 stalls past every handoff deadline while another replica
+        # publishes; the admitted pages must not be evicted under it.
+        later = time.monotonic() + 3600
+        monkeypatch.setattr(storage.time, "monotonic", lambda: later)
+        others = [f"other@tp{rank}" for rank in range(2)]
+        await actor.put(
+            namespace, others, [torch.full((page_bytes,), 99, dtype=torch.uint8)] * 2
+        )
+        ranks[1].bind_connector_meta(metadata)
+        await asyncio.to_thread(ranks[1].start_load_kv, None)
+        for worker in ranks:
+            assert worker.pool[1].view(torch.uint8).unique().tolist() == [7]
+        # The next scheduler step follows every rank's copy and releases.
+        scheduler.build_connector_meta(SimpleNamespace(new_requests=[]))
+        assert (await actor.get_stats())["active_handoffs"] == 0
+        await asyncio.to_thread(connector.close_clients)

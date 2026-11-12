@@ -163,19 +163,26 @@ class XavierCacheActor(xo.StatelessActor):
             if deadline <= time.monotonic():
                 self.release_handoff(ticket)
 
-    def reserve_handoff(self, namespace, keys):
-        """Atomically pin a complete prompt prefix before P acknowledges D."""
+    def reserve_handoff(self, namespace, keys, expires: bool = True):
+        """Atomically pin a complete prompt prefix before P acknowledges D.
+
+        ``expires=False`` keeps the pin until ``release_handoff``: an admitted
+        cache hit whose ranks have yet to read the pages must never lose them.
+        """
         self._require_native_handoff()
         self._expire_handoffs()
         storage_keys = self._keys(namespace, keys, limit=4096)
-        if len(storage_keys) > self._store.capacity:
+        store = self._store
+        assert store is not None  # _keys requires a configured namespace.
+        if len(storage_keys) > store.capacity:
             raise ValueError("Xavier CPU cache budget cannot hold this PD prefix")
         ticket = uuid.uuid4().hex
-        if not self._store.reserve(ticket, storage_keys):
+        if not store.reserve(ticket, storage_keys):
             return None
         # D releases on completion/cancellation; abandoned router processes are
         # bounded even when no explicit cleanup RPC can reach the store.
-        self._handoffs[ticket] = (storage_keys, time.monotonic() + 300, False)
+        deadline = time.monotonic() + 300 if expires else float("inf")
+        self._handoffs[ticket] = (storage_keys, deadline, False)
         return ticket
 
     def prepare_handoff(self, namespace, keys):
@@ -333,14 +340,19 @@ class XavierCacheActor(xo.StatelessActor):
         return published
 
     def reserve_shared(self, namespace, keys):
-        """Pin stored pages and return their slots, or None if any is missing."""
+        """Pin stored pages and return their slots, or None if any is missing.
+
+        Engines copy straight from the returned slots, so the pin never
+        expires: it lasts until ``release_handoff``, which the admitting
+        scheduler calls once every rank has copied, or when it shuts down.
+        """
         self._expire_handoffs()
         arena = self._shared(namespace)
         storage_keys = self._keys(namespace, keys, 4096)
         ticket = uuid.uuid4().hex
         if not arena.reserve(ticket, storage_keys):
             return None
-        self._handoffs[ticket] = (storage_keys, time.monotonic() + 300, False)
+        self._handoffs[ticket] = (storage_keys, float("inf"), False)
         self._counts["read_pages"] += len(storage_keys)
         return {"ticket": ticket, "slots": arena.locate(storage_keys)}
 
