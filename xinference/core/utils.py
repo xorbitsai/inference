@@ -970,7 +970,7 @@ class CancelMixin:
         if request_id is None:
             return
         running_task = self._running_tasks.get(request_id)
-        if running_task is not None:
+        if running_task is not None and not running_task.done():
             if running_task.get_name() == self._CANCEL_TASK_NAME:
                 raise Exception(f"The request has been aborted: {request_id}")
             raise Exception(f"Duplicate request id: {request_id}")
