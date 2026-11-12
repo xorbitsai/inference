@@ -175,16 +175,7 @@ async def test_invalid_lightning_request_returns_http_400(
     assert generate.await_args.kwargs["use_lightning"] is True
 
 
-@pytest.mark.parametrize(
-    "with_mask, extra_options",
-    [
-        (False, '{"image": null}'),
-        (True, '{"mask_image": null}'),
-    ],
-)
-def test_image_edits_uploaded_files_take_precedence_over_extra_options(
-    monkeypatch, with_mask, extra_options
-):
+def _run_image_edits_with_extra_options(monkeypatch, with_mask, extra_options):
     model_ref = SimpleNamespace(
         image_to_image=AsyncMock(return_value=b'{"data": []}'),
         inpainting=AsyncMock(return_value=b'{"data": []}'),
@@ -223,7 +214,35 @@ def test_image_edits_uploaded_files_take_precedence_over_extra_options(
 
     assert response.status_code == 200
     called = model_ref.inpainting if with_mask else model_ref.image_to_image
-    call_kwargs = called.call_args.kwargs
+    return called.call_args.kwargs
+
+
+@pytest.mark.parametrize(
+    "with_mask, extra_options",
+    [
+        (False, '{"image": null}'),
+        (True, '{"mask_image": null}'),
+    ],
+)
+def test_image_edits_uploaded_files_take_precedence_over_extra_options(
+    monkeypatch, with_mask, extra_options
+):
+    call_kwargs = _run_image_edits_with_extra_options(
+        monkeypatch, with_mask, extra_options
+    )
+
     assert call_kwargs["image"].size == (8, 8)
     if with_mask:
         assert call_kwargs["mask_image"].size == (8, 8)
+
+
+@pytest.mark.parametrize("with_mask", [False, True])
+def test_image_edits_form_n_sets_the_image_count(monkeypatch, with_mask):
+    # The Diffusers adapters pass n as num_images_per_prompt, so the same key
+    # in the extra options would be a duplicate keyword argument.
+    call_kwargs = _run_image_edits_with_extra_options(
+        monkeypatch, with_mask, '{"num_images_per_prompt": 1}'
+    )
+
+    assert call_kwargs["n"] == 1
+    assert "num_images_per_prompt" not in call_kwargs

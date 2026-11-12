@@ -377,6 +377,25 @@ def test_image_edit_uploaded_image_wins_over_an_image_option(edit_client):
     assert calls.edits[0]["image"].size == (64, 48)
 
 
+def test_image_edit_form_n_sets_the_image_count(edit_client):
+    # The form's n is the image count; num_images_per_prompt in the extra
+    # options must not reach the model, where n already becomes that keyword.
+    handle, calls = edit_client
+    buffer = BytesIO()
+    Image.new("RGB", (64, 48)).save(buffer, format="PNG")
+
+    handle.image_edit(
+        images=buffer.getvalue(),
+        prompt="Edit",
+        n=1,
+        response_format="b64_json",
+        num_images_per_prompt=1,
+    )
+
+    assert calls.edits[0]["n"] == 1
+    assert "num_images_per_prompt" not in calls.edits[0]
+
+
 @pytest.mark.parametrize("prompt", [[], ["Edit", "Another edit"]])
 def test_edit_rejects_batched_prompts(loaded_model, prompt):
     model, calls = loaded_model
