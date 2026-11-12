@@ -3,11 +3,17 @@
 """Configure TRT-LLM shared caching and Xavier GPU P/D."""
 
 import json
+import logging
 import os
+import threading
+import time
+import uuid
 from dataclasses import replace
 from pathlib import Path
 
 from ..xavier.pd_contract import build_pd_contract
+
+logger = logging.getLogger(__name__)
 
 CONFIG_ENV = "XINFERENCE_TRTLLM_XAVIER_CONFIG"
 # TRT's MPI pool forwards only TRTLLM*/TLLM* variables to tensor-parallel ranks.
@@ -151,6 +157,10 @@ def configure_xavier(
     # The connector receives only the native engine arguments.
     if tensor_parallel > 1:
         cache_config["tensor_parallel_size"] = tensor_parallel
+    if ordinary:
+        # Identifies this replica's read pins in the shared store, for every
+        # rank and for the model process, which outlives the engine.
+        cache_config["owner"] = uuid.uuid4().hex
     worker_config = json.dumps(
         {
             **cache_config,
@@ -165,3 +175,48 @@ def configure_xavier(
         os.environ[WORKER_CONFIG_ENV] = worker_config
     else:
         os.environ.pop(WORKER_CONFIG_ENV, None)
+
+
+def release_owner(cache_config: dict, attempts: int = 3, delay: float = 1.0) -> bool:
+    """Release a stopped replica's read pins in the shared cache store.
+
+    Pins never expire, so cleanup must not depend on a single RPC. This runs
+    in the model process after the engine stopped, including tensor-parallel
+    ranks that exited without closing their clients. Releasing is idempotent.
+    """
+    owner = cache_config.get("owner")
+    if not owner:
+        return True
+    released = threading.Event()
+
+    def run():
+        import asyncio
+
+        import xoscar as xo
+
+        async def call():
+            ref = await xo.actor_ref(
+                address=cache_config["address"], uid=cache_config["uid"]
+            )
+            await ref.release_owner(None, owner)
+
+        loop = asyncio.new_event_loop()
+        try:
+            for attempt in range(attempts):
+                try:
+                    loop.run_until_complete(asyncio.wait_for(call(), timeout=10))
+                except Exception:
+                    logger.warning("Could not release Xavier pins", exc_info=True)
+                    if attempt + 1 < attempts:
+                        time.sleep(delay)
+                else:
+                    released.set()
+                    return
+        finally:
+            loop.close()
+
+    # The caller may run inside an event loop; use a thread with its own.
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    thread.join()
+    return released.is_set()

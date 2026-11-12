@@ -245,6 +245,13 @@ class TRTLLMModel(LLM, ChatModelMixin):
                 connector = sys.modules.get("xinference.model.llm.trt_llm.connector")
                 if connector is not None:
                     connector.close_clients()
+                config = getattr(self, "_xavier_cache_config", None) or {}
+                if config.get("owner"):
+                    from .xavier import release_owner
+
+                    # Ranks may exit without closing their clients; the
+                    # engine has stopped, so no rank reads these pins.
+                    release_owner(config)
 
     async def release_pd_request(self, request_id: str) -> None:
         if self._pd is not None:

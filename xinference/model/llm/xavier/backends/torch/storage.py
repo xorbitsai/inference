@@ -370,8 +370,13 @@ class XavierCacheActor(xo.StatelessActor):
         return published
 
     def release_owner(self, namespace, owner: str) -> int:
-        """Release every pin of an engine that stopped; refuse its later pins."""
-        self._keys(namespace, [])
+        """Release every pin of an engine that stopped; refuse its later pins.
+
+        Idempotent. ``namespace`` may be None: owners are unique, and the
+        process that cleans up after an engine may not know the namespace.
+        """
+        if namespace is not None:
+            self._keys(namespace, [])
         self._closed_owners.add(owner)
         tickets = [t for t, o in self._pin_owners.items() if o == owner]
         for ticket in tickets:

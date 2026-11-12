@@ -802,3 +802,100 @@ async def test_a_reserve_arriving_after_its_release_is_refused(tmp_path, monkeyp
         assert (await actor.get_stats())["active_handoffs"] == 0
         pinned = await actor.reserve_shared(namespace, ["A"], "t2", "o")
         assert pinned is not None and (await actor.get_stats())["active_handoffs"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tp, version, cleanup",
+    [
+        (1, NEW, "close"),
+        (2, NEW, "close"),
+        (2, "1.2.1", "close"),
+        (2, NEW, "model"),
+        (2, "1.2.1", "model"),
+    ],
+)
+async def test_owner_cleanup_is_retried_after_the_replica_stops(
+    monkeypatch, tmp_path, connector, tp, version, cleanup
+):
+    from ...xavier.backends.torch import shared_pages
+    from ..xavier import release_owner
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierCacheActor, tp * page_bytes, address=pool.external_address, uid="o"
+        )
+        cache_config = {
+            "address": actor.address,
+            "uid": "o",
+            "contract": contract.to_dict(),
+            "tensor_parallel_size": tp,
+            "engine_version": version,
+            "owner": "replica-a",
+        }
+        monkeypatch.delenv(CONFIG_ENV, raising=False)
+        monkeypatch.setenv(WORKER_CONFIG_ENV, json.dumps(cache_config))
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        client = scheduler.client
+        namespace = (await actor.get_stats())["namespace"]
+        key = scheduler._keys(list(range(4)))[0]
+        shards = [connector.shard_key(key, r, tp) for r in range(tp)]
+        page = torch.full((page_bytes,), 7, dtype=torch.uint8)
+        await actor.put(namespace, shards, [page] * tp)
+        request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(5)))
+        assert await asyncio.to_thread(
+            scheduler.get_num_new_matched_tokens, request, 0
+        ) == (4, False)
+        assert (await actor.get_stats())["active_handoffs"] == 1
+
+        # The replica stops while the store is unreachable.
+        real = client.rpc
+        reachable = [False]
+
+        def flaky(method, *args):
+            if not reachable[0] and method == "release_owner":
+                raise TimeoutError("release_owner did not reach the actor")
+            return real(method, *args)
+
+        monkeypatch.setattr(client, "rpc", flaky)
+        monkeypatch.setattr(connector.time, "sleep", lambda seconds: None)
+        await asyncio.to_thread(client.close)
+        assert not client._closed  # Cleanup is still owed.
+        assert (await actor.get_stats())["active_handoffs"] == 1
+
+        others = [f"other@{r}" for r in range(tp)]
+        assert await actor.put(namespace, others, [page] * tp) == [False] * tp
+        reachable[0] = True
+        if cleanup == "close":
+            await asyncio.to_thread(client.close)
+            assert client._closed
+        else:
+            # The ranks are gone; the model process cleans up after them.
+            assert await asyncio.to_thread(release_owner, cache_config, 1, 0)
+            assert await asyncio.to_thread(release_owner, cache_config, 1, 0)
+        assert (await actor.get_stats())["active_handoffs"] == 0
+        # The surviving replica can publish again.
+        assert await actor.put(namespace, others, [page] * tp) == [True] * tp
+        await asyncio.to_thread(connector.close_clients)
+
+
+def test_model_stop_releases_the_replica_pins_after_the_engine(monkeypatch):
+    from .. import core, xavier
+
+    events = []
+    monkeypatch.setattr(xavier, "release_owner", lambda config: events.append(config))
+    monkeypatch.setattr("xinference.model.llm.trt_llm.gpu.close_service", lambda: None)
+    model = core.TRTLLMModel.__new__(core.TRTLLMModel)
+    model._pd = None
+    model._requests = {}
+    model._cache_enabled = True
+    model._engine = SimpleNamespace(shutdown=lambda: events.append("engine"))
+    model._xavier_cache_config = {"address": "a", "uid": "u", "owner": "replica"}
+    model.stop()
+    assert events == ["engine", model._xavier_cache_config]

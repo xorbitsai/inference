@@ -110,6 +110,10 @@ class XavierClient:
         self._evictions = None
         # Identifies this client's pending shared-memory writes in the store.
         self.writer = uuid.uuid4().hex
+        # The replica that owns this client's read pins. Every rank and the
+        # model process share it, so whichever outlives the engine can
+        # release them.
+        self.owner = self.config.get("owner") or self.writer
         # Writes in progress, plus writes whose copies could not be confirmed
         # finished. Either keeps this writer's slots reserved at shutdown.
         self._writes = 0
@@ -334,7 +338,7 @@ class XavierClient:
                             self.namespace,
                             sharded[: pages * tp],
                             ticket,
-                            self.writer,
+                            self.owner,
                         )
                     else:
                         pinned = self.rpc(
@@ -343,7 +347,7 @@ class XavierClient:
                             sharded[: pages * tp],
                             False,
                             ticket,
-                            self.writer,
+                            self.owner,
                         )
                 except BaseException:
                     self.release(ticket)
@@ -397,18 +401,29 @@ class XavierClient:
                 pages.append(page)
         return pages
 
+    def _release_owner(self, attempts=3, delay=0.5):
+        for attempt in range(attempts):
+            try:
+                self.rpc("release_owner", self.namespace, self.owner)
+            except Exception:
+                logger.warning("Could not release Xavier pins", exc_info=True)
+                if attempt + 1 < attempts:
+                    time.sleep(delay)
+            else:
+                self._pins.clear()
+                return True
+        return False
+
     def close(self):
         if not self._closed:
             # The engine has stopped: no rank will read these pins any more.
             # Releasing by owner also covers pins whose reserve reply was
             # lost, and makes any reserve still in flight fail on arrival.
-            if self._pins and not self.pd_gpu:
-                try:
-                    self.rpc("release_owner", self.namespace, self.writer)
-                except Exception:
-                    logger.warning("Could not release Xavier pins", exc_info=True)
-                else:
-                    self._pins.clear()
+            # If the store stays unreachable, keep the RPC loop so a later
+            # close() can retry; the model process also retries after the
+            # engine stops (see release_owner in xavier.py).
+            if self._pins and not self.pd_gpu and not self._release_owner():
+                return
             if self.shared is not None and self._writes == 0:
                 # No copy into this client's slots is pending: return the
                 # slots of writes that never completed.
