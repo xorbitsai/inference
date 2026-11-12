@@ -461,6 +461,33 @@ def test_checkpoints_whose_index_selects_other_shards_cannot_share(
         store.configure(second_id, schema)
 
 
+def test_pool_sharing_rejects_loading_weights_outside_the_fingerprint(
+    deepseek_path, tmp_path
+):
+    # Identical safetensors and index, different .pt weights: SGLang loads the
+    # .pt files with load_format="pt", which the namespace does not cover.
+    other = tmp_path / "other-pt"
+    other.mkdir()
+    for file in deepseek_path.iterdir():
+        if file.is_file():
+            (other / file.name).write_bytes(file.read_bytes())
+    (deepseek_path / "model.pt").write_bytes(b"one")
+    (other / "model.pt").write_bytes(b"two")
+    for path in (deepseek_path, other):
+        with pytest.raises(ValueError, match="automatic or safetensors"):
+            configure_xavier(
+                str(path),
+                {"tp_size": 2, "load_format": "pt"},
+                {"address": "a", "uid": "c"},
+            )
+    # Under "auto" SGLang selects the fingerprinted safetensors shards.
+    configure_xavier(
+        str(deepseek_path),
+        {"tp_size": 2, "load_format": "auto"},
+        {"address": "a", "uid": "c"},
+    )
+
+
 def test_malformed_safetensors_index_is_rejected(deepseek_path):
     (deepseek_path / "model.safetensors.index.json").write_text('{"weight_map": []}')
     with pytest.raises(ValueError, match="Invalid safetensors index"):

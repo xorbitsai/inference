@@ -293,6 +293,12 @@ def _configure_pools(
             "SGLang Xavier supports tensor parallelism on one worker without PP, DP or CP"
         )
     _check_engine_options(model_config)
+    if model_config.get("load_format", "auto") not in ("auto", "safetensors"):
+        # The namespace fingerprints safetensors shards; other formats would
+        # load files outside it (SGLang prefers safetensors under "auto").
+        raise ValueError(
+            "SGLang Xavier pool sharing requires automatic or safetensors loading"
+        )
     model_type = config.get("model_type")
     if model_type not in _POOL_MODEL_TYPES:
         raise ValueError(
