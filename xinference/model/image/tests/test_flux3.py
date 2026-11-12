@@ -361,6 +361,22 @@ def test_image_edit_forwards_extra_options(edit_client):
     assert call["generator"].initial_seed() == 42
 
 
+def test_image_edit_uploaded_image_wins_over_an_image_option(edit_client):
+    # An `image` key in the extra options must not replace the uploaded file.
+    handle, calls = edit_client
+    buffer = BytesIO()
+    Image.new("RGB", (64, 48)).save(buffer, format="PNG")
+
+    handle.image_edit(
+        images=buffer.getvalue(),
+        prompt="Edit",
+        response_format="b64_json",
+        image=None,
+    )
+
+    assert calls.edits[0]["image"].size == (64, 48)
+
+
 @pytest.mark.parametrize("prompt", [[], ["Edit", "Another edit"]])
 def test_edit_rejects_batched_prompts(loaded_model, prompt):
     model, calls = loaded_model
