@@ -124,6 +124,8 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
         "kv_lora_rank": "attention.kv_lora_rank",
         "num_experts_per_tok": "expert_used_count",
         "shared_expert_intermediate_size": "expert_shared_feed_forward_length",
+        # llama.cpp pooling declared by embedding GGUFs (bge-m3: CLS, ...).
+        "pooling_type": "pooling_type",
     }
     config = {
         name: fields[prefix + key]

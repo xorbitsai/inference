@@ -164,15 +164,10 @@ class XavierEngine:
     ) -> None:
         from vllm.config import KVTransferConfig
 
-        if (
-            getattr(engine_args, "tensor_parallel_size", 1) != 1
-            or getattr(engine_args, "pipeline_parallel_size", 1) != 1
-        ):
-            raise ValueError("Xavier V1 currently requires TP=1 and PP=1")
+        if getattr(engine_args, "pipeline_parallel_size", 1) != 1:
+            raise ValueError("Xavier V1 currently requires PP=1")
         if getattr(engine_args, "enable_lora", False):
-            raise ValueError(
-                "Xavier V1 currently supports text-only models without LoRA"
-            )
+            raise ValueError("Xavier V1 currently supports models without LoRA")
 
         if xavier_config is None:
             xavier_config = {}
@@ -180,6 +175,20 @@ class XavierEngine:
         set_xavier_transport_backend(xavier_config, XAVIER_TRANSPORT_XAVIER)
 
         role = xavier_config.get("role")
+        tensor_parallel = getattr(engine_args, "tensor_parallel_size", 1) != 1
+        if tensor_parallel and (
+            role in {"prefill", "decode"}
+            or xavier_config.get("gpu_cache_bytes") is not None
+            or xavier_config.get("cpu_prefix_cache")
+            or xavier_config.get("shared_prefix")
+            or xavier_config.get("heterogeneous")
+        ):
+            # Only CPU snapshots are sharded by TP rank. Handoff tickets and
+            # engine-mapped GPU caches still address a single worker's cache.
+            raise ValueError(
+                "Xavier V1 supports TP>1 only for replicas sharing CPU snapshots; "
+                "P/D roles, xavier_gpu_cache_bytes and xavier_cache_bytes require TP=1"
+            )
         if role == "prefill":
             kv_role = "kv_producer"
             kv_rank = 0
@@ -198,6 +207,8 @@ class XavierEngine:
 
         model_config = engine_args.create_model_config()
         recurrent = model_config.is_hybrid
+        if tensor_parallel and recurrent:
+            raise ValueError("Xavier V1 requires TP=1 for recurrent-hybrid models")
         if (
             xavier_config.get("world_size") == 2
             and role not in {"prefill", "decode"}

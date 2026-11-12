@@ -221,7 +221,7 @@ const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
     : '-';
 };
 
-const RunningModel = () => {
+const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const { t } = useI18n();
   const router = useRouter();
   const { clusterAuth } = useGlobal();
@@ -231,7 +231,10 @@ const RunningModel = () => {
   const canManageRouter = clusterAuth?.auth === false || canAccessRouterPage;
   const { models, loading, refreshFailed, refresh: fetchModels } = useModelInstances();
   const [query, setQuery] = useState('');
-  const [selectedModelUid, setSelectedModelUid] = useState<string>();
+  const [selectedModelUid, setSelectedModelUid] = useState<string | undefined>(modelUid);
+  useEffect(() => {
+    setSelectedModelUid(modelUid);
+  }, [modelUid]);
   const setActiveModel = (model?: ModelListItem) => setSelectedModelUid(model?.id);
   const activeModel = models.find((model) => model.id === selectedModelUid) ?? models[0];
   const launchProgress = useInstanceLaunchProgress(activeModel);

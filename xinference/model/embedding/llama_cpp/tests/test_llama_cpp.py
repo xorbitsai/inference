@@ -15,6 +15,8 @@
 # CI: linux
 
 import shutil
+import struct
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -113,6 +115,59 @@ def test_embedding_model_raises_xllamacpp_error(nested):
         model._create_embedding("")
 
     assert str(exc_info.value) == message
+
+
+def _write_gguf(path, pooling_type=None):
+    """Write a GGUF header with only key/value metadata and no tensors."""
+
+    def string(text):
+        data = text.encode()
+        return struct.pack("<Q", len(data)) + data
+
+    fields = [string("general.architecture") + struct.pack("<I", 8) + string("qwen3")]
+    if pooling_type is not None:
+        fields.append(
+            string("qwen3.pooling_type") + struct.pack("<II", 4, pooling_type)
+        )
+    path.write_bytes(
+        b"GGUF" + struct.pack("<IQQ", 3, 0, len(fields)) + b"".join(fields)
+    )
+
+
+@pytest.mark.parametrize(
+    "gguf_pooling,config,expected",
+    [
+        # No pooling in the GGUF (the pinned Qwen3-Embedding files): keep LAST.
+        (None, {}, "LAST"),
+        # A declared pooling (e.g. bge-m3 CLS) is left for llama.cpp to apply.
+        (2, {}, "UNSPECIFIED"),
+        # Launch options win over both.
+        (None, {"pooling_type": 2}, "CLS"),
+        (3, {"pooling_type": 1}, "MEAN"),
+    ],
+)
+def test_load_uses_gguf_pooling_with_last_fallback(
+    tmp_path, monkeypatch, gguf_pooling, config, expected
+):
+    xllamacpp = pytest.importorskip("xllamacpp")
+    _write_gguf(tmp_path / "Qwen3-Embedding-0.6B-Q8_0.gguf", gguf_pooling)
+    server = MagicMock()
+    monkeypatch.setattr(xllamacpp, "Server", server)
+    model = XllamaCppEmbeddingModel(
+        "mock",
+        str(tmp_path),
+        TEST_MODEL_SPEC,
+        quantization="Q8_0",
+        n_gpu_layers=0,
+        **config,
+    )
+    model.load()
+    model._executor.shutdown()
+
+    params = server.call_args.args[0]
+    assert int(params.pooling_type) == int(
+        getattr(xllamacpp.llama_pooling_type, f"LLAMA_POOLING_TYPE_{expected}")
+    )
 
 
 async def test_embedding_model_with_xllamacpp():

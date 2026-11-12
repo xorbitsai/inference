@@ -1,3 +1,5 @@
+# CI: linux
+
 """CPU-only regression coverage for SD WebUI orchestration and helpers."""
 
 import asyncio
@@ -10,6 +12,7 @@ import pytest
 import torch
 from PIL import Image
 
+from ....core.exceptions import InvalidModelRequestError
 from .. import rng, utils
 from ..lora import process_loras, process_prompt
 from ..prompt_converter import parse_prompt_attention
@@ -362,6 +365,16 @@ def test_request_loras_cleaned_after_failure():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_base", ["SD 1.5", "FLUX.1"])
+async def test_sdapi_rejects_lightning_for_an_instance_without_an_adapter(model_base):
+    model = FakeModel()
+    model._model_spec = SimpleNamespace(model_base=model_base)
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        await model.txt2img(use_lightning=True)
+    assert not model.calls
+
+
+@pytest.mark.asyncio
 async def test_basic_non_sd_engine_is_preserved():
     model = FakeModel()
     model._model_spec = SimpleNamespace(model_base="FLUX.1")
@@ -370,7 +383,7 @@ async def test_basic_non_sd_engine_is_preserved():
         return {"data": [{"b64_json": "image"}], "created": 42}
 
     model.text_to_image = basic
-    result = await model.txt2img(prompt="cat")
+    result = await model.txt2img(prompt="cat", use_lightning=False)
     assert result["images"] == ["image"]
     with pytest.raises(ValueError, match="Stable Diffusion"):
         await model.txt2img(enable_hr=True)

@@ -78,6 +78,7 @@ class SDAPITxt2imgRequst(BaseModel):
     prompt: str = ""
     negative_prompt: str = ""
     steps: Optional[int] = Field(None, ge=1)
+    use_lightning: Optional[bool] = None
     seed: int = -1
     subseed: int = -1
     subseed_strength: float = Field(0.0, ge=0, le=1)

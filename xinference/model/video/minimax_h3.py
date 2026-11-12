@@ -17,11 +17,12 @@ import math
 import os
 import tempfile
 import uuid
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from dataclasses import fields
+from importlib import import_module
 from numbers import Integral, Real
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from PIL import Image
 
@@ -30,11 +31,32 @@ from ...core.exceptions import InvalidModelRequestError
 from ...types import VideoList
 from ..image.sglang.core import SGLangDiffusionModel, _filter_kwargs_by_dataclass_fields
 from ..image.vllm.core import VLLMDiffusionModel
+from ..lightning import resolve_request_lightning
 from ..utils import resolve_media_seed
 from .core import VideoModelFamilyV2
 from .diffusers import DiffusersVideoModel, _resolve_minimax_h3_lightning_config
 from .engine_family import VideoEngineModel
 from .native import _NativeVideoModel
+
+
+@contextmanager
+def _sglang_h3_lightning_environment() -> Iterator[None]:
+    package = f"{__package__}.sglang_h3_lightning"
+    env = "SGLANG_EXTERNAL_MODEL_PACKAGE"
+    chained_env = "XINFERENCE_SGLANG_H3_EXTERNAL_MODEL_PACKAGE"
+    original = {name: os.environ.get(name) for name in (env, chained_env)}
+    os.environ.update({env: package, chained_env: original[env] or ""})
+    try:
+        # Register in the caller even if SGLang has already initialized its
+        # registry. The spawned GPU workers import the same package via the env.
+        import_module(package)
+        yield
+    finally:
+        for name, value in original.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 async def _run_with_request_files(func, *args, **kwargs):
@@ -94,6 +116,10 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         self._lightning_config = _resolve_minimax_h3_lightning_config(
             model_spec, lightning_version, lightning_model_path
         )
+        if self._lightning_config:
+            self._model_spec.lightning_inference_steps = self._lightning_config[
+                "num_inference_steps"
+            ]
 
     @classmethod
     def is_model_family_supported(cls, model_family: VideoModelFamilyV2) -> bool:
@@ -146,6 +172,13 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
             **kwargs,
         )
 
+    def _request_lightning(self, config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        loaded = self._lightning_config is not None
+        enabled = resolve_request_lightning(config.pop("use_lightning", None), loaded)
+        if loaded:
+            config["use_lightning"] = enabled
+        return self._lightning_config if enabled else None
+
     def _sampling_config(
         self, num_inference_steps: Optional[int], kwargs: Dict[str, Any]
     ) -> Tuple[int, int, float, Dict[str, Any]]:
@@ -177,11 +210,12 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
             raise InvalidModelRequestError(
                 "MiniMax-H3 duration must be between 4 and 15 seconds"
             )
+        lightning = self._request_lightning(config)
         steps = num_inference_steps
         if steps is None:
             steps = (
-                self._lightning_config["num_inference_steps"]
-                if self._lightning_config
+                lightning["num_inference_steps"]
+                if lightning
                 else config.get("num_inference_steps", 50)
             )
         if isinstance(steps, bool) or not isinstance(steps, Integral) or steps < 1:
@@ -189,15 +223,15 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
         config["num_inference_steps"] = steps
         config.setdefault("flow_shift", 12.0)
         config.setdefault("audio_flow_shift", 3.0)
-        if self._lightning_config:
-            if steps != self._lightning_config["num_inference_steps"]:
+        if lightning:
+            if steps != lightning["num_inference_steps"]:
                 raise InvalidModelRequestError(
                     "This Lightning version requires num_inference_steps="
-                    f"{self._lightning_config['num_inference_steps']}"
+                    f"{lightning['num_inference_steps']}"
                 )
             required = {
-                "flow_shift": self._lightning_config["video_shift"],
-                "audio_flow_shift": self._lightning_config["audio_shift"],
+                "flow_shift": lightning["video_shift"],
+                "audio_flow_shift": lightning["audio_shift"],
             }
             for key, value in required.items():
                 if key in kwargs and kwargs[key] is not None and kwargs[key] != value:
@@ -309,7 +343,10 @@ class SGLangMiniMaxH3Model(
                 lora_alpha=self._lightning_config["lora_alpha"],
                 lora_merge_mode="dynamic",
             )
-        super().load()
+            with _sglang_h3_lightning_environment():
+                super().load()
+        else:
+            super().load()
 
     async def _generate_h3(
         self,
@@ -323,9 +360,16 @@ class SGLangMiniMaxH3Model(
         workdir,
         progressor=None,
     ):
-        from sglang.multimodal_gen.configs.sample.minimax_h3 import (
-            MiniMaxH3SamplingParams,
-        )
+        if self._lightning_config is not None:
+            from .sglang_h3_lightning import RequestLightningSamplingParams
+
+            sampling_params = RequestLightningSamplingParams
+        else:
+            from sglang.multimodal_gen.configs.sample.minimax_h3 import (
+                MiniMaxH3SamplingParams,
+            )
+
+            sampling_params = MiniMaxH3SamplingParams
 
         conditions = []
         for index, image in enumerate(images):
@@ -359,10 +403,10 @@ class SGLangMiniMaxH3Model(
             return_frames=False,
         )
         config = _filter_kwargs_by_dataclass_fields(
-            config, MiniMaxH3SamplingParams, "H3 sampling params"
+            config, sampling_params, "H3 sampling params"
         )
         # H3 also declares fixed fields that its constructor does not accept.
-        for field in fields(MiniMaxH3SamplingParams):
+        for field in fields(sampling_params):
             if not field.init:
                 config.pop(field.name, None)
         result = await _run_with_request_files(
@@ -402,6 +446,10 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
             )
         self._kwargs["task_type"] = "fl2va"
         if self._lightning_config:
+            if self._kwargs.get("lora_application") == "merged":
+                raise ValueError(
+                    "MiniMax-H3 Lightning requires request-time LoRA application"
+                )
             expected = self._model_spec.lightning_model_file_name_template.format(
                 lightning_version=self._lightning_config["version"]
             )
@@ -463,7 +511,13 @@ class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineMo
         if images:
             payload["multi_modal_data"] = {"image": images}
             extra["frame_indices"] = [0] if len(images) == 1 else [0, -1]
-        if self._lightning_config:
+        use_lightning = config.pop("use_lightning", False)
+        if self._lightning_config is not None:
+            # PEFT preloads the checkpoint at launch. vLLM-Omni selects the
+            # adapter from each request and deactivates it for the base request.
+            config.pop("lora_request", None)
+            config.pop("lora_scale", None)
+        if use_lightning:
             from vllm_omni.lora.request import LoRARequest
             from vllm_omni.lora.utils import stable_lora_int_id
 

@@ -587,6 +587,7 @@ jobs:
             xinference/model/audio/tests/test_funasr_realtime.py
             xinference/model/audio/tests/test_funasr_realtime_probe.py
             xinference/model/audio/tests/test_funasr_realtime_sdk.py
+            xinference/model/audio/tests/test_qwen3_asr.py
             xinference/model/llm/tests/test_audio_url.py
             xinference/model/llm/transformers/tests/test_qwen2_audio.py
             xinference/model/llm/sglang/tests/test_xavier.py
@@ -597,6 +598,8 @@ jobs:
             xinference/model/llm/sglang/tests/test_runtime.py
             xinference/model/llm/sglang/tests/test_anthropic_controls.py
             xinference/model/llm/sglang/tests/test_reasoning_adapter.py
+            xinference/model/llm/sglang/tests/test_xavier_pools.py
+            xinference/model/llm/sglang/tests/test_deepseek_v41.py
             xinference/model/llm/vllm/tests/test_anthropic_controls.py
             xinference/model/llm/vllm/tests/test_cache_salt.py
             xinference/model/llm/vllm/tests/test_reasoning_adapter.py
@@ -633,6 +636,7 @@ jobs:
             xinference/model/llm/vllm/xavier/test/test_request_transfer.py
             xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py
             xinference/model/llm/vllm/xavier/test/test_review_regressions.py
+            xinference/model/llm/vllm/xavier/test/test_tensor_parallel.py
           PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
           PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
           XFORMERS_FORCE_DISABLE_TRITON: 1

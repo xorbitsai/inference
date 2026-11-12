@@ -500,13 +500,14 @@ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:299
 msgid ""
-"4 steps or 8 steps refer to the inference steps (``num_inference_steps``). "
-"When ``lightning_version`` is specified, Xinference will automatically set "
-"the number of inference steps."
+"4 steps or 8 steps refer to the inference steps (``num_inference_steps``)."
+" When Lightning is active, Xinference uses the adapter's step count if the"
+" request omits ``num_inference_steps``."
 msgstr ""
 "4 passos ou 8 passos referem-se ao número de passos de inferência "
-"(``num_inference_steps``). Quando ``lightning_version`` é especificado, o "
-"Xinference define automaticamente os passos de inferência."
+"(``num_inference_steps``). Com o Lightning ativo, o Xinference usa o "
+"número de passos do adaptador se a solicitação omitir "
+"``num_inference_steps``."
 
 #: ../../source/models/model_abilities/image.rst:302
 msgid ""
@@ -564,6 +565,37 @@ msgstr ""
 #: ../../source/models/model_abilities/image.rst
 msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
 msgstr "O SGLang 0.5.20 ou posterior também aceita solicitações simultâneas de imagens para processamento dinâmico em lote nativo. Defina ``batching_max_size`` e, opcionalmente, ``batching_delay_ms`` na inicialização. Para vLLM-Omni 0.28, use ``max_num_seqs``; pipelines compatíveis também podem usar ``step_execution=true`` para processamento contínuo em lote experimental. O processamento em lote deve ser ativado explicitamente, exige solicitações compatíveis e suporte do modelo e aumenta o uso de memória GPU. Envie solicitações API independentes simultaneamente; ``n`` controla apenas a quantidade de saídas de uma solicitação."
+
+#: ../../source/models/model_abilities/image.rst:116
+msgid "Qwen-Image-2512"
+msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst:425
+msgid "Qwen-Image-Edit-2511"
+msgstr "Qwen-Image-Edit-2511"
+
+#: ../../source/models/model_abilities/image.rst:421
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+msgstr "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+
+#: ../../source/models/model_abilities/image.rst:443
+msgid ""
+"After launching one of these models with a Lightning adapter on Diffusers,"
+" use the **Lightning** switch on the generation page for each request. "
+"Pass ``use_lightning=False`` in the Python client, or put "
+"``\"use_lightning\": false`` in the REST request's ``kwargs``, to use the "
+"base scheduler and bypass the adapter. The OpenAI-compatible image edits "
+"endpoint accepts ``use_lightning=false`` as a form field. Omitting the "
+"option uses the adapter selected at launch."
+msgstr ""
+"Depois de iniciar um desses modelos com um adaptador Lightning no "
+"Diffusers, use o botão **Lightning** na página de geração para cada "
+"solicitação. Passe ``use_lightning=False`` no cliente Python ou inclua "
+"``\"use_lightning\": false`` em ``kwargs`` na solicitação REST para usar o "
+"scheduler base e desativar o adaptador. O endpoint de edição de imagem "
+"compatível com a OpenAI aceita o campo de formulário "
+"``use_lightning=false``. Ao omitir a opção, o adaptador selecionado na "
+"inicialização é usado."
 
 msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
 msgstr "Instale SGLang com suporte a difusão usando ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, ou vLLM-Omni e vLLM com as mesmas versões principal e secundária usando ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``. Em seguida, inicie o modelo com ``--model-engine SGLang`` ou ``--model-engine vLLM``, por exemplo:"

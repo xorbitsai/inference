@@ -26,6 +26,7 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
+from ....core.exceptions import InvalidModelRequestError
 from .. import BUILTIN_IMAGE_MODELS, _install
 from ..engine import VLLMImageModel
 from ..engine import platform as engine_platform
@@ -180,6 +181,7 @@ def test_build_sampling_params(fake_vllm_omni_sampling_params):
             "num_inference_steps": 20,
             "seed": 123,
             "save_output": False,  # sglang-only, should be dropped
+            "use_lightning": False,
         },
     )
     assert isinstance(params, fake_vllm_omni_sampling_params)
@@ -190,6 +192,9 @@ def test_build_sampling_params(fake_vllm_omni_sampling_params):
     assert params.num_inference_steps == 20
     assert params.true_cfg_scale == 4.0
     assert not hasattr(params, "save_output")
+    assert not hasattr(params, "use_lightning")
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        model._build_sampling_params(2, 512, 768, {"use_lightning": True})
 
 
 @pytest.mark.parametrize("seed", [None, -1])

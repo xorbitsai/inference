@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { I18nProvider } from '@/contexts/i18n-context';
-import RequestProvider from '@/contexts/request-context';
+import RequestProvider, { RequestExtensionHandlers } from '@/contexts/request-context';
 import { GlobalProvider } from '@/contexts/global-context';
 import ThemeProvider from '@/contexts/theme-context';
 import AppInit from '@/contexts/app-init';
@@ -36,6 +36,7 @@ export default function RootLayout({
           <RequestProvider>
             <GlobalProvider>
               <ThemeProvider>
+                <RequestExtensionHandlers />
                 <AppInit />
                 <LayoutContent>{children}</LayoutContent>
                 <Toaster />

@@ -138,11 +138,11 @@ function button(label: string) {
     (item) => item.textContent === label || item.getAttribute('aria-label') === label
   );
 }
-async function mount() {
+async function mount(modelUid?: string) {
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
-  await act(async () => root.render(<RunningModel />));
+  await act(async () => root.render(<RunningModel modelUid={modelUid} />));
 }
 
 beforeEach(async () => {
@@ -535,6 +535,35 @@ it('provides lifecycle labels in every maintained UI language', () => {
     assert.ok(labels.addReplicaElapsed.includes('{{seconds}}'));
     assert.ok(labels.addReplicaWaitingCount.includes('{{count}}'));
   }
+});
+
+it('selects the requested second model after asynchronous discovery and preserves manual selection on refresh', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const first = { ...instance('READY'), model_uid: 'deepseek' };
+  const second = { ...instance('READY'), model_uid: 'qwen' };
+  instances = [first, second, { ...instance('READY'), model_uid: 'llama' }];
+  models = [];
+  await mount('qwen');
+  assert.equal(host.querySelectorAll('h4')[3]?.textContent, 'qwen');
+  const firstCard = [...host.querySelectorAll('h4')].find(
+    (node) => node.textContent === 'deepseek'
+  )!;
+  await act(async () => firstCard.click());
+  assert.equal(host.querySelectorAll('h4')[3]?.textContent, 'deepseek');
+  await act(async () => context.mock.timers.tick(2000));
+  assert.equal(host.querySelectorAll('h4')[3]?.textContent, 'deepseek');
+  // Both the previous prop (qwen) and manual selection (deepseek) differ.
+  await act(async () => root.render(<RunningModel modelUid="llama" />));
+  assert.equal(host.querySelectorAll('h4')[3]?.textContent, 'llama');
+});
+
+it('falls back to the first model for a missing query target', async () => {
+  instances = [
+    { ...instance('READY'), model_uid: 'deepseek' },
+    { ...instance('READY'), model_uid: 'qwen' },
+  ];
+  await mount('removed-model');
+  assert.equal(host.querySelectorAll('h4')[2]?.textContent, 'deepseek');
 });
 
 it('keeps an add-replica request and dialog bound to the selected model snapshot', async (context) => {

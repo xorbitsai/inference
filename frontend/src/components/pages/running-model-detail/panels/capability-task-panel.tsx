@@ -449,7 +449,11 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
 
           <Form
             form={form}
-            initialValues={config.initialValues}
+            initialValues={
+              model.lightning_inference_steps !== undefined
+                ? { ...config.initialValues, use_lightning: true, num_inference_steps: '' }
+                : config.initialValues
+            }
             onFinish={submit}
             className="flex-1 min-h-0 flex flex-col"
           >

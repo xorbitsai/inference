@@ -209,10 +209,34 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
     "MiniMaxM3SparseForConditionalGeneration",
+    "DeepseekV41ForCausalLM",
 ]
 
 LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
+# Loading the 552B DeepSeek-V4.1-Flash checkpoint takes far longer than the
+# generic five-minute server wait, especially for replicas loading together.
+DEEPSEEK_V41_SGLANG_LAUNCH_TIMEOUT = 3600.0
 MINICPMV47_MIN_SGLANG_VERSION = Version("0.5.23")
+# deepseek-recipe rendering (sglang.srt.parser.deepseek_recipe_renderer).
+DEEPSEEK_V41_MIN_SGLANG_VERSION = Version("0.5.23")
+
+
+def _prompt_payload(prompt: Union[str, List[int]], input_ids=None) -> Dict[str, Any]:
+    """SGLang takes either text or token IDs; native renderers produce IDs."""
+    if input_ids is not None:
+        return {"input_ids": input_ids}
+    if isinstance(prompt, list):
+        return {"input_ids": prompt}
+    return {"text": prompt}
+
+
+def _image_data_url(path: str) -> str:
+    import base64
+    import mimetypes
+
+    mime = mimetypes.guess_type(path)[0] or "image/png"
+    with open(path, "rb") as stream:
+        return f"data:{mime};base64," + base64.b64encode(stream.read()).decode()
 
 
 def _get_sglang_version() -> Optional[Version]:
@@ -307,10 +331,6 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
         cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
         nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
-        if cache_config is not None:
-            self._model_config.setdefault(
-                "dtype", cache_config.get("logical_dtype", "float16")
-            )
         self._model_config = self._sanitize_model_config(self._model_config)
         if nixl_config is not None:
             from .pd import configure_nixl
@@ -327,6 +347,12 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 raise ValueError("SGLang Xavier requires SGLang >= 0.5.21")
             if self._n_worker != 1:
                 raise ValueError("SGLang Xavier requires one worker per replica")
+            # Names the writing replica in transfer logs and statistics. The
+            # worker tags each replica's process with its replica model UID.
+            cache_config.setdefault(
+                "replica", os.environ.get("XINFERENCE_MODEL_UID") or self.model_uid
+            )
+            cache_config["sglang_version"] = sgl.__version__
             configure_xavier(self.model_path, self._model_config, cache_config)
             self._xavier_cache_config = cache_config
             if cache_config.get("role"):
@@ -473,6 +499,8 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     def _get_launch_timeout(self) -> float:
         if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
             return LING3_FLASH_SGLANG_LAUNCH_TIMEOUT
+        if self.model_family.has_architecture("DeepseekV41ForCausalLM"):
+            return DEEPSEEK_V41_SGLANG_LAUNCH_TIMEOUT
         return 300.0
 
     def wait_for_load(self):
@@ -712,7 +740,13 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     def supports_agent_cache_lifecycle(self) -> bool:
         config = getattr(self, "_xavier_cache_config", None)
-        return bool(self._engine is not None and config and not config.get("role"))
+        # Session pinning addresses single-pool pages by their prompt keys.
+        return bool(
+            self._engine is not None
+            and config
+            and not config.get("role")
+            and not config.get("pools")
+        )
 
     def _get_tokenizer(self, lora_request: Any = None) -> Any:
         if self._engine is None:
@@ -995,7 +1029,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     async def _stream_generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[int]],
         image_data: Optional[Union[List[str], str]] = None,
         request_id: Optional[str] = None,
         **sampling_params,
@@ -1005,7 +1039,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
+            **_prompt_payload(prompt, input_ids),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1068,7 +1102,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     async def _non_stream_generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[int]],
         image_data: Optional[Union[List[str], str]] = None,
         request_id: Optional[str] = None,
         **sampling_params,
@@ -1078,7 +1112,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         input_ids = sampling_params.pop("_xavier_input_ids", None)
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
-            **({"input_ids": input_ids} if input_ids is not None else {"text": prompt}),
+            **_prompt_payload(prompt, input_ids),
             "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
@@ -1261,6 +1295,8 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 max_new_tokens=0,
             )
             return int(result["meta_info"]["prompt_tokens"])
+        if isinstance(prompt, list):
+            return len(prompt)
         return len(tokenizer.encode(prompt))
 
     def _apply_thinking_budget(self, config: Dict) -> None:
@@ -1333,7 +1369,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     async def _prepare_chat_inputs(
         self, messages: List[Dict], generate_config: Dict
-    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+    ) -> Tuple[
+        Union[str, List[int]], Optional[List[str]], Optional[List[Dict]], Dict, Dict
+    ]:
         raise NotImplementedError("This SGLang model does not support chat")
 
     async def async_chat(
@@ -1404,7 +1442,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
     async def async_generate(
         self,
-        prompt: str,
+        prompt: Union[str, List[int]],
         generate_config: Optional[SGLANGGenerateConfig] = None,
         *,
         image_data: Optional[Union[List[str], str]] = None,
@@ -1792,7 +1830,9 @@ class SGLANGChatModel(SGLANGModel):
 
     async def _prepare_chat_inputs(
         self, messages: List[Dict], generate_config: Dict
-    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+    ) -> Tuple[
+        Union[str, List[int]], Optional[List[str]], Optional[List[Dict]], Dict, Dict
+    ]:
         # Handle empty chat_template by using empty string (sglang server will use model's default)
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
@@ -1841,6 +1881,80 @@ class SGLANGChatModel(SGLANGModel):
 
 
 class SGLANGVisionModel(SGLANGModel):
+    _deepseek_recipe: Any = None
+
+    async def _prepare_deepseek_v41_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[List[int], Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+        """Render through deepseek-recipe, as SGLang's own OpenAI server does.
+
+        The checkpoint ships no Jinja template. The renderer returns prompt IDs
+        with one image token per image and the images in placeholder order;
+        SGLang's processor expands each image token for the vision tower.
+        """
+        from sglang.srt.parser.deepseek_recipe_renderer import (
+            DeepSeekRecipe,
+            parse_effort_budget,
+        )
+
+        generate_config = dict(generate_config or {})
+        tools = list(generate_config.pop("tools", None) or []) or None
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, self.reasoning_parser
+            )
+            or {}
+        )
+        effort = context.get("reasoning_effort")
+        thinking = bool(context.get("enable_thinking", context.get("thinking")))
+        if effort == "none":
+            # As in vLLM's V4.1 renderer: no effort overrides both flags.
+            thinking = False
+        context["enable_thinking"] = context["thinking"] = thinking
+        chat_context_var.set(context)
+        if self._deepseek_recipe is None:
+            self._deepseek_recipe = DeepSeekRecipe.from_hf_tokenizer(
+                "dsv41", self._get_tokenizer()
+            )
+        body: Dict[str, Any] = {"thinking": thinking}
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        budget = (
+            parse_effort_budget(effort)
+            if thinking and isinstance(effort, int) and not isinstance(effort, bool)
+            else None
+        )
+        image_urls: List[str] = []
+        with media_workspace("xinference-sglang-") as temp_dir:
+            messages = copy.deepcopy(messages)
+            # Fetch remote media here; SGLang receives data URLs only.
+            await asyncio.to_thread(materialize_messages_media, messages, temp_dir)
+            for message in messages:
+                content = message.get("content")
+                if not isinstance(content, list):
+                    continue
+                for part in content:
+                    if not isinstance(part, dict) or part.get("type") == "text":
+                        continue
+                    if part.get("type") != "image_url":
+                        raise ValueError("DeepSeek-V4.1 accepts text and image input")
+                    image = part["image_url"]
+                    url = image["url"] if isinstance(image, dict) else image
+                    if not url.startswith("data:"):
+                        url = await asyncio.to_thread(_image_data_url, url)
+                    part["image_url"] = {"url": url}
+            body["messages"] = messages
+            prompt_ids = await asyncio.to_thread(
+                self._deepseek_recipe.encode,
+                body,
+                effort_budget=budget,
+                image_urls=image_urls,
+            )
+        generate_config = self._sanitize_chat_config(generate_config)
+        generate_config.pop("chat_template_kwargs", None)
+        return prompt_ids, image_urls or None, tools, context, generate_config
+
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -1861,6 +1975,17 @@ class SGLANGVisionModel(SGLANGModel):
                 return (
                     False,
                     f"MiniCPM-V-4.7 requires SGLang >= {MINICPMV47_MIN_SGLANG_VERSION}; found {installed or 'not installed'}",
+                )
+        if (
+            llm_family.has_architecture("DeepseekV41ForCausalLM")
+            and not _virtual_env_allows_missing_sglang()
+        ):
+            installed = _get_sglang_version()
+            if installed is None or installed < DEEPSEEK_V41_MIN_SGLANG_VERSION:
+                return (
+                    False,
+                    "DeepSeek-V4.1 requires SGLang >= "
+                    f"{DEEPSEEK_V41_MIN_SGLANG_VERSION}; found {installed or 'not installed'}",
                 )
         if (
             llm_family.has_architecture("Qwen4ExpForConditionalGeneration")
@@ -1921,10 +2046,19 @@ class SGLANGVisionModel(SGLANGModel):
 
     async def _prepare_chat_inputs(
         self, messages: List[Dict], generate_config: Dict
-    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+    ) -> Tuple[
+        Union[str, List[int]], Optional[List[str]], Optional[List[Dict]], Dict, Dict
+    ]:
         import base64
         import copy
         from io import BytesIO
+
+        has_architecture = getattr(self.model_family, "has_architecture", None)
+        if (
+            has_architecture is not None
+            and has_architecture("DeepseekV41ForCausalLM") is True
+        ):
+            return await self._prepare_deepseek_v41_inputs(messages, generate_config)
 
         from PIL import Image
         from qwen_vl_utils import process_vision_info

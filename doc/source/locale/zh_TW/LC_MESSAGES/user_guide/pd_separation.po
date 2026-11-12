@@ -761,12 +761,15 @@ msgstr ""
 
 #: ../../source/user_guide/pd_separation.rst:157
 msgid ""
-"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
-"without LoRA. Multimodal models and prompt embeddings are not supported. See"
-" :ref:`xavier-cache-isolation` for request-scoped cache isolation."
+"Xavier P/D requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models and prompt embeddings are not supported. "
+"Ordinary replicas sharing CPU snapshots do support TP>1 and multimodal "
+"models; see :ref:`xavier-vllm`. See :ref:`xavier-cache-isolation` for "
+"request-scoped cache isolation."
 msgstr ""
-"Xavier V1 要求每副本一張 GPU（TP=1、PP=1），並使用無 LoRA 的文字模型。不支援多模態模型和 prompt "
-"embedding。按請求隔離快取請參閱 :ref:`xavier-cache-isolation`。"
+"Xavier P/D 要求每副本一張 GPU（TP=1、PP=1），並使用無 LoRA 的文字模型。不支援多模態模型和 prompt "
+"embedding。共享 CPU 快照的一般副本支援 TP>1 和多模態模型，請參閱 :ref:`xavier-vllm`。按請求隔離快取請參閱 "
+":ref:`xavier-cache-isolation`。"
 
 #: ../../source/user_guide/pd_separation.rst:300
 msgid "Cross-engine vLLM/SGLang/TRT-LLM P/D"

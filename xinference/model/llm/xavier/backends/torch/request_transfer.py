@@ -9,6 +9,8 @@ from typing import List, Tuple
 import torch
 
 MAX_REQUEST_BYTES = 16 * 1024 * 1024
+# Same-host buffers may carry several messages' worth: no socket bounds them.
+MAX_SHARED_BUFFER_BYTES = 4 * MAX_REQUEST_BYTES
 MAX_REQUEST_BLOCKS = 64
 
 
@@ -78,6 +80,46 @@ def pack_reads(store, reads):
             raise ValueError("KV snapshot layout does not match the receiver")
         buffers.append(tensor.view(torch.uint8).reshape(-1))
     return torch.cat(buffers)
+
+
+def collect_reads(store, reads):
+    """Validate reads on the store's loop and return their immutable blocks.
+
+    Returns None when a block is not a host tensor of the layout the receiver
+    expects block by block; ``pack_reads`` handles those stores.
+    """
+    sources = []
+    for read in reads:
+        if not store.has_layer(read.layer, read.keys):
+            raise KeyError("Requested KV snapshots are not published")
+        if not store.has_layer(read.layer, read.keys, read.logical_dtype or read.dtype):
+            raise ValueError("Xavier logical KV dtype does not match the receiver")
+        blocks = [store.blocks[key][read.layer] for key in read.keys]
+        for block in blocks:
+            if block.device.type != "cpu":
+                return None
+            if block.dtype != read.dtype or tuple(block.shape) != read.block_shape:
+                raise ValueError("KV snapshot layout does not match the receiver")
+        sources.append(blocks)
+    return sources
+
+
+def write_reads(sources, reads, out):
+    """Copy collected blocks into ``out`` in read order.
+
+    Published blocks are immutable and the caller holds them, so this may run
+    off the store's loop while the store keeps serving other requests.
+    """
+    if out.dtype != torch.uint8 or out.numel() != sum(read.nbytes for read in reads):
+        raise ValueError("Invalid Xavier cross-layer payload size or dtype")
+    offset = 0
+    for read, blocks in zip(reads, sources):
+        end = offset + read.nbytes
+        torch.stack(
+            blocks,
+            out=out[offset:end].view(read.dtype).view(len(blocks), *read.block_shape),
+        )
+        offset = end
 
 
 def unpack_reads(payload, reads):

@@ -93,6 +93,243 @@ async def test_qwen3_reranker_return_len_counts_input_tokens():
     assert result["meta"]["tokens"] == {"input_tokens": 8, "output_tokens": 8}
 
 
+@pytest.mark.parametrize(
+    "kwargs, expected_query",
+    [
+        ({}, "Query: what is panda?"),
+        (
+            {"instruction": "Instruction: Find the answer. Query: "},
+            "Instruction: Find the answer. Query: what is panda?",
+        ),
+    ],
+)
+async def test_minicpm_reranker_instruction_is_not_passed_to_predict(
+    kwargs, expected_query
+):
+    import asyncio
+
+    import torch
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    class CrossEncoderStub:
+        """Has the keyword arguments of sentence-transformers' CrossEncoder.predict()."""
+
+        def __init__(self):
+            self.calls = []
+
+        def predict(
+            self,
+            sentences,
+            batch_size=32,
+            show_progress_bar=None,
+            activation_fn=None,
+            apply_softmax=False,
+            convert_to_numpy=True,
+            convert_to_tensor=False,
+        ):
+            self.calls.append(sentences)
+            return torch.tensor([0.1, 0.9][: len(sentences)])
+
+    family = BUILTIN_RERANK_MODELS["minicpm-reranker"][0]
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model._model = CrossEncoderStub()
+    documents = ["hi", "The giant panda is a bear species endemic to China."]
+    try:
+        result = await model.rerank(
+            documents, "what is panda?", None, None, True, False, **kwargs
+        )
+    finally:
+        if model._process_batch_task is not None:
+            model._process_batch_task.cancel()
+            await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert model._model.calls == [[[expected_query, doc] for doc in documents]]
+    assert [r["index"] for r in result["results"]] == [1, 0]
+
+
+async def test_jina_reranker_v3_scores_with_its_native_rerank(monkeypatch):
+    # jina-reranker-v3's model card loads JinaForRanking through AutoModel
+    # with trust_remote_code and scores with its listwise ``rerank()``; it
+    # has no yes/no head for Qwen3-Reranker-style scoring.
+    import asyncio
+
+    import transformers
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    scores = {"coffee prices": 0.05, "green tea catechins": 0.30, "tea and brain": 0.19}
+
+    class NativeJinaRanking:
+        def __init__(self):
+            self.calls = []
+
+        def eval(self):
+            return self
+
+        def rerank(self, query, documents):
+            self.calls.append((query, list(documents)))
+            ranked = sorted(range(len(documents)), key=lambda i: -scores[documents[i]])
+            return [
+                {"index": i, "relevance_score": scores[documents[i]]} for i in ranked
+            ]
+
+    native = NativeJinaRanking()
+    auto_model_calls = []
+
+    def auto_model(path, **kwargs):
+        auto_model_calls.append(kwargs)
+        return native
+
+    def causal_lm(*args, **kwargs):
+        raise AssertionError("jina-reranker-v3 must not load as a causal LM")
+
+    monkeypatch.setattr(transformers.AutoModel, "from_pretrained", auto_model)
+    monkeypatch.setattr(transformers.AutoModelForCausalLM, "from_pretrained", causal_lm)
+    monkeypatch.setattr(
+        transformers.AutoTokenizer, "from_pretrained", lambda *a, **kw: object()
+    )
+
+    family = BUILTIN_RERANK_MODELS["jina-reranker-v3"][0].copy(deep=True)
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model.load()
+    documents = list(scores)
+    try:
+        result = await model.rerank(documents, "green tea", 2, None, True, False)
+    finally:
+        model._process_batch_task.cancel()
+        await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert auto_model_calls[0]["trust_remote_code"] is True
+    assert native.calls == [("green tea", documents)]
+    assert [r["index"] for r in result["results"]] == [1, 2]
+    assert [r["relevance_score"] for r in result["results"]] == [0.30, 0.19]
+    assert result["results"][0]["document"] == {"text": "green tea catechins"}
+
+
+async def test_jina_reranker_v3_return_len_counts_each_request(monkeypatch):
+    # rerank() runs one forward per block of documents; each batched request
+    # must report the non-padding tokens of its own forwards (#5821).
+    import asyncio
+
+    import torch
+    import transformers
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    class NativeJinaRanking:
+        def __init__(self):
+            self.queries = []
+
+        def eval(self):
+            return self
+
+        def forward(self, input_ids=None, attention_mask=None):
+            return None
+
+        def rerank(self, query, documents):
+            self.queries.append(query)
+            # Two blocks per request, each left-padded by two tokens.
+            for block in (documents[:1], documents[1:]):
+                length = len(query) + sum(len(d) for d in block)
+                mask = torch.ones((1, length + 2), dtype=torch.long)
+                mask[0, :2] = 0
+                self.forward(input_ids=mask, attention_mask=mask)
+            return [{"index": i, "relevance_score": 0.5} for i in range(len(documents))]
+
+    native = NativeJinaRanking()
+    monkeypatch.setattr(
+        transformers.AutoModel, "from_pretrained", lambda *a, **kw: native
+    )
+    monkeypatch.setattr(
+        transformers.AutoTokenizer, "from_pretrained", lambda *a, **kw: object()
+    )
+
+    family = BUILTIN_RERANK_MODELS["jina-reranker-v3"][0].copy(deep=True)
+    model = SentenceTransformerRerankModel("uid", "/model", family, "none")
+    model.load()
+    try:
+        short, long = await asyncio.gather(
+            model.rerank(["ab", "cde"], "q", None, None, False, True),
+            model.rerank(
+                ["abcdefgh", "ijklmnopq", "r"], "query", None, None, False, True
+            ),
+        )
+    finally:
+        model._process_batch_task.cancel()
+        await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    # Both requests went through one batch: per-document counts sit on each
+    # request's first document.
+    assert sorted(model._token_tracking_data.input_tokens) == [0, 0, 0, 7, 28]
+    assert sorted(native.queries) == ["q", "query"]
+    # forward() is restored after each request.
+    assert "forward" not in vars(native)
+    assert short["meta"]["tokens"] == {"input_tokens": 7, "output_tokens": 7}
+    assert long["meta"]["tokens"] == {"input_tokens": 28, "output_tokens": 28}
+
+
+def test_jina_reranker_v3_loads_tied_config_with_identity_lm_head(
+    tmp_path, monkeypatch
+):
+    # The checkpoint config enables tie_word_embeddings while JinaForRanking
+    # replaces lm_head with nn.Identity() and ships no lm_head weight.
+    import transformers
+    from safetensors.torch import save_file
+    from transformers import Qwen3Config, Qwen3Model
+
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+    from ..sentence_transformers.core import SentenceTransformerRerankModel
+
+    config = dict(
+        model_type="qwen3",
+        architectures=["JinaForRanking"],
+        auto_map={"AutoModel": "modeling.JinaForRanking"},
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+        num_key_value_heads=1,
+        head_dim=8,
+        vocab_size=64,
+        tie_word_embeddings=True,
+        torch_dtype="float32",
+    )
+    (tmp_path / "config.json").write_text(json.dumps(config))
+    (tmp_path / "modeling.py").write_text(
+        "from torch import nn\n"
+        "from transformers.models.qwen3 import modeling_qwen3\n\n\n"
+        "class JinaForRanking(modeling_qwen3.Qwen3ForCausalLM):\n"
+        "    def __init__(self, config):\n"
+        "        super().__init__(config)\n"
+        "        self.lm_head = nn.Identity()\n"
+        "        self.post_init()\n"
+    )
+    untied = {k: v for k, v in config.items() if k not in ("auto_map", "architectures")}
+    untied["tie_word_embeddings"] = False
+    weights = Qwen3Model(Qwen3Config(**untied)).state_dict()
+    save_file(
+        {"model." + k: v.contiguous() for k, v in weights.items()},
+        str(tmp_path / "model.safetensors"),
+    )
+    monkeypatch.setattr(
+        transformers.AutoTokenizer, "from_pretrained", lambda *a, **kw: object()
+    )
+
+    family = BUILTIN_RERANK_MODELS["jina-reranker-v3"][0].copy(deep=True)
+    model = SentenceTransformerRerankModel(
+        "uid", str(tmp_path), family, "none", device="cpu"
+    )
+    model.load()
+
+    assert type(model._model).__name__ == "JinaForRanking"
+    assert type(model._model.lm_head).__name__ == "Identity"
+    assert model._model.config.tie_word_embeddings is False
+
+
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
 @pytest.mark.parametrize(
     "model_engine",

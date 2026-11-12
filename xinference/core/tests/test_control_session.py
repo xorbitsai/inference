@@ -1796,3 +1796,123 @@ async def test_fenced_description_keeps_recovery_intent_for_retry(
         await pool.stop()
         pool._actors.clear()
         Router.set_instance(None)
+
+
+async def _worker_with_recovery_fault(monkeypatch, *, configured=True):
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    worker = WorkerActor("supervisor", None, pool, [])
+    if configured:
+        fence, authority = setup_fence()
+        worker._control_fence, worker._lifecycle = fence, fence.lifecycle
+        await worker.install_controller_session(authority.owner.to_dict())
+    uid = "m-rep0"
+    worker._model_uid_to_model[uid] = SimpleNamespace()
+    worker._model_uid_to_addr[uid] = "dead:1"
+    worker._model_uid_to_launch_args[uid] = {"model_uid": uid}
+
+    async def terminate(model_uid, is_model_die=False):
+        worker._model_uid_to_model.pop(model_uid, None)
+        worker._model_uid_to_addr.pop(model_uid, None)
+
+    evict = AsyncMock()
+    monkeypatch.setattr(worker, "terminate_model", AsyncMock(side_effect=terminate))
+    monkeypatch.setattr(worker, "_evict_replica_from_supervisor", evict)
+    monkeypatch.setattr(worker, "_call_supervisor", AsyncMock())
+    monkeypatch.setattr(worker_module, "gather_node_info", lambda: {})
+    monkeypatch.setitem(
+        sys.modules,
+        "pynvml",
+        SimpleNamespace(
+            nvmlInit=lambda: None,
+            nvmlDeviceGetCount=lambda: 0,
+            nvmlShutdown=lambda: None,
+        ),
+    )
+    return worker, evict
+
+
+@pytest.mark.parametrize("retry", ["status", "install"])
+@pytest.mark.asyncio
+async def test_control_fault_retry_does_not_duplicate_active_recovery(
+    monkeypatch, retry
+):
+    worker, evict = await _worker_with_recovery_fault(monkeypatch)
+    fence = worker._control_fence
+    entered, release = asyncio.Event(), asyncio.Event()
+    launches = []
+
+    async def recover_model(launch_args):
+        launches.append(launch_args["model_uid"])
+        if len(launches) > 1:
+            raise ValueError(f"{launch_args['model_uid']} is running")
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(worker, "recover_model", recover_model)
+    first = asyncio.create_task(worker._recover_sub_pool_event("dead:1"))
+    worker._main_pool._monitor_task = first
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        assert "dead:1" in worker._pending_control_faults
+        if retry == "status":
+            await asyncio.wait_for(
+                worker.report_status(
+                    **{CONTROL_CONTEXT_KEY: command(fence.session).to_dict()}
+                ),
+                2,
+            )
+        else:
+            assert (
+                await asyncio.wait_for(
+                    worker.install_controller_session(fence.session.to_dict()), 2
+                )
+            )["ready"]
+        assert not first.done()
+    finally:
+        release.set()
+        await asyncio.wait_for(first, 2)
+
+    assert launches == ["m-rep0"]
+    evict.assert_not_awaited()
+    assert worker._pending_control_faults == {}
+    assert worker._recovering_control_faults == set()
+
+
+@pytest.mark.asyncio
+async def test_interrupted_recovery_releases_guard_and_remains_retryable(monkeypatch):
+    worker, evict = await _worker_with_recovery_fault(monkeypatch)
+    fence = worker._control_fence
+    recover = AsyncMock(
+        side_effect=[ControlSessionRejected("authority_rejected"), None]
+    )
+    monkeypatch.setattr(worker, "recover_model", recover)
+
+    with pytest.raises(ControlSessionRejected, match="authority_rejected"):
+        async with fence.command(fence.capture_event()):
+            await worker.recover_sub_pool("dead:1")
+
+    assert "dead:1" in worker._pending_control_faults
+    assert getattr(worker, "_recovering_control_faults", set()) == set()
+    await worker.report_status(
+        **{CONTROL_CONTEXT_KEY: command(fence.session).to_dict()}
+    )
+
+    assert recover.await_count == 2
+    evict.assert_not_awaited()
+    assert worker._pending_control_faults == {}
+    assert getattr(worker, "_recovering_control_faults", set()) == set()
+
+
+@pytest.mark.asyncio
+async def test_recovery_without_control_fence_is_unchanged(monkeypatch):
+    worker, evict = await _worker_with_recovery_fault(monkeypatch, configured=False)
+    recover = AsyncMock()
+    monkeypatch.setattr(worker, "recover_model", recover)
+
+    await worker._main_pool.recover_sub_pool("dead:1")
+    await worker.report_status()
+
+    recover.assert_awaited_once_with({"model_uid": "m-rep0"})
+    evict.assert_not_awaited()
+    assert worker._pending_control_faults == {}
+    assert getattr(worker, "_recovering_control_faults", set()) == set()

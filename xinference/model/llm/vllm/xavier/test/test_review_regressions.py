@@ -124,6 +124,13 @@ def test_unsupported_configs_rejected(connector_module, connector_config, field)
             "tensor_parallel_size" if field == "tp" else "pipeline_parallel_size",
             2,
         )
+    if field in ("multimodal", "tp"):
+        # Replicas sharing CPU snapshots accept both; P/D handoff does not.
+        connector_config.kv_transfer_config.get_from_extra_config = lambda *a: {
+            "rank": 1,
+            "role": "prefill",
+            "gpu_cache_bytes": 0,
+        }
     with pytest.raises(ValueError):
         connector_module.XavierConnector(
             connector_config, None, SimpleNamespace(kv_cache_groups=[])
@@ -232,7 +239,7 @@ def test_requery_miss_discards_old_load(connector, connector_module):
     assert not connector._leased_requests
 
 
-@pytest.mark.parametrize("field", ["lora_request", "mm_features", "prompt_embeds"])
+@pytest.mark.parametrize("field", ["lora_request", "prompt_embeds"])
 def test_request_specific_cache_identity_is_rejected(connector, field):
     request = SimpleNamespace(request_id="r", prompt_token_ids=list(range(17)))
     setattr(request, field, [1])
