@@ -53,6 +53,8 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     lightning_model_id: Optional[str]
     lightning_versions: Optional[List[str]]
     lightning_model_file_name_template: Optional[str]
+    lightning_model_loaded: bool = False
+    lightning_inference_steps: Optional[int] = None
 
     virtualenv: Optional[VirtualEnvSettings]
     # Provenance: True only for bundled built-in models (gates trust_remote_code).
@@ -66,7 +68,7 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             controlnet = [cn.dict() for cn in self.controlnet]
         else:
             controlnet = self.controlnet
-        return {
+        description = {
             "model_type": "image",
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
@@ -78,6 +80,9 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "controlnet": controlnet,
             "model_base": getattr(self, "model_base", None),
         }
+        if self.lightning_model_loaded:
+            description["lightning_inference_steps"] = self.lightning_inference_steps
+        return description
 
     def to_version_info(self):
         from .cache_manager import ImageCacheManager
@@ -459,6 +464,8 @@ def create_image_model_instance(
     # Copy first to avoid mutating the shared builtin family object.
     model_spec = model_spec.copy()
     model_spec.model_engine = model_engine
+    if lightning_version and model_engine.lower() == "diffusers":
+        kwargs["lightning_version"] = lightning_version
     model = model_cls(
         model_uid,
         model_path,

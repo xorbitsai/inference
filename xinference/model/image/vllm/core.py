@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ....types import LoRA
 from ....utils import dependency_import_guard
+from ...lightning import resolve_request_lightning
 from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
@@ -406,6 +407,7 @@ class VLLMDiffusionModel:
         height: int,
         generate_config: Dict[str, Any],
     ) -> Any:
+        resolve_request_lightning(generate_config.pop("use_lightning", None), False)
         from vllm_omni.inputs.data import OmniDiffusionSamplingParams
 
         seed = generate_config.pop("seed", None)

@@ -132,10 +132,55 @@ function ScalarSeedField({ form }: Pick<CapabilityFormProps, 'form'>) {
   );
 }
 
+function LightningField({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'>) {
+  const { t } = useI18n();
+  const useLightning = useWatch('use_lightning', form);
+  const steps = model.lightning_inference_steps;
+  if (steps === undefined) return null;
+  return (
+    <FormField
+      name="use_lightning"
+      label={
+        steps != null && useLightning
+          ? `Lightning · ${t('runningModels.detail.inferenceSteps')} ${steps}`
+          : 'Lightning'
+      }
+      valuePropName="checked"
+      layout="horizontal"
+    >
+      <Switch />
+    </FormField>
+  );
+}
+
+function InferenceStepsField({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'>) {
+  const { t } = useI18n();
+  const useLightning = useWatch('use_lightning', form);
+  return (
+    <FormField
+      name="num_inference_steps"
+      label={t('runningModels.detail.inferenceSteps')}
+      normalize={normalizeNumberInput}
+      hidden={model.lightning_inference_steps != null && useLightning === true}
+      rules={
+        model.lightning_inference_steps === null && useLightning === true
+          ? [
+              { required: true },
+              { pattern: /^[1-9]\d*$/, message: t('registerModel.enterIntegerGreaterThanZero') },
+            ]
+          : undefined
+      }
+    >
+      <Input type="number" />
+    </FormField>
+  );
+}
+
 function ImageGenerationFields({
   form,
+  model,
   includeImageParams = false,
-}: Pick<CapabilityFormProps, 'form'> & { includeImageParams?: boolean }) {
+}: Pick<CapabilityFormProps, 'form' | 'model'> & { includeImageParams?: boolean }) {
   const { t } = useI18n();
   const imageCount = Math.max(1, Math.round(Number(useWatch('n', form)) || 1));
   const samplingMethodOptions = SAMPLING_METHOD_OPTIONS.map((option) => ({
@@ -155,6 +200,7 @@ function ImageGenerationFields({
 
   return (
     <>
+      <LightningField form={form} model={model} />
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2">
         <FormField
           name="width"
@@ -195,13 +241,7 @@ function ImageGenerationFields({
         >
           <Input type="number" step={0.1} />
         </FormField>
-        <FormField
-          name="num_inference_steps"
-          label={t('runningModels.detail.inferenceSteps')}
-          normalize={normalizeNumberInput}
-        >
-          <Input type="number" />
-        </FormField>
+        <InferenceStepsField form={form} model={model} />
         {includeImageParams && (
           <>
             <FormField
@@ -263,7 +303,7 @@ function ImageGenerationFields({
   );
 }
 
-function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
+function VideoFields({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'>) {
   const { t } = useI18n();
   const swapDimensions = () => {
     const width = form.getFieldValue('width');
@@ -273,6 +313,7 @@ function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
 
   return (
     <>
+      <LightningField form={form} model={model} />
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2">
         <FormField
           name="width"
@@ -313,13 +354,7 @@ function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
         >
           <Input type="number" />
         </FormField>
-        <FormField
-          name="num_inference_steps"
-          label={t('runningModels.detail.inferenceSteps')}
-          normalize={normalizeNumberInput}
-        >
-          <Input type="number" />
-        </FormField>
+        <InferenceStepsField form={form} model={model} />
         <FormField
           name="guidance_scale"
           label={t('runningModels.detail.guidanceScale')}
@@ -591,16 +626,16 @@ export function OcrPanel() {
   );
 }
 
-export function TextToImagePanel({ form }: CapabilityFormProps) {
+export function TextToImagePanel({ form, model }: CapabilityFormProps) {
   return (
     <>
       <PromptFields />
-      <ImageGenerationFields form={form} />
+      <ImageGenerationFields form={form} model={model} />
     </>
   );
 }
 
-export function ImageToImagePanel({ form }: CapabilityFormProps) {
+export function ImageToImagePanel({ form, model }: CapabilityFormProps) {
   const { t } = useI18n();
   return (
     <>
@@ -612,12 +647,12 @@ export function ImageToImagePanel({ form }: CapabilityFormProps) {
         />
       </FormField>
       <PromptFields />
-      <ImageGenerationFields form={form} includeImageParams />
+      <ImageGenerationFields form={form} model={model} includeImageParams />
     </>
   );
 }
 
-export function InpaintingPanel({ form }: CapabilityFormProps) {
+export function InpaintingPanel({ form, model }: CapabilityFormProps) {
   const updateMask = useCallback(
     (value: FileUploadValue[]) => {
       form.setFieldValue('mask_image', value);
@@ -632,21 +667,21 @@ export function InpaintingPanel({ form }: CapabilityFormProps) {
       </FormField>
       <FormField name="mask_image" hidden />
       <PromptFields />
-      <ImageGenerationFields form={form} includeImageParams />
+      <ImageGenerationFields form={form} model={model} includeImageParams />
     </>
   );
 }
 
-export function TextToVideoPanel({ form }: CapabilityFormProps) {
+export function TextToVideoPanel({ form, model }: CapabilityFormProps) {
   return (
     <>
       <PromptFields />
-      <VideoFields form={form} />
+      <VideoFields form={form} model={model} />
     </>
   );
 }
 
-export function ImageToVideoPanel({ form }: CapabilityFormProps) {
+export function ImageToVideoPanel({ form, model }: CapabilityFormProps) {
   const { t } = useI18n();
   return (
     <>
@@ -654,12 +689,12 @@ export function ImageToVideoPanel({ form }: CapabilityFormProps) {
         <FileUpload accept="image/*" label={t('runningModels.detail.uploadFirstFrame')} />
       </FormField>
       <PromptFields />
-      <VideoFields form={form} />
+      <VideoFields form={form} model={model} />
     </>
   );
 }
 
-export function FirstLastFrameVideoPanel({ form }: CapabilityFormProps) {
+export function FirstLastFrameVideoPanel({ form, model }: CapabilityFormProps) {
   const { t } = useI18n();
   return (
     <>
@@ -672,7 +707,7 @@ export function FirstLastFrameVideoPanel({ form }: CapabilityFormProps) {
         </FormField>
       </div>
       <PromptFields />
-      <VideoFields form={form} />
+      <VideoFields form={form} model={model} />
     </>
   );
 }

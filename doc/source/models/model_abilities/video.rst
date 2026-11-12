@@ -150,9 +150,8 @@ ComfyUI exports are incompatible.
 
 Native H3 requests require a duration of 4–15 seconds at 24 fps. For a first
 test, use ``width=960``, ``height=544`` and ``num_frames=124`` (about 5 seconds).
-Omit ``num_inference_steps`` to use the selected Lightning schedule, or set it
-to 4 for either 4-step adapter and 8 for the 8-step adapter. The Web UI's generic
-video defaults must be adjusted to these values.
+With Lightning active, omit ``num_inference_steps`` to use the selected schedule,
+or set it to 4 for either 4-step adapter and 8 for the 8-step adapter.
 
 For SGLang, install the system ``ffmpeg`` package before launching H3 and ensure
 both ``ffmpeg`` and ``ffprobe`` are on ``PATH``. The Python packages ``av`` and
@@ -297,10 +296,13 @@ MiniMax-H3's default INT4 quantization and group offload remain enabled.
 In the Web UI, open the MiniMax-H3 launch dialog, expand **Advanced
 Configuration**, and select a value under **Lightning Versions**. Leave
 **Lightning Model Path** empty to download the selected checkpoint
-automatically. After the model starts, set **Inference Steps** on the video
-generation page to the evaluation count in the table. The generation page
-currently starts with 25 steps, which overrides the Lightning default if left
-unchanged.
+automatically.
+
+On Diffusers, SGLang, and vLLM, the video generation page shows a **Lightning**
+switch once the adapter is loaded. Pass ``use_lightning=False`` in a Python client generation
+call, or include ``"use_lightning": false`` in the video REST request's ``kwargs``
+object, to use the base model and its sampling defaults for that request.
+Omitting the option uses the adapter selected at launch.
 
 For example, launch the 768p four-step version from the command line::
 

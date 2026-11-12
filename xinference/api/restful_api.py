@@ -4193,6 +4193,8 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
@@ -4387,6 +4389,8 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
@@ -4441,6 +4445,8 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
@@ -4629,6 +4635,7 @@ class RESTfulAPI(CancelMixin):
         size: Optional[str] = Form("original"),
         response_format: Optional[str] = Form("url"),
         stream: Optional[bool] = Form(False),
+        use_lightning: Optional[bool] = Form(None),
     ) -> Response:
         """OpenAI-compatible image edit endpoint.
 
@@ -4746,6 +4753,8 @@ class RESTfulAPI(CancelMixin):
             }
             if reference_images:
                 model_params["reference_images"] = reference_images
+            if use_lightning is not None:
+                model_params["use_lightning"] = use_lightning
 
             # DEBUG: Log the number of files and model params before processing
             logger.debug(
@@ -4787,6 +4796,8 @@ class RESTfulAPI(CancelMixin):
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except InvalidModelRequestError as e:
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
