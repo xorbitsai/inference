@@ -899,3 +899,80 @@ def test_model_stop_releases_the_replica_pins_after_the_engine(monkeypatch):
     model._xavier_cache_config = {"address": "a", "uid": "u", "owner": "replica"}
     model.stop()
     assert events == ["engine", model._xavier_cache_config]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version", ["1.2.1", NEW])
+async def test_failed_engine_shutdown_keeps_admitted_pages_pinned(
+    monkeypatch, tmp_path, connector, version
+):
+    from ...xavier.backends.torch import shared_pages
+    from .. import core
+
+    monkeypatch.setattr(shared_pages, "shared_directory", lambda: str(tmp_path))
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 1, 1, 2, 4, "bfloat16"
+    )
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierCacheActor, 2 * page_bytes, address=pool.external_address, uid="s"
+        )
+        cache_config = {
+            "address": actor.address,
+            "uid": "s",
+            "contract": contract.to_dict(),
+            "tensor_parallel_size": 2,
+            "engine_version": version,
+            "owner": "replica-a",
+        }
+        monkeypatch.delenv(CONFIG_ENV, raising=False)
+        monkeypatch.setenv(WORKER_CONFIG_ENV, json.dumps(cache_config))
+        # stop() closes the clients of this connector module.
+        monkeypatch.setitem(
+            sys.modules, "xinference.model.llm.trt_llm.connector", connector
+        )
+        scheduler = await asyncio.to_thread(connector.XavierConnectorScheduler, None)
+        ranks = []
+        for rank in range(2):
+            monkeypatch.setattr(connector, "_local_rank", lambda rank=rank: rank)
+            worker = await asyncio.to_thread(connector.XavierConnectorWorker, None)
+            worker.register_kv_caches(torch.zeros(2, 1, 2, 8, dtype=torch.bfloat16))
+            ranks.append(worker)
+        namespace = (await actor.get_stats())["namespace"]
+        key = scheduler._keys(list(range(4)))[0]
+        page = torch.full((page_bytes,), 7, dtype=torch.uint8)
+        await actor.put(namespace, [f"{key}@tp{r}" for r in range(2)], [page] * 2)
+        request = SimpleNamespace(request_id=1, get_tokens=lambda beam: list(range(5)))
+        assert await asyncio.to_thread(
+            scheduler.get_num_new_matched_tokens, request, 0
+        ) == (4, False)
+        scheduler.update_state_after_alloc(request, [1, 0])
+        metadata = scheduler.build_connector_meta(_meta(1, [1, 0], 0, 1))
+        ranks[0].bind_connector_meta(metadata)
+        await asyncio.to_thread(ranks[0].start_load_kv, None)
+
+        def fail():
+            raise RuntimeError("executor shutdown failed before joining ranks")
+
+        # Rank 1 runs in its own MPI process: the model process cannot close it.
+        connector._clients.discard(ranks[1].client)
+        model = core.TRTLLMModel.__new__(core.TRTLLMModel)
+        model._pd = None
+        model._requests = {}
+        model._cache_enabled = True
+        model._engine = SimpleNamespace(shutdown=fail)
+        model._xavier_cache_config = cache_config
+        with pytest.raises(RuntimeError, match="shutdown failed"):
+            await asyncio.to_thread(model.stop)
+        # Rank 1 may still be running: the admitted pages stay pinned.
+        assert (await actor.get_stats())["active_handoffs"] == 1
+        others = [f"other@{r}" for r in range(2)]
+        big = torch.full((page_bytes,), 99, dtype=torch.uint8)
+        assert await actor.put(namespace, others, [big] * 2) == [False, False]
+        ranks[1].bind_connector_meta(metadata)
+        await asyncio.to_thread(ranks[1].start_load_kv, None)
+        for worker in ranks:
+            assert worker.pool[1].view(torch.uint8).unique().tolist() == [7]
+        ranks[1].client.close()

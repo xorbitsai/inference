@@ -414,7 +414,7 @@ class XavierClient:
                 return True
         return False
 
-    def close(self):
+    def close(self, release_pins: bool = True):
         if not self._closed:
             # The engine has stopped: no rank will read these pins any more.
             # Releasing by owner also covers pins whose reserve reply was
@@ -422,7 +422,14 @@ class XavierClient:
             # If the store stays unreachable, keep the RPC loop so a later
             # close() can retry; the model process also retries after the
             # engine stops (see release_owner in xavier.py).
-            if self._pins and not self.pd_gpu and not self._release_owner():
+            # When the engine did not stop cleanly, a rank may still read the
+            # pinned slots: keep the pins for the rest of the store's life.
+            if (
+                release_pins
+                and self._pins
+                and not self.pd_gpu
+                and not self._release_owner()
+            ):
                 return
             if self.shared is not None and self._writes == 0:
                 # No copy into this client's slots is pending: return the
@@ -440,14 +447,15 @@ class XavierClient:
                 logger.warning("Timed out stopping TRT-LLM Xavier RPC thread")
 
 
-def close_clients():
+def close_clients(release_pins: bool = True):
+    """Close every client; keep read pins unless the engine stopped cleanly."""
     from .gpu import close_service
 
     close_service()
     for publisher in list(_publishers):
         publisher.close()
     for client in list(_clients):
-        client.close()
+        client.close(release_pins=release_pins)
 
 
 class _StoredHints:

@@ -233,9 +233,13 @@ class TRTLLMModel(LLM, ChatModelMixin):
             # Stop the importer before freeing C++ memory. If stopping fails,
             # retain the owning engine so live DMA cannot access freed slots.
             close_service()
+        # Read pins may be released only once no rank can still copy from the
+        # pinned slots: after a clean shutdown, or when no engine ran.
+        stopped = self._engine is None
         try:
             if self._engine is not None:
                 self._engine.shutdown()
+                stopped = True
                 if self._pd is not None:
                     self._pd.engine_stopped()
         finally:
@@ -244,14 +248,18 @@ class TRTLLMModel(LLM, ChatModelMixin):
             if self._cache_enabled:
                 connector = sys.modules.get("xinference.model.llm.trt_llm.connector")
                 if connector is not None:
-                    connector.close_clients()
+                    connector.close_clients(release_pins=stopped)
                 config = getattr(self, "_xavier_cache_config", None) or {}
-                if config.get("owner"):
+                if config.get("owner") and stopped:
                     from .xavier import release_owner
 
-                    # Ranks may exit without closing their clients; the
-                    # engine has stopped, so no rank reads these pins.
+                    # Ranks may exit without closing their clients.
                     release_owner(config)
+                elif config.get("owner"):
+                    logger.warning(
+                        "TRT-LLM did not shut down cleanly; keeping Xavier read "
+                        "pins, as a rank may still read the pinned pages"
+                    )
 
     async def release_pd_request(self, request_id: str) -> None:
         if self._pd is not None:
