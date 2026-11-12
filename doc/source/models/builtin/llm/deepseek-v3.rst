@@ -7,7 +7,7 @@ deepseek-v3
 - **Context Length:** 163840
 - **Model Name:** deepseek-v3
 - **Languages:** en, zh
-- **Abilities:** chat
+- **Abilities:** chat, tools
 - **Description:** DeepSeek-V3, a strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. 
 
 Specifications

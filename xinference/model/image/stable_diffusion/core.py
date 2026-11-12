@@ -25,15 +25,27 @@ import math
 import os
 import re
 import sys
+import threading
 import types
 import warnings
 from glob import glob
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import PIL.Image
 import torch
 from PIL import ImageOps
 
+from ....core.exceptions import InvalidModelRequestError
 from ....device_utils import (
     get_available_device,
     gpu_count,
@@ -41,6 +53,7 @@ from ....device_utils import (
 )
 from ....types import LoRA
 from ....utils import dependency_import_guard
+from ...lightning import resolve_request_lightning
 from ..constants import DOWNSAMPLE_FACTOR, LATENT_CHANNELS
 from ..rng import ImageRNG
 from ..sdapi import SDAPIDiffusionModelMixin
@@ -153,6 +166,8 @@ def prepare_latents_with_noise(raw_prepare_latents: Callable, noise: torch.Tenso
 
 
 class DiffusionModel(SDAPIDiffusionModelMixin):
+    _LIGHTNING_ADAPTER_NAME = "xinference_lightning"
+
     def __init__(
         self,
         model_uid: str,
@@ -164,6 +179,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         model_spec: Optional["ImageModelFamilyV2"] = None,
         gguf_model_path: Optional[str] = None,
         lightning_model_path: Optional[str] = None,
+        lightning_version: Optional[str] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -171,7 +187,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._model_path = model_path
         self._device = device
         # model info when loading
-        self._model = None
+        self._model: Any = None
         self._lora_model = lora_model
         self._lora_load_kwargs = lora_load_kwargs or {}
         self._lora_fuse_kwargs = lora_fuse_kwargs or {}
@@ -193,6 +209,29 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self._gguf_model_path = gguf_model_path
         # lightning
         self._lightning_model_path = lightning_model_path
+        self._lightning_steps: Optional[int] = None
+        self._lightning_scheduler = None
+        self._lightning_layers: List[Any] = []
+        self._lightning_lock: Optional[ContextManager[Any]] = None
+        if (
+            lightning_model_path
+            and model_spec is not None
+            and "qwen" in model_spec.model_name.lower()
+        ):
+            for source in (
+                os.path.basename(lightning_model_path),
+                lightning_version or "",
+            ):
+                match = re.search(r"([48])steps", source, re.IGNORECASE)
+                if match:
+                    self._lightning_steps = int(match[1])
+                    break
+            self.model_family = self._model_spec = model_spec.copy(
+                update={
+                    "lightning_model_loaded": True,
+                    "lightning_inference_steps": self._lightning_steps,
+                }
+            )
 
     @property
     def model_ability(self):
@@ -265,6 +304,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         controlnet_path: Optional[Union[str, Tuple[str, ...]]] = None,
         loras: Optional[List[LoRA]] = None,
     ):
+        with self._lightning_lock or contextlib.nullcontext():
+            return self._get_or_create_pipeline(
+                ability, controlnet_name, controlnet_path
+            )
+
+    def _get_or_create_pipeline(self, ability, controlnet_name, controlnet_path):
         try:
             model = self._ability_to_models[ability, controlnet_name]
         except KeyError:
@@ -442,59 +487,59 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         logger.debug(
             "Loading model from %s, kwargs: %s", self._model_path, self._kwargs
         )
-        with self._process_lightning(self._kwargs):
-            try:
-                self._model = AutoPipelineModel.from_pretrained(
-                    self._model_path,
-                    **self._kwargs,
+        try:
+            self._model = AutoPipelineModel.from_pretrained(
+                self._model_path,
+                **self._kwargs,
+            )
+        except ValueError:
+            model_name_lower = self._model_spec.model_name.lower()
+            if "klein" in model_name_lower:
+                from diffusers import Flux2KleinPipeline
+
+                self._model = Flux2KleinPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
                 )
-            except ValueError:
-                model_name_lower = self._model_spec.model_name.lower()
-                if "klein" in model_name_lower:
-                    from diffusers import Flux2KleinPipeline
+            elif "flux.2" in model_name_lower:
+                from diffusers import Flux2Pipeline
 
-                    self._model = Flux2KleinPipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                elif "flux.2" in model_name_lower:
-                    from diffusers import Flux2Pipeline
+                self._model = Flux2Pipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            elif "flux" in model_name_lower:
+                from diffusers import FluxPipeline
 
-                    self._model = Flux2Pipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                elif "flux" in model_name_lower:
-                    from diffusers import FluxPipeline
+                self._model = FluxPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            elif "kontext" in model_name_lower:
+                # TODO: remove this branch when auto pipeline supports
+                # flux.1-kontext-dev
+                from diffusers import FluxKontextPipeline
 
-                    self._model = FluxPipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                elif "kontext" in model_name_lower:
-                    # TODO: remove this branch when auto pipeline supports
-                    # flux.1-kontext-dev
-                    from diffusers import FluxKontextPipeline
+                self._model = FluxKontextPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            elif "qwen" in model_name_lower or "firered" in model_name_lower:
+                # TODO: remove this branch when auto pipeline supports
+                # Qwen-Image and models based on its editing pipeline
+                from diffusers import DiffusionPipeline
 
-                    self._model = FluxKontextPipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                elif "qwen" in model_name_lower or "firered" in model_name_lower:
-                    # TODO: remove this branch when auto pipeline supports
-                    # Qwen-Image and models based on its editing pipeline
-                    from diffusers import DiffusionPipeline
+                self._model = DiffusionPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            elif "z-image" in model_name_lower or "zimage" in model_name_lower:
+                # TODO: remove this branch when auto pipeline supports Z-Image
+                from diffusers import DiffusionPipeline
 
-                    self._model = DiffusionPipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                elif "z-image" in model_name_lower or "zimage" in model_name_lower:
-                    # TODO: remove this branch when auto pipeline supports Z-Image
-                    from diffusers import DiffusionPipeline
-
-                    self._model = DiffusionPipeline.from_pretrained(
-                        self._model_path, **self._kwargs
-                    )
-                else:
-                    raise
-            self._load_to_device(self._model)
-            self._apply_lora()
+                self._model = DiffusionPipeline.from_pretrained(
+                    self._model_path, **self._kwargs
+                )
+            else:
+                raise
+        self._load_to_device(self._model)
+        self._apply_lora()
+        self._load_lightning()
 
         if self._kwargs.get("deepcache", False):
             with dependency_import_guard("DeepCache"):
@@ -631,43 +676,97 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             config=os.path.join(self._model_path, "transformer"),
         )
 
-    @contextlib.contextmanager
-    def _process_lightning(self, kwargs):
-        lightning_model_path = self._lightning_model_path
-        if not lightning_model_path:
-            yield
+    def _load_lightning(self) -> None:
+        if (
+            not self._lightning_model_path
+            or self._model_spec is None
+            or not self._model_spec.lightning_model_loaded
+        ):
             return
 
         from diffusers import FlowMatchEulerDiscreteScheduler
 
-        if "qwen" in self._model_spec.model_name.lower():
-            scheduler_config = {
-                "base_image_seq_len": 256,
-                "base_shift": math.log(3),  # We use shift=3 in distillation
-                "invert_sigmas": False,
-                "max_image_seq_len": 8192,
-                "max_shift": math.log(3),  # We use shift=3 in distillation
-                "num_train_timesteps": 1000,
-                "shift": 1.0,
-                "shift_terminal": None,  # set shift_terminal to None
-                "stochastic_sampling": False,
-                "time_shift_type": "exponential",
-                "use_beta_sigmas": False,
-                "use_dynamic_shifting": True,
-                "use_exponential_sigmas": False,
-                "use_karras_sigmas": False,
-            }
-            scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
-            kwargs["scheduler"] = scheduler
+        scheduler_config = {
+            "base_image_seq_len": 256,
+            "base_shift": math.log(3),  # The adapter was distilled with shift=3.
+            "invert_sigmas": False,
+            "max_image_seq_len": 8192,
+            "max_shift": math.log(3),
+            "num_train_timesteps": 1000,
+            "shift": 1.0,
+            "shift_terminal": None,
+            "stochastic_sampling": False,
+            "time_shift_type": "exponential",
+            "use_beta_sigmas": False,
+            "use_dynamic_shifting": True,
+            "use_exponential_sigmas": False,
+            "use_karras_sigmas": False,
+        }
+        self._lightning_scheduler = FlowMatchEulerDiscreteScheduler.from_config(
+            scheduler_config
+        )
+        model = self._model
+        if self._lora_model:
+            layers = [
+                layer
+                for layer in model.transformer.modules()
+                if hasattr(layer, "lora_A")
+            ]
+            if layers and all(
+                set(layer.lora_A) <= set(layer.merged_adapters) for layer in layers
+            ):
+                # Keep fused launch weights while clearing the PEFT wrappers.
+                # A merged wrapper would skip the unfused Lightning adapter.
+                model.unload_lora_weights()
+        logger.debug("Loading Lightning LoRA: %s", self._lightning_model_path)
+        model.load_lora_weights(
+            self._lightning_model_path, adapter_name=self._LIGHTNING_ADAPTER_NAME
+        )
+        self._lightning_layers = [
+            layer
+            for layer in model.transformer.modules()
+            if self._LIGHTNING_ADAPTER_NAME in getattr(layer, "lora_A", {})
+        ]
+        if not self._lightning_layers:
+            raise ValueError(
+                "The Lightning adapter did not match the image transformer"
+            )
+        for layer in self._lightning_layers:
+            if self._LIGHTNING_ADAPTER_NAME not in layer.active_adapters:
+                layer.set_adapter(
+                    [*layer.active_adapters, self._LIGHTNING_ADAPTER_NAME]
+                )
+        # Derived pipelines share PEFT layers, and a cancelled asyncio task
+        # can leave its inference thread running. Guard the shared state there.
+        self._lightning_lock = threading.RLock()
 
+    @contextlib.contextmanager
+    def _request_lightning(self, model, enabled: bool):
+        if self._lightning_scheduler is None:
             yield
+            return
 
-            model = self._model
-            logger.debug("Loading lightning lora: %s", self._lightning_model_path)
-            model.load_lora_weights(self._lightning_model_path)
-        else:
-            logger.debug("No lightning applied")
+        base_scheduler = model.scheduler
+        changed_layers = []
+        try:
+            if enabled:
+                model.scheduler = self._lightning_scheduler
+            else:
+                # Remove only the unfused Lightning adapter. Disabling all
+                # PEFT adapters can unmerge a user-supplied launch-time LoRA.
+                name = self._LIGHTNING_ADAPTER_NAME
+                for layer in self._lightning_layers:
+                    active = list(layer.active_adapters)
+                    if name in active:
+                        changed_layers.append((layer, active))
+                        layer.set_adapter(
+                            [adapter for adapter in active if adapter != name]
+                        )
             yield
+        finally:
+            for layer, active in changed_layers:
+                layer.set_adapter(active)
+            model.scheduler = base_scheduler
 
     def _load_to_device(self, model):
         if self._has_bnb_quantization and not any(
@@ -914,6 +1013,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         **kwargs,
     ):
         model = model if model is not None else self._model
+        use_lightning = resolve_request_lightning(
+            kwargs.pop("use_lightning", None), self._lightning_scheduler is not None
+        )
+        if use_lightning and not kwargs.get("num_inference_steps"):
+            if self._lightning_steps is None:
+                raise InvalidModelRequestError(
+                    "Specify num_inference_steps for this Lightning checkpoint"
+                )
+            kwargs["num_inference_steps"] = self._lightning_steps
         is_padded = kwargs.pop("is_padded", None)
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
@@ -944,10 +1052,16 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             kwargs.setdefault("guidance_schedule", None)
         assert callable(model)
         with (
+            self._lightning_lock or contextlib.nullcontext(),
+            self._request_lightning(model, use_lightning),
             self._reset_when_done(model, sampler_name, scheduler),
             self._release_after(),
             self._wrap_deepcache(model),
-            self._request_loras(model, kwargs.pop("loras", None)),
+            self._request_loras(
+                model,
+                kwargs.pop("loras", None),
+                self._LIGHTNING_ADAPTER_NAME if use_lightning else None,
+            ),
             self._restore_reference_hooks(model),
         ):
             if gen_prompt_embeds is not None:
@@ -1007,18 +1121,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
-    def _gen_config_for_lightning(self, kwargs):
-        if (
-            not kwargs.get("num_inference_steps")
-            and self._lightning_model_path is not None
-        ):
-            is_4_steps = "4steps" in self._lightning_model_path
-            if is_4_steps:
-                kwargs["num_inference_steps"] = 4
-            else:
-                assert "8steps" in self._lightning_model_path
-                kwargs["num_inference_steps"] = 8
-
     async def text_to_image(
         self,
         prompt: str,
@@ -1031,14 +1133,16 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         generate_kwargs = self._model_spec.default_generate_config.copy()  # type: ignore
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         generate_kwargs["width"], generate_kwargs["height"] = width, height
-        self._gen_config_for_lightning(generate_kwargs)
 
         controlnet = generate_kwargs.pop("controlnet", None)
         loras = generate_kwargs.pop("loras", None)
         generate_kwargs["loras"] = loras
         if controlnet or loras is not None:
-            generate_kwargs["model"] = self._get_model(
-                "text2image", *self._get_controlnet_param(controlnet), loras=loras
+            generate_kwargs["model"] = await asyncio.to_thread(
+                self._get_model,
+                "text2image",
+                *self._get_controlnet_param(controlnet),
+                loras=loras,
             )
         if (latents := self._get_latents(generate_kwargs)) is not None:
             generate_kwargs["latents"] = latents
@@ -1211,15 +1315,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             else:
                 image = self._ensure_three_channel_image(image)
 
-        # generate config for lightning
-        self._gen_config_for_lightning(kwargs)
-
         if is_joyai_image_edit_plus:
             kwargs["images"] = image
             image = None
 
         # JoyAI Image Edit Plus produces one image per pipeline invocation.
-        with self._patch_prepare_latents(model, kwargs):
+        with (
+            self._lightning_lock or contextlib.nullcontext(),
+            self._patch_prepare_latents(model, kwargs),
+        ):
             return self._call_model(
                 image=image,
                 prompt=prompt,
@@ -1266,7 +1370,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             mask_image = model.mask_processor.blur(mask_image, blur_factor=mask_blur)  # type: ignore
 
         if "width" not in kwargs:
-            kwargs["width"], kwargs["height"] = map(int, re.split(r"[^\d]+", size))
+            if size:
+                kwargs["width"], kwargs["height"] = map(int, re.split(r"[^\d]+", size))
+            else:
+                # /v1/images/edits sends an empty size to keep the input's size.
+                kwargs["width"], kwargs["height"] = image.size
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 inpainting requires image's height and width is times of 16
@@ -1281,10 +1389,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             # calculate actual image size after padding
             kwargs["width"], kwargs["height"] = image.size
 
-        # generate config for lightning
-        self._gen_config_for_lightning(kwargs)
-
-        with self._patch_prepare_latents(model, kwargs):
+        with (
+            self._lightning_lock or contextlib.nullcontext(),
+            self._patch_prepare_latents(model, kwargs),
+        ):
             return self._call_model(
                 image=image,
                 mask_image=mask_image,
@@ -1368,7 +1476,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     @staticmethod
     @contextlib.contextmanager
-    def _request_loras(model, loras):
+    def _request_loras(model, loras, lightning_adapter: Optional[str] = None):
         if not loras:
             yield
             return
@@ -1380,7 +1488,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 model.load_lora_weights(lora.local_path, adapter_name=name)
                 names.append(name)
             model.enable_lora()
-            model.set_adapters(names, [lora.lora_scale for lora in loras])
+            weights = [lora.lora_scale for lora in loras]
+            if lightning_adapter is None:
+                model.set_adapters(names, weights)
+            else:
+                model.set_adapters([lightning_adapter, *names], [1.0, *weights])
             yield
         finally:
             if names:

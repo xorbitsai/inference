@@ -123,8 +123,9 @@ const videoKwargsExample = {
   seed: 11,
 };
 
-function commonImageBody({ modelUid, values, requestId }: TransformContext, fallbackSize?: string) {
-  const kwargs = buildGenerationKwargs(values, requestId, {
+function commonImageBody(context: TransformContext, fallbackSize?: string) {
+  const { modelUid, values } = context;
+  const kwargs = buildMediaKwargs(context, {
     excludeKeys: ['width', 'height'],
     seedMode: 'image-list',
   });
@@ -145,7 +146,7 @@ function commonImageBody({ modelUid, values, requestId }: TransformContext, fall
 function appendCommonMediaFormData(formData: FormData, context: TransformContext) {
   const { modelUid, values } = context;
   const size = sizeFromValues(values);
-  const kwargs = buildGenerationKwargs(values, context.requestId, {
+  const kwargs = buildMediaKwargs(context, {
     excludeKeys: ['width', 'height'],
     seedMode: 'image-list',
   });
@@ -159,8 +160,22 @@ function appendCommonMediaFormData(formData: FormData, context: TransformContext
   appendKwargsIfPresent(formData, kwargs);
 }
 
-function commonVideoBody({ modelUid, values, requestId }: TransformContext) {
-  const kwargs = buildGenerationKwargs(values, requestId);
+function buildMediaKwargs(
+  { model, values, requestId }: TransformContext,
+  options?: Parameters<typeof buildGenerationKwargs>[2]
+) {
+  const kwargs = buildGenerationKwargs(values, requestId, options);
+  if (model.lightning_inference_steps !== undefined) {
+    const useLightning = values.use_lightning !== false;
+    kwargs.use_lightning = useLightning;
+    if (useLightning && model.lightning_inference_steps !== null) delete kwargs.num_inference_steps;
+  }
+  return kwargs;
+}
+
+function commonVideoBody(context: TransformContext) {
+  const { modelUid, values } = context;
+  const kwargs = buildMediaKwargs(context);
 
   return withKwargsIfPresent(
     {
@@ -174,7 +189,7 @@ function commonVideoBody({ modelUid, values, requestId }: TransformContext) {
 
 function appendCommonVideoFormData(formData: FormData, context: TransformContext) {
   const { modelUid, values } = context;
-  const kwargs = buildGenerationKwargs(values, context.requestId);
+  const kwargs = buildMediaKwargs(context);
 
   formData.append('model', modelUid);
   appendIfPresent(formData, 'prompt', values.prompt);

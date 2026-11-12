@@ -107,6 +107,55 @@ async def test_gateway_common_protocol(task_name):
         service.actor.get_realtime_endpoint.assert_awaited_once()
 
 
+async def test_gateway_media_frame_below_limit_completes():
+    size = 65535
+    async with serve_gateway() as service:
+        async with aiohttp.ClientSession() as client:
+            ws = await client.ws_connect(service.url)
+            await ws.send_json(CONFIG)
+            assert (await ws.receive_json(timeout=2))["event"] == "session.started"
+            await ws.send_bytes(b"\x00" * size)
+            assert (await ws.receive_json(timeout=2))["data"] == {
+                "received_bytes": size
+            }
+            await ws.send_json({"event": "input.end"})
+            assert (await ws.receive_json(timeout=2))["data"]["done"]
+            assert (await ws.receive_json(timeout=2))["reason"] == "completed"
+            await ws.close()
+        await wait_empty(service.runtime)
+
+
+@pytest.mark.parametrize(
+    "payload,code,close_code",
+    [
+        pytest.param(b"\x00" * 200000, "message_too_large", 1009, id="oversized-media"),
+        pytest.param("hello", "invalid_event", 1008, id="invalid-json"),
+        pytest.param("[1]", "invalid_event", 1008, id="non-object"),
+        pytest.param('{"event": 1}', "invalid_event", 1008, id="non-string-event"),
+    ],
+)
+async def test_gateway_reports_upload_error_before_close(payload, code, close_code):
+    async with serve_gateway() as service:
+        async with aiohttp.ClientSession() as client:
+            ws = await client.ws_connect(service.url)
+            await ws.send_json(CONFIG)
+            assert (await ws.receive_json(timeout=2))["event"] == "session.started"
+            if isinstance(payload, bytes):
+                await ws.send_bytes(payload)
+            else:
+                await ws.send_str(payload)
+            message = await ws.receive(timeout=2)
+            assert message.type == aiohttp.WSMsgType.TEXT
+            event = message.json()
+            assert event["event"] == "error"
+            assert event["code"] == code
+            message = await ws.receive(timeout=2)
+            assert message.type == aiohttp.WSMsgType.CLOSE
+            assert ws.close_code == close_code
+            await ws.close()
+        await wait_empty(service.runtime)
+
+
 async def test_auth_reuses_http_policy_and_model_permissions():
     async with serve_gateway(authenticated=True) as service:
         async with aiohttp.ClientSession() as client:

@@ -62,8 +62,8 @@ msgid "SGLang replicas"
 msgstr "Réplicas SGLang"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` puede compartir la caché KV de prefijos mediante el backend de almacenamiento HiCache de Xavier. Inicie varias réplicas con ``model_engine=\"SGLang\"`` y ``enable_xavier=True``. El adaptador inicial admite modelos de texto Qwen2, Qwen3 y Llama FP16 sin cuantizar, con atención completa y TP=PP=DP=1; no admite LoRA, decodificación especulativa, atención híbrida ni entradas multimodales."
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` puede compartir la caché KV de prefijos mediante el backend de almacenamiento HiCache de Xavier. Inicie varias réplicas con ``model_engine=\"SGLang\"`` y ``enable_xavier=True``. Cada réplica se ejecuta en un worker; no se admiten PP, DP, paralelismo de contexto, LoRA ni decodificación especulativa."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -82,8 +82,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "Las réplicas SGLang ordinarias comparten páginas de HiCache en CPU. Los roles explícitos de prefill/decode usan en su lugar la transferencia de GPU a GPU de Xavier. Para P/D con el mismo motor o entre motores y la configuración del motor por réplica, consulte :ref:`user_guide_pd_separation`."
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier carga los puntos de control BF16 como FP16 y emite una advertencia. Tanto los pesos como las cachés KV usan FP16."
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "Los modelos de texto Qwen2, Qwen3 y Llama sin cuantizar, con atención completa y TP=1, comparten páginas FP16 canónicas, que también usan el uso compartido entre motores y P/D. Xavier carga los checkpoints BF16 como FP16 para estas páginas y emite una advertencia."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package."
+msgstr "Los modelos Qwen2, Qwen3 y Llama con paralelismo de tensores o cuantizados, y DeepSeek-V4 y V4.1 incluida la entrada de imágenes, comparten en su lugar los pools de host de HiCache propios de SGLang; esto requiere SGLang >= ``0.5.23``. Todas las réplicas deben registrar los mismos pools a partir de los mismos archivos de checkpoint, la misma versión de SGLang y la misma configuración de caché. Los archivos de checkpoint se identifican por su contenido, por lo que el primer arranque lee cada archivo de pesos una vez; los resúmenes se guardan en caché por archivo. Las páginas MLA replicadas se escriben una vez por réplica y las lee cada rank de paralelismo de tensores; las páginas fragmentadas se almacenan por rank. DeepSeek-V4.1 en SGLang requiere SGLang >= ``0.5.23`` con su paquete ``deepseek-recipe``."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang dimensiona el pool de host de HiCache de cada réplica a partir de la memoria libre del host sin tener en cuenta las demás réplicas. Salvo que se establezca ``hicache_ratio``, ``hicache_size`` o ``hicache_host_memory_fraction``, Xavier fija ``hicache_host_memory_fraction`` en ``0.5`` dividido entre el número de réplicas. Los pools de host de DeepSeek-V4 no pueden dimensionarse automáticamente y reflejan decenas de millones de tokens comprimidos del dispositivo, por lo que Xavier fija en su lugar ``hicache_ratio`` en el mismo valor."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
@@ -375,6 +383,48 @@ msgstr ""
 "prefill local. Los pesos, pools KV del motor y búferes de transferencia "
 "consumen memoria adicional. Xavier P/D transfiere páginas KV activas "
 "mediante NIXL; consulte :ref:`user_guide_pd_separation`."
+
+#: ../../source/user_guide/vllm_enhancement.rst:146
+msgid ""
+"With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor "
+"parallelism. Give every replica the same ``n_gpu``; "
+"``tensor_parallel_size`` defaults to it. Each rank stores and loads its "
+"own share of the KV heads, and a page is reused only once every rank has "
+"stored its share. ``num_key_value_heads`` must be divisible by TP, and "
+"TP>1 requires the native cache backend. P/D roles still require TP=1. "
+"Because chunked prefill is disabled, prompts must fit in "
+"``max_num_tokens``; raise it for long prompts."
+msgstr ""
+"Con ``tensorrt-llm>=1.4.0rc3,<1.5``, las réplicas normales pueden usar "
+"paralelismo tensorial. Asigne el mismo ``n_gpu`` a todas las réplicas; "
+"``tensor_parallel_size`` toma ese valor por defecto. Cada rank almacena y"
+" carga solo su parte de las cabezas KV, y una página solo se reutiliza "
+"cuando todos los ranks han almacenado su parte. ``num_key_value_heads`` "
+"debe ser divisible por TP, y TP>1 requiere el backend de caché nativo. "
+"Los roles P/D siguen requiriendo TP=1. Como el prefill por bloques está "
+"desactivado, los prompts deben caber en ``max_num_tokens``; auméntelo "
+"para prompts largos."
+
+#: ../../source/user_guide/vllm_enhancement.rst:148
+msgid ""
+"With TRT-LLM 1.4, the cache actor keeps pages in a file under "
+"``/dev/shm`` when that tmpfs can hold ``xavier_cache_bytes``. Ranks on "
+"the same host as the actor copy pages directly between GPU memory and "
+"this file, and each rank uses up to 512 MiB of GPU memory to stage new "
+"pages. Otherwise, pages travel through the actor, with at most 2 GiB per "
+"rank being uploaded at a time; restoring them this way can be slower than"
+" recomputing them for models with large KV caches. Give containers enough"
+" shared memory, for example with ``--shm-size``."
+msgstr ""
+"Con TRT-LLM 1.4, el actor de caché guarda las páginas en un archivo bajo "
+"``/dev/shm`` cuando ese tmpfs puede contener ``xavier_cache_bytes``. Los "
+"ranks del mismo host que el actor copian páginas directamente entre la "
+"memoria de la GPU y ese archivo, y cada rank usa hasta 512 MiB de memoria"
+" de GPU para preparar páginas nuevas. En caso contrario, las páginas se "
+"transfieren a través del actor, con un máximo de 2 GiB en subida por "
+"rank; restaurarlas así puede ser más lento que recalcularlas en modelos "
+"con cachés KV grandes. Asigne suficiente memoria compartida a los "
+"contenedores, por ejemplo con ``--shm-size``."
 
 #: ../../source/user_guide/vllm_enhancement.rst:132
 msgid ""

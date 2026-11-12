@@ -19,12 +19,44 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from PIL import Image
 
+from ....core.exceptions import InvalidModelRequestError
 from ...cache_manager import CacheManager
 from .. import BUILTIN_VIDEO_MODELS
 from ..diffusers import DiffusersVideoModel
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.mark.parametrize(
+    ("ability", "image_args"),
+    [
+        ("text_to_video", ()),
+        ("image_to_video", ("image",)),
+        ("firstlastframe_to_video", ("first_frame", "last_frame")),
+    ],
+)
+def test_base_diffusers_video_rejects_lightning_and_strips_false(ability, image_args):
+    model = DiffusersVideoModel(
+        "wan",
+        "/tmp/wan",
+        SimpleNamespace(
+            model_family="Wan",
+            model_ability=[],
+            default_generate_config={"width": 32, "height": 32},
+        ),
+    )
+    model._model = MagicMock(return_value="result")
+    model._output_to_video = MagicMock(return_value="video")
+    generate = getattr(model, ability)
+    options = {name: Image.new("RGB", (32, 32)) for name in image_args}
+
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        generate(prompt="test", use_lightning=True, **options)
+    model._model.assert_not_called()
+    assert generate(prompt="test", use_lightning=False, **options) == "video"
+    assert "use_lightning" not in model._model.call_args.kwargs
 
 
 def test_process_seed_builds_generator_or_ignores_it(monkeypatch):

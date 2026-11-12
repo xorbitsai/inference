@@ -1,6 +1,6 @@
 'use client';
 
-import { PropsWithChildren, useEffect } from 'react';
+import { Component, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { eventBus } from '@/lib/event-bus';
@@ -9,6 +9,44 @@ import { requestManager } from '@/lib/request-manager';
 import { removeAuthTokens } from '@/lib/auth-storage';
 import type { AuthBanNotification } from '@/lib/request';
 import { useI18n } from '@/contexts/i18n-context';
+
+import { requestErrorExtensions } from '@/lib/request-extensions';
+import { validateRequestErrorExtensions } from '@/lib/request-extension-types';
+import type { RequestErrorEvent, RequestErrorExtension } from '@/lib/request-extension-types';
+
+function ExtensionListener({ extension }: { extension: RequestErrorExtension }) {
+  const [error, setError] = useState<RequestErrorEvent | null>(null);
+  const active = useRef<RequestErrorEvent | null>(null);
+
+  useEffect(() => {
+    const handle = (payload?: RequestErrorEvent) => {
+      if (!payload) return;
+      const current = {
+        ...payload,
+        release: () => {
+          payload.release();
+          if (active.current === current) {
+            active.current = null;
+            setError(null);
+          }
+        },
+      };
+      active.current?.release();
+      active.current = current;
+      setError(current);
+    };
+    eventBus.on(extension.event, handle);
+    return () => {
+      eventBus.off(extension.event, handle);
+      const pending = active.current;
+      active.current = null;
+      pending?.release();
+    };
+  }, [extension.event]);
+
+  const Handler = extension.Handler;
+  return <Handler event={error} />;
+}
 
 export default function RequestProvider({ children }: PropsWithChildren) {
   const router = useRouter();
@@ -71,4 +109,30 @@ export default function RequestProvider({ children }: PropsWithChildren) {
   }, [router, t]);
 
   return <>{children}</>;
+}
+
+class ExtensionErrorBoundary extends Component<PropsWithChildren, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.error('Request error extension failed', error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/** Mount inside the app providers so extension handlers can use their contexts. */
+export function RequestExtensionHandlers() {
+  return (
+    <>
+      {validateRequestErrorExtensions(requestErrorExtensions).map((extension) => (
+        <ExtensionErrorBoundary key={extension.event}>
+          <ExtensionListener extension={extension} />
+        </ExtensionErrorBoundary>
+      ))}
+    </>
+  );
 }

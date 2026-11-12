@@ -48,6 +48,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._requests: Dict[str, Any] = {}
         self._cache_enabled = False
         self._pd = None
+        # Set while an engine shutdown has not completed cleanly.
+        self._unclean_shutdown = False
 
     @classmethod
     def check_lib(cls):
@@ -72,6 +74,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
             config.pop(name, None)
         if config.pop("n_worker", 1) != 1:
             raise ValueError("TRT-LLM currently requires one worker per replica")
+        from .compat import supports_tensor_parallel
+
+        if "tensor_parallel_size" not in config and supports_tensor_parallel(
+            runtime_version
+        ):
+            from ....utils import cuda_count
+
+            # Like vLLM, shard over every GPU allocated to this replica.
+            if (devices := cuda_count()) > 1:
+                config["tensor_parallel_size"] = devices
         cache_config = config.pop("_xavier_cache_config", None)
         native_pd = config.pop("_nixl_config", None)
         if cache_config is not None and native_pd is not None:
@@ -223,9 +235,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
             # Stop the importer before freeing C++ memory. If stopping fails,
             # retain the owning engine so live DMA cannot access freed slots.
             close_service()
+        # Read pins may be released only once no rank can still copy from the
+        # pinned slots: after a clean shutdown, or when no engine ran. A failed
+        # shutdown is remembered, since actor teardown calls stop() again.
+        stopped = self._engine is None and not getattr(self, "_unclean_shutdown", False)
         try:
             if self._engine is not None:
+                self._unclean_shutdown = True
                 self._engine.shutdown()
+                self._unclean_shutdown = False
+                stopped = True
                 if self._pd is not None:
                     self._pd.engine_stopped()
         finally:
@@ -234,7 +253,18 @@ class TRTLLMModel(LLM, ChatModelMixin):
             if self._cache_enabled:
                 connector = sys.modules.get("xinference.model.llm.trt_llm.connector")
                 if connector is not None:
-                    connector.close_clients()
+                    connector.close_clients(release_pins=stopped)
+                config = getattr(self, "_xavier_cache_config", None) or {}
+                if config.get("owner") and stopped:
+                    from .xavier import release_owner
+
+                    # Ranks may exit without closing their clients.
+                    release_owner(config)
+                elif config.get("owner"):
+                    logger.warning(
+                        "TRT-LLM did not shut down cleanly; keeping Xavier read "
+                        "pins, as a rank may still read the pinned pages"
+                    )
 
     async def release_pd_request(self, request_id: str) -> None:
         if self._pd is not None:
@@ -305,11 +335,16 @@ class TRTLLMModel(LLM, ChatModelMixin):
     def _usage(output) -> CompletionUsage:
         prompt = len(output.prompt_token_ids)
         generated = sum(len(choice.token_ids) for choice in output.outputs)
-        return CompletionUsage(
+        usage = CompletionUsage(
             prompt_tokens=prompt,
             completion_tokens=generated,
             total_tokens=prompt + generated,
         )
+        # TRT reports reused prompt tokens, including connector imports.
+        cached = getattr(output, "cached_tokens", None)
+        if type(cached) is int:
+            usage["prompt_tokens_details"] = {"cached_tokens": cached}
+        return usage
 
     async def async_generate(
         self,

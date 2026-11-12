@@ -413,16 +413,21 @@ and significantly speeding up inference. The following models currently support 
 
 +------------------------+------------------------------------------------------------------------------------------+
 | Model                  | Supported lightning version                                                              |
-+========================+==============================================+===========================================+
++========================+==========================================================================================+
 | Qwen-Image             | 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1                |
 +------------------------+------------------------------------------------------------------------------------------+
 | Qwen-Image-Edit        | 4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0-bf16, 8steps-V1.0                             |
 +------------------------+------------------------------------------------------------------------------------------+
 | Qwen-Image-Edit-2509   | 4steps-V1.0-bf16, 4steps-V1.0-fp32, 8steps-V1.0-bf16, 8steps-V1.0-fp32                   |
 +------------------------+------------------------------------------------------------------------------------------+
+| Qwen-Image-2512        | 4steps-V1.0-bf16, 4steps-V1.0-fp32                                                       |
++------------------------+------------------------------------------------------------------------------------------+
+| Qwen-Image-Edit-2511   | 4steps-V1.0-bf16, 4steps-V1.0-fp32                                                       |
++------------------------+------------------------------------------------------------------------------------------+
 
 4 steps or 8 steps refer to the inference steps (``num_inference_steps``).
-When ``lightning_version`` is specified, Xinference will automatically set the number of inference steps.
+When Lightning is active, Xinference uses the adapter's step count if the
+request omits ``num_inference_steps``.
 
 When using it, select the lightning version in the interface, or specify it via the command line.
 
@@ -434,6 +439,14 @@ Use the command line with ``--lightning_version <version>``.
 
 For those who have downloaded the lightning LoRA files themselves, you can specify them via the Lightning
 Model Path in the interface or by using the command line option ``--lightning_model_path``.
+
+After launching one of these models with a Lightning adapter on Diffusers,
+use the **Lightning** switch on the generation page for each request.
+Pass ``use_lightning=False`` in the Python client, or put
+``"use_lightning": false`` in the REST request's ``kwargs``, to use the base
+scheduler and bypass the adapter. The OpenAI-compatible image edits endpoint
+accepts ``use_lightning=false`` as a form field. Omitting the option uses the
+adapter selected at launch.
 
 For example, using ``4steps-V1.0``, the inference time is reduced from the original 34s to 3s.
 

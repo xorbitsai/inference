@@ -61,8 +61,8 @@ msgid "SGLang replicas"
 msgstr "SGLang 복제본"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` 은 Xavier의 HiCache 스토리지 백엔드를 통해 접두부 KV 캐시를 공유할 수 있습니다. 여러 복제본을 시작할 때 ``model_engine=\"SGLang\"`` 과 ``enable_xavier=True`` 를 지정하세요. 초기 어댑터는 전체 어텐션, 양자화하지 않은 FP16 가중치, TP=PP=DP=1을 사용하는 Qwen2, Qwen3, Llama 텍스트 모델을 지원합니다. LoRA, 추측 디코딩, 하이브리드 어텐션, 멀티모달 입력은 지원하지 않습니다."
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` 은 Xavier의 HiCache 스토리지 백엔드를 통해 프리픽스 KV 캐시를 공유할 수 있습니다. ``model_engine=\"SGLang\"`` 과 ``enable_xavier=True`` 로 여러 레플리카를 시작합니다. 각 레플리카는 하나의 worker에서 실행되며, PP, DP, 컨텍스트 병렬, LoRA, 추측 디코딩은 지원되지 않습니다."
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -77,8 +77,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "일반 SGLang 복제본은 CPU HiCache 페이지를 공유합니다. 명시적인 prefill/decode 역할은 대신 Xavier의 GPU 간 전송을 사용합니다. 동일 엔진 또는 엔진 간 P/D와 복제본별 엔진 설정은 :ref:`user_guide_pd_separation` 를 참조하세요."
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier는 BF16 체크포인트를 FP16으로 로드하고 경고를 표시합니다. 가중치와 KV 캐시 모두 FP16을 사용합니다."
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "TP=1에서 풀 어텐션을 사용하는 비양자화 Qwen2, Qwen3, Llama 텍스트 모델은 정규화된 FP16 페이지를 공유하며, 크로스 엔진 공유와 P/D도 이 페이지를 사용합니다. Xavier는 이러한 페이지를 위해 BF16 체크포인트를 FP16으로 로드하고 경고를 출력합니다."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package."
+msgstr "텐서 병렬 또는 양자화된 Qwen2, Qwen3, Llama 모델과 이미지 입력을 포함한 DeepSeek-V4 및 V4.1은 대신 SGLang 자체의 HiCache 호스트 풀을 공유하며, 이를 위해 SGLang >= ``0.5.23`` 이 필요합니다. 모든 레플리카는 동일한 체크포인트 파일, SGLang 버전, 캐시 설정으로 동일한 풀을 등록해야 합니다. 체크포인트 파일은 내용으로 식별되므로 첫 실행 시 모든 가중치 파일을 한 번 읽으며, 다이제스트는 파일별로 캐시됩니다. 텐서 병렬 랭크 간에 복제되는 MLA 페이지는 레플리카마다 한 번 기록되고 모든 텐서 병렬 랭크가 읽습니다. 샤딩된 페이지는 랭크별로 저장됩니다. SGLang에서 DeepSeek-V4.1을 실행하려면 SGLang >= ``0.5.23`` 과 해당 ``deepseek-recipe`` 패키지가 필요합니다."
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang은 다른 레플리카를 고려하지 않고 호스트의 여유 메모리를 기준으로 각 레플리카의 HiCache 호스트 풀 크기를 정합니다. ``hicache_ratio``, ``hicache_size``, ``hicache_host_memory_fraction`` 중 어느 것도 설정하지 않으면 Xavier는 ``hicache_host_memory_fraction`` 을 ``0.5`` 를 레플리카 수로 나눈 값으로 설정합니다. DeepSeek-V4의 호스트 풀은 크기를 자동으로 정할 수 없고 압축된 디바이스 토큰 수천만 개를 미러링하므로, Xavier는 대신 ``hicache_ratio`` 를 같은 값으로 설정합니다."
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
@@ -341,6 +349,42 @@ msgstr ""
 "는 배포 예산을 설정하며 기본값은 512 MiB입니다. 부분 페이지와 프롬프트의 마지막 토큰은 로컬에서 계산하며 캐시 미스는 로컬 "
 "prefill로 돌아갑니다. 모델 가중치, 엔진 KV 풀 및 전송 버퍼에는 메모리가 추가로 필요합니다. Xavier P/D는 NIXL을 "
 "통해 실행 중 KV 페이지를 전송합니다. :ref:`user_guide_pd_separation` 을 참조하세요."
+
+#: ../../source/user_guide/vllm_enhancement.rst:146
+msgid ""
+"With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor "
+"parallelism. Give every replica the same ``n_gpu``; "
+"``tensor_parallel_size`` defaults to it. Each rank stores and loads its "
+"own share of the KV heads, and a page is reused only once every rank has "
+"stored its share. ``num_key_value_heads`` must be divisible by TP, and "
+"TP>1 requires the native cache backend. P/D roles still require TP=1. "
+"Because chunked prefill is disabled, prompts must fit in "
+"``max_num_tokens``; raise it for long prompts."
+msgstr ""
+"``tensorrt-llm>=1.4.0rc3,<1.5`` 에서는 일반 복제본이 텐서 병렬을 사용할 수 있습니다. 모든 복제본에 같은"
+" ``n_gpu`` 를 지정하세요. ``tensor_parallel_size`` 의 기본값은 이 값입니다. 각 rank는 KV 헤드"
+" 중 자신의 몫만 저장하고 읽으며, 모든 rank가 자신의 몫을 저장한 뒤에만 페이지가 재사용됩니다. "
+"``num_key_value_heads`` 는 TP로 나누어떨어져야 하고, TP>1에는 네이티브 캐시 백엔드가 필요합니다. P/D "
+"역할은 여전히 TP=1이 필요합니다. 청크 프리필이 비활성화되므로 프롬프트는 ``max_num_tokens`` 안에 들어가야 "
+"합니다. 긴 프롬프트에는 이 값을 늘리세요."
+
+#: ../../source/user_guide/vllm_enhancement.rst:148
+msgid ""
+"With TRT-LLM 1.4, the cache actor keeps pages in a file under "
+"``/dev/shm`` when that tmpfs can hold ``xavier_cache_bytes``. Ranks on "
+"the same host as the actor copy pages directly between GPU memory and "
+"this file, and each rank uses up to 512 MiB of GPU memory to stage new "
+"pages. Otherwise, pages travel through the actor, with at most 2 GiB per "
+"rank being uploaded at a time; restoring them this way can be slower than"
+" recomputing them for models with large KV caches. Give containers enough"
+" shared memory, for example with ``--shm-size``."
+msgstr ""
+"TRT-LLM 1.4에서는 tmpfs인 ``/dev/shm`` 이 ``xavier_cache_bytes`` 를 수용할 수 있으면 "
+"캐시 actor가 그 아래 파일에 페이지를 보관합니다. actor와 같은 호스트의 rank는 GPU 메모리와 이 파일 사이에서 "
+"페이지를 직접 복사하며, 각 rank는 새 페이지를 스테이징하는 데 최대 512 MiB의 GPU 메모리를 사용합니다. 그렇지 않으면"
+" 페이지는 actor를 거쳐 전송되며 rank당 동시에 업로드되는 데이터는 최대 2 GiB입니다. KV 캐시가 큰 모델에서는 이 "
+"방식으로 복원하는 것이 다시 계산하는 것보다 느릴 수 있습니다. ``--shm-size`` 등으로 컨테이너에 충분한 공유 메모리를 "
+"할당하세요."
 
 #: ../../source/user_guide/vllm_enhancement.rst:132
 msgid ""

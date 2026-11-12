@@ -113,9 +113,13 @@ SGLang replicas
 
 .. versionadded:: v4.0.0
 
-SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported.
+SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine="SGLang"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported.
 
-Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16.
+Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning.
+
+Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package.
+
+SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead.
 
 ``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`.
 
@@ -140,6 +144,12 @@ Partial pages and the final prompt token are computed locally; misses fall back
 to local prefill. Model weights, engine KV pools and transfer buffers consume
 additional memory. Xavier P/D instead transfers live KV pages through NIXL;
 see :ref:`user_guide_pd_separation`.
+
+.. versionchanged:: v4.3.0
+
+   With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor parallelism. Give every replica the same ``n_gpu``; ``tensor_parallel_size`` defaults to it. Each rank stores and loads its own share of the KV heads, and a page is reused only once every rank has stored its share. ``num_key_value_heads`` must be divisible by TP, and TP>1 requires the native cache backend. P/D roles still require TP=1. Because chunked prefill is disabled, prompts must fit in ``max_num_tokens``; raise it for long prompts.
+
+   With TRT-LLM 1.4, the cache actor keeps pages in a file under ``/dev/shm`` when that tmpfs can hold ``xavier_cache_bytes``. Ranks on the same host as the actor copy pages directly between GPU memory and this file, and each rank uses up to 512 MiB of GPU memory to stage new pages. Otherwise, pages travel through the actor, with at most 2 GiB per rank being uploaded at a time; restoring them this way can be slower than recomputing them for models with large KV caches. Give containers enough shared memory, for example with ``--shm-size``.
 
 MLX replicas
 ~~~~~~~~~~~~

@@ -461,12 +461,12 @@ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:299
 msgid ""
-"4 steps or 8 steps refer to the inference steps (``num_inference_steps``). "
-"When ``lightning_version`` is specified, Xinference will automatically set "
-"the number of inference steps."
+"4 steps or 8 steps refer to the inference steps (``num_inference_steps``)."
+" When Lightning is active, Xinference uses the adapter's step count if the"
+" request omits ``num_inference_steps``."
 msgstr ""
-"4 步或 8 步是指推理步數（ ``num_inference_steps`` ）。當指定了 ``lightning_version`` "
-"時，Xinference 會自動設定推理步數。"
+"4 步或 8 步是指推理步數（ ``num_inference_steps`` ）。開啟 Lightning 後，如果請求省略 "
+"``num_inference_steps``，Xinference 會使用配接器的步數。"
 
 #: ../../source/models/model_abilities/image.rst:302
 msgid ""
@@ -517,6 +517,33 @@ msgstr "可以透過 cURL 或 Xinference 的 Python 客戶端來嘗試 OCR API�
 #: ../../source/models/model_abilities/image.rst
 msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
 msgstr "SGLang 0.5.20 及更新版本支援並行圖片請求的原生動態批次處理。啟動時設定 ``batching_max_size``，並可選擇設定 ``batching_delay_ms``。vLLM-Omni 0.28 使用 ``max_num_seqs``；支援的管線還可透過 ``step_execution=true`` 啟用實驗性連續批次處理。批次處理須明確啟用，要求模型支援且請求參數相容，並會增加 GPU 記憶體用量。請並行傳送獨立 API 請求；``n`` 僅控制單一請求的輸出數量。"
+
+#: ../../source/models/model_abilities/image.rst:116
+msgid "Qwen-Image-2512"
+msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst:425
+msgid "Qwen-Image-Edit-2511"
+msgstr "Qwen-Image-Edit-2511"
+
+#: ../../source/models/model_abilities/image.rst:421
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+msgstr "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+
+#: ../../source/models/model_abilities/image.rst:443
+msgid ""
+"After launching one of these models with a Lightning adapter on Diffusers,"
+" use the **Lightning** switch on the generation page for each request. "
+"Pass ``use_lightning=False`` in the Python client, or put "
+"``\"use_lightning\": false`` in the REST request's ``kwargs``, to use the "
+"base scheduler and bypass the adapter. The OpenAI-compatible image edits "
+"endpoint accepts ``use_lightning=false`` as a form field. Omitting the "
+"option uses the adapter selected at launch."
+msgstr ""
+"使用 Diffusers 啟動這些模型之一並載入 Lightning 配接器後，可在生成頁為每次請求切換 **Lightning**。在 "
+"Python 用戶端傳入 ``use_lightning=False``，或在 REST 請求的 ``kwargs`` 中傳入 "
+"``\"use_lightning\": false``，即可使用基礎排程器並略過配接器。OpenAI 相容的圖片編輯介面接受表單欄位 "
+"``use_lightning=false``。省略該選項時會使用啟動時選定的配接器。"
 
 msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
 msgstr "安裝支援 diffusion 的 SGLang：``pip install 'sglang[diffusion]>=0.5.20,<0.6'``，或安裝主次版本相符的 vLLM-Omni 和 vLLM：``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``，然後使用 ``--model-engine SGLang`` 或 ``--model-engine vLLM`` 啟動模型，例如："

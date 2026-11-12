@@ -19,7 +19,7 @@ def test_ordinary_replica_version_range(version):
 
 
 @pytest.mark.parametrize(
-    "version", ["1.2.0", "1.4.0.dev1", "1.4.0rc2", "1.4.0", "2.0.0", "unknown"]
+    "version", ["1.2.0", "1.4.0.dev1", "1.4.0rc2", "1.5.0", "2.0.0", "unknown"]
 )
 def test_outside_compatibility_range_is_rejected(version):
     with pytest.raises(ValueError, match="version|requires"):
@@ -133,7 +133,7 @@ def test_parallel_configs_fail_before_runtime_initialization(monkeypatch, name):
     monkeypatch.setattr(
         "xinference.model.llm.trt_llm.compat.initialize_worker", initialize
     )
-    with pytest.raises(ValueError, match="TP=PP=CP=1"):
+    with pytest.raises(ValueError, match="PP=CP=1"):
         prepare_runtime({name: 2})
     initialize.assert_not_called()
 

@@ -58,8 +58,8 @@ msgid "SGLang replicas"
 msgstr "SGLang 副本"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
-msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始适配器支持使用全注意力、未量化 FP16 权重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文本模型；不支持 LoRA、推测解码、混合注意力和多模态输入。"
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. Each replica runs on one worker; PP, DP, context parallelism, LoRA and speculation are unsupported."
+msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。每个副本运行在一个 worker 上；不支持 PP、DP、上下文并行、LoRA 和推测解码。"
 
 #: source/user_guide/vllm_enhancement.rst
 msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; for cross-engine reuse, use :ref:`xavier-cross-engine-sharing`."
@@ -74,8 +74,16 @@ msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode
 msgstr "普通 SGLang 副本共享 CPU HiCache 页面。显式 prefill/decode 角色使用 Xavier GPU 直传。同引擎或跨引擎 P/D 及各副本的引擎配置方式见 :ref:`user_guide_pd_separation`。"
 
 #: ../../user_guide/vllm_enhancement.rst
-msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
-msgstr "Xavier 将 BF16 检查点加载为 FP16 并发出警告。权重和 KV 缓存均使用 FP16。"
+msgid "Unquantized Qwen2, Qwen3 and Llama text models with full attention at TP=1 share canonical FP16 pages, which cross-engine sharing and P/D also use. Xavier loads BF16 checkpoints as FP16 for these pages and emits a warning."
+msgstr "TP=1、使用全注意力的未量化 Qwen2、Qwen3 和 Llama 文本模型共享规范 FP16 页面，跨引擎共享和 P/D 也使用这种页面。Xavier 为这些页面将 BF16 检查点加载为 FP16 并发出警告。"
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Tensor-parallel or quantized Qwen2, Qwen3 and Llama models, and DeepSeek-V4 and V4.1 including image input, share SGLang's own HiCache host pools instead; this requires SGLang >= ``0.5.23``. Every replica must register the same pools from the same checkpoint files, SGLang version and cache settings. Checkpoint files are identified by content, so the first launch reads every weight file once; digests are cached per file. Replicated MLA pages are written once per replica and read by every tensor-parallel rank; sharded pages are stored per rank. DeepSeek-V4.1 on SGLang requires SGLang >= ``0.5.23`` with its ``deepseek-recipe`` package."
+msgstr "张量并行或量化的 Qwen2、Qwen3 和 Llama 模型，以及 DeepSeek-V4 和 V4.1（包括图片输入）改为共享 SGLang 自身的 HiCache 主机内存池，这需要 SGLang >= ``0.5.23``。所有副本必须基于相同的检查点文件、SGLang 版本和缓存设置注册相同的内存池。检查点文件按内容识别，因此首次启动会完整读取每个权重文件一次；摘要按文件缓存。在各张量并行 rank 间复制的 MLA 页面由每个副本写入一次，并由所有张量并行 rank 读取；分片的页面按 rank 分别存储。在 SGLang 上运行 DeepSeek-V4.1 需要 SGLang >= ``0.5.23`` 及其 ``deepseek-recipe`` 包。"
+
+#: ../../user_guide/vllm_enhancement.rst
+msgid "SGLang sizes each replica's HiCache host pool from free host memory without counting other replicas. Unless ``hicache_ratio``, ``hicache_size`` or ``hicache_host_memory_fraction`` is set, Xavier sets ``hicache_host_memory_fraction`` to ``0.5`` divided by the replica count. DeepSeek-V4 host pools cannot be sized automatically and mirror tens of millions of compressed device tokens, so Xavier sets ``hicache_ratio`` to the same value instead."
+msgstr "SGLang 根据主机空闲内存确定每个副本的 HiCache 主机内存池大小，但不会考虑其他副本。除非设置了 ``hicache_ratio``、``hicache_size`` 或 ``hicache_host_memory_fraction``，Xavier 会将 ``hicache_host_memory_fraction`` 设为 ``0.5`` 除以副本数。DeepSeek-V4 的主机内存池无法自动确定大小，而且要镜像数千万个压缩后的设备端 token，因此 Xavier 改为将 ``hicache_ratio`` 设为同样的值。"
 
 #: user_guide/vllm_enhancement.rst
 msgid "MLX replicas"
@@ -329,6 +337,39 @@ msgstr ""
 "设置部署缓存预算，默认 512 MiB。部分页和提示词的最后一个 token 在本地计算；未命中时执行本地 prefill。模型权重、引擎 KV "
 "池和传输缓冲区额外占用内存。Xavier P/D 则通过 NIXL 传输请求中的 KV 页，详见 "
 ":ref:`user_guide_pd_separation`。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:146
+msgid ""
+"With ``tensorrt-llm>=1.4.0rc3,<1.5``, ordinary replicas can use tensor "
+"parallelism. Give every replica the same ``n_gpu``; "
+"``tensor_parallel_size`` defaults to it. Each rank stores and loads its "
+"own share of the KV heads, and a page is reused only once every rank has "
+"stored its share. ``num_key_value_heads`` must be divisible by TP, and "
+"TP>1 requires the native cache backend. P/D roles still require TP=1. "
+"Because chunked prefill is disabled, prompts must fit in "
+"``max_num_tokens``; raise it for long prompts."
+msgstr ""
+"使用 ``tensorrt-llm>=1.4.0rc3,<1.5`` 时，普通副本可以使用张量并行。请为每个副本设置相同的 "
+"``n_gpu``；``tensor_parallel_size`` 默认取该值。每个 rank 只存取自己负责的那部分 KV head，只有所有"
+" rank 都存入各自的分片后，该页才会被复用。``num_key_value_heads`` 必须能被 TP 整除，TP>1 时需要使用 "
+"native 缓存后端。P/D 角色仍要求 TP=1。由于分块预填充被禁用，提示词长度不能超过 "
+"``max_num_tokens``；处理长提示词时请调大该值。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:148
+msgid ""
+"With TRT-LLM 1.4, the cache actor keeps pages in a file under "
+"``/dev/shm`` when that tmpfs can hold ``xavier_cache_bytes``. Ranks on "
+"the same host as the actor copy pages directly between GPU memory and "
+"this file, and each rank uses up to 512 MiB of GPU memory to stage new "
+"pages. Otherwise, pages travel through the actor, with at most 2 GiB per "
+"rank being uploaded at a time; restoring them this way can be slower than"
+" recomputing them for models with large KV caches. Give containers enough"
+" shared memory, for example with ``--shm-size``."
+msgstr ""
+"使用 TRT-LLM 1.4 时，如果 ``/dev/shm`` 这个 tmpfs 能容纳 ``xavier_cache_bytes``，缓存 "
+"actor 会把页保存在其下的一个文件中。与 actor 位于同一主机的 rank 直接在 GPU 显存和该文件之间拷贝页，每个 rank "
+"还会使用最多 512 MiB 显存暂存新页。否则页经由 actor 传输，每个 rank 同时上传的数据最多 2 GiB；对于 KV "
+"缓存较大的模型，这种方式恢复页可能比重新计算更慢。请为容器分配足够的共享内存，例如设置 ``--shm-size``。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:132
 msgid ""
