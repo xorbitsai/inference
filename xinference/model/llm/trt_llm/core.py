@@ -48,6 +48,8 @@ class TRTLLMModel(LLM, ChatModelMixin):
         self._requests: Dict[str, Any] = {}
         self._cache_enabled = False
         self._pd = None
+        # Set while an engine shutdown has not completed cleanly.
+        self._unclean_shutdown = False
 
     @classmethod
     def check_lib(cls):
@@ -234,11 +236,14 @@ class TRTLLMModel(LLM, ChatModelMixin):
             # retain the owning engine so live DMA cannot access freed slots.
             close_service()
         # Read pins may be released only once no rank can still copy from the
-        # pinned slots: after a clean shutdown, or when no engine ran.
-        stopped = self._engine is None
+        # pinned slots: after a clean shutdown, or when no engine ran. A failed
+        # shutdown is remembered, since actor teardown calls stop() again.
+        stopped = self._engine is None and not getattr(self, "_unclean_shutdown", False)
         try:
             if self._engine is not None:
+                self._unclean_shutdown = True
                 self._engine.shutdown()
+                self._unclean_shutdown = False
                 stopped = True
                 if self._pd is not None:
                     self._pd.engine_stopped()

@@ -903,8 +903,9 @@ def test_model_stop_releases_the_replica_pins_after_the_engine(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("version", ["1.2.1", NEW])
+@pytest.mark.parametrize("teardown", ["direct", "model-actor"])
 async def test_failed_engine_shutdown_keeps_admitted_pages_pinned(
-    monkeypatch, tmp_path, connector, version
+    monkeypatch, tmp_path, connector, version, teardown
 ):
     from ...xavier.backends.torch import shared_pages
     from .. import core
@@ -964,8 +965,36 @@ async def test_failed_engine_shutdown_keeps_admitted_pages_pinned(
         model._cache_enabled = True
         model._engine = SimpleNamespace(shutdown=fail)
         model._xavier_cache_config = cache_config
-        with pytest.raises(RuntimeError, match="shutdown failed"):
+        if teardown == "direct":
+            with pytest.raises(RuntimeError, match="shutdown failed"):
+                await asyncio.to_thread(model.stop)
+            # Actor teardown calls stop() again on the same model.
             await asyncio.to_thread(model.stop)
+        else:
+            from .....core.model import ModelActor
+
+            model.model_family = SimpleNamespace(to_description=dict)
+
+            class TRTModelActor(ModelActor):
+                def __init__(self):
+                    super().__init__(
+                        supervisor_address="test:1",
+                        worker_address="test:2",
+                        model=model,
+                        replica_model_uid="trt-rep0",
+                    )
+                    self._model_state = "ready"
+
+                async def record_metrics(self, name, op, kwargs):
+                    pass  # No worker actor in this test.
+
+            ref = await xo.create_actor(
+                TRTModelActor, address=pool.external_address, uid="trt-model"
+            )
+            # WorkerActor stops the model, then destroys its actor.
+            with pytest.raises(RuntimeError, match="shutdown failed"):
+                await ref.stop()
+            await xo.destroy_actor(ref)
         # Rank 1 may still be running: the admitted pages stay pinned.
         assert (await actor.get_stats())["active_handoffs"] == 1
         others = [f"other@{r}" for r in range(2)]
