@@ -186,6 +186,8 @@ class SDAPIDiffusionModelMixin:
                 "SD WebUI extensions require a Stable Diffusion or SDXL model"
             )
         kwargs = self._check_kwargs(sd_type, params)
+        if params.get("use_lightning") is not None:
+            kwargs["use_lightning"] = params["use_lightning"]
         for key in (
             "subseed",
             "subseed_strength",

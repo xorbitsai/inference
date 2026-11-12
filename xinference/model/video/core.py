@@ -58,6 +58,7 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     lightning_versions: Optional[List[str]]
     lightning_model_file_name_template: Optional[str]
     lightning_version_configs: Optional[Dict[str, Dict[str, Any]]]
+    lightning_inference_steps: Optional[int] = None
     text_encoder_model_id: Optional[str] = None
     text_encoder_model_revision: Optional[str] = None
     virtualenv: Optional[VirtualEnvSettings]
@@ -66,7 +67,7 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         extra = "allow"
 
     def to_description(self):
-        return {
+        description = {
             "model_type": "video",
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
@@ -76,6 +77,9 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "model_ability": self.model_ability,
             "model_engine": getattr(self, "model_engine", None),
         }
+        if self.lightning_inference_steps is not None:
+            description["lightning_inference_steps"] = self.lightning_inference_steps
+        return description
 
     def to_version_info(self):
         from ..cache_manager import CacheManager
@@ -252,7 +256,7 @@ def create_video_model_instance(
 
     model_spec = model_spec.copy()
     model_spec.model_engine = model_engine
-    if model_engine.lower() == "mlx":
+    if model_engine is not None and model_engine.lower() == "mlx":
         kwargs["_xinference_enable_virtual_env"] = enable_virtual_env
     model = model_cls(
         model_uid,

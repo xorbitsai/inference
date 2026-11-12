@@ -222,8 +222,10 @@ def test_minimax_h3_applies_lightning_version_config(monkeypatch):
     class FakeScheduler:
         def __init__(self, name):
             self.name = name
+            self.shift = 12 if name == "video" else 3
 
         def set_shift(self, shift):
+            self.shift = shift
             calls[f"{self.name}_shift"] = shift
 
     transformer = object()
@@ -257,6 +259,62 @@ def test_minimax_h3_applies_lightning_version_config(monkeypatch):
         "audio_shift": 3.0,
     }
     assert model._minimax_h3_lightning_steps == 4
+    assert model.model_family.to_description()["lightning_inference_steps"] == 4
+
+
+def test_minimax_h3_diffusers_restores_adapter_and_schedules_after_failure(monkeypatch):
+    class Scheduler:
+        def __init__(self, shift):
+            self.shift = shift
+
+        def set_shift(self, shift):
+            self.shift = shift
+
+    class Transformer:
+        enabled = True
+
+        def disable_adapters(self):
+            self.enabled = False
+
+        def enable_adapters(self):
+            self.enabled = True
+
+    class Pipeline:
+        transformer = Transformer()
+        scheduler = Scheduler(12)
+        audio_scheduler = Scheduler(3)
+
+        def __call__(self, prompt, num_inference_steps, **kwargs):
+            observed.append(
+                (
+                    self.transformer.enabled,
+                    num_inference_steps,
+                    self.scheduler.shift,
+                    self.audio_scheduler.shift,
+                )
+            )
+            if prompt == "failure":
+                raise RuntimeError("generation failed")
+            return {}
+
+    observed = []
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _lightning_model_spec(),
+        lightning_version="4step_v1.0_768p_bf16",
+        lightning_model_path="/tmp/lightning.safetensors",
+    )
+    model._model = Pipeline()
+    monkeypatch.setattr(model, "_load_minimax_h3_lightning_adapter", lambda *args: None)
+    monkeypatch.setattr(model, "_encode_minimax_h3_output", lambda output: [])
+    model._apply_minimax_h3_lightning(model._model)
+
+    model.text_to_video("on")
+    with pytest.raises(RuntimeError, match="generation failed"):
+        model.text_to_video("failure", use_lightning=False)
+    model.text_to_video("on again", use_lightning=True)
+    assert observed == [(True, 5, 6, 3), (False, 51, 12, 3), (True, 5, 6, 3)]
 
 
 def test_minimax_h3_infers_lightning_version_from_path():

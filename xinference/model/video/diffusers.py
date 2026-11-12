@@ -21,13 +21,14 @@ import logging
 import operator
 import os
 import tempfile
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from functools import partial, reduce
 from types import MethodType
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, ContextManager, List, Optional, Union
 
 import numpy as np
 import PIL.Image
@@ -40,6 +41,7 @@ from ...device_utils import (
     move_model_to_available_device,
 )
 from ...types import Video, VideoList
+from ..lightning import resolve_request_lightning
 from ..utils import resolve_media_seed
 
 if TYPE_CHECKING:
@@ -188,6 +190,19 @@ class DiffusersVideoModel:
         self._lightning_version = lightning_version
         self._lightning_model_path = lightning_model_path
         self._minimax_h3_lightning_steps: Optional[int] = None
+        self._minimax_h3_base_shifts: Optional[tuple[float, float]] = None
+        self._minimax_h3_lightning_lock: Optional[ContextManager[Any]] = None
+        if lightning_model_path and self._is_minimax_h3(model_spec):
+            # The worker describes this instance using its pre-load copy.
+            # Keep checkpoint validation in the model actor's load path.
+            with suppress(ValueError):
+                config = self._resolve_minimax_h3_lightning_config()
+                if config is not None:
+                    self.model_family = self._model_spec = model_spec.copy(
+                        update={
+                            "lightning_inference_steps": config["num_inference_steps"]
+                        }
+                    )
 
     @property
     def model_spec(self):
@@ -423,9 +438,16 @@ class DiffusersVideoModel:
             self._lightning_model_path,
             config["lora_alpha"],
         )
+        self._minimax_h3_base_shifts = (
+            pipeline.scheduler.shift,
+            pipeline.audio_scheduler.shift,
+        )
         pipeline.scheduler.set_shift(config["video_shift"])
         pipeline.audio_scheduler.set_shift(config["audio_shift"])
         self._minimax_h3_lightning_steps = config["num_inference_steps"]
+        # The actor can release its async lock before a cancelled inference
+        # thread exits. Keep shared scheduler and adapter changes thread-owned.
+        self._minimax_h3_lightning_lock = threading.Lock()
         logger.info(
             "Loaded MiniMax-H3 lightning version %s from %s with %s NFE, "
             "video shift %s, and audio shift %s",
@@ -1031,6 +1053,10 @@ class DiffusersVideoModel:
         if n < 1:
             raise InvalidModelRequestError("n must be at least 1")
 
+        use_lightning = resolve_request_lightning(
+            kwargs.pop("use_lightning", None),
+            self._minimax_h3_lightning_steps is not None,
+        )
         progressor = kwargs.pop("progressor", None)
         kwargs.pop("request_id", None)
         # H3 is guidance-distilled and uses a fixed 24 fps output format.
@@ -1044,8 +1070,9 @@ class DiffusersVideoModel:
         generate_kwargs.update(kwargs)
         self._process_seed(generate_kwargs)
         if num_inference_steps is None:
+            default_steps = self._minimax_h3_lightning_steps if use_lightning else 50
             num_inference_steps = generate_kwargs.pop(
-                "num_inference_steps", self._minimax_h3_lightning_steps or 50
+                "num_inference_steps", default_steps
             )
         else:
             generate_kwargs.pop("num_inference_steps", None)
@@ -1066,8 +1093,11 @@ class DiffusersVideoModel:
                     call_kwargs["image"] = image
                 if last_image is not None:
                     call_kwargs["last_image"] = last_image
-                with self._track_minimax_h3_progress(
-                    pipeline, progressor, video_index, n
+                with (
+                    self._minimax_h3_request_adapter(pipeline, use_lightning),
+                    self._track_minimax_h3_progress(
+                        pipeline, progressor, video_index, n
+                    ),
                 ):
                     output = pipeline(
                         prompt=prompt,
@@ -1084,6 +1114,33 @@ class DiffusersVideoModel:
                 with suppress(OSError):
                     os.remove(video_path)
             raise
+
+    @contextmanager
+    def _minimax_h3_request_adapter(self, pipeline, use_lightning: bool):
+        lock = self._minimax_h3_lightning_lock
+        if lock is None:
+            yield
+            return
+        with lock:
+            if use_lightning:
+                yield
+                return
+            assert self._minimax_h3_base_shifts is not None
+            video_shift, audio_shift = self._minimax_h3_base_shifts
+            scheduler, audio_scheduler = pipeline.scheduler, pipeline.audio_scheduler
+            saved_shifts = scheduler.shift, audio_scheduler.shift
+            transformer = pipeline.transformer
+            # The PEFT checkpoint is unfused. Disable it across prompt
+            # refinement and denoising, and restore both modality schedules.
+            transformer.disable_adapters()
+            try:
+                scheduler.set_shift(video_shift)
+                audio_scheduler.set_shift(audio_shift)
+                yield
+            finally:
+                scheduler.set_shift(saved_shifts[0])
+                audio_scheduler.set_shift(saved_shifts[1])
+                transformer.enable_adapters()
 
     @staticmethod
     @contextmanager

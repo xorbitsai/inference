@@ -16,9 +16,12 @@
 
 import asyncio
 import base64
+import os
 import sys
 import threading
+from contextlib import contextmanager
 from dataclasses import field, make_dataclass
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -67,6 +70,89 @@ def registry(monkeypatch, tmp_path):
     yield
     monkeypatch.undo()
     _install()
+
+
+@pytest.fixture
+def sglang_lightning_bridge(monkeypatch):
+    package = "sglang.multimodal_gen"
+    context = None
+    registered = {}
+
+    @contextmanager
+    def set_forward_context(current_timestep, attn_metadata, forward_batch):
+        nonlocal context
+        previous = context
+        context = SimpleNamespace(forward_batch=forward_batch)
+        try:
+            yield
+        finally:
+            context = previous
+
+    class Stage:
+        def __init__(self, transformer, pipeline):
+            self.transformer = transformer
+
+        def forward(self, batch, server_args):
+            refinement_scale = (
+                context.forward_batch.runtime_lora_scale if context else 1
+            )
+            with set_forward_context(0, None, batch):
+                return refinement_scale, self._maybe_get_bcg_runner(self.transformer)
+
+        def _maybe_get_bcg_runner(self, current_model):
+            return "lightning graph"
+
+    class Pipeline:
+        pipeline_name = "MiniMaxH3Pipeline"
+        pipeline_config_cls = object
+
+        def __init__(self):
+            self.stages = []
+
+        def create_pipeline_stages(self, server_args):
+            self.add_stage(Stage(None, self))
+
+        def add_stage(self, stage, stage_name=None):
+            self.stages.append(stage)
+
+        def get_stage(self, stage_name):
+            return next(
+                (stage for stage in self.stages if type(stage).__name__ == stage_name),
+                None,
+            )
+
+    def register_pipeline(pipeline, **kwargs):
+        registered.update(pipeline=pipeline, **kwargs)
+
+    modules = {
+        "registry": SimpleNamespace(register_pipeline=register_pipeline),
+        "runtime.managers.forward_context": SimpleNamespace(
+            get_forward_context_or_none=lambda: context,
+            set_forward_context=set_forward_context,
+        ),
+        "runtime.pipelines.minimax_h3_pipeline": SimpleNamespace(
+            MiniMaxH3Pipeline=Pipeline
+        ),
+        "runtime.pipelines_core": SimpleNamespace(Req=SimpleNamespace),
+        "runtime.pipelines_core.stages.model_specific_stages.minimax_h3": (
+            SimpleNamespace(MiniMaxH3DenoisingStage=Stage)
+        ),
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, f"{package}.{name}", module)
+    params_module = sys.modules[f"{package}.configs.sample.minimax_h3"]
+    monkeypatch.setattr(
+        params_module.MiniMaxH3SamplingParams,
+        "apply_request_extra",
+        lambda self, req: None,
+        raising=False,
+    )
+    module_name = f"{minimax_h3.__package__}.sglang_h3_lightning"
+    monkeypatch.delitem(sys.modules, module_name, raising=False)
+    try:
+        yield registered
+    finally:
+        sys.modules.pop(module_name, None)
 
 
 def make_model(cls, lightning_version=None, **kwargs):
@@ -189,13 +275,23 @@ def test_lightning_schedule_defaults_and_overrides(cls, version):
     "lightning_version", [None, "4step_v0.1", "8step_v1.0_bf16", "4step_v1.0_768p_bf16"]
 )
 def test_load_configures_the_partition_and_adapter(
-    monkeypatch, cls, parent, package_version, lightning_version
+    monkeypatch,
+    cls,
+    parent,
+    package_version,
+    lightning_version,
+    sglang_lightning_bridge,
 ):
     monkeypatch.setattr("importlib.metadata.version", lambda _: package_version)
     calls = []
 
     def load(self):
         calls.append(dict(self._kwargs))
+        if cls is SGLangMiniMaxH3Model and lightning_version:
+            assert os.environ["SGLANG_EXTERNAL_MODEL_PACKAGE"].endswith(
+                ".sglang_h3_lightning"
+            )
+            assert sglang_lightning_bridge["overwrite"] is True
         self._model = SimpleNamespace(
             engine=SimpleNamespace(collective_rpc=lambda *a, **k: None)
         )
@@ -216,12 +312,62 @@ def test_load_configures_the_partition_and_adapter(
             expected = model._model_spec.lightning_version_configs[lightning_version]
             assert config["lora_alpha"] == expected["lora_alpha"]
             assert config["lora_merge_mode"] == "dynamic"
+            assert (
+                model.model_family.to_description()["lightning_inference_steps"]
+                == expected["num_inference_steps"]
+            )
     else:
         assert config["task_type"] == "fl2va"
         if lightning_version:
             assert config["lora_backend"] == "peft"
     assert "group_offload" not in config
     assert "quantization" not in config
+
+
+@pytest.mark.parametrize("cls", [SGLangMiniMaxH3Model, VLLMMiniMaxH3Model])
+def test_native_request_lightning_changes_schedule_without_changing_default(cls):
+    model = make_model(cls, "4step_v1.0_768p_bf16")
+    _, _, _, base = model._sampling_config(None, {"use_lightning": False})
+    assert base["use_lightning"] is False
+    assert (
+        base["num_inference_steps"],
+        base["flow_shift"],
+        base["audio_flow_shift"],
+    ) == (
+        50,
+        12.0,
+        3.0,
+    )
+    _, _, _, lightning = model._sampling_config(None, {})
+    assert lightning["use_lightning"] is True
+    assert lightning["num_inference_steps"] == 4
+    assert lightning["flow_shift"] == 6.0
+    with pytest.raises(InvalidModelRequestError, match="must be a boolean"):
+        model._sampling_config(None, {"use_lightning": "false"})
+    with pytest.raises(InvalidModelRequestError, match="Launch the model"):
+        make_model(cls)._sampling_config(None, {"use_lightning": True})
+
+
+def test_sglang_request_lightning_covers_prompt_refinement_and_graph(
+    sglang_lightning_bridge,
+):
+    bridge = import_module(f"{minimax_h3.__package__}.sglang_h3_lightning")
+    pipeline = sglang_lightning_bridge["pipeline"]()
+    pipeline.create_pipeline_stages(None)
+    stage = pipeline.stages[0]
+    for enabled, expected in [
+        (True, (1, "lightning graph")),
+        (False, (0, None)),
+        (True, (1, "lightning graph")),
+    ]:
+        params = bridge.RequestLightningSamplingParams(use_lightning=enabled)
+        request = SimpleNamespace()
+        params.apply_request_extra(request)
+        assert stage.forward(request, None) == expected
+        assert bridge.get_forward_context_or_none() is None
+    assert not bridge.RequestLightningSamplingParams.__dataclass_fields__[
+        "use_lightning"
+    ].metadata.get("batch_sig_exclude")
 
 
 @pytest.mark.parametrize(
@@ -291,19 +437,19 @@ def test_invalid_sampling_values_are_request_errors(cls, kwargs, field_name):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["text", "image", "firstlast"])
-async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, mode):
+@pytest.mark.parametrize("use_lightning", [False, True])
+async def test_sglang_preserves_h3_fields_and_audio_file(
+    tmp_path, mode, use_lightning, sglang_lightning_bridge
+):
     model = make_model(SGLangMiniMaxH3Model, "4step_v1.0_768p_bf16")
+    bridge = import_module(f"{minimax_h3.__package__}.sglang_h3_lightning")
     calls = []
     image = Image.new("RGB", (32, 32), "red")
     last = Image.new("RGB", (32, 32), "blue")
 
     def generate(sampling_params_kwargs):
-        from sglang.multimodal_gen.configs.sample.minimax_h3 import (
-            MiniMaxH3SamplingParams,
-        )
-
         params = sampling_params_kwargs
-        MiniMaxH3SamplingParams(**params)
+        bridge.RequestLightningSamplingParams(**params)
         calls.append(params)
         assert params["save_output"] is True
         assert params["output_mode"] == "decoded_files"
@@ -326,6 +472,7 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
         response_format="url",
         unsupported_option=True,
         guidance_scale_2=2,
+        use_lightning=use_lightning,
     )
     if mode == "text":
         result = await model.text_to_video("prompt", **kwargs)
@@ -340,8 +487,9 @@ async def test_sglang_preserves_h3_fields_and_audio_file(monkeypatch, tmp_path, 
         duration_seconds=124 / 24,
     )
     assert "unsupported_option" not in params and "guidance_scale_2" not in params
-    assert params["num_inference_steps"] == 4
-    assert params["flow_shift"] == 6
+    assert params["use_lightning"] is use_lightning
+    assert params["num_inference_steps"] == (4 if use_lightning else 50)
+    assert params["flow_shift"] == (6 if use_lightning else 12)
     assert params["audio_flow_shift"] == 3
     assert [c["frame_index"] for c in params["conditions"]] == (
         [] if mode == "text" else [0] if mode == "image" else [0, -1]
@@ -377,8 +525,10 @@ async def test_sglang_text_uses_named_ratio(width, height, ratio):
 
 
 @pytest.mark.asyncio
-async def test_sglang_concurrent_requests_keep_files_separate(monkeypatch, tmp_path):
-    model = make_model(SGLangMiniMaxH3Model)
+async def test_sglang_concurrent_requests_keep_modes_and_files_separate(
+    tmp_path, sglang_lightning_bridge
+):
+    model = make_model(SGLangMiniMaxH3Model, "4step_v0.1")
     barrier = threading.Barrier(2, timeout=5)
     directories = []
 
@@ -386,6 +536,7 @@ async def test_sglang_concurrent_requests_keep_files_separate(monkeypatch, tmp_p
         params = sampling_params_kwargs
         directories.append(params["output_path"])
         barrier.wait()
+        assert params["use_lightning"] is (params["prompt"] == "first")
         results = []
         for index in range(params["num_outputs_per_prompt"]):
             path = Path(params["output_path"]) / f"{index}.mp4"
@@ -395,7 +546,8 @@ async def test_sglang_concurrent_requests_keep_files_separate(monkeypatch, tmp_p
 
     model._model = SimpleNamespace(generate=generate)
     first, second = await asyncio.gather(
-        model.text_to_video("first", n=2), model.text_to_video("second")
+        model.text_to_video("first", n=2),
+        model.text_to_video("second", use_lightning=False),
     )
     assert [base64.b64decode(item["b64_json"]) for item in first["data"]] == [
         b"first",
@@ -480,8 +632,9 @@ async def test_cancelled_vllm_progress_poll_does_not_leave_a_task(
 @pytest.mark.parametrize("mode", ["text", "image", "firstlast"])
 @pytest.mark.parametrize("aspect_ratio", [None, "9:16"])
 @pytest.mark.parametrize("output_layout", ["primary_video", "legacy"])
-async def test_vllm_activates_lightning_and_muxes_every_sample(
-    monkeypatch, tmp_path, mode, aspect_ratio, output_layout
+@pytest.mark.parametrize("use_lightning", [None, False])
+async def test_vllm_selects_lightning_per_request_and_muxes_every_sample(
+    monkeypatch, tmp_path, mode, aspect_ratio, output_layout, use_lightning
 ):
     model = make_model(VLLMMiniMaxH3Model, "8step_v1.0_bf16")
     monkeypatch.setitem(
@@ -538,6 +691,8 @@ async def test_vllm_activates_lightning_and_muxes_every_sample(
 
     monkeypatch.setattr(model, "_submit_and_wait", submit)
     kwargs = {"extra_args": {"aspect_ratio": aspect_ratio}} if aspect_ratio else {}
+    if use_lightning is False:
+        kwargs["use_lightning"] = False
     if mode == "text":
         result = await model.text_to_video("prompt", n=2, seed=42, **kwargs)
     elif mode == "image":
@@ -551,9 +706,14 @@ async def test_vllm_activates_lightning_and_muxes_every_sample(
         assert params["extra_args"]["aspect_ratio"] == (aspect_ratio or "16:9")
     else:
         assert "aspect_ratio" not in params["extra_args"]
-    assert params["num_inference_steps"] == 8
-    assert params["lora_request"].lora_path == model._lightning_model_path
-    assert params["lora_scale"] == 1.0
+    assert "use_lightning" not in params
+    if use_lightning is False:
+        assert params["num_inference_steps"] == 50
+        assert "lora_request" not in params and "lora_scale" not in params
+    else:
+        assert params["num_inference_steps"] == 8
+        assert params["lora_request"].lora_path == model._lightning_model_path
+        assert params["lora_scale"] == 1.0
     assert params["extra_args"]["flow_shift"] == 12
     assert params["extra_args"]["audio_flow_shift"] == 3
     assert params["extra_args"]["task"] == ("t2va" if mode == "text" else "fl2va")

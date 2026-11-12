@@ -279,6 +279,7 @@ export interface ReasoningEffortCapability {
 }
 
 export interface RunningModelDetail {
+  lightning_inference_steps?: number | null;
   reasoning_effort?: ReasoningEffortCapability | null;
   supports_thinking_budget?: boolean;
   n_worker?: number;

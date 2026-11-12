@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import io
 from types import SimpleNamespace
@@ -69,11 +71,16 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
             size="original",
             response_format="b64_json",
             stream=False,
+            use_lightning=False if model_name == "Qwen-Image-Edit-2511" else None,
         )
     )
     assert response.status_code == 200
     supervisor.describe_model.assert_awaited_once_with("custom-model-uid")
     kwargs = model_ref.image_to_image.call_args.kwargs
+    if model_name == "Qwen-Image-Edit-2511":
+        assert kwargs["use_lightning"] is False
+    else:
+        assert "use_lightning" not in kwargs
     for image in [kwargs["image"], *kwargs["reference_images"]]:
         if model_name in {
             "Qwen-Image-2.1",

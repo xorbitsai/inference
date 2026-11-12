@@ -1,0 +1,52 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-01 16:29+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/image.rst:116
+msgid "Qwen-Image-2512"
+msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst:425
+msgid "Qwen-Image-Edit-2511"
+msgstr "Qwen-Image-Edit-2511"
+
+#: ../../source/models/model_abilities/image.rst:421
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+msgstr "4steps-V1.0-bf16, 4steps-V1.0-fp32"
+
+#: ../../source/models/model_abilities/image.rst:428
+msgid ""
+"4 steps or 8 steps refer to the inference steps (``num_inference_steps``)."
+" When Lightning is active, Xinference uses the adapter's step count if the"
+" request omits ``num_inference_steps``."
+msgstr ""
+"4 ステップまたは 8 ステップとは、推論ステップ数（ ``num_inference_steps`` ）を指します。 Lightning "
+"が有効で、リクエストに ``num_inference_steps`` がない場合は、アダプターのステップ数が使われます。"
+
+#: ../../source/models/model_abilities/image.rst:443
+msgid ""
+"After launching one of these models with a Lightning adapter on Diffusers,"
+" use the **Lightning** switch on the generation page for each request. "
+"Pass ``use_lightning=False`` in the Python client, or put "
+"``\"use_lightning\": false`` in the REST request's ``kwargs``, to use the "
+"base scheduler and bypass the adapter. The OpenAI-compatible image edits "
+"endpoint accepts ``use_lightning=false`` as a form field. Omitting the "
+"option uses the adapter selected at launch."
+msgstr ""
+"これらのモデルを Diffusers で Lightning アダプター付きで起動すると、生成ページの **Lightning** "
+"スイッチをリクエストごとに切り替えられます。ベーススケジューラーを使用してアダプターを無効にするには、Python クライアントで "
+"``use_lightning=False`` を渡すか、REST リクエストの ``kwargs`` に ``\"use_lightning\": "
+"false`` を指定します。OpenAI 互換の画像編集エンドポイントでは、フォームフィールドの ``use_lightning=false`` "
+"を使用できます。このオプションを省略すると起動時に選択したアダプターが使われます。"

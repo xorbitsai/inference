@@ -18,6 +18,49 @@ const { outputText } = ts.transpileModule(source, {
   },
 });
 
+test('image and video requests apply the selected Lightning mode and its step defaults', () => {
+  const previousCssLoader = require.extensions['.css'];
+  require.extensions['.css'] = () => {};
+  try {
+    const { CAPABILITY_CONFIGS } = require('../capability-config.tsx');
+    for (const ability of [
+      'text2image',
+      'image2image',
+      'inpainting',
+      'text2video',
+      'image2video',
+      'firstlastframe2video',
+    ]) {
+      const { transformValues } = CAPABILITY_CONFIGS[ability];
+      for (const [model, enabled, expected] of [
+        [{ lightning_inference_steps: 4 }, true, { use_lightning: true }],
+        [
+          { lightning_inference_steps: null },
+          true,
+          { use_lightning: true, num_inference_steps: 25 },
+        ],
+        [
+          { lightning_inference_steps: 4 },
+          false,
+          { use_lightning: false, num_inference_steps: 25 },
+        ],
+        [{}, true, { num_inference_steps: 25 }],
+      ]) {
+        const request = transformValues({
+          model,
+          modelUid: 'video-model',
+          values: { prompt: 'test', use_lightning: enabled, num_inference_steps: 25 },
+        });
+        const kwargs = request instanceof FormData ? request.get('kwargs') : request.kwargs;
+        assert.deepEqual(JSON.parse(kwargs), expected);
+      }
+    }
+  } finally {
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+  }
+});
+
 async function mountPanel(
   t,
   {
