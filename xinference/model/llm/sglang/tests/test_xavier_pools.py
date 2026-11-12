@@ -434,6 +434,41 @@ def test_checkpoints_with_equal_sizes_but_different_tensors_cannot_share(
         store.configure(second_id, schema)
 
 
+def test_checkpoints_whose_index_selects_other_shards_cannot_share(
+    deepseek_path, tmp_path
+):
+    # Identical shard files; only the index changes which shard is loaded.
+    other = tmp_path / "other-index"
+    other.mkdir()
+    for file in deepseek_path.iterdir():
+        if file.is_file():
+            (other / file.name).write_bytes(file.read_bytes())
+    (other / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {"a": "model-00002-of-00002.safetensors"}})
+    )
+    cache = {"address": "a", "uid": "c"}
+    first, second = {"tp_size": 4}, {"tp_size": 4}
+    configure_xavier(str(deepseek_path), first, dict(cache))
+    configure_xavier(str(other), second, dict(cache))
+    first_id = _storage_config(first)["identity"]
+    second_id = _storage_config(second)["identity"]
+    assert first_id["weights"] == second_id["weights"]
+    assert first_id["weight_map"] != second_id["weight_map"]
+    store = PoolPageStore(4096)
+    schema = {"kv": {"page_bytes": 0}}
+    store.configure(first_id, schema)
+    with pytest.raises(ValueError, match="differs between replicas"):
+        store.configure(second_id, schema)
+
+
+def test_malformed_safetensors_index_is_rejected(deepseek_path):
+    (deepseek_path / "model.safetensors.index.json").write_text('{"weight_map": []}')
+    with pytest.raises(ValueError, match="Invalid safetensors index"):
+        configure_xavier(
+            str(deepseek_path), {"tp_size": 4}, {"address": "a", "uid": "c"}
+        )
+
+
 @pytest.mark.parametrize("version", ["0.5.21", "0.5.22"])
 def test_pool_sharing_requires_the_host_pool_callback(deepseek_path, version):
     # These releases never call on_host_pools_registered(), which publishes

@@ -327,6 +327,17 @@ def _configure_pools(
         raise ValueError(
             "SGLang Xavier requires local safetensors weights and tokenizer assets"
         )
+    # SGLang loads only the shards the index's weight_map names, so the same
+    # shard bytes under a different index are different weights.
+    index = path / "model.safetensors.index.json"
+    try:
+        weight_map = (
+            json.loads(index.read_text())["weight_map"] if index.is_file() else None
+        )
+    except (ValueError, KeyError, TypeError) as error:
+        raise ValueError(f"Invalid safetensors index {index.name}") from error
+    if weight_map is not None and not isinstance(weight_map, dict):
+        raise ValueError(f"Invalid safetensors index {index.name}")
     # Replicas on different workers may hold different local copies of one
     # configured path, so weights are identified by content. Digests are cached
     # per file and reused while the file's identity metadata is unchanged.
@@ -335,6 +346,9 @@ def _configure_pools(
             {file.name: file for file in weights},
             cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
             workers=_FINGERPRINT_WORKERS,
+        ),
+        "weight_map": (
+            fingerprint_metadata(weight_map) if weight_map is not None else None
         ),
         "tokenizer": fingerprint_files(tokenizer),
         "config": fingerprint_metadata(config),
