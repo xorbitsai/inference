@@ -4,6 +4,7 @@
 """Replica orchestration uses real model/Worker commit and rollback paths."""
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -27,6 +28,11 @@ def make_replicas(count=2):
             mapping = getattr(worker, name)
             mapping[uid] = mapping.pop("test-replica")
         worker._model_uid_to_launch_args[uid]["model_uid"] = uid
+        actor.address, actor.uid = "anchor", uid.encode()
+        ref = worker.get_model(uid)
+        ref.address, ref.uid = actor.address, actor.uid
+        ref.wait_for_generation_retirement = AsyncMock()
+        worker.get_model = AsyncMock(return_value=ref)
         actors.append(actor)
         workers.append(worker)
     owner._iter_active_replica_model_uids = lambda model_uid: iter(uids)
@@ -85,6 +91,168 @@ async def test_reload_is_sequential_and_fences_scale():
     assert all(row["status"] == "ready" for row in status["replicas"])
     assert all(actor._model._reload_config["max_num_seqs"] == 32 for actor in actors)
     owner._launch_history_store.update_autostart_launch_config.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_rolling_reload_stops_if_anchor_lacks_retirement_wait():
+    owner, workers, actors, uids = make_replicas()
+    ref = await workers[0].get_model(uids[0])
+    del ref.wait_for_generation_retirement
+    workers[1].reload_model = AsyncMock()
+
+    await owner.reload_model("test", {"max_num_seqs": 32})
+    await owner._model_reload_tasks["test"]
+    status = await owner.get_model_reload_status("test")
+    assert status["status"] == "error" and status["partial"]
+    assert "retirement-wait support" in status["error"]
+    assert [row["status"] for row in status["replicas"]] == ["ready", "skipped"]
+    assert [actor._model._reload_config["max_num_seqs"] for actor in actors] == [
+        32,
+        16,
+    ]
+    workers[1].reload_model.assert_not_awaited()
+    owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+
+
+@pytest.fixture
+def retiring_replicas(monkeypatch):
+    import os
+
+    import psutil
+
+    from ...model.llm import weight_cache
+    from ..model_generation import _check_generation_capacity
+
+    owner, workers, actors, uids = make_replicas()
+    state = SimpleNamespace(
+        entered=asyncio.Event(),
+        release=asyncio.Event(),
+        capacity_checked=asyncio.Event(),
+        freed=False,
+        fail=False,
+    )
+
+    async def stop_old_engine():
+        state.entered.set()
+        await state.release.wait()
+        if state.fail:
+            raise RuntimeError("stop failed")
+        state.freed = True
+
+    anchor = actors[0]
+    anchor._replica_model_uid = uids[0]
+    anchor._serving_generation = SimpleNamespace(
+        uid=b"old",
+        address="old-pool",
+        generation_serve_count=AsyncMock(return_value=0),
+        retire_generation_engine=stop_old_engine,
+    )
+    candidate = SimpleNamespace(uid=b"new", generation_ready=AsyncMock())
+    anchor._get_worker_ref = AsyncMock(
+        return_value=SimpleNamespace(retire_model_generation_pool=AsyncMock())
+    )
+
+    async def wait_for_retirement(address, uid):
+        await anchor.wait_for_generation_retirement(address, uid)
+
+    workers[0]._model_uid_to_model[
+        uids[0]
+    ].wait_for_generation_retirement = wait_for_retirement
+
+    async def replace_first(
+        uid, config, python_executable, operation_id, drain_timeout
+    ):
+        await anchor.commit_model_generation(candidate, operation_id, True, "cache")
+        return True
+
+    workers[0]._replace_model_generation = replace_first
+    model = actors[1]._model
+    model._weight_cache.process = SimpleNamespace(pid=12345)
+    model._weight_cache.config = {}
+    model._reload_config["gpu_memory_utilization"] = 0.3
+    gib = 1024**3
+    monkeypatch.setattr(
+        psutil, "Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
+    )
+
+    def snapshot():
+        processes = {os.getpid(): 4 * gib, 12345: 2 * gib, 67890: 6 * gib}
+        if not state.freed:
+            processes[67891] = 8 * gib
+        return {0: (30 * gib, 30 * gib - sum(processes.values()), processes)}
+
+    monkeypatch.setattr(weight_cache, "_gpu_memory_snapshot", snapshot)
+    replace_second = workers[1]._replace_model_generation
+
+    async def check_then_replace(*args, **kwargs):
+        state.capacity_checked.set()
+        _check_generation_capacity(model, [], model._reload_config, True)
+        return await replace_second(*args, **kwargs)
+
+    workers[1]._replace_model_generation = check_then_replace
+    assert all(
+        worker._model_uid_to_launch_args[uid]["gpu_idx"] == [0]
+        for worker, uid in zip(workers, uids)
+    )
+    return owner, actors, state
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["complete", "error", "cancel"])
+async def test_rolling_reload_waits_for_retirement_before_next_capacity_check(
+    retiring_replicas, outcome
+):
+    owner, actors, state = retiring_replicas
+    state.fail = outcome == "error"
+    # This is not a deadline for retirement of the replacement's predecessor.
+    await owner.reload_model("test", {"max_num_seqs": 32}, drain_timeout=0)
+    task = owner._model_reload_tasks["test"]
+    try:
+        await asyncio.wait_for(state.entered.wait(), 1)
+        await asyncio.sleep(0)
+        assert not state.capacity_checked.is_set()
+        assert not task.done()
+        assert actors[0]._serving_generation.uid == b"new"
+        assert actors[1]._model.stops == 0
+        status = await owner.get_model_reload_status("test")
+        assert status["status"] == "reloading"
+        assert [row["status"] for row in status["replicas"]] == ["ready", "queued"]
+        if outcome == "cancel":
+            retiring = tuple(actors[0]._generation_retirement_tasks)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert all(not cleanup.cancelled() for cleanup in retiring)
+            assert not state.capacity_checked.is_set()
+            assert (await owner.get_model_reload_status("test"))[
+                "status"
+            ] == "cancelled"
+        else:
+            state.release.set()
+            await asyncio.wait_for(task, 1)
+            status = await owner.get_model_reload_status("test")
+            if outcome == "error":
+                assert status["status"] == "error" and status["partial"]
+                assert "cleanup failed" in status["error"]
+                assert [row["status"] for row in status["replicas"]] == [
+                    "ready",
+                    "skipped",
+                ]
+                assert not state.capacity_checked.is_set()
+                owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+            else:
+                assert status["status"] == "ready"
+                assert status["completed_replicas"] == 2
+                assert state.freed and state.capacity_checked.is_set()
+                owner._launch_history_store.update_autostart_launch_config.assert_called_once()
+    finally:
+        state.release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.wait_for(
+            asyncio.gather(*actors[0]._generation_retirement_tasks), 1
+        )
 
 
 @pytest.mark.asyncio

@@ -176,6 +176,34 @@ async def test_retirement_removes_only_private_generation_pool():
 
 
 @pytest.mark.asyncio
+async def test_retirement_wait_rejects_forwarding_from_an_older_anchor(monkeypatch):
+    from .. import model_generation
+
+    monkeypatch.setattr(
+        model_generation,
+        "LOCAL_METHODS",
+        model_generation.LOCAL_METHODS - {"wait_for_generation_retirement"},
+    )
+    anchor = ServingGeneration("old")
+    anchor.address, anchor.uid = "old-pool", b"model"
+    target = ServingGeneration("new")
+    target.address, target.uid = "new-pool", b"model"
+    anchor._serving_generation = target
+    anchor._retiring_generations = [None]
+
+    with pytest.raises(RuntimeError, match="original model actor"):
+        await anchor.__on_receive__(
+            (
+                "wait_for_generation_retirement",
+                0,
+                (anchor.address, anchor.uid),
+                {},
+            )
+        )
+    assert anchor._retiring_generations == [None]
+
+
+@pytest.mark.asyncio
 async def test_cutover_keeps_stream_on_old_generation_and_new_calls_on_ready_generation():
     async with await xo.create_actor_pool("127.0.0.1", n_process=0):
         # Use separate actor addresses, as production generations do.
@@ -201,6 +229,9 @@ async def test_cutover_keeps_stream_on_old_generation_and_new_calls_on_ready_gen
                 await source.commit_model_generation(target, "upgrade", True, "cache")
                 # A retry must not retire the active target.
                 await source.commit_model_generation(target, "upgrade", True, "cache")
+                retirement = asyncio.create_task(
+                    source.wait_for_generation_retirement(source.address, source.uid)
+                )
                 assert await source.chat() == "new"
                 assert await source.generation_serve_count() == 1
                 new_stream = await source.chat(stream=True)
@@ -210,6 +241,7 @@ async def test_cutover_keeps_stream_on_old_generation_and_new_calls_on_ready_gen
                 new_stream._gc_destroy = False
                 assert await target.generation_serve_count() == 0
                 assert await source.generation_serve_count() == 1
+                assert not retirement.done()
                 assert not (await source.get_reload_status())["engine_stopped"]
                 with pytest.raises(asyncio.TimeoutError):
                     await source.begin_generation_reload("waiting", 0.01)
@@ -219,7 +251,7 @@ async def test_cutover_keeps_stream_on_old_generation_and_new_calls_on_ready_gen
                 await _release_model_stream(source, stream)
                 await stream.destroy()
                 stream._gc_destroy = False
-                await asyncio.sleep(0.1)
+                await asyncio.wait_for(retirement, 1)
                 assert (await source.get_reload_status())["engine_stopped"]
                 assert await source.chat() == "new"
                 await source.begin_generation_reload("second-upgrade", 1)
@@ -747,6 +779,45 @@ def test_capacity_preserves_old_runtime_headroom_and_counts_shared_weights_once(
             _check_generation_capacity(
                 model, [], {"gpu_memory_utilization": 0.4}, reused
             )
+
+
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+@pytest.mark.parametrize("reused", [False, True])
+def test_capacity_requires_shared_gpu_peer_retirement(monkeypatch, engine, reused):
+    import os
+
+    import psutil
+
+    from ...model.llm import weight_cache
+    from ..model_generation import _check_generation_capacity
+
+    gib = 1024**3
+    field = "gpu_memory_utilization" if engine == "vllm" else "mem_fraction_static"
+    model = SimpleNamespace(
+        _weight_cache=SimpleNamespace(process=SimpleNamespace(pid=12345), config={}),
+        _weight_cache_engine=engine,
+        _reload_config={field: 0.3},
+    )
+    # Both replicas fit at rest. The peer's old engine still owns another 8 GiB
+    # until retirement completes; its allocations cannot be counted as free.
+    processes = {
+        os.getpid(): 4 * gib,
+        12345: 2 * gib,
+        67890: 6 * gib,
+        67891: 8 * gib,
+    }
+    monkeypatch.setattr(
+        psutil, "Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
+    )
+    monkeypatch.setattr(
+        weight_cache,
+        "_gpu_memory_snapshot",
+        lambda: {0: (30 * gib, 30 * gib - sum(processes.values()), processes)},
+    )
+    with pytest.raises(ValueError, match="Insufficient GPU memory"):
+        _check_generation_capacity(model, [], model._reload_config, reused)
+    processes.pop(67891)
+    _check_generation_capacity(model, [], model._reload_config, reused)
 
 
 def test_capacity_refuses_unknown_driver_pid_namespace(monkeypatch):

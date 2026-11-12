@@ -33,6 +33,7 @@ LOCAL_METHODS = {
     "get_reload_status",
     "begin_generation_reload",
     "commit_model_generation",
+    "wait_for_generation_retirement",
     "model_generation_protocol",
     "create_generation_cache",
     "discard_generation_cache",
@@ -146,6 +147,7 @@ def _check_generation_capacity(model, caches, config, reused):
 class ModelGenerationMixin:
     if TYPE_CHECKING:
         uid: bytes
+        address: str
         _serve_count: int
         _n_worker: Optional[int]
         _request_limits: float
@@ -425,6 +427,27 @@ class ModelGenerationMixin:
                 retire_tasks.pop(key)
 
         task.add_done_callback(completed)
+
+    async def wait_for_generation_retirement(
+        self, expected_address: str, expected_uid: bytes
+    ) -> None:
+        """Keep later replicas from preparing until this replacement frees memory."""
+        # Older anchors may forward this new RPC to their serving generation.
+        # Only the original actor owns the retirement tasks we must wait for.
+        if (self.address, self.uid) != (expected_address, expected_uid):
+            raise RuntimeError(
+                "Retirement wait did not reach the original model actor; "
+                "restart the model with a supporting Xinference version"
+            )
+        tasks = tuple(self.__dict__.get("_generation_retirement_tasks", ()))
+        if tasks:
+            # Replacement requests may finish without a deadline. Cancelling
+            # the rollout must not cancel their generation's cleanup.
+            await asyncio.shield(asyncio.gather(*tasks, return_exceptions=True))
+        if self.__dict__.get("_retiring_generations"):
+            raise RuntimeError(
+                "Previous engine cleanup failed; the current engine is still serving"
+            )
 
     async def handle_generation_pool_exit(self, address):
         """A failed candidate must not trigger recovery of a healthy engine."""

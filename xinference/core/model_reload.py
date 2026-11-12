@@ -339,15 +339,14 @@ class ModelReloadMixin:
                             member["status"] == "error" for member in status["replicas"]
                         ):
                             break
+                        replacing = (
+                            python_executable is not None
+                            or not set(patch) <= HOT_RELOAD_FIELDS.keys()
+                        )
                         row.update(
                             status="reloading",
                             started_at=time.time(),
-                            stage=(
-                                "draining"
-                                if python_executable is None
-                                and set(patch) <= HOT_RELOAD_FIELDS.keys()
-                                else "loading"
-                            ),
+                            stage="loading" if replacing else "draining",
                         )
                         status.update(stage=row["stage"], current_replica=uid)
                         row["weights_reused"] = (
@@ -367,6 +366,22 @@ class ModelReloadMixin:
                         _update_progress(status, active=True)
                         if self._get_reload_targets(model_uid) != targets:
                             raise ValueError("Model placement changed during reload")
+                        if replacing and row is not status["replicas"][-1]:
+                            # The next replica may share this GPU. Its capacity
+                            # check must see memory after this rollout's old
+                            # engine retires, not merely after route cutover.
+                            status["stage"] = "draining"
+                            model_ref = await worker.get_model(uid)
+                            try:
+                                await model_ref.wait_for_generation_retirement(
+                                    model_ref.address, model_ref.uid
+                                )
+                            except AttributeError as exc:
+                                raise RuntimeError(
+                                    "The model was started without retirement-wait "
+                                    "support; restart it with a supporting Xinference "
+                                    "version before reloading multiple replicas"
+                                ) from exc
                     if all(
                         member["status"] == "ready" for member in status["replicas"]
                     ):
