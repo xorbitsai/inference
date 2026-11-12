@@ -731,9 +731,16 @@ class WeightCachedModel:
         if self._weight_cache_engine == "vllm":
             from vllm.engine.arg_utils import AsyncEngineArgs
 
-            AsyncEngineArgs(
-                model=self.model_path, **self._weight_cache_engine_config(candidate)
-            ).create_engine_config()
+            try:
+                AsyncEngineArgs(
+                    model=self.model_path, **self._weight_cache_engine_config(candidate)
+                ).create_engine_config()
+            except ValueError as exc:
+                error = ValueError(str(exc))
+            else:
+                return config
+            # Raise outside the handler to avoid serializing the engine exception context.
+            raise error from None
         else:
             from sglang.srt.server_args import ServerArgs
 

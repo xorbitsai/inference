@@ -244,6 +244,62 @@ def test_reload_error_survives_actor_serialization():
     assert str(error) == "oom"
 
 
+@pytest.mark.parametrize("stage", ["arguments", "config"])
+@pytest.mark.parametrize("validation_error", [True, False])
+def test_reload_engine_validation_error_is_serializable(
+    monkeypatch, stage, validation_error
+):
+    class UnpickleableValueError(ValueError):
+        def __reduce__(self):
+            raise TypeError("engine validation error cannot be pickled")
+
+    error = (
+        UnpickleableValueError("rejected configuration")
+        if validation_error
+        else RuntimeError("rejected configuration")
+    )
+    if validation_error:
+        with pytest.raises(TypeError, match="cannot be pickled"):
+            pickle.dumps(error)
+
+    class EngineArgs:
+        def __init__(self, **kwargs):
+            if stage == "arguments":
+                raise error
+
+        def create_engine_config(self):
+            raise error
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.engine.arg_utils",
+        SimpleNamespace(AsyncEngineArgs=EngineArgs),
+    )
+
+    model = WeightCachedModel()
+    model._weight_cache_engine = "vllm"
+    model.model_path = "/models/test"
+    model._reload_config = {"max_model_len": 4096}
+    model._weight_cache = SimpleNamespace(
+        client_config=lambda: {},
+        engine_config=lambda config: config,
+    )
+    model._sanitize_model_config = lambda config: config
+
+    expected_type = ValueError if validation_error else RuntimeError
+    with pytest.raises(expected_type, match="rejected configuration") as exc:
+        model.validate_reload({"max_model_len": 8192})
+
+    assert type(exc.value) is expected_type
+    restored = pickle.loads(pickle.dumps(exc.value))
+    assert type(restored) is expected_type
+    assert str(restored) == "rejected configuration"
+    assert model._reload_config == {"max_model_len": 4096}
+
+    if not validation_error:
+        assert exc.value is error
+
+
 @pytest.mark.parametrize(
     "engine,tp", [("vllm", "tensor_parallel_size"), ("sglang", "tp_size")]
 )
