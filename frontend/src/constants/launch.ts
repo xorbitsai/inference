@@ -139,6 +139,7 @@ export const ALL_FORM_KEYS = [
   'n_gpu_layers',
   'replica',
   'replica_config',
+  'autoscaling',
   'replica_placement_mode',
   'request_limits',
   'context_length',

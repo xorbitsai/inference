@@ -9,7 +9,7 @@ import type { Root } from 'react-dom/client';
 import type { FormInstance } from '@/types/form';
 import type { DownloadProgressFile } from '@/types/services';
 import type { Locale } from '@/types/common';
-import type { CatalogModel } from '../types';
+import type { CatalogModel, RequestModelType } from '../types';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
 Object.assign(globalThis, {
@@ -117,7 +117,11 @@ async function tick() {
   });
 }
 
-async function renderDialog(visibleModel: CatalogModel | null = model, locale: Locale = 'en') {
+async function renderDialog(
+  visibleModel: CatalogModel | null = model,
+  locale: Locale = 'en',
+  modelType: RequestModelType = ModelType.LLM
+) {
   localStorage.setItem('app_locale', locale);
   await act(async () => {
     root.render(
@@ -125,7 +129,7 @@ async function renderDialog(visibleModel: CatalogModel | null = model, locale: L
         <I18nProvider key={locale} initialLocale={locale}>
           <LaunchDialog
             model={visibleModel ?? undefined}
-            modelType={ModelType.LLM}
+            modelType={modelType}
             gpuAvailable={1}
             onOpenChange={(open) => {
               closed = !open;
@@ -707,3 +711,46 @@ for (const locale of ['en', 'zh', 'zh-TW', 'ja', 'ko'] as const) {
     assert.doesNotMatch(document.body.textContent!, /launchModel\.launch/);
   });
 }
+
+it('launches Embedding with a named pool and capacity-based maximum', async () => {
+  const get = request.get;
+  request.get = ((url: string) =>
+    url === '/v1/cluster/autoscaling/gpu-pools'
+      ? Promise.resolve(['embedding-pool'])
+      : get(url)) as typeof request.get;
+  let payload: Record<string, unknown> | undefined;
+  const post = request.post;
+  request.post = ((url: string, data: Record<string, unknown>) => {
+    if (url === '/v1/models') payload = data;
+    return post(url, data);
+  }) as typeof request.post;
+
+  await renderDialog(null);
+  await renderDialog(model, 'en', ModelType.Embedding);
+  const toggle = document.querySelector<HTMLButtonElement>('[role="switch"][id$="-autoscaling"]');
+  assert.ok(toggle);
+  await act(async () => toggle.click());
+  await act(async () => {
+    form.setFieldsValue({
+      model_engine: 'Transformers',
+      n_gpu: 'CPU',
+      replica_placement_mode: 'custom',
+      replica_config: [{ worker_ip: 'old-worker' }],
+      autoscaling: { min_replicas: '2', max_replicas: '', gpu_pool: 'embedding-pool' },
+    });
+  });
+  await act(async () => {
+    document
+      .querySelector('form')!
+      .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  });
+  assert.deepEqual(payload?.autoscaling, {
+    min_replicas: 2,
+    max_replicas: null,
+    gpu_pool: 'embedding-pool',
+  });
+  assert.equal(payload?.n_gpu, 'auto');
+  assert.equal(payload?.replica, 2);
+  assert.ok(!Object.hasOwn(payload!, 'replica_config'));
+  await act(async () => resolveLaunch({ model_uid: 'demo' }));
+});

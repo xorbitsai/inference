@@ -2455,6 +2455,7 @@ class RESTfulAPI(CancelMixin):
         replica = _validate_replica(payload.get("replica", 1))
         n_gpu = payload.get("n_gpu", "auto")
         replica_config = _parse_replica_config(payload)
+        autoscaling = payload.get("autoscaling")
 
         try:
             model_uid = await (
@@ -2468,13 +2469,21 @@ class RESTfulAPI(CancelMixin):
                 n_gpu=n_gpu,
                 wait_ready=wait_ready,
                 replica_config=replica_config,
+                **({"autoscaling": autoscaling} if autoscaling is not None else {}),
             )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
+        except RuntimeError as e:
+            if autoscaling is not None:
+                raise HTTPException(status_code=503, detail=str(e)) from None
+            raise HTTPException(status_code=500, detail=str(e)) from None
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+        from .utils import invalidate_model_not_found_cache
+
+        invalidate_model_not_found_cache(model_uid)
         return JSONResponse(content={"model_uid": model_uid})
 
     async def get_model_versions(
@@ -3895,6 +3904,22 @@ class RESTfulAPI(CancelMixin):
             background=BackgroundTask(release_resources),
         )
 
+    async def get_autoscaling_gpu_pools(self) -> JSONResponse:
+        supervisor = await self._get_supervisor_ref()
+        return JSONResponse(await supervisor.get_autoscaling_gpu_pools())
+
+    async def get_embedding_autoscaling_status(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
+        self._check_model_access(request, model_uid, "embedding")
+        supervisor = await self._get_supervisor_ref()
+        state = await supervisor.get_embedding_autoscaling_status(model_uid)
+        if state is None:
+            raise HTTPException(
+                status_code=404, detail="Embedding autoscaling is not enabled"
+            )
+        return JSONResponse(state)
+
     async def create_embedding(self, request: Request) -> Response:
         try:
             payload = await request.json()
@@ -3910,25 +3935,70 @@ class RESTfulAPI(CancelMixin):
             "input",
             "user",
             "encoding_format",
+            "_embedding_reservation_id",
+            "_embedding_admitted",
         }
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        model = await require_model(
-            self._get_supervisor_ref, model_uid, self._report_error_event
-        )
+        reservation_id = uuid.uuid4().hex
 
+        async def serve():
+            model, reserved = await require_model(
+                self._get_supervisor_ref,
+                model_uid,
+                self._report_error_event,
+                embedding_reservation_id=reservation_id,
+            )
+            try:
+                kwargs["model_uid"] = model_uid
+                if reserved:
+                    kwargs["_embedding_reservation_id"] = reservation_id
+                embedding = await model.create_embedding(body.input, **kwargs)
+                if payload.get("encoding_format") == "base64":
+                    embedding = _encode_embeddings_base64(embedding)
+                return Response(embedding, media_type="application/json")
+            except ModelNotReadyError as e:
+                raise HTTPException(
+                    status_code=503, detail=str(e), headers={"Retry-After": "1"}
+                ) from None
+            except Exception as e:
+                e = await self._get_model_last_error(model.uid, e)
+                logger.error(e, exc_info=True)
+                await self._report_error_event(model_uid, str(e))
+                self.handle_request_limit_error(e)
+                raise HTTPException(status_code=500, detail=str(e))
+            finally:
+                if reserved:
+                    try:
+                        await asyncio.wait_for(
+                            model.release_embedding_reservation(reservation_id), 1
+                        )
+                    except Exception:
+                        logger.debug(
+                            "Could not release embedding reservation", exc_info=True
+                        )
+
+        async def wait_for_disconnect():
+            while (await request.receive())["type"] != "http.disconnect":
+                pass
+
+        generation = asyncio.create_task(serve())
+        listener = asyncio.create_task(wait_for_disconnect())
         try:
-            kwargs["model_uid"] = model_uid
-            embedding = await model.create_embedding(body.input, **kwargs)
-            if payload.get("encoding_format") == "base64":
-                embedding = _encode_embeddings_base64(embedding)
-            return Response(embedding, media_type="application/json")
-        except Exception as e:
-            e = await self._get_model_last_error(model.uid, e)
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            self.handle_request_limit_error(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            await asyncio.wait(
+                (generation, listener), return_when=asyncio.FIRST_COMPLETED
+            )
+            if generation.done():
+                return generation.result()
+            listener.result()
+            report_client_disconnect(request)
+            return Response(status_code=499)
+        finally:
+            for task in (generation, listener):
+                if not task.done():
+                    task.cancel()
+            with anyio.CancelScope(shield=True):
+                await asyncio.gather(generation, listener, return_exceptions=True)
 
     async def convert_ids_to_tokens(self, request: Request) -> Response:
         try:

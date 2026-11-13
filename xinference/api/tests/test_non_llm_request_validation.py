@@ -110,7 +110,15 @@ def api_client(monkeypatch):
     model = SimpleNamespace(uid=b"test-rep0")
     for method in MODEL_METHODS:
         setattr(model, method, AsyncMock(return_value=b'{"data": []}'))
-    require_model = AsyncMock(return_value=model)
+
+    async def get_model(*args, embedding_reservation_id=None):
+        return (
+            (require_model.return_value, False)
+            if embedding_reservation_id is not None
+            else require_model.return_value
+        )
+
+    require_model = AsyncMock(return_value=model, side_effect=get_model)
     monkeypatch.setattr("xinference.api.restful_api.require_model", require_model)
     api = object.__new__(RESTfulAPI)
     api._set_trace_model = Mock()

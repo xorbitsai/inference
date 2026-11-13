@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
+import asyncio
 import base64
 import json
 import struct
@@ -49,7 +52,13 @@ async def _create_embedding(
     request = MagicMock()
     request.json = AsyncMock(return_value=payload)
 
-    with patch.object(restful_api, "require_model", AsyncMock(return_value=model)):
+    async def receive():
+        await asyncio.Future()
+
+    request.receive = receive
+    with patch.object(
+        restful_api, "require_model", AsyncMock(return_value=(model, False))
+    ):
         response = await restful_api.RESTfulAPI.create_embedding(api, request)
 
     assert response.media_type == "application/json"

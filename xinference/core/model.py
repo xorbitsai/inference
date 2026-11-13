@@ -191,7 +191,11 @@ def _has_request_capacity(
     realtime = getattr(model, "_realtime_runtime", None)
     realtime_count = realtime.active_count if realtime is not None else 0
     reserved = _pending_chat_reservations(model, reservation_id)
-    return 1 + model._serve_count + realtime_count + reserved <= model._request_limits
+    embedding_reserved = len(model.__dict__.get("_embedding_reservations", ()))
+    return (
+        1 + model._serve_count + realtime_count + reserved + embedding_reserved
+        <= model._request_limits
+    )
 
 
 def request_limit(fn=None, *, keep_chat_reservation=False):
@@ -216,6 +220,14 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
+        embedding_reservation = kwargs.pop("_embedding_reservation_id", None)
+        kwargs.pop("_embedding_admitted", None)
+        if self.__dict__.get("_embedding_draining", False):
+            raise ModelNotReadyError("Embedding replica is draining")
+        if embedding_reservation is not None:
+            if not self.release_embedding_reservation(embedding_reservation):
+                raise ModelNotReadyError("Embedding admission expired")
+            kwargs["_embedding_admitted"] = True
         reservation_id = kwargs.pop("_chat_reservation_id", None)
         preflight_reservation_id = None
         if reservation_id is not None and not keep_chat_reservation:
@@ -254,6 +266,8 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
             if preflight_reservation_id is not None:
                 self._chat_preflight_reservations.discard(preflight_reservation_id)
             self._serve_count = max(0, self._serve_count - 1)
+            if "_embedding_idle_since" in self.__dict__:
+                self._embedding_idle_since = time.monotonic()
 
         try:
             try:
@@ -2055,7 +2069,17 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         self._require_ready()
         kwargs.pop("request_id", None)
+        admitted = kwargs.pop("_embedding_admitted", False)
         if hasattr(self._model, "create_embedding"):
+            if admitted:
+                # Retain the slot until native work actually finishes on disconnect.
+                return await _await_owned_task(
+                    asyncio.create_task(
+                        self._call_wrapper_json(
+                            self._model.create_embedding, input, *args, **kwargs
+                        )
+                    )
+                )
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
             )
@@ -2668,6 +2692,50 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
+
+    def reserve_embedding_request(self, reservation_id: str, capacity: int) -> bool:
+        reservations = self.__dict__.setdefault("_embedding_reservations", {})
+        if self._model_state != "ready" or self.__dict__.get(
+            "_embedding_draining", False
+        ):
+            return False
+        if reservation_id in reservations:
+            return True
+        if self._serve_count + len(
+            reservations
+        ) >= capacity or not _has_request_capacity(self):
+            return False
+        self._embedding_idle_since = time.monotonic()
+        reservations[reservation_id] = asyncio.get_running_loop().call_later(
+            5, self.release_embedding_reservation, reservation_id
+        )
+        return True
+
+    def release_embedding_reservation(self, reservation_id: str) -> bool:
+        timer = self.__dict__.get("_embedding_reservations", {}).pop(
+            reservation_id, None
+        )
+        if timer is not None:
+            timer.cancel()
+            self._embedding_idle_since = time.monotonic()
+        return timer is not None
+
+    def begin_embedding_drain(self, idle_seconds: float) -> bool:
+        now = time.monotonic()
+        idle_since = self.__dict__.setdefault("_embedding_idle_since", now)
+        if (
+            self._model_state != "ready"
+            or self._serve_count
+            or self.__dict__.get("_embedding_reservations")
+            or now - idle_since < idle_seconds
+        ):
+            return False
+        self._embedding_draining = True
+        return True
+
+    def cancel_embedding_drain(self) -> None:
+        self._embedding_draining = False
+        self._embedding_idle_since = time.monotonic()
 
     def _can_accept_chat_request(self) -> bool:
         if self._model_state != "ready" or not _has_request_capacity(self):

@@ -302,6 +302,11 @@ class SupervisorUpgradeState:
             "router_instances": copy.deepcopy(owner._token_router_registry._instances),
             "system_settings": dict(owner._system_settings),
             "uptime": owner._uptime,
+            "embedding_autoscaling": {
+                uid: state.policy.dict()
+                for uid, state in getattr(owner, "_embedding_autoscalers", {}).items()
+                if uid in owner._model_uid_to_replica_info
+            },
             "custom_models": CustomModelState.capture(owner),
         }
 
@@ -438,4 +443,8 @@ class SupervisorUpgradeState:
 
         apply_system_settings(SystemSettings.from_dict(owner._system_settings))
         owner._uptime = snapshot["uptime"]
+        from .autoscaling import AutoscalingPolicy
+
+        for uid, policy in snapshot.get("embedding_autoscaling", {}).items():
+            owner._start_embedding_autoscaler(uid, AutoscalingPolicy.parse_obj(policy))
         owner._supervisor_restored = True

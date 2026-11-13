@@ -2614,6 +2614,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     "instance_created_ts": created_ts,
                 }
             )
+            if "_embedding_autoscaling" in launch_args:
+                replica_states[-1]["embedding_autoscaling"] = launch_args[
+                    "_embedding_autoscaling"
+                ]
         return replica_states
 
     @staticmethod
@@ -2916,6 +2920,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         total_devices = (
             self._total_gpu_devices if allowed_devices is None else allowed_devices
         )
+        exclusive = self.__dict__.get("_exclusive_gpu_models", {})
+        total_devices = [device for device in total_devices if device not in exclusive]
         if n_gpu > len(total_devices):
             raise RuntimeError("Requested GPUs exceed the number of available devices")
 
@@ -2966,6 +2972,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_type: str,
         gpu_idx: List[int],
         allowed_devices: Optional[List[int]] = None,
+        exclusive: bool = False,
     ) -> List[int]:
         """
         When user specifies the gpu_idx, allocate models on user-specified GPUs whenever possible
@@ -2980,13 +2987,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             raise ValueError(
                 "Requested GPUs are excluded by the worker resource policy"
             )
-        # currently just report a warning log when there are already models on these GPUs
+        exclusive_models = self.__dict__.setdefault("_exclusive_gpu_models", {})
         for idx in gpu_idx:
+            if idx in exclusive_models:
+                raise RuntimeError(f"GPU index {idx} is exclusively allocated")
+
             existing_model_uids = []
             if idx in self._gpu_to_model_uids:
                 for rep_uid in self._gpu_to_model_uids[idx]:
                     existing_model_uids.append(rep_uid)
-            if not self._allow_multi_replica_per_gpu and (
+            if (exclusive or not self._allow_multi_replica_per_gpu) and (
                 existing_model_uids
                 or len(self._user_specified_gpu_to_model_uids.get(idx, set())) > 0
             ):
@@ -3003,6 +3013,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
         for idx in gpu_idx:
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
+            if exclusive:
+                exclusive_models[idx] = model_uid
         return sorted(gpu_idx)
 
     def get_extension_resources(self) -> Dict[str, Any]:
@@ -3049,6 +3061,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @management_cleanup
     def release_devices(self, model_uid: str):
+        exclusive = self.__dict__.get("_exclusive_gpu_models", {})
+        for device, owner in list(exclusive.items()):
+            if owner == model_uid:
+                del exclusive[device]
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
                 model_uids.remove(model_uid)
@@ -3170,6 +3186,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
+        exclusive: bool = False,
     ) -> Tuple[Dict[str, str], List[str]]:
         """Reserve GPU devices for a model launch and build the sub-pool env.
 
@@ -3206,7 +3223,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         else:
             assert isinstance(gpu_idx, list)
             devices = await self.allocate_devices_with_gpu_idx(
-                model_uid, model_type, gpu_idx, allowed_devices=allowed_devices  # type: ignore
+                model_uid, model_type, gpu_idx, allowed_devices=allowed_devices, exclusive=exclusive  # type: ignore
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
@@ -5473,6 +5490,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        autoscaling = kwargs.pop("_embedding_autoscaling", None)
+        if autoscaling is not None and (
+            model_type.lower() != "embedding"
+            or n_worker != 1
+            or n_gpu != 1
+            or not isinstance(gpu_idx, list)
+            or len(gpu_idx) != 1
+        ):
+            raise ValueError(
+                "Autoscaled Embedding replicas require an explicit single GPU"
+            )
         from ..model.llm.context_length import validate_context_length_launch
 
         validate_context_length_launch(model_type, model_engine, kwargs)
@@ -5719,6 +5747,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         n_gpu=n_gpu,
                         gpu_idx=gpu_idx,
                         env=subpool_envs,
+                        exclusive=autoscaling is not None,
                     )
                     # The model subprocess itself must not be spawned before
                     # the virtualenv is populated: the subprocess boots on

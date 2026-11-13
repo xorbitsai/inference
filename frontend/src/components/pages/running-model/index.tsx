@@ -239,6 +239,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const activeModel = models.find((model) => model.id === selectedModelUid) ?? models[0];
   const launchProgress = useInstanceLaunchProgress(activeModel);
   const activeModelReady = Boolean(activeModel && isModelReady(activeModel));
+  const autoscaling = activeModel?.instance?.autoscaling;
   const [cancelLaunchUid, setCancelLaunchUid] = useState<string>();
   const [cancelLaunchLoading, setCancelLaunchLoading] = useState(false);
   const [replicaLogs, setReplicaLogs] = useState<Record<string, ReplicaItem[]>>({});
@@ -1075,13 +1076,41 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
                 </div>
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
-                  {activeModelReady && (
+                  {activeModelReady && !autoscaling && (
                     <Button variant="outline" size="sm" onClick={openAddReplica}>
                       <Plus className="size-3.5 mr-1" />
                       {t('runningModels.addReplica')}
                     </Button>
                   )}
                 </div>
+                {autoscaling && (
+                  <div className="rounded-lg border p-3 text-sm">
+                    <p className="font-medium">{t('launchModel.autoscaling')}</p>
+                    <dl className="mt-2 grid grid-cols-2 gap-2 text-muted-foreground sm:grid-cols-3">
+                      <div>
+                        <dt>{t('launchModel.autoscalingGpuPool')}</dt>
+                        <dd>
+                          {autoscaling.policy.gpu_pool ?? t('launchModel.autoscalingAllGpus')}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{t('runningModels.readyReplicas')}</dt>
+                        <dd>{autoscaling.ready_replicas}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('launchModel.autoscalingQueued')}</dt>
+                        <dd>{autoscaling.queued_requests}</dd>
+                      </div>
+                    </dl>
+                    {(autoscaling.operation || autoscaling.reason) && (
+                      <p className="mt-2 text-muted-foreground" role="status">
+                        {t(
+                          `launchModel.autoscalingStatus.${autoscaling.operation || autoscaling.reason}`
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {activeModelReady &&
                   (replicaLogs?.[activeModel.id] || []).map((replica) => (
                     <div key={replica.replica_model_uid} className="p-3 rounded-lg border">
@@ -1102,14 +1131,16 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
                             {replica.status}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => setDeleteReplicaId(String(replica.replica_id))}
-                        >
-                          <Trash2 />
-                        </Button>
+                        {!autoscaling && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setDeleteReplicaId(String(replica.replica_id))}
+                          >
+                            <Trash2 />
+                          </Button>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         {t('runningModels.workerAddress')}: {replica.worker_address}

@@ -77,6 +77,8 @@ READS = (
         "get_supervisor_info",
         "record_metrics",
         "get_autostart_config",
+        "get_autoscaling_gpu_pools",
+        "get_embedding_autoscaling_status",
         "get_autostart_model_summary",
         "get_cluster_device_info",
         "get_builtin_prompts",

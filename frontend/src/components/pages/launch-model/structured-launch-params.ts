@@ -1,6 +1,6 @@
 // Keep structured conversion local to model launch; other text parameters must
 // retain the shared form converter's existing behavior.
-export const STRUCTURED_LAUNCH_PARAMETERS = ['realtime_options'] as const;
+export const STRUCTURED_LAUNCH_PARAMETERS = ['realtime_options', 'autoscaling'] as const;
 
 export function isStructuredLaunchParameter(parameter: string) {
   return STRUCTURED_LAUNCH_PARAMETERS.some((name) => name === parameter);
@@ -11,18 +11,20 @@ export class StructuredLaunchParameterError extends Error {
 
   constructor(
     readonly parameter: string,
-    reason: 'invalidJson' | 'objectRequired'
+    reason: 'invalidJson' | 'objectRequired' | 'invalidReplicaBounds'
   ) {
-    super(
-      reason === 'invalidJson'
-        ? `${parameter} must contain valid JSON.`
-        : `${parameter} must be a JSON object.`
-    );
+    const messages = {
+      invalidJson: `${parameter} must contain valid JSON.`,
+      objectRequired: `${parameter} must be a JSON object.`,
+      invalidReplicaBounds: 'Enter positive replica counts with the maximum at least the minimum.',
+    };
+    super(messages[reason]);
     this.name = 'StructuredLaunchParameterError';
-    this.messageKey =
-      reason === 'invalidJson'
-        ? 'launchModel.structuredParameterInvalidJson'
-        : 'launchModel.structuredParameterObjectRequired';
+    this.messageKey = {
+      invalidJson: 'launchModel.structuredParameterInvalidJson',
+      objectRequired: 'launchModel.structuredParameterObjectRequired',
+      invalidReplicaBounds: 'launchModel.autoscalingInvalidBounds',
+    }[reason];
   }
 }
 

@@ -109,6 +109,7 @@ const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
   'replica',
   'replica_config',
   'replica_placement_mode',
+  'autoscaling',
   'n_gpu',
   'gpu_idx',
   'n_gpu_layers',
@@ -199,6 +200,26 @@ export default function LaunchDialog({
   const replicaValue = Number(useWatch('replica', form)) || 1;
   const modelUidValue = toOptionValue(useWatch('model_uid', form));
   const isCustomPlacement = replicaPlacementModeValue === 'custom';
+  const [gpuPools, setGpuPools] = useState<string[] | null>(null);
+  const autoscaling = useWatch('autoscaling', form);
+  const canAutoscale = modelType === ModelType.Embedding && gpuAvailable > 0;
+  const autoscalingEnabled = canAutoscale && gpuPools !== null && Boolean(autoscaling);
+  useEffect(() => {
+    if (!isOpen || !canAutoscale) return;
+    let active = true;
+    request
+      .get<string[]>('/v1/cluster/autoscaling/gpu-pools', { suppressGlobalError: true })
+      .then((pools) => {
+        if (active && Array.isArray(pools)) setGpuPools(pools);
+      })
+      .catch(() => {
+        if (active) setGpuPools(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, canAutoscale]);
+
   const enableVirtualEnvValue = useWatch('enable_virtual_env', form);
   const effectiveVirtualEnv =
     typeof enableVirtualEnvValue === 'boolean' ? enableVirtualEnvValue : undefined;
@@ -1686,10 +1707,22 @@ export default function LaunchDialog({
 
   // In custom placement mode, hide the legacy global placement fields. Each
   // replica currently binds to exactly one worker, so n_worker is not editable.
-  const currentLaunchFields = (modelTypeFields[modelType] || []).filter(
-    (field) =>
+  const currentLaunchFields = (modelTypeFields[modelType] || []).filter((field) => {
+    if (autoscalingEnabled) {
+      return ![
+        'replica',
+        'replica_placement_mode',
+        'replica_config',
+        'n_worker',
+        'n_gpu',
+        'gpu_idx',
+        'worker_ip',
+      ].includes(field.name);
+    }
+    return (
       !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
-  );
+    );
+  });
   const defaultsSpec = selectEngineDefaults(modelEngineMap, launchFormValues);
   const defaultFieldsKey = JSON.stringify(
     currentLaunchFields
@@ -1846,6 +1879,9 @@ export default function LaunchDialog({
   };
 
   const handleLaunch = async (values: FormValues) => {
+    if (values.autoscaling && !autoscalingEnabled) {
+      values = { ...values, autoscaling: undefined };
+    }
     const placementError = validateReplicaPlacement(values);
     if (placementError === 'incomplete') {
       toast.error(t('launchModel.replicaPlacementIncomplete'));
@@ -1952,6 +1988,7 @@ export default function LaunchDialog({
     const newValues = getLaunchRequestValues({
       ...launchFormValues,
       replica_placement_mode: 'auto',
+      autoscaling: undefined,
     });
     if (!newValues) return;
     const cacheValues = Object.fromEntries(
@@ -2204,6 +2241,69 @@ export default function LaunchDialog({
             <FormField hidden name="model_name" />
             <FormField hidden name="model_type" />
             {renderLaunchFields(currentLaunchFields)}
+            {canAutoscale && gpuPools !== null && (
+              <div className="col-span-2 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={`${formId}-autoscaling`}
+                    checked={autoscalingEnabled}
+                    onChange={(checked) => {
+                      form.setFieldsValue({ autoscaling: checked ? { min_replicas: 1 } : null });
+                      handleFormUserChange('autoscaling');
+                    }}
+                  />
+                  <label htmlFor={`${formId}-autoscaling`}>{t('launchModel.autoscaling')}</label>
+                </div>
+                {autoscalingEnabled && (
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="grid gap-1 text-sm">
+                      {t('launchModel.autoscalingGpuPool')}
+                      <select
+                        className="h-9 rounded-md border bg-background px-2"
+                        value={autoscaling.gpu_pool ?? ''}
+                        onChange={(event) => {
+                          form.setFieldsValue({
+                            autoscaling: { ...autoscaling, gpu_pool: event.target.value || null },
+                          });
+                          handleFormUserChange('autoscaling');
+                        }}
+                      >
+                        <option value="">{t('launchModel.autoscalingAllGpus')}</option>
+                        {gpuPools.map((pool) => (
+                          <option key={pool}>{pool}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {(['min_replicas', 'max_replicas'] as const).map((key) => (
+                      <label className="grid gap-1 text-sm" key={key}>
+                        {t(
+                          key === 'min_replicas'
+                            ? 'launchModel.autoscalingMin'
+                            : 'launchModel.autoscalingMax'
+                        )}
+                        <input
+                          className="h-9 min-w-0 rounded-md border bg-background px-2"
+                          type="number"
+                          min={key === 'min_replicas' ? 1 : Number(autoscaling.min_replicas) || 1}
+                          value={autoscaling[key] ?? ''}
+                          placeholder={
+                            key === 'max_replicas'
+                              ? t('launchModel.autoscalingPoolCapacity')
+                              : undefined
+                          }
+                          onChange={(event) => {
+                            form.setFieldsValue({
+                              autoscaling: { ...autoscaling, [key]: event.target.value },
+                            });
+                            handleFormUserChange('autoscaling');
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </Form>
           <DialogFooter className={cn(loading ? '!flex-col gap-4 border-t pt-4' : '')}>
             {loading && (

@@ -10,6 +10,7 @@ import { ALL_FORM_KEYS, LAUNCH_MODEL_ROUTE_TABS } from '@/constants/launch';
 import type { FormInstance, FormValues } from '@/types/form';
 import { transformFormListToObj, transformObjToFormList, transformValueType } from '@/lib/utils';
 import {
+  StructuredLaunchParameterError,
   isStructuredLaunchParameter,
   parseStructuredLaunchParameter,
   STRUCTURED_LAUNCH_PARAMETERS,
@@ -478,6 +479,7 @@ export function transformFormToFetch(values: FormValues) {
   applyFormListObject(nextValues, 'quantization_config');
   applyFormListObject(nextValues, 'envs', false);
   mergeFormListObject(nextValues, 'kwargs');
+  if (nextValues.autoscaling == null) delete nextValues.autoscaling;
   for (const key of STRUCTURED_LAUNCH_PARAMETERS) {
     if (Object.hasOwn(nextValues, key)) {
       nextValues[key] = parseStructuredLaunchParameter(key, nextValues[key]);
@@ -548,7 +550,28 @@ export function transformFormToFetch(values: FormValues) {
   // Per-replica placement. `replica_placement_mode` is UI-only and never sent.
   const placementMode = nextValues.replica_placement_mode;
   delete nextValues.replica_placement_mode;
-  if (placementMode === 'custom') {
+  if (nextValues.autoscaling) {
+    const policy = nextValues.autoscaling;
+    const minimum = Number(policy.min_replicas ?? 1);
+    const maximum =
+      policy.max_replicas === '' || policy.max_replicas == null
+        ? null
+        : Number(policy.max_replicas);
+    if (
+      !Number.isSafeInteger(minimum) ||
+      minimum < 1 ||
+      (maximum !== null && (!Number.isSafeInteger(maximum) || maximum < minimum))
+    ) {
+      throw new StructuredLaunchParameterError('autoscaling', 'invalidReplicaBounds');
+    }
+    nextValues.autoscaling = { ...policy, min_replicas: minimum, max_replicas: maximum };
+    nextValues.replica = minimum;
+    nextValues.n_gpu = 'auto';
+    delete nextValues.replica_config;
+    delete nextValues.n_worker;
+    delete nextValues.worker_ip;
+    delete nextValues.gpu_idx;
+  } else if (placementMode === 'custom') {
     const rows = Array.isArray(nextValues.replica_config) ? nextValues.replica_config : [];
     nextValues.replica_config = transformReplicaFormRowsToConfig(rows);
     // Mutual exclusion: the legacy global placement fields must not be sent
@@ -570,7 +593,9 @@ export function buildLaunchHistoryValues(
   const data = { ...launchedValues };
   const uiData: FormValues = {};
 
-  if (formValues.replica_placement_mode === 'custom') {
+  if (data.autoscaling) {
+    uiData.n_gpu = 'auto';
+  } else if (formValues.replica_placement_mode === 'custom') {
     delete data.n_worker;
     delete data.worker_ip;
     delete data.n_gpu;
@@ -1180,7 +1205,7 @@ export type ReplicaPlacementValidationError = 'incomplete' | 'duplicate-alias';
 export function validateReplicaPlacement(
   values: FormValues
 ): ReplicaPlacementValidationError | undefined {
-  if (values.replica_placement_mode !== 'custom') return undefined;
+  if (values.autoscaling || values.replica_placement_mode !== 'custom') return undefined;
 
   const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
   const replicaCount = Number(values.replica) || 1;

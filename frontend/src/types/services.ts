@@ -171,7 +171,27 @@ export interface ReplicaItem {
   gpu_idx?: number[];
 }
 
+export interface EmbeddingAutoscalingStatus {
+  policy: {
+    gpu_pool: string | null;
+    min_replicas: number;
+    max_replicas: number | null;
+  };
+  ready_replicas: number;
+  queued_requests: number;
+  oldest_wait_ms: number;
+  operation: 'scaling_up' | 'scaling_down' | null;
+  reason:
+    | 'max_replicas_reached'
+    | 'insufficient_gpu_capacity'
+    | 'scale_operation_failed'
+    | 'no_ready_replica'
+    | null;
+}
+
 export interface ModelInstanceInfo {
+  autoscaling?: EmbeddingAutoscalingStatus;
+
   model_uid: string;
   model_name: string;
   model_version?: string | null;

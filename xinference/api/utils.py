@@ -25,6 +25,7 @@ from typing import Any, Callable, Optional
 
 from fastapi import HTTPException, Request
 
+from ..core.autoscaling import EmbeddingOverloadedError
 from ..core.exceptions import ModelNotReadyError
 from ..core.rpc_context import actor_call, correlate_model_ref
 from .model_request_logging import get_current_model_request_id
@@ -100,6 +101,8 @@ async def require_model(
     get_supervisor_ref: Callable,
     model_uid: str,
     report_error_event: Optional[Callable] = None,
+    *,
+    embedding_reservation_id: Optional[str] = None,
 ) -> Any:
     """
     Get a model with standardized error handling.
@@ -140,15 +143,18 @@ async def require_model(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
-        if request_id is None:
-            return await supervisor.get_model(model_uid)
-        model_ref = await actor_call(
-            supervisor,
-            "get_model",
-            model_uid,
-            _rpc_correlation_id=request_id,
+        kwargs = (
+            {"embedding_reservation_id": embedding_reservation_id}
+            if embedding_reservation_id is not None
+            else {}
         )
-        return correlate_model_ref(model_ref, request_id)
+        result = await actor_call(
+            supervisor, "get_model", model_uid, _rpc_correlation_id=request_id, **kwargs
+        )
+        if embedding_reservation_id is not None:
+            model_ref, reserved = result
+            return correlate_model_ref(model_ref, request_id), reserved
+        return correlate_model_ref(result, request_id)
 
 
 async def require_chat_model(
@@ -190,6 +196,10 @@ async def _model_lookup(get_supervisor_ref, model_uid, report_error_event):
         yield supervisor
     except HTTPException:
         raise
+    except EmbeddingOverloadedError as e:
+        raise HTTPException(
+            status_code=429, detail=e.args[0], headers={"Retry-After": "1"}
+        ) from None
     except ModelNotReadyError as e:
         raise HTTPException(
             status_code=503,
