@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ...core.exceptions import InvalidModelRequestError
 from .native_async import NativeAsyncAudioModel
 
 
@@ -71,16 +72,16 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         if (voice is not None and not isinstance(voice, str)) or (
             language is not None and not isinstance(language, str)
         ):
-            raise ValueError("voice and language must be strings")
+            raise InvalidModelRequestError("voice and language must be strings")
         speaker = voice or "ryan"
         speakers = self._config.spk_id
         if speaker.lower() not in {name.lower() for name in speakers}:
-            raise ValueError(f"Unknown speaker: {speaker}")
+            raise InvalidModelRequestError(f"Unknown speaker: {speaker}")
         language = language or "English"
         if language.lower() != "auto" and language.lower() not in {
             name.lower() for name in self._config.codec_language_id
         }:
-            raise ValueError(f"Unsupported language: {language}")
+            raise InvalidModelRequestError(f"Unsupported language: {language}")
         info = {
             "task_type": ["CustomVoice"],
             "text": [text],
@@ -111,25 +112,35 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         **kwargs,
     ):
         if not isinstance(input, str) or not input.strip() or len(input) > 5000:
-            raise ValueError("Speech input must contain 1..5000 characters")
+            raise InvalidModelRequestError(
+                "Speech input must contain 1..5000 characters"
+            )
         if speed != 1.0:
-            raise ValueError("Native Qwen3-TTS currently requires speed=1")
+            raise InvalidModelRequestError(
+                "Native Qwen3-TTS currently requires speed=1"
+            )
         if response_format not in {"pcm", "wav", "mp3", "flac", "ogg"}:
-            raise ValueError("Unsupported speech format")
+            raise InvalidModelRequestError("Unsupported speech format")
         if stream and response_format != "pcm":
-            raise ValueError("Streamed Qwen3-TTS requires response_format=pcm")
+            raise InvalidModelRequestError(
+                "Streamed Qwen3-TTS requires response_format=pcm"
+            )
         language = kwargs.pop("language", None)
         instruct = kwargs.pop("instruct", "")
         seed = kwargs.pop("seed", None)
         if seed is not None and (type(seed) is not int or not 0 <= seed < 2**32):
-            raise ValueError("seed must be an integer in [0, 2**32)")
+            raise InvalidModelRequestError("seed must be an integer in [0, 2**32)")
         max_tokens = kwargs.pop("max_new_tokens", 2048)
         if kwargs:
-            raise ValueError(f"Unsupported speech options: {sorted(kwargs)}")
+            raise InvalidModelRequestError(
+                f"Unsupported speech options: {sorted(kwargs)}"
+            )
         if not isinstance(instruct, str) or len(instruct) > 500:
-            raise ValueError("instruct must be a string of at most 500 characters")
+            raise InvalidModelRequestError(
+                "instruct must be a string of at most 500 characters"
+            )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
-            raise ValueError("max_new_tokens must be 1..4096")
+            raise InvalidModelRequestError("max_new_tokens must be 1..4096")
         prompt = await asyncio.to_thread(
             self._prompt, input, voice, language, instruct, max_tokens
         )

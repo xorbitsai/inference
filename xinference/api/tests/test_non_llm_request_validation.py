@@ -32,6 +32,8 @@ from PIL import Image
 from ...core.model import ModelActor
 from ...model.audio.ace_step import AceStepModel
 from ...model.audio.melotts import MeloTTSModel
+from ...model.audio.vllm import VLLMQwen3ASRModel
+from ...model.audio.vllm_omni import VLLMOmniTTSModel
 from ...model.video.diffusers import DiffusersVideoModel
 from ..restful_api import RESTfulAPI
 
@@ -392,6 +394,108 @@ async def test_ace_step_actor_backend_value_error_remains_500(
     api_client.api._report_error_event.assert_awaited_once_with(
         "test", "backend failure"
     )
+
+
+@pytest.fixture
+def vllm_audio_actor(api_client, request):
+    spec = SimpleNamespace(to_description=lambda: {"model_type": "audio"})
+    model_cls = VLLMOmniTTSModel if request.param == "tts" else VLLMQwen3ASRModel
+    model = model_cls("test", "unused", spec)
+    model._engine = SimpleNamespace(generate=Mock(), abort=AsyncMock())
+    actor = ModelActor("test:123", "test:345", model, "test-rep0")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    api_client.model.speech.side_effect = actor.speech
+    api_client.model.transcriptions.side_effect = actor.transcriptions
+    return SimpleNamespace(actor=actor, model=model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "vllm_audio_actor,path,options,message",
+    [
+        (
+            "tts",
+            "/v1/audio/speech",
+            {"speed": 2},
+            "Native Qwen3-TTS currently requires speed=1",
+        ),
+        (
+            "asr",
+            "/v1/audio/transcriptions",
+            {"response_format": "text"},
+            "Supported transcription formats are json and verbose_json",
+        ),
+        (
+            "asr",
+            "/v1/audio/transcriptions",
+            {"kwargs": '{"unsupported": true}'},
+            "Realtime vLLM ASR does not support timestamp or extra options",
+        ),
+    ],
+    indirect=["vllm_audio_actor"],
+    ids=["tts-speed", "asr-format", "asr-extra-option"],
+)
+async def test_vllm_audio_actor_invalid_request_returns_400(
+    api_client, vllm_audio_actor, path, options, message
+):
+    async with api_client.client as client:
+        if path.endswith("speech"):
+            response = await client.post(
+                path, json={"model": "test", "input": "hello", **options}
+            )
+        else:
+            response = await client.post(
+                path,
+                data={"model": "test", **options},
+                files={"file": ("test.wav", b"invalid audio", "audio/wav")},
+            )
+    assert response.status_code == 400, response.text
+    assert response.json() == {"detail": message}
+    vllm_audio_actor.model._engine.generate.assert_not_called()
+    assert vllm_audio_actor.actor._serve_count == 0
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("vllm_audio_actor", ["tts"], indirect=True)
+async def test_vllm_tts_token_budget_exhaustion_remains_500(
+    api_client, vllm_audio_actor, monkeypatch
+):
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.sampling_params",
+        SimpleNamespace(RequestOutputKind=SimpleNamespace(DELTA="delta")),
+    )
+    model = vllm_audio_actor.model
+    model._samples_per_token = 1
+    model._config = SimpleNamespace(
+        spk_id={"ryan": 0}, codec_language_id={"english": 1}, spk_is_dialect={}
+    )
+    model._estimate_prompt = Mock(return_value=1)
+    model._engine.default_sampling_params_list = [SimpleNamespace()]
+
+    async def generate(**kwargs):
+        yield SimpleNamespace(multimodal_output={"audio": [0.1]})
+
+    model._engine.generate.side_effect = generate
+    async with api_client.client as client:
+        response = await client.post(
+            "/v1/audio/speech",
+            json={
+                "model": "test",
+                "input": "hello",
+                "response_format": "pcm",
+                "kwargs": '{"max_new_tokens": 1}',
+            },
+        )
+    message = "Speech token budget exhausted; output is incomplete"
+    assert response.status_code == 500, response.text
+    assert response.json() == {"detail": message}
+    model._engine.generate.assert_called_once()
+    model._engine.abort.assert_awaited_once()
+    assert not model._requests and vllm_audio_actor.actor._serve_count == 0
+    api_client.api._report_error_event.assert_awaited_once_with("test", message)
 
 
 @pytest.mark.asyncio

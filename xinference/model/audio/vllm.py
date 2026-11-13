@@ -25,7 +25,7 @@ from typing import Any, Dict
 
 import numpy as np
 
-from ...core.exceptions import InvalidAudioInputError
+from ...core.exceptions import InvalidAudioInputError, InvalidModelRequestError
 from ...core.realtime.protocol import RealtimeError
 from ..realtime import RealtimeSession
 from .native_async import NativeAsyncAudioModel, settle_request
@@ -259,11 +259,11 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
         **kwargs,
     ):
         if timestamp_granularities is not None or kwargs:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "Realtime vLLM ASR does not support timestamp or extra options"
             )
         if response_format not in {"json", "verbose_json"}:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "Supported transcription formats are json and verbose_json"
             )
 

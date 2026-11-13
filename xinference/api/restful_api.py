@@ -4054,8 +4054,10 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=transcription, media_type="application/json")
-        except InvalidAudioInputError as e:
-            logger.warning("Invalid transcription audio for model %s: %s", model_uid, e)
+        except (InvalidAudioInputError, InvalidModelRequestError) as e:
+            logger.warning(
+                "Invalid transcription request for model %s: %s", model_uid, e
+            )
             raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
