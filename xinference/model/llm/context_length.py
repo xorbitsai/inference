@@ -396,6 +396,34 @@ def classify_vllm_context_error(
     return None
 
 
+def normalize_vllm_context_error(
+    exc: Exception, fallback_max_model_len: Optional[int] = None
+) -> Optional[ContextLengthExceeded]:
+    """Return an engine-free replacement for a vLLM prompt-length rejection.
+
+    The API process may not be able to import vLLM, so an engine exception
+    that crosses the actor boundary cannot be deserialized there.  Call this
+    inside the model process and raise the result *outside* the ``except``
+    block that caught ``exc``, so the vLLM exception is not attached as the
+    replacement's ``__context__``.  Returns ``None`` when ``exc`` is not a
+    recognized context overflow or is already a ``ContextLengthExceeded``.
+    """
+
+    if isinstance(exc, ContextLengthExceeded):
+        return None
+    parsed = classify_vllm_context_error(exc, fallback_max_model_len)
+    if parsed is None:
+        return None
+    input_tokens, max_model_len = parsed
+    return ContextLengthExceeded(
+        f"Prompt uses {input_tokens} tokens, leaving no output capacity "
+        f"within max_model_len={max_model_len}",
+        input_tokens=input_tokens,
+        max_model_len=max_model_len,
+        diagnostic_code="VLLM_PROMPT_LENGTH_REJECTED",
+    )
+
+
 def _find_invalid_multimodal_input_error(
     exc: Exception,
 ) -> Optional[Exception]:

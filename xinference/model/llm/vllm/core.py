@@ -76,6 +76,7 @@ from ..context_length import (
     ContextLengthExceeded,
     classify_vllm_context_error,
     normalize_runtime_positive_int,
+    normalize_vllm_context_error,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
@@ -3071,19 +3072,35 @@ class VLLMModel(WeightCachedModel, LLM):
 
         async def tracked_results():
             completed = False
+            context_error: Optional[ContextLengthExceeded] = None
             try:
-                async for request_output in results_iterator:
-                    # vLLM V1 reports failed KV loads as terminal outputs, not
-                    # exceptions. Raise before either completion conversion path.
-                    if any(
-                        output.finish_reason == "error"
-                        for output in getattr(request_output, "outputs", ())
-                    ):
-                        raise RuntimeError(
-                            f"vLLM request {request_id} failed (finish_reason=error)"
-                        )
-                    yield request_output
-                completed = True
+                try:
+                    async for request_output in results_iterator:
+                        # vLLM V1 reports failed KV loads as terminal outputs, not
+                        # exceptions. Raise before either completion conversion path.
+                        if any(
+                            output.finish_reason == "error"
+                            for output in getattr(request_output, "outputs", ())
+                        ):
+                            raise RuntimeError(
+                                f"vLLM request {request_id} failed "
+                                "(finish_reason=error)"
+                            )
+                        yield request_output
+                    completed = True
+                except Exception as exc:
+                    # vLLM may reject an overlong prompt (e.g. in its 0.32
+                    # renderer) with an engine exception type the API process
+                    # cannot import.  Replace it before it crosses the actor.
+                    context_error = normalize_vllm_context_error(
+                        exc, getattr(self, "_context_length", None)
+                    )
+                    if context_error is None:
+                        raise
+                # Raise outside the handler so the vLLM exception is not kept
+                # as __context__ on the actor-serialized replacement.
+                if context_error is not None:
+                    raise context_error
             finally:
                 try:
                     if not completed:
