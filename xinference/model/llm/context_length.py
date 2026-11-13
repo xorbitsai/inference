@@ -60,6 +60,18 @@ _VLLM_PROMPT_LENGTH_ERROR = re.compile(
     r"\(at least 1\) is longer than)\s+"
     r"the maximum model length of (?P<max_model_len>\d+)\."
 )
+# vLLM >= 0.32 rejects overlong prompts in its renderer before the engine's
+# own input validation runs.  "at least" marks a prompt the tokenizer truncated
+# to max_model_len + 1 tokens, so the reported count is a lower bound.
+_VLLM_RENDERER_PROMPT_LENGTH_ERROR = re.compile(
+    r"This model's maximum context length is (?P<max_model_len>\d+) tokens\.\s+"
+    r"However, your prompt contains (?:at least )?(?P<input_tokens>\d+) "
+    r"input tokens, which exceeds this limit even without any output tokens\."
+)
+_VLLM_PROMPT_LENGTH_ERRORS = (
+    _VLLM_PROMPT_LENGTH_ERROR,
+    _VLLM_RENDERER_PROMPT_LENGTH_ERROR,
+)
 _XINFERENCE_MULTIMODAL_CONTEXT_ERROR = re.compile(
     r"Multimodal input uses (?P<input_tokens>\d+) tokens, leaving no output "
     r"capacity within max_model_len=(?P<max_model_len>\d+)"
@@ -284,10 +296,11 @@ def parse_vllm_prompt_length_error(message: str) -> Optional[Tuple[int, int]]:
     normalize engine-specific exceptions before they cross an actor boundary,
     while API processes can defensively recognize actor-wrapped error text.
     """
-    match = _VLLM_PROMPT_LENGTH_ERROR.search(message)
-    if match is None:
-        return None
-    return int(match.group("input_tokens")), int(match.group("max_model_len"))
+    for pattern in _VLLM_PROMPT_LENGTH_ERRORS:
+        match = pattern.search(message)
+        if match is not None:
+            return int(match.group("input_tokens")), int(match.group("max_model_len"))
+    return None
 
 
 def _iter_exception_chain(exc: Exception, max_depth: int = 8) -> Iterator[Exception]:

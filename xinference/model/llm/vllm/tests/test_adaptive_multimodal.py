@@ -61,6 +61,21 @@ def test_unset_limit_is_not_forwarded_to_engine(model):
             "than the maximum model length of 4096.",
             (4096, 4096),
         ),
+        (
+            "This model's maximum context length is 4096 tokens. However, "
+            "your prompt contains 5000 input tokens, which exceeds this limit "
+            "even without any output tokens. Please reduce the length of the "
+            "input prompt.",
+            (5000, 4096),
+        ),
+        (
+            "[address=worker:1234, pid=5678] This model's maximum context "
+            "length is 1048576 tokens. However, your prompt contains at least "
+            "1048577 input tokens, which exceeds this limit even without any "
+            "output tokens. Please reduce the length of the input prompt. "
+            "(parameter=input_tokens, value=1048577)",
+            (1048577, 1048576),
+        ),
     ],
 )
 def test_parse_vllm_prompt_length_error(message, expected):
@@ -74,6 +89,9 @@ def test_parse_vllm_prompt_length_error(message, expected):
         "CUDA out of memory while allocating context cache",
         "The decoder prompt is invalid",
         "The decoder prompt (length 5000) is longer than 4096.",
+        "This model's maximum context length is 4096 tokens.",
+        "max_tokens=8192 cannot be greater than max_model_len=4096. "
+        "Please request fewer output tokens.",
     ],
 )
 def test_parse_vllm_prompt_length_error_does_not_guess(message):
@@ -137,6 +155,26 @@ def test_classify_vllm_context_error_checks_worker_local_exception_chain():
     wrapper.__cause__ = engine_error
 
     assert classify_vllm_context_error(wrapper) == (263175, 262144)
+
+
+def test_classify_vllm_context_error_recognizes_renderer_rejection():
+    error_type = type(
+        "VLLMValidationError",
+        (ValueError,),
+        {"__module__": "vllm.exceptions"},
+    )
+    engine_error = error_type(
+        "This model's maximum context length is 1048576 tokens. However, your "
+        "prompt contains at least 1048577 input tokens, which exceeds this "
+        "limit even without any output tokens. Please reduce the length of "
+        "the input prompt."
+    )
+    engine_error.parameter = "input_tokens"
+    engine_error.value = 1048577
+    wrapper = RuntimeError("worker wrapper")
+    wrapper.__cause__ = engine_error
+
+    assert classify_vllm_context_error(wrapper) == (1048577, 1048576)
 
 
 @pytest.mark.parametrize(
