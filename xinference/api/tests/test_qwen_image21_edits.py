@@ -75,6 +75,7 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
             response_format="b64_json",
             stream=False,
             use_lightning=False if model_name == "Qwen-Image-Edit-2511" else None,
+            kwargs=None,
         )
     )
     assert response.status_code == 200
@@ -149,6 +150,7 @@ async def test_invalid_lightning_request_returns_http_400(
             response_format="url",
             stream=False,
             use_lightning=True,
+            kwargs=None,
         )
     elif endpoint in ("create_variations", "create_inpainting"):
         options = dict(
@@ -171,3 +173,76 @@ async def test_invalid_lightning_request_returns_http_400(
     assert error.value.status_code == 400
     assert error.value.detail == message
     assert generate.await_args.kwargs["use_lightning"] is True
+
+
+def _run_image_edits_with_extra_options(monkeypatch, with_mask, extra_options):
+    model_ref = SimpleNamespace(
+        image_to_image=AsyncMock(return_value=b'{"data": []}'),
+        inpainting=AsyncMock(return_value=b'{"data": []}'),
+    )
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_name": "Qwen-Image-Edit-2511"})
+    )
+    api = SimpleNamespace(
+        _get_supervisor_ref=AsyncMock(return_value=supervisor),
+        _report_error_event=AsyncMock(),
+        _set_trace_model=Mock(),
+        _set_trace_model_type=Mock(),
+        _check_model_access=Mock(),
+        _add_running_task=Mock(),
+    )
+    monkeypatch.setattr(
+        "xinference.api.restful_api.require_model",
+        AsyncMock(return_value=model_ref),
+    )
+    response = asyncio.run(
+        RESTfulAPI.create_image_edits(
+            api,
+            request=Mock(),
+            prompt="Edit",
+            images=[_upload_image()],
+            mask=_upload_image() if with_mask else None,
+            model="custom-model-uid",
+            n=1,
+            size="original",
+            response_format="b64_json",
+            stream=False,
+            use_lightning=None,
+            kwargs=extra_options,
+        )
+    )
+
+    assert response.status_code == 200
+    called = model_ref.inpainting if with_mask else model_ref.image_to_image
+    return called.call_args.kwargs
+
+
+@pytest.mark.parametrize(
+    "with_mask, extra_options",
+    [
+        (False, '{"image": null}'),
+        (True, '{"mask_image": null}'),
+    ],
+)
+def test_image_edits_uploaded_files_take_precedence_over_extra_options(
+    monkeypatch, with_mask, extra_options
+):
+    call_kwargs = _run_image_edits_with_extra_options(
+        monkeypatch, with_mask, extra_options
+    )
+
+    assert call_kwargs["image"].size == (8, 8)
+    if with_mask:
+        assert call_kwargs["mask_image"].size == (8, 8)
+
+
+@pytest.mark.parametrize("with_mask", [False, True])
+def test_image_edits_form_n_sets_the_image_count(monkeypatch, with_mask):
+    # The Diffusers adapters pass n as num_images_per_prompt, so the same key
+    # in the extra options would be a duplicate keyword argument.
+    call_kwargs = _run_image_edits_with_extra_options(
+        monkeypatch, with_mask, '{"num_images_per_prompt": 1}'
+    )
+
+    assert call_kwargs["n"] == 1
+    assert "num_images_per_prompt" not in call_kwargs
