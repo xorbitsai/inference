@@ -897,3 +897,181 @@ async def test_rejected_stream_setup_does_not_abort_request_owner(
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+async def test_explicit_zero_block_abort_ends_sse_without_reblocking(monkeypatch, kind):
+    import httpx
+    from fastapi import FastAPI
+
+    from ...core.tests.test_request_priority import _close
+    from ...core.tests.test_request_tracking import _streaming_actor
+    from ...core.utils import CancelMixin
+
+    method = "generate" if kind == "completion" else "chat"
+    actor, _, entered = _streaming_actor(method, native=True)
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, kind, None, extra_body={"request_id": "r"}
+    )
+
+    async def infer(*args, **kwargs):
+        stream = await asyncio.create_task(getattr(actor, method)(*args, **kwargs))
+        stream._actor_ref, stream._gc_destroy = actor, False
+        return stream
+
+    getattr(model, method).side_effect = infer
+    model.abort_request.side_effect = actor.abort_request
+    model.decrease_serve_count.side_effect = actor.decrease_serve_count
+
+    async def abort(model_uid, request_id, block_duration, **kwargs):
+        return {"msg": await actor.abort_request(request_id, block_duration)}
+
+    api = _new_api()
+    CancelMixin.__init__(api)
+    api._get_supervisor_ref = AsyncMock(
+        return_value=SimpleNamespace(abort_request=abort)
+    )
+    app = FastAPI()
+    app.add_api_route(
+        "/v1/models/{model_uid}/requests/{request_id}/abort",
+        api.abort_request,
+        methods=["POST"],
+    )
+    pending = replacement = None
+    try:
+        await anext(response.body_iterator)
+        pending = asyncio.create_task(anext(response.body_iterator))
+        await entered.wait()
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            result = await client.post(
+                f"/v1/models/{kind}-model/requests/r/abort", json={"block_duration": 0}
+            )
+        assert result.status_code == 200 and result.json() == {"msg": "DONE"}
+        # Chat emits [DONE]; completions finish their pending read with EOF.
+        await asyncio.gather(pending, return_exceptions=True)
+        async for _ in response.body_iterator:
+            pass
+        replacement = await infer("hello", {"stream": True}, request_id="r")
+        model.abort_request.assert_not_awaited()
+    finally:
+        if pending is not None:
+            pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+        await response.body_iterator.aclose()
+        if replacement is not None:
+            await _close(replacement)
+        blocks = [
+            task
+            for owner in (actor, api)
+            for task in owner._running_tasks.values()
+            if task.get_name() == owner._CANCEL_TASK_NAME
+        ]
+        for task in blocks:
+            task.cancel()
+        await asyncio.gather(*blocks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("native", [False, True])
+async def test_late_sse_disconnect_does_not_abort_replacement(
+    monkeypatch, kind, native
+):
+    import httpx
+    from fastapi import FastAPI
+
+    from ...core.tests.test_request_priority import _close
+    from ...core.tests.test_request_tracking import _streaming_actor
+    from ...core.utils import CancelMixin
+
+    method = "generate" if kind == "completion" else "chat"
+    actor, _, _ = _streaming_actor(method, native=native)
+
+    async def chunks():
+        yield {"choices": []}
+        yield {"choices": []}
+        await asyncio.Event().wait()
+
+    async def generate(*args, **kwargs):
+        return chunks()
+
+    setattr(actor._model, f"async_{method}", generate)
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, kind, None, extra_body={"request_id": "r"}
+    )
+
+    async def infer(*args, **kwargs):
+        stream = await asyncio.create_task(getattr(actor, method)(*args, **kwargs))
+        stream._actor_ref, stream._gc_destroy = actor, False
+        return stream
+
+    getattr(model, method).side_effect = infer
+    model.abort_request.side_effect = actor.abort_request
+    model.decrease_serve_count.side_effect = actor.decrease_serve_count
+
+    async def abort(model_uid, request_id, block_duration, **kwargs):
+        return {"msg": await actor.abort_request(request_id, block_duration)}
+
+    api = _new_api()
+    CancelMixin.__init__(api)
+    api._get_supervisor_ref = AsyncMock(
+        return_value=SimpleNamespace(abort_request=abort)
+    )
+    app = FastAPI()
+    app.add_api_route(
+        "/v1/models/{model_uid}/requests/{request_id}/abort",
+        api.abort_request,
+        methods=["POST"],
+    )
+    sending, disconnected = asyncio.Event(), asyncio.Event()
+
+    async def send(message):
+        if message["type"] == "http.response.body" and message.get("body"):
+            sending.set()
+            await asyncio.Event().wait()
+
+    async def receive():
+        await disconnected.wait()
+        return {"type": "http.disconnect"}
+
+    task = asyncio.create_task(
+        response({"type": "http", "method": "POST"}, receive, send)
+    )
+    replacement = None
+    try:
+        await asyncio.wait_for(sending.wait(), 3)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            result = await client.post(
+                f"/v1/models/{kind}-model/requests/r/abort", json={"block_duration": 0}
+            )
+        assert result.status_code == 200 and result.json() == {"msg": "DONE"}
+        assert not task.done()  # The old response has not consumed EOF.
+        replacement = await infer("hello", {"stream": True}, request_id="r")
+        assert await anext(replacement)
+        disconnected.set()
+        await asyncio.wait_for(task, 3)
+        assert await anext(replacement)
+        if native:
+            actor._model.abort_request.assert_awaited_once_with("r")
+    finally:
+        disconnected.set()
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await response.body_iterator.aclose()
+        if replacement is not None:
+            await _close(replacement)
+            await actor.decrease_serve_count()
+        blocks = [
+            t
+            for owner in (actor, api)
+            for t in owner._running_tasks.values()
+            if t.get_name() == owner._CANCEL_TASK_NAME
+        ]
+        for t in blocks:
+            t.cancel()
+        await asyncio.gather(*blocks, return_exceptions=True)
