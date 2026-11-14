@@ -53,8 +53,8 @@ When launching an embedding model, you can pick the serving engine with the
   when the matched model spec is GGUF.
 
 For models that support ``dimensions`` with the ``sentence_transformers``
-engine, send a positive integer to request a shorter embedding. Invalid
-values return HTTP 400 for that request.
+engine, send a positive integer up to the model's native embedding dimension.
+Invalid values return HTTP 400 for that request.
 
 Truncating input
 -------------------

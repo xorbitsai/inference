@@ -39,6 +39,7 @@ def _make_model(monkeypatch):
     model._model_name = "WeMM-Embedding-2B"
     model._model_uid = "wemm"
     model._embedder = None
+    model._native_embedding_dimensions = 2048
     model._kwargs = {}
     model._model = MagicMock()
     model._model.__getitem__.return_value.auto_model.config = SimpleNamespace(

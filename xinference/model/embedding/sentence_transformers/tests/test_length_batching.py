@@ -210,11 +210,12 @@ def test_request_dimensions_override_the_launch_truncate_dim(monkeypatch):
     assert result["data"][0]["embedding"] == _vector("text")[:1]
 
 
-@pytest.mark.parametrize("dimensions", [0, -2, 1.5, 2.0, True, "2"])
+@pytest.mark.parametrize("dimensions", [0, -2, 1.5, 2.0, True, "2", 4])
 async def test_invalid_dimensions_do_not_fail_concurrent_requests(
     monkeypatch, dimensions
 ):
     model = _make_model(monkeypatch)
+    model._model.truncate_dim = 2
     model.batch_size = 8
     model.batch_interval = 0.01
 
@@ -240,11 +241,12 @@ async def test_invalid_dimensions_do_not_fail_concurrent_requests(
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
-            invalid, valid = await asyncio.gather(
+            invalid, valid, default = await asyncio.gather(
                 client.post(
                     "/v1/embeddings", json=dict(payload, dimensions=dimensions)
                 ),
-                client.post("/v1/embeddings", json=dict(payload, dimensions=2)),
+                client.post("/v1/embeddings", json=dict(payload, dimensions=3)),
+                client.post("/v1/embeddings", json=payload),
             )
     finally:
         if model._process_batch_task is not None:
@@ -252,6 +254,10 @@ async def test_invalid_dimensions_do_not_fail_concurrent_requests(
             await asyncio.gather(model._process_batch_task, return_exceptions=True)
 
     assert valid.status_code == 200
-    assert len(valid.json()["data"][0]["embedding"]) == 2
+    assert len(valid.json()["data"][0]["embedding"]) == 3
+    assert default.status_code == 200
+    assert len(default.json()["data"][0]["embedding"]) == 2
     assert invalid.status_code == 400
     assert "dimensions" in invalid.json()["detail"]
+    if dimensions == 4:
+        assert "at most 3" in invalid.json()["detail"]

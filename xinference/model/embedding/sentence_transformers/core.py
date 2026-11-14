@@ -404,6 +404,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._embedder = None
+        self._native_embedding_dimensions = self.model_family.dimensions
 
     def _wrap_method(self) -> Callable[..., Awaitable[Embedding]]:
         enqueue = super()._wrap_method()
@@ -420,6 +421,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 ):
                     raise InvalidModelRequestError(
                         "The `dimensions` argument must be a positive integer."
+                    )
+                if dimensions > model._native_embedding_dimensions:
+                    raise InvalidModelRequestError(
+                        "The `dimensions` argument must be at most "
+                        f"{model._native_embedding_dimensions} for this model."
                     )
                 if is_wemm_model(model.model_family.model_name):
                     model._validate_wemm_dimensions(dimensions)
@@ -579,6 +585,25 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
+
+        # The dimension getter includes the configured truncation. Query the
+        # untruncated width once, before the model starts serving requests.
+        get_dimension = getattr(self._model, "get_embedding_dimension", None)
+        if get_dimension is None:
+            get_dimension = getattr(
+                self._model, "get_sentence_embedding_dimension", None
+            )
+        if get_dimension is not None:
+            truncate_dim = self._model.truncate_dim
+            try:
+                self._model.truncate_dim = None
+                native_dimensions = get_dimension()
+            finally:
+                self._model.truncate_dim = truncate_dim
+            self._native_embedding_dimensions = (
+                native_dimensions or self.model_family.dimensions
+            )
+
         if is_wemm_model(self.model_family.model_name) and dimensions is not None:
             self._validate_wemm_dimensions(dimensions)
 

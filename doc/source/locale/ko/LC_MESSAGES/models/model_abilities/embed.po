@@ -131,8 +131,8 @@ msgstr ""
 "선택됩니다."
 
 #: models/model_abilities/embed.rst:55
-msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer to request a shorter embedding. Invalid values return HTTP 400 for that request."
-msgstr "``sentence_transformers`` 엔진에서 ``dimensions`` 옵션을 지원하는 모델은 양의 정수를 지정하면 더 짧은 임베딩을 반환합니다. 유효하지 않은 값을 지정한 요청에는 HTTP 400을 반환합니다."
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer up to the model's native embedding dimension. Invalid values return HTTP 400 for that request."
+msgstr "``sentence_transformers`` 엔진에서 ``dimensions`` 옵션을 지원하는 모델에는 모델의 원래 임베딩 차원 이하의 양의 정수를 지정하세요. 유효하지 않은 값을 지정한 요청에는 HTTP 400을 반환합니다."
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"

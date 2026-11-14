@@ -145,8 +145,8 @@ msgstr ""
 "coincidente está en formato GGUF."
 
 #: models/model_abilities/embed.rst:55
-msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer to request a shorter embedding. Invalid values return HTTP 400 for that request."
-msgstr "En los modelos que admiten ``dimensions`` con el motor ``sentence_transformers``, envía un entero positivo para solicitar un vector de menor dimensión. Si el valor no es válido, esa solicitud recibe HTTP 400."
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer up to the model's native embedding dimension. Invalid values return HTTP 400 for that request."
+msgstr "En los modelos que admiten ``dimensions`` con el motor ``sentence_transformers``, envía un entero positivo que no supere la dimensión nativa del vector del modelo. Si el valor no es válido, esa solicitud recibe HTTP 400."
 
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"
