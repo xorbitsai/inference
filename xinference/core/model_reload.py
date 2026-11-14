@@ -422,15 +422,19 @@ class ModelReloadMixin:
 
                 row = status["replicas"][0]
                 retired: Set[int] = set()
+
+                def has_failed_replica() -> bool:
+                    return any(
+                        member["status"] == "error" for member in status["replicas"]
+                    )
+
                 try:
                     for index, ((uid, worker), patch, row) in enumerate(
                         zip(targets, patches, status["replicas"])
                     ):
                         if self._get_reload_targets(model_uid) != targets:
                             raise ValueError("Model placement changed during reload")
-                        if any(
-                            member["status"] == "error" for member in status["replicas"]
-                        ):
+                        if has_failed_replica():
                             break
                         for previous, bounded in retirement_waits[index].items():
                             if previous in retired:
@@ -451,8 +455,13 @@ class ModelReloadMixin:
                             else:
                                 await wait
                             retired.add(previous)
+                            # A committed replica can roll back during the wait.
+                            if has_failed_replica():
+                                break
                         if self._get_reload_targets(model_uid) != targets:
                             raise ValueError("Model placement changed during reload")
+                        if has_failed_replica():
+                            break
                         row.update(
                             status="reloading",
                             started_at=time.time(),

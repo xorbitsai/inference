@@ -403,6 +403,65 @@ async def test_independent_replica_precedes_wait_for_nonadjacent_gpu_peer():
 
 
 @pytest.mark.asyncio
+async def test_rollback_during_retirement_wait_skips_next_replica():
+    owner, workers, actors, uids = make_replicas(3)
+    entered, release = asyncio.Event(), asyncio.Event()
+    for worker in workers:
+        worker._user_specified_gpu_to_model_uids = {
+            0: {(uids[0], "LLM"), (uids[2], "LLM")},
+            1: {(uids[1], "LLM")},
+        }
+    ref = await workers[0].get_model(uids[0])
+
+    async def wait_for_retirement(address, uid, check_only=False):
+        assert (address, uid) == (ref.address, ref.uid)
+        if not check_only:
+            entered.set()
+            await release.wait()
+
+    ref.wait_for_generation_retirement = wait_for_retirement
+    workers[2].reload_model = AsyncMock(wraps=workers[2].reload_model)
+    job = await owner.reload_model("test", {"max_num_seqs": 32})
+    task = owner._model_reload_tasks["test"]
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        status = await owner.get_model_reload_status("test")
+        assert [row["status"] for row in status["replicas"]] == [
+            "ready",
+            "ready",
+            "queued",
+        ]
+        observed = {
+            "operation_id": job["operation_id"],
+            "status": "error",
+            "stage": "error",
+            "restored": True,
+            "error": "candidate exited",
+        }
+        actors[1]._reload_status = observed
+        await owner.restore_model_reload_config(uids[1], {"max_num_seqs": 16}, observed)
+        release.set()
+        await asyncio.wait_for(task, 1)
+        status = await owner.get_model_reload_status("test")
+        assert [row["status"] for row in status["replicas"]] == [
+            "ready",
+            "error",
+            "skipped",
+        ]
+        assert status["status"] == "error" and status["partial"]
+        assert status["completed_replicas"] == 1
+        assert "candidate exited" in status["error"]
+        assert status["replicas"][1]["restored"]
+        workers[2].reload_model.assert_not_called()
+        assert actors[2]._model._reload_config["max_num_seqs"] == 16
+        assert actors[2]._model.stops == 0
+        owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+    finally:
+        release.set()
+        await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), 1)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["complete", "error", "cancel"])
 @pytest.mark.parametrize("placement", ["same_gpu", "shared_process"])
 async def test_rolling_reload_waits_for_retirement_before_next_capacity_check(
