@@ -235,9 +235,21 @@ msgstr "串流回應開始後，HTTP 狀態維持為 200。錯誤透過 SSE 的 
 msgid "Chat replica affinity"
 msgstr "聊天副本工作階段親和路由"
 
-#: ../../source/user_guide/client_api.rst:108
-msgid "For a model with ordinary chat replicas, send the same optional ``routing_key`` for each request in a session. Xinference prefers the last replica selected for that model, credential and key. If the replica is unavailable or at its configured request limit, Xinference tries another replica. Requests without a key use round-robin routing. The key must be a non-blank string of at most 128 characters and does not control cache isolation."
-msgstr "模型使用一般聊天副本時，可在同一工作階段的每個請求中傳送相同的 ``routing_key``。Xinference 會優先使用該模型、憑證與路由鍵上次選取的副本。副本無法使用或已達設定的請求上限時，Xinference 會嘗試其他副本。未提供路由鍵的請求會輪流分配。路由鍵必須是長度不超過 128 個字元的非空白字串，只用於選取副本。快取隔離由快取設定決定。"
+#: user_guide/client_api.rst:128
+msgid ""
+"For a model with ordinary chat replicas, send the same optional "
+"``routing_key`` for each request in a session. Xinference uses in-flight "
+"request counts and available cache information to select a replica. The last"
+" replica for the same model, credential and key breaks ties. With "
+"``priority_hint: -1`` and no explicit ``priority``, requests prefer the "
+"least loaded replica, even without a routing key. Other requests without a "
+"key use round-robin routing. The key must be a non-blank string of at most "
+"128 characters and does not control cache isolation."
+msgstr ""
+"模型使用一般聊天副本時，可在同一工作階段的每個請求中傳送相同的選用 ``routing_key``。Xinference "
+"依照處理中的請求數和可用的快取資訊選擇副本。條件相同時，優先使用同一模型、憑證和路由鍵上次選取的副本。未明確指定 ``priority`` "
+"時，``priority_hint: -1`` 會優先選取負載最低的副本，即使沒有路由鍵。其他沒有路由鍵的請求採輪詢分派。路由鍵不得只有空白且長度至多 "
+"128 個字元。快取隔離由快取設定決定。"
 
 #: ../../source/user_guide/client_api.rst:110
 msgid "Set ``routing_key`` in ``extra_body`` with the OpenAI client or in ``generate_config`` with the Xinference client. The response from ``GET /v1/models/{model_uid}`` includes ``supports_chat_session_affinity: true`` for models that support this feature."
@@ -328,24 +340,20 @@ msgstr "無效的優先順序類型或超出 ``[-10000, 10000]`` 的值會傳回
 msgid "TRT-LLM versions exposing a native ``priority`` parameter use native scheduling for ordinary and P/D replicas. Xinference defaults ``scheduler_config.waiting_queue_policy`` to ``\"priority\"`` and converts the integer scale linearly: ``-10000`` maps to ``1.0``, ``0`` to ``0.5``, and ``10000`` to ``0.0``. Older versions, including 1.2.1, reject an explicitly supplied ``priority`` with HTTP 400 for non-streaming requests, even when it is ``0``. Omit the field to keep using those versions; no shared-queue fallback is applied to TRT-LLM."
 msgstr "具有原生 ``priority`` 參數的 TRT-LLM 版本在一般副本和 P/D 副本上都使用原生排程。Xinference 預設將 ``scheduler_config.waiting_queue_policy`` 設為 ``\"priority\"``，並線性轉換整數範圍：``-10000`` 對應 ``1.0``，``0`` 對應 ``0.5``，``10000`` 對應 ``0.0``。包括 1.2.1 在內的舊版本會對明確傳入的 ``priority`` 傳回 HTTP 400（非串流請求），即使值為 ``0``。省略此欄位可繼續使用舊版本；TRT-LLM 不使用共用佇列作為後備。"
 
-#: ../../source/user_guide/client_api.rst:114
+#: user_guide/client_api.rst:134
 msgid ""
 "With vLLM, affinity uses a positive integer ``max_num_seqs`` multiplied by "
 "the number of data-parallel ranks served by the replica as an advisory "
 "capacity. External load balancing serves one rank; hybrid load balancing "
-"counts local ranks. Invalid capacity values disable this engine-specific "
-"probe. Below this capacity, requests keep affinity and can batch. If all "
-"replicas are busy, Xinference keeps the preferred replica and its normal "
-"queueing and admission behavior. This probe counts requests, so requests "
-"with ``n > 1`` may consume more sequence slots than counted. Moving to "
-"another replica may incur prefix recomputation or KV transfer; the policy "
-"does not estimate these costs or reserve capacity."
+"counts local ranks. Invalid values disable this engine-specific capacity "
+"check. If every replica is busy, Xinference uses the preferred replica's "
+"normal admission behavior. The load counts requests, including pending "
+"reservations, so requests with ``n > 1`` may consume more sequence slots "
+"than counted."
 msgstr ""
-"使用 vLLM 時，親和路由以正整數 ``max_num_seqs`` 乘以該副本所服務的資料平行 rank 數作為參考容量。外部負載平衡只服務一個 "
-"rank，混合負載平衡統計本機 "
-"rank。無效容量值會停用此引擎專用探測。未達到此容量時，請求保持親和並可進行批次處理。如果所有副本都忙碌，Xinference "
-"會保留首選副本及其正常的排隊和准入行為。此探測按請求計數，因此 ``n > 1`` "
-"的請求可能占用比計數更多的序列槽位。切換副本可能需要重新計算前綴或傳輸 KV；該策略不會估算這些成本，也不會預留容量。"
+"使用 vLLM 時，親和路由把正整數 ``max_num_seqs`` 乘以副本服務的資料平行 rank 數做為參考容量。外部負載平衡服務一個 "
+"rank，混合負載平衡則計算本機 rank。無效值會停用此引擎專用的容量檢查。若所有副本都忙碌，Xinference "
+"會按首選副本的正常准入方式處理。負載按請求數計算，包含尚待執行的保留請求。``n > 1`` 的請求可能使用比計數更多的序列槽位。"
 
 msgid "Xinference now checks client-supplied ``request_id`` values for all engines, including requests without ``priority``. IDs must be unique among active requests on a replica. After an abort, the ID is blocked for 30 seconds by default; use a fresh ID for retries, or configure ``block_duration`` in the abort request."
 msgstr "Xinference 現在會為所有引擎檢查用戶端傳入的 ``request_id``，包括未提供 ``priority`` 的請求。同一副本上的作用中請求必須使用唯一 ID。中止請求後，該 ID 預設封鎖 30 秒；重試時請使用新 ID，或透過中止請求中的 ``block_duration`` 設定封鎖時間。"
@@ -391,3 +399,16 @@ msgstr "執行中模型的描述宣告 ``supports_chat_priority`` 時，用戶�
 #: ../../source/user_guide/client_api.rst:139
 msgid "With ``stream=True``, concatenate ``delta.tool_calls[].function.arguments`` fragments by tool-call index. Wait for ``finish_reason=\"tool_calls\"`` and validate the assembled JSON before executing any tool. With ``finish_reason=\"length\"``, a call can have an ID and a name but incomplete arguments. Do not execute calls from that response."
 msgstr "使用 ``stream=True`` 時，依工具呼叫索引串接 ``delta.tool_calls[].function.arguments`` 的片段。收到 ``finish_reason=\"tool_calls\"`` 並驗證拼接後的 JSON，再執行工具。如果收到 ``finish_reason=\"length\"``，工具呼叫可能已有 ID 和名稱，但參數仍不完整。請勿執行該回應中的工具呼叫。"
+
+#: user_guide/client_api.rst:136
+msgid ""
+"For text prompts using the vLLM Xavier hybrid GPU or tiered connector, "
+"Xinference can match resident GPU prefixes using the prompt tokens and "
+"``cache_salt``. A longer prefix can favor a replica that has one more "
+"request in flight. Other adapters use load and affinity when cache "
+"information is unavailable. An explicit nonzero ``priority`` preserves "
+"session affinity until the preferred replica is unavailable or full."
+msgstr ""
+"針對使用 vLLM Xavier 混合 GPU 或分層連接器的文字提示，Xinference 可用提示詞元和 ``cache_salt`` 比對仍駐留於"
+" GPU 的前綴。較長的前綴可讓多處理一個請求的副本獲得優先。其他配接器在快取資訊不可用時依照負載和親和選擇。明確指定非零的 ``priority`` "
+"時，首選副本可用且仍有空間便維持工作階段親和。"

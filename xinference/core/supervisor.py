@@ -247,6 +247,7 @@ class ReplicaInfo:
 
 _MAX_ROUTING_KEYS_PER_MODEL = 4096
 _AFFINITY_CAPACITY_TIMEOUT = 1
+_CHAT_ROUTING_PROBE_TIMEOUT = 0.1
 
 
 @dataclass
@@ -6627,17 +6628,24 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         model, _ = await self._select_model(model_uid, routing_key)
         return model
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, ignore_kwargs=["routing_request"])
     async def get_chat_model(
-        self, model_uid: str, routing_key: str, reservation_id: str
+        self,
+        model_uid: str,
+        routing_key: Optional[str],
+        reservation_id: str,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
-        return await self._select_model(model_uid, routing_key, reservation_id)
+        return await self._select_model(
+            model_uid, routing_key, reservation_id, routing_request
+        )
 
     async def _select_model(
         self,
         model_uid: str,
         routing_key: Optional[str],
         reservation_id: Optional[str] = None,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
@@ -6654,9 +6662,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        if routing_key is not None:
+        if routing_key is not None or (
+            routing_request is not None and len(replica_info.active_replica_ids) > 1
+        ):
             return await self._get_affinity_model(
-                model_uid, replica_info, routing_key, reservation_id
+                model_uid, replica_info, routing_key, reservation_id, routing_request
             )
         state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
         first = next(replica_info.scheduler)
@@ -6682,28 +6692,93 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return await self._get_replica_model(model_uid, fallback), False
         raise ModelNotReadyError(f"Model {model_uid} has no available replica")
 
+    async def _rank_chat_replicas(
+        self, model_uid: str, info: ReplicaInfo, preferred: int, request: dict
+    ) -> tuple[list[int], dict[int, Any]]:
+        replicas = (preferred, *(r for r in info.active_replica_ids if r != preferred))
+
+        async def probe(replica):
+            try:
+                model = await self._get_replica_model(model_uid, replica)
+                return model, await model.get_chat_routing_load()
+            except Exception:
+                # Missing signals (including rolling upgrades) keep the usual
+                # affinity and reservation path available.
+                return None, None
+
+        snapshots = await asyncio.wait_for(
+            asyncio.gather(*(probe(replica) for replica in replicas)),
+            _CHAT_ROUTING_PROBE_TIMEOUT,
+        )
+        models = {
+            replica: model
+            for replica, (model, _) in zip(replicas, snapshots)
+            if model is not None
+        }
+        loads = {
+            replica: load
+            for replica, (_, load) in zip(replicas, snapshots)
+            if type(load) is int
+        }
+        if not loads:
+            return list(replicas), models
+        cached, prompt_length = {}, 0
+        tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
+        model = next((model for model, _ in snapshots if model is not None), None)
+        if tracker is not None and "messages" in request and model is not None:
+
+            async def match():
+                config = request["config"]
+                tokens = await model.get_chat_routing_tokens(
+                    request["messages"], config
+                )
+                if not tokens:
+                    return {}, 0
+                return await tracker.match_routing_prefixes(
+                    tokens, config.get("cache_salt")
+                ), len(tokens)
+
+            try:
+                cached, prompt_length = await asyncio.wait_for(
+                    match(), _CHAT_ROUTING_PROBE_TIMEOUT
+                )
+            except Exception:
+                logger.debug("Chat routing cache probe unavailable", exc_info=True)
+
+        def score(replica):
+            load = loads.get(replica, float("inf"))
+            # A largely cached prefill can justify one extra in-flight
+            # request. Interactive traffic chooses the least loaded replica.
+            tokens = cached.get(replica + 1, 0)
+            return load - 2 * tokens / max(1, prompt_length)
+
+        return sorted(replicas, key=score), models
+
     async def _get_affinity_model(
         self,
         model_uid: str,
         info: ReplicaInfo,
-        routing_key: str,
+        routing_key: Optional[str],
         reservation_id: Optional[str] = None,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         routes = info.routing_keys
         state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
         draining = state.draining if state is not None else ()
-        preferred = routes.get(routing_key)
+        preferred = routes.get(routing_key) if routing_key is not None else None
         if preferred is None or preferred not in info.active_replica_ids:
             preferred = next(info.scheduler)
             # Publish the first choice before awaiting a worker so concurrent
             # requests for a new key start with the same replica.
-            routes[routing_key] = preferred
-        routes.move_to_end(routing_key)
-        if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
-            routes.popitem(last=False)
+            if routing_key is not None:
+                routes[routing_key] = preferred
+        if routing_key is not None:
+            routes.move_to_end(routing_key)
+            if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
+                routes.popitem(last=False)
         # Consume the scheduler only when falling back, so displaced sessions
         # spread across replicas without disturbing ordinary sticky requests.
-        candidates = itertools.chain(
+        candidates: Iterator[int] = itertools.chain(
             (preferred,),
             (
                 replica
@@ -6716,6 +6791,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # Include any replicas that its interleaved iteration skipped.
             tuple(info.active_replica_ids),
         )
+        models: Dict[int, Any] = {}
+        if routing_request and len(info.active_replica_ids) > 1:
+            try:
+                ranked, models = await self._rank_chat_replicas(
+                    model_uid, info, preferred, routing_request
+                )
+                candidates = iter(ranked)
+            except asyncio.TimeoutError:
+                pass
         busy = None
         last_error: Optional[Exception] = None
         preserve_route = False
@@ -6736,7 +6820,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             tried.add(replica)
             try:
                 try:
-                    model = await self._get_replica_model(model_uid, replica)
+                    model = models.get(replica)
+                    if model is None:
+                        model = await self._get_replica_model(model_uid, replica)
                 except Exception as exc:
                     cause = getattr(exc, "__wrapped__", exc)
                     if type(cause) is not Exception:
@@ -6827,7 +6913,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 continue
             if available:
                 # A concurrent request may already have moved or evicted this key.
-                if not preserve_route and routes.get(routing_key) == preferred:
+                if (
+                    routing_key is not None
+                    and not preserve_route
+                    and routes.get(routing_key) == preferred
+                ):
                     routes[routing_key] = replica
                 return model, reserved
             if busy is None:

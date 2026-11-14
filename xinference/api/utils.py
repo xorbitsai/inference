@@ -156,17 +156,19 @@ async def require_chat_model(
     model_uid: str,
     report_error_event: Optional[Callable] = None,
     *,
-    routing_key: str,
+    routing_key: Optional[str],
     reservation_id: str,
+    routing_request: Optional[dict] = None,
 ) -> tuple[Any, bool]:
     """Return the selected chat model and whether it reserved a slot."""
     async with _model_lookup(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
+        options = {"routing_request": routing_request} if routing_request else {}
         if request_id is None:
             return await supervisor.get_chat_model(
-                model_uid, routing_key, reservation_id
+                model_uid, routing_key, reservation_id, **options
             )
         model_ref, reserved = await actor_call(
             supervisor,
@@ -175,6 +177,7 @@ async def require_chat_model(
             routing_key,
             reservation_id,
             _rpc_correlation_id=request_id,
+            **options,
         )
         return correlate_model_ref(model_ref, request_id), reserved
 

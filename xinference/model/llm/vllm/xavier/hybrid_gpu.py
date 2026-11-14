@@ -19,6 +19,7 @@ from vllm.v1.kv_cache_interface import FullAttentionSpec, MambaSpec
 from vllm.v1.metrics.cache_hit_source import CacheHitSource
 from vllm.v1.request import RequestStatus
 
+from ...xavier.block_tracker import routing_prefix_hashes
 from ...xavier.cache_lifecycle import CACHE_SESSION_ARG
 from ...xavier.contract import fingerprint_metadata
 from .cache_lifecycle import order_free_session_blocks
@@ -326,11 +327,25 @@ class XavierHybridGPUConnector(XavierConnector):
         pool.touch(owned)
         pool.unpin_blocks(owned, self._on_reuse)
 
+        routing_hash = None
+        if (
+            request.prompt_token_ids is not None
+            and not request.mm_features
+            and request.lora_request is None
+        ):
+            routing_hash = dict(
+                routing_prefix_hashes(
+                    request.prompt_token_ids, (tokens,), request.cache_salt
+                )
+            ).get(tokens)
+
         async def publish():
             transfer = await self._get_transfer_ref()
             await transfer.register_shared_prefix_v1(ticket, layer_blocks)
             tracker = await self._get_tracker_ref()
-            await tracker.publish_gpu_prefix(self._rank, key, ticket, tokens, group_ids)
+            await tracker.publish_gpu_prefix(
+                self._rank, key, ticket, tokens, group_ids, routing_hash
+            )
 
         try:
             self._call(asyncio.wait_for(publish(), _LOOKUP_TIMEOUT))
