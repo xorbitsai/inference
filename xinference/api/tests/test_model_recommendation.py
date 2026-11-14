@@ -136,7 +136,7 @@ async def test_context_overflow_is_a_client_error(
     error_cls = ContextLengthExceeded if context_error else ValueError
     error = error_cls("Prompt has 5000 tokens, but context_length is 4096")
     model = SimpleNamespace(
-        uid="test",
+        uid=b"test-rep0",
         is_vllm_backend=AsyncMock(return_value=False),
         is_transformers_batching_enabled=AsyncMock(return_value=False),
         generate=AsyncMock(side_effect=error),

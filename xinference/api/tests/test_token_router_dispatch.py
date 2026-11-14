@@ -965,7 +965,7 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
     app = make_chat_app(api)
 
     class FakeModel:
-        uid = "physical-model"
+        uid = b"physical-model-rep0"
 
         async def chat(self, messages, kwargs, raw_params=None, request_id=None):
             assert isinstance(request_id, str) and request_id
@@ -986,7 +986,8 @@ async def test_physical_chat_keeps_existing_path(monkeypatch):
     async def fake_require_model(*args, **kwargs):
         return FakeModel()
 
-    async def describe_model(model_uid):
+    async def describe_model(model_uid, *, selected_replica_uid=None):
+        assert selected_replica_uid == "physical-model-rep0"
         return {"model_family": "test-family"}
 
     supervisor.describe_model = describe_model
