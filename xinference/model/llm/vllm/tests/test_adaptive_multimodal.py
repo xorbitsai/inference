@@ -3,10 +3,11 @@
 # CI: linux
 """Request-level multimodal limits and expanded-token budgeting for vLLM."""
 
+import asyncio
 import copy
 import sys
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from packaging.version import Version
@@ -61,6 +62,21 @@ def test_unset_limit_is_not_forwarded_to_engine(model):
             "than the maximum model length of 4096.",
             (4096, 4096),
         ),
+        (
+            "This model's maximum context length is 4096 tokens. However, "
+            "your prompt contains 5000 input tokens, which exceeds this limit "
+            "even without any output tokens. Please reduce the length of the "
+            "input prompt.",
+            (5000, 4096),
+        ),
+        (
+            "[address=worker:1234, pid=5678] This model's maximum context "
+            "length is 1048576 tokens. However, your prompt contains at least "
+            "1048577 input tokens, which exceeds this limit even without any "
+            "output tokens. Please reduce the length of the input prompt. "
+            "(parameter=input_tokens, value=1048577)",
+            (1048577, 1048576),
+        ),
     ],
 )
 def test_parse_vllm_prompt_length_error(message, expected):
@@ -74,6 +90,9 @@ def test_parse_vllm_prompt_length_error(message, expected):
         "CUDA out of memory while allocating context cache",
         "The decoder prompt is invalid",
         "The decoder prompt (length 5000) is longer than 4096.",
+        "This model's maximum context length is 4096 tokens.",
+        "max_tokens=8192 cannot be greater than max_model_len=4096. "
+        "Please request fewer output tokens.",
     ],
 )
 def test_parse_vllm_prompt_length_error_does_not_guess(message):
@@ -137,6 +156,129 @@ def test_classify_vllm_context_error_checks_worker_local_exception_chain():
     wrapper.__cause__ = engine_error
 
     assert classify_vllm_context_error(wrapper) == (263175, 262144)
+
+
+def test_classify_vllm_context_error_recognizes_renderer_rejection():
+    error_type = type(
+        "VLLMValidationError",
+        (ValueError,),
+        {"__module__": "vllm.exceptions"},
+    )
+    engine_error = error_type(
+        "This model's maximum context length is 1048576 tokens. However, your "
+        "prompt contains at least 1048577 input tokens, which exceeds this "
+        "limit even without any output tokens. Please reduce the length of "
+        "the input prompt."
+    )
+    engine_error.parameter = "input_tokens"
+    engine_error.value = 1048577
+    wrapper = RuntimeError("worker wrapper")
+    wrapper.__cause__ = engine_error
+
+    assert classify_vllm_context_error(wrapper) == (1048577, 1048576)
+
+
+_RENDERER_CONTEXT_ERROR = (
+    "This model's maximum context length is 4096 tokens. However, your prompt "
+    "contains at least 4097 input tokens, which exceeds this limit even without "
+    "any output tokens. Please reduce the length of the input prompt."
+)
+
+
+@pytest.fixture
+def model_process_vllm_error(monkeypatch):
+    """A vLLM exception type importable only in the model process."""
+
+    exceptions = ModuleType("vllm.exceptions")
+    error_type = type(
+        "VLLMValidationError", (ValueError,), {"__module__": "vllm.exceptions"}
+    )
+    exceptions.VLLMValidationError = error_type
+    package = ModuleType("vllm")
+    package.exceptions = exceptions
+    monkeypatch.setitem(sys.modules, "vllm", package)
+    monkeypatch.setitem(sys.modules, "vllm.exceptions", exceptions)
+    return error_type
+
+
+async def _cross_actor_boundary_without_vllm(error: BaseException):
+    """Serialize like a model actor, then decode where vLLM is not importable."""
+
+    import xoscar.backends.message  # noqa: F401  (installs tblib chain pickling)
+    from xoscar.serialization import deserialize, serialize
+
+    serialized = serialize(error)
+    if asyncio.iscoroutine(serialized):
+        serialized = await serialized
+    with patch.dict(sys.modules, {"vllm": None, "vllm.exceptions": None}):
+        result = deserialize(*serialized)
+        if asyncio.iscoroutine(result):
+            result = await result
+    return result
+
+
+def _tracking_model(context_length=4096):
+    model = object.__new__(core.VLLMModel)
+    model._engine = SimpleNamespace(abort=AsyncMock())
+    model._active_request_ids = set()
+    model._context_length = context_length
+    return model
+
+
+@pytest.mark.asyncio
+async def test_engine_error_requires_vllm_on_the_caller(model_process_vllm_error):
+    # Guard the regression below: the raw engine error cannot cross.
+    with pytest.raises(ModuleNotFoundError):
+        await _cross_actor_boundary_without_vllm(
+            model_process_vllm_error(_RENDERER_CONTEXT_ERROR)
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outputs_before_error", [0, 1])
+async def test_renderer_context_error_is_normalized_in_model_process(
+    model_process_vllm_error, outputs_before_error
+):
+    # 0: rejected before any output (the non-streaming call fails);
+    # 1: rejected while a stream is being iterated.
+    async def engine_results():
+        for index in range(outputs_before_error):
+            yield f"output-{index}"
+        raise model_process_vllm_error(_RENDERER_CONTEXT_ERROR)
+
+    model = _tracking_model()
+    stream = model._track_engine_request("request-1", engine_results())
+    received = []
+    with pytest.raises(ContextLengthExceeded) as raised:
+        async for output in stream:
+            received.append(output)
+
+    assert len(received) == outputs_before_error
+    error = raised.value
+    assert (error.input_tokens, error.max_model_len) == (4097, 4096)
+    assert error.diagnostic_code == "VLLM_PROMPT_LENGTH_REJECTED"
+    assert error.__cause__ is None and error.__context__ is None
+    model._engine.abort.assert_awaited_once_with("request-1")
+    assert not model._active_request_ids
+
+    crossed = await _cross_actor_boundary_without_vllm(error)
+    assert isinstance(crossed, ContextLengthExceeded)
+    assert (crossed.input_tokens, crossed.max_model_len) == (4097, 4096)
+
+
+@pytest.mark.asyncio
+async def test_other_engine_errors_are_not_normalized(model_process_vllm_error):
+    engine_error = model_process_vllm_error("invalid sampling parameters")
+
+    async def engine_results():
+        raise engine_error
+        yield  # pragma: no cover
+
+    model = _tracking_model()
+    with pytest.raises(model_process_vllm_error) as raised:
+        async for _ in model._track_engine_request("request-1", engine_results()):
+            pass
+    assert raised.value is engine_error
 
 
 @pytest.mark.parametrize(

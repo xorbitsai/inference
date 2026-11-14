@@ -2533,6 +2533,11 @@ async def test_chat_completion_limit_errors_do_not_expose_worker_metadata(
             "Request exceeds the model's configured context length.",
             400,
         ),
+        (
+            "This model's maximum context length is 4096 tokens. However, your prompt contains at least 4097 input tokens, which exceeds this limit even without any output tokens. Please reduce the length of the input prompt.",
+            "Request exceeds the model's configured context length.",
+            400,
+        ),
         ("Invalid base64 data URI", "Invalid media data URI.", 400),
         ("Invalid base64 data URI for video_url", "Invalid media data URI.", 400),
         (
@@ -2600,9 +2605,23 @@ async def test_chat_completion_worker_validation_errors(
 @pytest.mark.parametrize(
     "stream,during_iteration", [(False, False), (True, False), (True, True)]
 )
-@pytest.mark.parametrize("context_error", [False, True])
+@pytest.mark.parametrize(
+    "reason,context_error",
+    [
+        ("Unknown validation failure with secret-token", False),
+        (
+            "The decoder prompt (length 5000) is longer than the maximum model length of 4096.",
+            True,
+        ),
+        # vLLM >= 0.32 rejects overlong prompts in its renderer.
+        (
+            "This model's maximum context length is 4096 tokens. However, your prompt contains at least 4097 input tokens, which exceeds this limit even without any output tokens. Please reduce the length of the input prompt. (parameter=input_tokens, value=4097)",
+            True,
+        ),
+    ],
+)
 async def test_chat_completion_native_vllm_validation_error(
-    monkeypatch, stream, during_iteration, context_error
+    monkeypatch, stream, during_iteration, reason, context_error
 ):
     # vLLM >= 0.31 uses its own Exception subclass instead of ValueError.
     # Keep this API regression independent of the optional GPU engine install.
@@ -2610,11 +2629,6 @@ async def test_chat_completion_native_vllm_validation_error(
         "VLLMValidationError", (Exception,), {"__module__": "vllm.exceptions"}
     )
     api, model = _build_mock_chat_api(monkeypatch, {"model_family": "other"})
-    reason = (
-        "The decoder prompt (length 5000) is longer than the maximum model length of 4096."
-        if context_error
-        else "Unknown validation failure with secret-token"
-    )
     error = validation_type(f"[address=10.0.0.1:12345, pid=6789] {reason}")
     api._report_error_event = AsyncMock()
     detail = (
