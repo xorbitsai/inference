@@ -1,7 +1,8 @@
 # CI: linux
+import asyncio
 import json
 from types import MethodType
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -369,8 +370,9 @@ class FakeModel:
     def __init__(self):
         self.calls = []
         self.released = 0
+        self.abort_request = AsyncMock(return_value="DONE")
 
-    async def chat(self, messages, kwargs, raw_params=None):
+    async def chat(self, messages, kwargs, raw_params=None, request_id=None):
         self.calls.append((messages, kwargs))
         if not kwargs.get("stream"):
             return json.dumps(
@@ -636,7 +638,7 @@ async def test_stream_closes_upstream_on_error():
 @pytest.mark.asyncio
 async def test_context_length_error_is_400_with_code(monkeypatch):
     class TooLong(FakeModel):
-        async def chat(self, messages, kwargs, raw_params=None):
+        async def chat(self, messages, kwargs, raw_params=None, request_id=None):
             raise RuntimeError("This model's maximum context length is 8 tokens")
 
     api_app = _make_app(monkeypatch, TooLong())
@@ -782,22 +784,184 @@ def test_cached_tokens_passed_through():
 
 
 @pytest.mark.asyncio
-async def test_stream_released_when_client_leaves_before_body_starts(monkeypatch):
+@pytest.mark.parametrize(
+    "phase,stall_abort",
+    [
+        ("before_body", False),
+        ("send", False),
+        ("next_item", False),
+        ("error", False),
+        ("error_payload", False),
+        ("complete", False),
+        ("late_disconnect", False),
+        ("close_failure", False),
+        ("before_body", True),
+        ("send", True),
+    ],
+)
+async def test_responses_stream_lifecycle(monkeypatch, phase, stall_abort):
     from starlette.requests import Request
+    from xoscar.api import IteratorWrapper
 
     model = FakeModel()
+    gate, reading = asyncio.Event(), asyncio.Event()
+    finalized = []
+    abort_release = asyncio.Event()
+    abort_rpc = None
+
+    if stall_abort:
+        controller_type = restful_api_module._SSERequestAbortController
+
+        def short_abort_timeout(*args, **kwargs):
+            # Shorten an existing bound without adding one on unfixed code.
+            if "abort_timeout" in kwargs:
+                assert kwargs["abort_timeout"] == 5
+                kwargs["abort_timeout"] = 0.01
+            return controller_type(*args, **kwargs)
+
+        monkeypatch.setattr(
+            restful_api_module, "_SSERequestAbortController", short_abort_timeout
+        )
+
+        async def stalled_abort(_request_id):
+            nonlocal abort_rpc
+            # A timed-out caller need not stop the RPC on the remote worker.
+            abort_rpc = asyncio.create_task(abort_release.wait())
+            await asyncio.shield(abort_rpc)
+
+        model.abort_request.side_effect = stalled_abort
+
+    async def chunks():
+        try:
+            yield {"choices": [{"delta": {"content": "pong"}}]}
+            if phase == "next_item":
+                reading.set()
+                await asyncio.Event().wait()
+            if phase == "error":
+                raise RuntimeError("stream failed")
+            if phase == "error_payload":
+                yield {"error": {"message": "stream failed"}}
+                pytest.fail("An error payload must end protocol conversion")
+            yield {
+                "choices": [{"delta": {}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 1},
+            }
+        finally:
+            await asyncio.sleep(0)
+            finalized.append(True)
+            if phase == "close_failure":
+                raise RuntimeError("close failed")
+
+    source = chunks()
+
+    async def next_chunk(_uid):
+        return await anext(source)
+
+    async def destroy_source(_uid):
+        await asyncio.sleep(0)
+        await source.aclose()
+
+    async def release():
+        await asyncio.sleep(0)
+        model.released += 1
+
+    iterator = IteratorWrapper("stream", "unused", "m")
+    iterator._actor_ref = model
+    model.__xoscar_next__ = AsyncMock(side_effect=next_chunk)
+    model.__xoscar_destroy_generator__ = AsyncMock(side_effect=destroy_source)
+    model.decrease_serve_count = AsyncMock(side_effect=release)
+    model.chat = AsyncMock(return_value=iterator)
     app = _make_app(monkeypatch, model)
     api = next(r.endpoint.__self__ for r in app.routes if r.path == "/v1/responses")
     body = json.dumps({"model": "m", "input": "ping", "stream": True}).encode()
 
-    async def receive():
+    async def request_body():
         return {"type": "http.request", "body": body, "more_body": False}
 
     scope = {"type": "http", "method": "POST", "path": "/v1/responses"}
-    response = await api.create_response(Request({**scope, "headers": []}, receive))
-    await response.background()
-    await response.background()
-    assert model.released == 1
+    response = await api.create_response(
+        Request({**scope, "headers": [(b"x-request-id", b"external")]}, request_body)
+    )
+    sent = []
+
+    async def receive():
+        await gate.wait()
+        if phase == "next_item":
+            await reading.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.start" and phase == "before_body":
+            gate.set()
+            await asyncio.Event().wait()
+        if message["type"] == "http.response.body" and message.get("body"):
+            sent.append(message["body"])
+            if phase in {"send", "next_item", "close_failure"}:
+                gate.set()
+                if phase != "next_item":
+                    await asyncio.Event().wait()
+            if (
+                phase == "late_disconnect"
+                and b"event: response.completed" in message["body"]
+            ):
+                gate.set()
+                await asyncio.Event().wait()
+
+    response_task = asyncio.create_task(response(scope, receive, send))
+    try:
+        with patch.object(iterator, "destroy", wraps=iterator.destroy) as destroy:
+            if stall_abort:
+                # Do not cancel the response on failure: teardown unblocks the RPC.
+                await asyncio.wait([response_task], timeout=1)
+                destroy.assert_awaited_once()
+                model.decrease_serve_count.assert_awaited_once()
+                assert abort_rpc is not None and not abort_rpc.done()
+                assert not abort_release.is_set()
+                assert response_task.done()
+            await asyncio.wait_for(asyncio.shield(response_task), 5)
+            await response.background()
+            await response.background()
+            destroy.assert_awaited_once()
+            assert iterator._gc_destroy is False
+            iterator.__del__()
+            destroy.assert_awaited_once()
+        model.decrease_serve_count.assert_awaited_once()
+        assert model.released == 1
+        assert len(finalized) == (0 if phase == "before_body" else 1)
+        if phase == "before_body":
+            model.__xoscar_next__.assert_not_awaited()
+        call = model.chat.await_args
+        request_id = call.kwargs["request_id"]
+        assert request_id and request_id != "external"
+        assert "request_id" not in call.args[1]
+        assert "request_id" not in call.kwargs["raw_params"]
+        if phase in {"complete", "late_disconnect"}:
+            model.abort_request.assert_not_awaited()
+            events = [
+                json.loads(line[6:])
+                for line in b"".join(sent).decode().splitlines()
+                if line.startswith("data: ")
+            ]
+            final = events[-1]["response"]
+            assert final["status"] == "completed"
+            assert final["output"][0]["content"][0]["text"] == "pong"
+            assert final["usage"]["total_tokens"] == 4
+        else:
+            model.abort_request.assert_awaited_once_with(request_id)
+        if phase in {"error", "error_payload"}:
+            assert b"event: response.failed" in b"".join(sent)
+            assert b"event: response.completed" not in b"".join(sent)
+    finally:
+        abort_release.set()
+        await asyncio.wait_for(response_task, 5)
+        if abort_rpc is not None:
+            await abort_rpc
+        # Failed assertions must not let GC hide missing deterministic cleanup.
+        iterator._gc_destroy = False
+        try:
+            await source.aclose()
+        except RuntimeError:
+            pass
 
 
 def test_malformed_tools_and_history_items():

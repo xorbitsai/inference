@@ -327,40 +327,57 @@ async def test_abort_timeout_still_releases_acquired_stream(
     calls, monkeypatch, rpc_iterator
 ):
     c = calls(stream=True, block_start=True, rpc_iterator=rpc_iterator)
-    entered, cancelled = asyncio.Event(), asyncio.Event()
+    entered, release, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
 
     async def abort(request_id, **kwargs):
         expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
         assert kwargs == expected
         entered.set()
         try:
-            await asyncio.Event().wait()
-        finally:
+            await release.wait()
+        except asyncio.CancelledError:
             cancelled.set()
+            raise
 
-    wait_for = asyncio.wait_for
+    controllers = []
+    controller_type = restful_api._SSERequestAbortController
 
-    async def expire(operation, timeout):
-        if timeout != 5:
-            return await wait_for(operation, timeout)
-        task = asyncio.create_task(operation)
-        await entered.wait()
-        return await wait_for(task, 0)
+    def short_abort_timeout(*args, **kwargs):
+        assert kwargs["abort_timeout"] == 5
+        kwargs["abort_timeout"] = 0.01
+        controller = controller_type(*args, **kwargs)
+        controllers.append(controller)
+        return controller
 
     c.model.abort_request.side_effect = abort
-    monkeypatch.setattr(asyncio, "wait_for", expire)
+    monkeypatch.setattr(restful_api, "_SSERequestAbortController", short_abort_timeout)
     task = c.start()
-    await c.response_started.wait()
-    c.disconnected.set()
-    await wait_for(task, 5)
-    assert cancelled.is_set()
-    expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
-    c.model.abort_request.assert_awaited_once_with(c.engine_id, **expected)
-    c.model.decrease_serve_count.assert_awaited_once()
-    if rpc_iterator:
-        c.iterator.destroy.assert_awaited_once()
-    else:
-        assert c.iterator.ag_frame is None
+    try:
+        await c.response_started.wait()
+        c.disconnected.set()
+        await asyncio.wait_for(entered.wait(), 1)
+        await asyncio.wait_for(task, 5)
+        abort_task = controllers[0]._abort_task
+        assert abort_task is not None and not abort_task.done()
+        assert not cancelled.is_set() and not release.is_set()
+        expected = {"stream_uid": c.iterator._uid} if rpc_iterator else {}
+        c.model.abort_request.assert_awaited_once_with(c.engine_id, **expected)
+        c.model.decrease_serve_count.assert_awaited_once()
+        if rpc_iterator:
+            c.iterator.destroy.assert_awaited_once()
+        else:
+            assert c.iterator.ag_frame is None
+
+        release.set()
+        await asyncio.wait_for(asyncio.shield(abort_task), 1)
+        assert not cancelled.is_set()
+        c.model.decrease_serve_count.assert_awaited_once()
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+        for controller in controllers:
+            if controller._abort_task is not None:
+                await asyncio.gather(controller._abort_task, return_exceptions=True)
 
 
 @pytest.mark.parametrize(

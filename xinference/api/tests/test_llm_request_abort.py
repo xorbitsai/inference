@@ -35,6 +35,9 @@ class _Request:
     async def json(self):
         return self._body
 
+    async def is_disconnected(self):
+        return False
+
 
 def _new_api():
     api = object.__new__(restful_api.RESTfulAPI)
@@ -171,7 +174,13 @@ async def test_chat_rejects_invalid_routing_keys_before_dispatch(key):
 
 
 async def _create_streaming_response(
-    monkeypatch, kind, source, extra_body=None, is_vllm=True, limit_getter=None
+    monkeypatch,
+    kind,
+    source,
+    extra_body=None,
+    is_vllm=True,
+    limit_getter=None,
+    configure_model=None,
 ):
     method = "generate" if kind == "completion" else "chat"
     decrease_completed = asyncio.Event()
@@ -198,7 +207,8 @@ async def _create_streaming_response(
     monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
     api = _new_api()
     supervisor = SimpleNamespace(
-        describe_model=AsyncMock(return_value={"model_family": "test-family"})
+        describe_model=AsyncMock(return_value={"model_family": "test-family"}),
+        resolve_token_router_runtime=AsyncMock(return_value=None),
     )
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     if kind == "completion":
@@ -213,9 +223,22 @@ async def _create_streaming_response(
             "model": "chat-model",
             "messages": [{"role": "user", "content": "hello"}],
             "stream": True,
-            "request_id": "chat-request",
+            "request_id": f"{kind}-request",
         }
     body.update(extra_body or {})
+    if configure_model is not None:
+        configure_model(model)
+    if kind == "responses":
+        request_id = body.pop("request_id", "responses-request")
+        monkeypatch.setattr(
+            restful_api,
+            "uuid",
+            SimpleNamespace(uuid4=lambda: SimpleNamespace(hex=request_id)),
+        )
+        body.pop("messages", None)
+        body["input"] = "hello"
+        body["model"] = "responses-model"
+        return await api.create_response(_Request(body)), model, decrease_completed
     create = (
         api.create_completion if kind == "completion" else api.create_chat_completion
     )
@@ -338,16 +361,23 @@ async def test_generation_routes_preserve_explicit_ignore_eos(
         assert config["ignore_eos"] is ignore_eos
 
 
-async def _run_asgi_disconnect(response, phase, next_item_started):
+async def _run_asgi_disconnect(
+    response, phase, next_item_started, before_disconnect=None
+):
     first_body_started = asyncio.Event()
 
     async def receive():
         await first_body_started.wait()
         if phase == "next_item":
             await next_item_started.wait()
+        if before_disconnect is not None:
+            await before_disconnect()
         return {"type": "http.disconnect"}
 
     async def send(message):
+        if message["type"] == "http.response.start" and phase == "before_body":
+            first_body_started.set()
+            await asyncio.Event().wait()
         if message["type"] == "http.response.body" and message.get("body"):
             first_body_started.set()
             if phase == "send":
@@ -463,9 +493,19 @@ async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, p
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize(
+    "kind,phase",
+    [
+        ("completion", "send"),
+        ("chat", "send"),
+        ("responses", "before_body"),
+        ("responses", "send"),
+    ],
+)
 @pytest.mark.parametrize("engine", ["vllm", "sglang"])
-async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engine):
+async def test_pd_sse_disconnect_destroys_router_stream(
+    monkeypatch, kind, phase, engine
+):
     import xoscar as xo
 
     from ...core.pd_model import PDModelActor
@@ -476,6 +516,12 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
 
     async def release_router(self):
         await original_release(self)
+        assert (
+            not self._request_set
+            and not self._direct_transfers
+            and not self._trt_prefill_requests
+        )
+        assert not released.is_set()
         released.set()
 
     monkeypatch.setattr(PDModelActor, "decrease_serve_count", release_router)
@@ -496,29 +542,37 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
         )
         await router.add_prefill_actor("p", prefill)
         await router.add_decode_actor("d", decode)
-        response, model, decreased = await _create_streaming_response(
-            monkeypatch, kind, None, limit_getter=router.get_limit_mm_per_prompt
-        )
         method = "generate" if kind == "completion" else "chat"
         streams = []
 
         async def infer(*args, **kwargs):
             stream = await getattr(router, method)(*args, **kwargs)
+            stream.destroy = AsyncMock(wraps=stream.destroy)
             streams.append(stream)
             return stream
 
         async def abort(request_id):
             return await router.abort_request(request_id)
 
-        getattr(model, method).side_effect = infer
-        model.abort_request.side_effect = abort
-        await _run_asgi_disconnect(response, "send", None)
+        def configure(model):
+            getattr(model, method).side_effect = infer
+            model.abort_request.side_effect = abort
+
+        response, model, decreased = await _create_streaming_response(
+            monkeypatch,
+            kind,
+            None,
+            limit_getter=router.get_limit_mm_per_prompt,
+            configure_model=configure,
+        )
+        await _run_asgi_disconnect(response, phase, None)
         assert await decode.get_stream_counts() == (0, 1)
         model.abort_request.assert_awaited_once_with(f"{kind}-request")
         assert released.is_set()
         assert not decreased.is_set()
         model.decrease_serve_count.assert_not_called()
         assert len(streams) == 1
+        streams[0].destroy.assert_awaited_once()
         # API cleanup owns destroy, so GC must not start a blocking retry.
         assert streams[0]._gc_destroy is False
         with patch.object(streams[0], "destroy", new_callable=AsyncMock) as destroy:
@@ -527,14 +581,292 @@ async def test_pd_sse_disconnect_destroys_router_stream(monkeypatch, kind, engin
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["completion", "chat"])
+async def test_responses_disconnect_releases_decode_while_prefill_abort_is_blocked(
+    monkeypatch,
+):
+    import xoscar as xo
+
+    from ...core.pd_model import PDModelActor
+    from ...core.rpc_context import rpc_context
+    from ...core.tests.test_pd_model import FakeStage
+
+    entered, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    cancelled = asyncio.Event()
+    abort_calls = {b"p": 0, b"d": 0}
+
+    @rpc_context
+    async def abort_stage(self, request_id, block_duration=30):
+        abort_calls[self.uid] += 1
+        if self.uid == b"p":
+            entered.set()
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                # Xoscar waits for remote cancellation cleanup to unwind.
+                cancelled.set()
+                await release.wait()
+            finally:
+                finished.set()
+        return "DONE"
+
+    monkeypatch.setattr(FakeStage, "abort_request", abort_stage)
+    controllers = []
+    controller_type = restful_api._SSERequestAbortController
+
+    def short_abort_timeout(*args, **kwargs):
+        assert kwargs["abort_timeout"] == 5
+        kwargs["abort_timeout"] = 0.05
+        controller = controller_type(*args, **kwargs)
+        controllers.append(controller)
+        return controller
+
+    monkeypatch.setattr(restful_api, "_SSERequestAbortController", short_abort_timeout)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        prefill = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="p"
+        )
+        decode = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="d"
+        )
+        router = await xo.create_actor(
+            PDModelActor,
+            "pd",
+            model_engine="vllm",
+            transport_backend="nixl",
+            address=pool.external_address,
+        )
+        await router.add_prefill_actor("p", prefill)
+        await router.add_decode_actor("d", decode)
+        streams = []
+
+        async def infer(*args, **kwargs):
+            stream = await router.chat(*args, **kwargs)
+            stream.destroy = AsyncMock(wraps=stream.destroy)
+            streams.append(stream)
+            return stream
+
+        async def abort(request_id):
+            return await router.abort_request(request_id)
+
+        def configure(model):
+            model.chat.side_effect = infer
+            model.abort_request.side_effect = abort
+
+        response, model, _ = await _create_streaming_response(
+            monkeypatch, "responses", None, configure_model=configure
+        )
+        assert await decode.get_stream_counts() == (1, 0)
+        response_task = asyncio.create_task(
+            _run_asgi_disconnect(response, "before_body", None)
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 3)
+            # Do not cancel the response on failure; teardown opens the gate.
+            await asyncio.wait([response_task], timeout=0.35)
+            assert await decode.get_stream_counts() == (0, 1)
+            assert response_task.done()
+            await response_task
+            abort_task = controllers[0]._abort_task
+            assert abort_task is not None and not abort_task.done()
+            assert not release.is_set() and not finished.is_set()
+            assert not cancelled.is_set()
+            await response.background()
+            await response.background()
+            streams[0].destroy.assert_awaited_once()
+            model.abort_request.assert_awaited_once_with("responses-request")
+            model.decrease_serve_count.assert_not_called()
+
+            release.set()
+            await asyncio.wait_for(asyncio.shield(abort_task), 3)
+            assert finished.is_set()
+            assert controllers[0]._abort_task is abort_task
+            assert abort_task.result() is None
+            await response.background()
+            assert await decode.get_stream_counts() == (0, 1)
+            assert abort_calls == {b"p": 1, b"d": 1}
+            streams[0].destroy.assert_awaited_once()
+        finally:
+            release.set()
+            await asyncio.wait_for(asyncio.shield(response_task), 5)
+            if controllers[0]._abort_task is not None:
+                await asyncio.wait_for(
+                    asyncio.gather(controllers[0]._abort_task, return_exceptions=True),
+                    5,
+                )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("abort_timeout", [0.01, None])
+async def test_sse_abort_observes_late_exception(caplog, abort_timeout):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def abort_model(request_id):
+        entered.set()
+        await release.wait()
+        raise RuntimeError("late abort failure")
+
+    model = SimpleNamespace(abort_request=AsyncMock(side_effect=abort_model))
+    controller = restful_api._SSERequestAbortController(
+        model, "late-abort", _Request({}), "responses", abort_timeout=abort_timeout
+    )
+    loop = asyncio.get_running_loop()
+    unhandled = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: unhandled.append(context))
+    waiter = asyncio.create_task(controller.abort())
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        if abort_timeout is None:
+            await asyncio.wait([waiter], timeout=0.05)
+            assert not waiter.done()
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            await asyncio.wait_for(waiter, 1)
+            await controller.abort()
+            timeout_records = [
+                record
+                for record in caplog.records
+                if record.exc_info
+                and isinstance(record.exc_info[1], asyncio.TimeoutError)
+            ]
+            assert len(timeout_records) == 1
+        abort_task = controller._abort_task
+        assert abort_task is not None and not abort_task.done()
+        caplog.clear()
+        release.set()
+        await asyncio.wait([abort_task], timeout=1)
+        assert abort_task.done()
+        records = [
+            record
+            for record in caplog.records
+            if record.getMessage()
+            == "Failed to abort disconnected responses request late-abort"
+        ]
+        assert len(records) == 1
+        assert isinstance(records[0].exc_info[1], RuntimeError)
+        assert str(records[0].exc_info[1]) == "late abort failure"
+        model.abort_request.assert_awaited_once_with("late-abort")
+        await asyncio.sleep(0)
+        assert not unhandled
+    finally:
+        release.set()
+        await asyncio.gather(waiter, return_exceptions=True)
+        if controller._abort_task is not None:
+            await asyncio.gather(controller._abort_task, return_exceptions=True)
+        loop.set_exception_handler(previous_handler)
+
+
+@pytest.mark.asyncio
+async def test_responses_cleanup_waits_after_repeated_cancellation(monkeypatch):
+    source, _, _ = _tracked_stream(wait_after_first=True)
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, "responses", source
+    )
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def decrease():
+        entered.set()
+        await release.wait()
+
+    model.decrease_serve_count.side_effect = decrease
+    cleanup = asyncio.create_task(response.background())
+    try:
+        await asyncio.wait_for(entered.wait(), 3)
+        for _ in range(2):
+            cleanup.cancel()
+            await asyncio.sleep(0)
+            assert not cleanup.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(cleanup, 3)
+        await response.background()
+        model.abort_request.assert_awaited_once_with("responses-request")
+        model.decrease_serve_count.assert_awaited_once()
+        assert source.ag_frame is None
+    finally:
+        release.set()
+        await asyncio.gather(cleanup, return_exceptions=True)
+        await source.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("native,sync", [(False, False), (False, True), (True, False)])
+async def test_responses_disconnect_releases_actor_ownership(monkeypatch, native, sync):
+    from ...core.tests.test_request_priority import _close, _wait_for
+    from ...core.tests.test_request_tracking import _streaming_actor
+
+    actor, closed, _ = _streaming_actor("chat", native, sync)
+    actor._model.capacity = 1
+    streams = []
+
+    async def infer(*args, **kwargs):
+        stream = await asyncio.create_task(actor.chat(*args, **kwargs))
+        stream._actor_ref = actor
+        stream.destroy = AsyncMock(wraps=stream.destroy)
+        streams.append(stream)
+        return stream
+
+    def configure(model):
+        model.chat.side_effect = infer
+
+    response, _, _ = await _create_streaming_response(
+        monkeypatch, "responses", None, configure_model=configure
+    )
+    waiter = None
+
+    async def enqueue():
+        nonlocal waiter
+        waiter = asyncio.create_task(infer([], {"stream": True}, request_id="waiter"))
+        if not native:
+            await _wait_for(lambda: bool(actor._request_priority_scheduler._waiting))
+            assert not waiter.done()
+
+    try:
+        with patch.object(
+            actor, "decrease_serve_count", wraps=actor.decrease_serve_count
+        ) as release:
+            await _run_asgi_disconnect(response, "send", None, enqueue)
+            await response.background()
+            release.assert_awaited_once()
+        replacement = await asyncio.wait_for(waiter, 3)
+        assert await anext(replacement)
+        assert closed.is_set()
+        assert "responses-request" not in actor._request_streams
+        streams[0].destroy.assert_awaited_once()
+        assert streams[0]._gc_destroy is False
+    finally:
+        if waiter is not None:
+            waiter.cancel()
+            await asyncio.gather(waiter, return_exceptions=True)
+        for stream in streams:
+            await _close(stream)
+        blocks = [
+            task
+            for task in actor._running_tasks.values()
+            if task.get_name() == actor._CANCEL_TASK_NAME
+        ]
+        for task in blocks:
+            task.cancel()
+        await asyncio.gather(*blocks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat", "responses"])
 async def test_explicit_stream_close_aborts_and_cleans_stream(monkeypatch, kind):
     source, closed, _ = _tracked_stream(wait_after_first=True)
     response, model, decrease_completed = await _create_streaming_response(
         monkeypatch, kind, source
     )
 
-    assert await anext(response.body_iterator) == b'{"choices": []}'
+    first = await anext(response.body_iterator)
+    assert (
+        first["event"] == "response.created"
+        if kind == "responses"
+        else first == b'{"choices": []}'
+    )
     await response.body_iterator.aclose()
 
     model.abort_request.assert_awaited_once_with(f"{kind}-request")
@@ -600,7 +932,7 @@ async def test_disconnect_after_stream_completion_does_not_abort(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("kind", ["completion", "chat", "responses"])
 async def test_iterator_close_failure_still_releases_serve_count(monkeypatch, kind):
     close_attempted = asyncio.Event()
 
@@ -617,7 +949,12 @@ async def test_iterator_close_failure_still_releases_serve_count(monkeypatch, ki
         monkeypatch, kind, failing_close_stream()
     )
 
-    assert await anext(response.body_iterator) == b'{"choices": []}'
+    first = await anext(response.body_iterator)
+    assert (
+        first["event"] == "response.created"
+        if kind == "responses"
+        else first == b'{"choices": []}'
+    )
     await response.body_iterator.aclose()
 
     model.abort_request.assert_awaited_once_with(f"{kind}-request")
@@ -821,7 +1158,7 @@ async def test_completion_reports_the_model_error_when_generation_cannot_start(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["chat", "completion"])
+@pytest.mark.parametrize("kind", ["chat", "completion", "responses"])
 @pytest.mark.parametrize("failure", ["duplicate", "limit"])
 async def test_rejected_stream_setup_does_not_abort_request_owner(
     monkeypatch, kind, failure
@@ -862,15 +1199,27 @@ async def test_rejected_stream_setup_does_not_abort_request_owner(
     first = asyncio.create_task(running_request())
     try:
         await asyncio.wait_for(entered.wait(), 2)
+        method = "generate" if kind == "completion" else "chat"
+
+        def configure(model):
+            getattr(model, method).side_effect = reject
+            model.abort_request.side_effect = abort
+
         response, model, _ = await _create_streaming_response(
             monkeypatch,
             kind,
             None,
             extra_body={"request_id": request_id},
+            configure_model=configure,
         )
-        method = "generate" if kind == "completion" else "chat"
-        getattr(model, method).side_effect = reject
-        model.abort_request.side_effect = abort
+        if kind == "responses":
+            assert response.status_code == (500 if failure == "duplicate" else 429)
+            assert model.chat.await_args.kwargs["request_id"] == request_id
+            assert not disconnect_handlers
+            model.abort_request.assert_not_awaited()
+            model.decrease_serve_count.assert_not_awaited()
+            assert not first.done() and owner._running_tasks[running_id] is first
+            return
 
         event = await anext(response.body_iterator)
         assert "error" in json.loads(event["data"])
@@ -900,7 +1249,7 @@ async def test_rejected_stream_setup_does_not_abort_request_owner(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("kind", ["completion", "chat", "responses"])
 async def test_explicit_zero_block_abort_ends_sse_without_reblocking(monkeypatch, kind):
     import httpx
     from fastapi import FastAPI
@@ -911,18 +1260,24 @@ async def test_explicit_zero_block_abort_ends_sse_without_reblocking(monkeypatch
 
     method = "generate" if kind == "completion" else "chat"
     actor, _, entered = _streaming_actor(method, native=True)
-    response, model, _ = await _create_streaming_response(
-        monkeypatch, kind, None, extra_body={"request_id": "r"}
-    )
 
     async def infer(*args, **kwargs):
         stream = await asyncio.create_task(getattr(actor, method)(*args, **kwargs))
         stream._actor_ref, stream._gc_destroy = actor, False
         return stream
 
-    getattr(model, method).side_effect = infer
-    model.abort_request.side_effect = actor.abort_request
-    model.decrease_serve_count.side_effect = actor.decrease_serve_count
+    def configure(model):
+        getattr(model, method).side_effect = infer
+        model.abort_request.side_effect = actor.abort_request
+        model.decrease_serve_count.side_effect = actor.decrease_serve_count
+
+    response, model, _ = await _create_streaming_response(
+        monkeypatch,
+        kind,
+        None,
+        extra_body={"request_id": "r"},
+        configure_model=configure,
+    )
 
     async def abort(model_uid, request_id, block_duration, **kwargs):
         return {"msg": await actor.abort_request(request_id, block_duration)}
@@ -940,9 +1295,13 @@ async def test_explicit_zero_block_abort_ends_sse_without_reblocking(monkeypatch
     )
     pending = replacement = None
     try:
+        if kind == "responses":
+            assert model.chat.await_args.kwargs.get("request_id") == "r"
         await anext(response.body_iterator)
+        if kind == "responses":
+            await anext(response.body_iterator)  # response.in_progress precedes reads.
         pending = asyncio.create_task(anext(response.body_iterator))
-        await entered.wait()
+        await asyncio.wait_for(entered.wait(), 3)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -975,7 +1334,7 @@ async def test_explicit_zero_block_abort_ends_sse_without_reblocking(monkeypatch
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("kind", ["completion", "chat", "responses"])
 @pytest.mark.parametrize("native", [False, True])
 async def test_late_sse_disconnect_does_not_abort_replacement(
     monkeypatch, kind, native
@@ -999,18 +1358,24 @@ async def test_late_sse_disconnect_does_not_abort_replacement(
         return chunks()
 
     setattr(actor._model, f"async_{method}", generate)
-    response, model, _ = await _create_streaming_response(
-        monkeypatch, kind, None, extra_body={"request_id": "r"}
-    )
 
     async def infer(*args, **kwargs):
         stream = await asyncio.create_task(getattr(actor, method)(*args, **kwargs))
         stream._actor_ref, stream._gc_destroy = actor, False
         return stream
 
-    getattr(model, method).side_effect = infer
-    model.abort_request.side_effect = actor.abort_request
-    model.decrease_serve_count.side_effect = actor.decrease_serve_count
+    def configure(model):
+        getattr(model, method).side_effect = infer
+        model.abort_request.side_effect = actor.abort_request
+        model.decrease_serve_count.side_effect = actor.decrease_serve_count
+
+    response, model, _ = await _create_streaming_response(
+        monkeypatch,
+        kind,
+        None,
+        extra_body={"request_id": "r"},
+        configure_model=configure,
+    )
 
     async def abort(model_uid, request_id, block_duration, **kwargs):
         return {"msg": await actor.abort_request(request_id, block_duration)}
@@ -1042,6 +1407,8 @@ async def test_late_sse_disconnect_does_not_abort_replacement(
     )
     replacement = None
     try:
+        if kind == "responses":
+            assert model.chat.await_args.kwargs.get("request_id") == "r"
         await asyncio.wait_for(sending.wait(), 3)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
