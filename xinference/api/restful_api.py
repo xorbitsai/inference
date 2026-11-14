@@ -3740,7 +3740,7 @@ class RESTfulAPI(CancelMixin):
             return self._responses_model_error(exc)
 
         abort_controller = _SSERequestAbortController(
-            model, model_request_id, request, "responses"
+            model, model_request_id, request, "responses", abort_timeout=5
         )
         abort_controller.bind_model_iterator(iterator)
         model_chunks: Optional[AsyncIterator[Any]] = None

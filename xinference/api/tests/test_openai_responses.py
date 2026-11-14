@@ -785,25 +785,51 @@ def test_cached_tokens_passed_through():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "phase",
+    "phase,stall_abort",
     [
-        "before_body",
-        "send",
-        "next_item",
-        "error",
-        "error_payload",
-        "complete",
-        "late_disconnect",
-        "close_failure",
+        ("before_body", False),
+        ("send", False),
+        ("next_item", False),
+        ("error", False),
+        ("error_payload", False),
+        ("complete", False),
+        ("late_disconnect", False),
+        ("close_failure", False),
+        ("before_body", True),
+        ("send", True),
     ],
 )
-async def test_responses_stream_lifecycle(monkeypatch, phase):
+async def test_responses_stream_lifecycle(monkeypatch, phase, stall_abort):
     from starlette.requests import Request
     from xoscar.api import IteratorWrapper
 
     model = FakeModel()
     gate, reading = asyncio.Event(), asyncio.Event()
     finalized = []
+    abort_release = asyncio.Event()
+    abort_rpc = None
+
+    if stall_abort:
+        controller_type = restful_api_module._SSERequestAbortController
+
+        def short_abort_timeout(*args, **kwargs):
+            # Shorten an existing bound without adding one on unfixed code.
+            if "abort_timeout" in kwargs:
+                assert kwargs["abort_timeout"] == 5
+                kwargs["abort_timeout"] = 0.01
+            return controller_type(*args, **kwargs)
+
+        monkeypatch.setattr(
+            restful_api_module, "_SSERequestAbortController", short_abort_timeout
+        )
+
+        async def stalled_abort(_request_id):
+            nonlocal abort_rpc
+            # A timed-out caller need not stop the RPC on the remote worker.
+            abort_rpc = asyncio.create_task(abort_release.wait())
+            await asyncio.shield(abort_rpc)
+
+        model.abort_request.side_effect = stalled_abort
 
     async def chunks():
         try:
@@ -881,9 +907,18 @@ async def test_responses_stream_lifecycle(monkeypatch, phase):
                 gate.set()
                 await asyncio.Event().wait()
 
+    response_task = asyncio.create_task(response(scope, receive, send))
     try:
         with patch.object(iterator, "destroy", wraps=iterator.destroy) as destroy:
-            await asyncio.wait_for(response(scope, receive, send), 5)
+            if stall_abort:
+                # Do not cancel the response on failure: teardown unblocks the RPC.
+                await asyncio.wait([response_task], timeout=1)
+                destroy.assert_awaited_once()
+                model.decrease_serve_count.assert_awaited_once()
+                assert abort_rpc is not None and not abort_rpc.done()
+                assert not abort_release.is_set()
+                assert response_task.done()
+            await asyncio.wait_for(asyncio.shield(response_task), 5)
             await response.background()
             await response.background()
             destroy.assert_awaited_once()
@@ -917,6 +952,10 @@ async def test_responses_stream_lifecycle(monkeypatch, phase):
             assert b"event: response.failed" in b"".join(sent)
             assert b"event: response.completed" not in b"".join(sent)
     finally:
+        abort_release.set()
+        await asyncio.wait_for(response_task, 5)
+        if abort_rpc is not None:
+            await abort_rpc
         # Failed assertions must not let GC hide missing deterministic cleanup.
         iterator._gc_destroy = False
         try:
