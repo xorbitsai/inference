@@ -84,6 +84,8 @@ def _transformers_dtype_compat() -> Iterator[None]:
 
 
 class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
+    replica_autoscaling = "batch"
+
     def __init__(
         self,
         model_uid: str,

@@ -13,6 +13,14 @@
 # limitations under the License.
 
 
+class RequestQueueFullError(RuntimeError):
+    """The request could not obtain a serving slot before its deadline."""
+
+
+class BatchRequestRedirect(Exception):
+    """A queued request was claimed for another replica before inference."""
+
+
 class ModelNotReadyError(Exception):
     """Raised when a model is still loading and cannot serve requests yet."""
 

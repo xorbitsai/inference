@@ -141,6 +141,8 @@ def normalize_inputs(
 
 
 class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
+    replica_autoscaling = "batch"
+
     engine = "transformers"
     _device: Optional[str]
     _model: Any
@@ -268,6 +270,8 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
 
 
 class SentenceTransformerEmbeddingGemma2Model(TransformersEmbeddingGemma2Model):
+    replica_autoscaling = "batch"
+
     engine = "sentence_transformers"
 
     def load(self) -> None:

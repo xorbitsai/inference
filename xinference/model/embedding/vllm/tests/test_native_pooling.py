@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
@@ -23,7 +25,7 @@ from ..core import VLLMEmbeddingModel
 
 
 @pytest.fixture
-def model(monkeypatch):
+def make_model(monkeypatch):
     vllm = ModuleType("vllm")
     vllm.__version__ = "0.19.0"
     vllm.PoolingParams = SimpleNamespace
@@ -46,14 +48,25 @@ def model(monkeypatch):
         "xinference.model.embedding.vllm.core.is_vacc_available", lambda: False
     )
     family = SimpleNamespace(model_name="bge-m3", model_specs=[None])
-    model = VLLMEmbeddingModel(
-        "replica", "/model", family, batch_size=8, batch_interval=0.1
-    )
-    model.load()
-    model._clean_cache_if_needed = Mock(
-        side_effect=AssertionError("native worker owns cache")
-    )
-    return model
+
+    def create(*, report_load=False):
+        model = VLLMEmbeddingModel(
+            "replica", "/model", family, batch_size=8, batch_interval=0.1
+        )
+        if report_load:
+            model.enable_engine_load_reporting()
+        model.load()
+        model._clean_cache_if_needed = Mock(
+            side_effect=AssertionError("native worker owns cache")
+        )
+        return model
+
+    return create
+
+
+@pytest.fixture
+def model(make_model):
+    return make_model()
 
 
 def output(prompt):
@@ -177,3 +190,113 @@ def test_older_vllm_keeps_existing_batch_path(model):
     assert not legacy._native_pooling
     assert legacy.create_embedding.__func__ != legacy._async_create_embedding.__func__
     sys.modules["vllm"].LLM.assert_called_once_with(model="/model", runner="pooling")
+
+
+@pytest.mark.parametrize("engine_version, vacc", [("0.11.0", False), ("0.19.0", True)])
+def test_vllm_without_v1_telemetry_rejects_autoscaling(
+    make_model, monkeypatch, engine_version, vacc
+):
+    sys.modules["vllm"].__version__ = engine_version
+    if vacc:
+        monkeypatch.setitem(sys.modules, "vllm_vacc", ModuleType("vllm_vacc"))
+        monkeypatch.setattr(
+            "xinference.model.embedding.vllm.core.is_vacc_available", lambda: True
+        )
+    with pytest.raises(ValueError, match="autoscaling requires vLLM V1"):
+        make_model(report_load=True)
+    sys.modules["vllm"].LLM.assert_not_called()
+    make_model()
+    sys.modules["vllm"].LLM.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_native_scheduler_load_exposes_waiting_below_http_limit(make_model):
+    model = make_model(report_load=True)
+    args = sys.modules["vllm.v1.engine.async_llm"].AsyncLLM.from_engine_args.call_args
+    (factory,) = args.kwargs["stat_loggers"]
+    metrics = factory(None, 0)
+    started = asyncio.Event()
+
+    async def encode(prompt, params, request_id):
+        started.set()
+        await asyncio.Event().wait()
+        yield output(prompt)
+
+    model._model.encode = encode
+    task = asyncio.create_task(model.create_embedding("pending"))
+    try:
+        await asyncio.wait_for(started.wait(), 1)
+        metrics.record(
+            SimpleNamespace(
+                num_waiting_reqs=3, num_running_reqs=1, num_skipped_waiting_reqs=2
+            ),
+            None,
+        )
+        waiting, age, running = model.get_engine_load()
+        assert (waiting, running) == (5, 1)
+        assert age >= 0
+        started_at = metrics.waiting_since
+        metrics.record(SimpleNamespace(num_waiting_reqs=1, num_running_reqs=2), None)
+        assert metrics.waiting_since == started_at
+        assert model.get_engine_load()[::2] == (1, 2)
+        metrics.record(SimpleNamespace(num_waiting_reqs=0, num_running_reqs=2), None)
+        assert model.get_engine_load() == (0, 0.0, 2)
+        metrics.record(SimpleNamespace(num_waiting_reqs=2, num_running_reqs=1), None)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+    assert model.get_engine_load() == (0, 0.0, 0)
+
+
+@pytest.mark.parametrize(
+    "engine_version, model_name",
+    [("0.18.0", "bge-m3"), ("0.19.0", "Qwen3-VL-Embedding-2B")],
+)
+def test_sync_pooling_reports_scheduler_metrics_while_batch_runs(
+    make_model, monkeypatch, engine_version, model_name
+):
+    vllm = sys.modules["vllm"]
+    vllm.__version__ = engine_version
+    family = SimpleNamespace(model_name=model_name, model_specs=[None])
+    model = VLLMEmbeddingModel("replica", "/model", family)
+    model.enable_engine_load_reporting()
+    backend = vllm.LLM.return_value
+    backend.llm_engine.vllm_config.scheduler_config.max_num_seqs = 2
+    model.load()
+    vllm.LLM.assert_called_once_with(
+        model="/model", runner="pooling", disable_log_stats=False
+    )
+    backend.get_metrics.return_value = []
+    assert model.get_engine_load() is None
+
+    def metrics(waiting=0, running=0):
+        return [
+            SimpleNamespace(name="vllm:num_requests_waiting", value=waiting),
+            SimpleNamespace(name="vllm:num_requests_running", value=running),
+        ]
+
+    backend.get_metrics.return_value = metrics()
+    assert model.get_engine_load() == (0, 0.0, 0)
+    monotonic = 200.0
+    monkeypatch.setattr(
+        "xinference.model.embedding.vllm.core.time.monotonic", lambda: monotonic
+    )
+
+    def embed(prompts, *, use_tqdm):
+        nonlocal monotonic
+        assert use_tqdm(prompts, desc="Adding requests") is prompts
+        progress = use_tqdm(total=len(prompts))
+        assert model.get_engine_load() == (6, 0.0, 0)
+        monotonic += 0.5
+        progress.update(4)
+        assert model.get_engine_load() == (2, 0.5, 0)
+        backend.get_metrics.return_value = metrics(waiting=3, running=1)
+        assert model.get_engine_load() == (3, 0.5, 1)
+        progress.update(4)
+        backend.get_metrics.return_value = []
+        assert model.get_engine_load() is None
+        return []
+
+    backend.embed.side_effect = embed
+    assert model._embed_sync(["queued"] * 8) == []
+    assert model.get_engine_load() == (0, 0.0, 0)
