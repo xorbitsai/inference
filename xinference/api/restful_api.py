@@ -5395,7 +5395,7 @@ class RESTfulAPI(CancelMixin):
         )
         if routing_options or interactive:
             reservation_id = uuid.uuid4().hex
-            routing_request = {"interactive": interactive}
+            routing_request: Dict[str, Any] = {"interactive": interactive}
             # Reuse normalized, tenant-scoped prompt settings. Bulk prefill
             # requests with explicit priority keep their requested placement.
             if routing_options and not interactive and not kwargs.get("priority"):

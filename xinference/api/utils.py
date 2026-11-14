@@ -165,7 +165,9 @@ async def require_chat_model(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
-        options = {"routing_request": routing_request} if routing_request else {}
+        options: dict[str, Any] = (
+            {"routing_request": routing_request} if routing_request else {}
+        )
         if request_id is None:
             return await supervisor.get_chat_model(
                 model_uid, routing_key, reservation_id, **options
