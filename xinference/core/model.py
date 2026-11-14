@@ -36,6 +36,7 @@ from typing import (
     Optional,
     Set,
     Union,
+    cast,
     no_type_check,
 )
 
@@ -574,7 +575,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     raise ValueError(
                         f"{self._replica_autoscaling_error}: incomplete engine load reporting"
                     )
-                self._engine_load_reporter: EngineLoadReporter = model
+                self._engine_load_reporter = cast(EngineLoadReporter, model)
                 self._engine_load_reporter.enable_engine_load_reporting()
             elif mode != "batch" or not isinstance(model, BatchMixin):
                 raise ValueError(self._replica_autoscaling_error)
