@@ -3728,25 +3728,23 @@ class RESTfulAPI(CancelMixin):
                 await self._report_error_event(model_uid, str(exc))
                 return self._responses_model_error(exc)
 
-        iterator = None
+        model_request_id = uuid.uuid4().hex
         try:
-            iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+            iterator = await model.chat(
+                messages, kwargs, raw_params=raw_kwargs, request_id=model_request_id
+            )
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
             await self._report_error_event(model_uid, str(exc))
             return self._responses_model_error(exc)
 
-        async def release_serve_count() -> None:
-            from xoscar.api import IteratorWrapper
-
-            if (
-                inspect.isasyncgen(iterator)
-                or inspect.isgenerator(iterator)
-                or isinstance(iterator, IteratorWrapper)
-            ):
-                await _release_model_stream(model, iterator)
-
+        abort_controller = _SSERequestAbortController(
+            model, model_request_id, request, "responses"
+        )
+        abort_controller.bind_model_iterator(iterator)
+        model_chunks: Optional[AsyncIterator[Any]] = None
+        completed = False
         cleanup_task: asyncio.Task[None] | None = None
 
         # Also run as the response's background task: a client that disconnects
@@ -3754,10 +3752,35 @@ class RESTfulAPI(CancelMixin):
         async def release_resources() -> None:
             nonlocal cleanup_task
             if cleanup_task is None:
-                cleanup_task = asyncio.create_task(release_serve_count())
-            await asyncio.shield(cleanup_task)
+                cleanup_task = asyncio.create_task(
+                    _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=(
+                            model_chunks if model_chunks is not None else iterator
+                        ),
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=model_request_id,
+                        kind="responses",
+                    )
+                )
+            cancellation = None
+            with anyio.CancelScope(shield=True):
+                while True:
+                    try:
+                        await asyncio.shield(cleanup_task)
+                        break
+                    except asyncio.CancelledError as exc:
+                        cancellation = exc
+                        if cleanup_task.cancelled():
+                            break
+            if cancellation is not None:
+                raise cancellation
 
         async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+            nonlocal model_chunks, completed
+            abort_controller.bind_stream_task()
             reporter = get_stream_outcome_reporter(request)
             model_chunks = observe_stream(
                 iterator, reporter, failure_origin=FailureOrigin.MODEL_GENERATOR
@@ -3769,10 +3792,9 @@ class RESTfulAPI(CancelMixin):
             )
             try:
                 async for chunk in protocol_chunks:
-                    if await request.is_disconnected():
-                        report_client_disconnect(request)
-                        break
                     yield chunk
+                completed = True
+                abort_controller.mark_completed()
             except asyncio.CancelledError as exc:
                 report_client_disconnect(request, exc)
                 raise
@@ -3785,15 +3807,25 @@ class RESTfulAPI(CancelMixin):
             finally:
                 await release_resources()
 
-        return EventSourceResponse(
-            observe_stream(
-                responses_stream_events(physical_chunks(), req),
-                get_stream_outcome_reporter(request),
-                failure_origin=FailureOrigin.PROTOCOL,
-            ),
+        async def handle_disconnect(message: Dict[str, Any]) -> None:
+            try:
+                await abort_controller.handle_disconnect(message)
+            finally:
+                await release_resources()
+
+        body_iterator = observe_stream(
+            responses_stream_events(physical_chunks(), req),
+            get_stream_outcome_reporter(request),
+            failure_origin=FailureOrigin.PROTOCOL,
+        )
+        response = EventSourceResponse(
+            body_iterator,
             ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
             background=BackgroundTask(release_resources),
         )
+        abort_controller.bind_body_iterator(body_iterator)
+        _observe_sse_disconnect(response, handle_disconnect)
+        return response
 
     async def _create_response_via_token_router(
         self,
