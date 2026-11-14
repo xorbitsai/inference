@@ -39,36 +39,14 @@ msgstr ""
 
 #: ../../source/models/xinference_models_hub.rst:13
 msgid ""
-"Before the introduction of the Models Hub, model JSON files were manually "
-"submitted and modified directly through PRs in the open-source repository "
-"(`xorbitsai/inference`). This approach resulted in uncontrolled versioning, "
-"long iteration cycles, and delays in delivering updated models—since model "
-"updates were tied to product release cycles, users could not obtain new "
-"models promptly."
+"Maintain built-in models through pull requests to the `xorbitsai/inference "
+"repository <https://github.com/xorbitsai/inference>`_. New and updated "
+"model definitions ship with Xinference releases. The :ref:`model_update` "
+"feature downloads the catalog published by Models Hub."
 msgstr ""
-"在引入 Models Hub 之前，模型 JSON 檔案需要由使用者直接透過 PR 修改 `xorbitsai/inference` "
-"開源倉庫。這種方式導致模型版本不可控、迭代週期長、模型更新依賴產品發版流程，使用者無法及時獲得最新模型。"
-
-#: ../../source/models/xinference_models_hub.rst:15
-msgid ""
-"With centralized online model management, the Xinference Models Hub requires"
-" that **all model information—including metadata, parameters, and the "
-"README—be edited within the platform**. Based on modifications made by "
-":ref:`model maintainers <model_maintainer_guide>`, the system "
-"**automatically generates and submits PRs** to the `xorbitsai/inference` "
-"repository, ensuring a standardized, automated, and traceable workflow that "
-"eliminates inconsistencies caused by manual edits."
-msgstr ""
-"通過集中式線上模型管理機制，Xinference Models Hub 要求 **所有模型資訊（包含元資料、參數及 "
-"README）均在平台中完成編輯**。系統會根據 :ref:`模型維護者 <model_maintainer_guide>` 的修改 **自動生成並提交"
-" PR** 到 `xorbitsai/inference` 倉庫，實現流程標準化、自動化與可追溯性，避免手動修改帶來的不一致問題。"
-
-#: ../../source/models/xinference_models_hub.rst:17
-msgid ""
-"Users can obtain the latest model list at any time through the "
-":ref:`model_update` feature, significantly improving model delivery "
-"efficiency and overall experience."
-msgstr "使用者可透過 :ref:`model_update` 功能隨時取得最新模型列表，從而顯著提升模型交付效率與整體使用體驗。"
+"內建模型透過 `xorbitsai/inference 儲存庫 <https://github.com/xorbitsai/inference>`_ "
+"的 PR 維護。新增及更新的模型定義會隨 Xinference 版本發布。:ref:`model_update` 功能會下載 Models Hub "
+"發布的目錄。"
 
 #: ../../source/models/xinference_models_hub.rst:20
 msgid "User Guide for Regular Users"

@@ -1,0 +1,21 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: ../../source/models/xinference_models_hub.rst:13
+msgid ""
+"Maintain built-in models through pull requests to the `xorbitsai/inference "
+"repository <https://github.com/xorbitsai/inference>`_. New and updated "
+"model definitions ship with Xinference releases. The :ref:`model_update` "
+"feature downloads the catalog published by Models Hub."
+msgstr ""
+"組み込みモデルは `xorbitsai/inference リポジトリ "
+"<https://github.com/xorbitsai/inference>`_ へのプルリクエストで管理します。新規および更新されたモデル定義は "
+"Xinference のリリースに含まれます。:ref:`model_update` 機能は Models Hub "
+"が公開したカタログをダウンロードします。"
