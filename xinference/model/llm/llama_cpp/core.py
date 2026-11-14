@@ -15,7 +15,6 @@ import concurrent.futures
 import glob
 import logging
 import os
-import pprint
 import queue
 import time
 import uuid
@@ -33,6 +32,7 @@ from ....types import (
     CompletionChunk,
 )
 from ....utils import dependency_import_guard
+from ..._llamacpp import configure_gpu_layers
 from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
@@ -379,14 +379,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
     def load(self):
         with dependency_import_guard("xllamacpp"):
-            from xllamacpp import (
-                CommonParams,
-                Server,
-                __version__,
-                estimate_gpu_layers,
-                get_device_info,
-                ggml_backend_dev_type,
-            )
+            from xllamacpp import CommonParams, Server, __version__
 
             try:
                 if version.parse(__version__) < version.parse("0.2.0"):
@@ -467,45 +460,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
-            if params.n_gpu_layers == -1:
-                # Number of layers to offload to GPU (-ngl). If -1, all layers are offloaded.
-                # 0x7FFFFFFF is INT32 max, will be auto set to all layers
-                params.n_gpu_layers = 0x7FFFFFFF
-                try:
-                    device_info = get_device_info()
-                    gpus = [
-                        info
-                        for info in device_info
-                        if info["type"]
-                        == ggml_backend_dev_type.GGML_BACKEND_DEVICE_TYPE_GPU
-                    ]
-                    if gpus:
-                        logger.info(
-                            "Try to estimate num gpu layers, n_ctx: %s, n_batch: %s, n_parallel: %s, gpus:\n%s",
-                            params.n_ctx,
-                            params.n_batch,
-                            params.n_parallel,
-                            pprint.pformat(gpus),
-                        )
-                        estimate = estimate_gpu_layers(
-                            gpus=gpus,
-                            model_path=model_path,
-                            projectors=[mmproj] if mmproj else [],
-                            context_length=params.n_ctx,
-                            batch_size=params.n_batch,
-                            num_parallel=params.n_parallel,
-                            kv_cache_type="",
-                        )
-                        logger.info("Estimate num gpu layers: %s", estimate)
-                        if estimate.tensor_split:
-                            for i in range(len(estimate.tensor_split)):
-                                params.tensor_split[i] = estimate.tensor_split[i]
-                        else:
-                            params.n_gpu_layers = estimate.layers
-                except Exception as e:
-                    logger.exception(
-                        "Estimate num gpu layers for llama.cpp backend failed: %s", e
-                    )
+            configure_gpu_layers(params, model_path, [mmproj] if mmproj else [])
 
             self._llm = Server(params)
             callback_workers = max(10, n_threads)
