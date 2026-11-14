@@ -34,6 +34,8 @@ The following is a list of built-in audio models in Xinference:
   
    cosyvoice2-0.5b
   
+   dots.tts.edit-v1.1
+
    f5-tts
   
    fireredtts3-base

@@ -24,6 +24,7 @@ from .breeze_tts import BreezeTTS2Model
 from .chattts import ChatTTSModel
 from .confucius4_tts import Confucius4TTSModel
 from .cosyvoice import CosyVoiceModel
+from .dots_tts import DotsTTSEditModel
 from .engine_family import AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -264,6 +265,7 @@ def create_audio_model_instance(
     ChatTTSModel,
     CosyVoiceModel,
     Confucius4TTSModel,
+    DotsTTSEditModel,
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
@@ -384,6 +386,7 @@ def create_audio_model_instance(
         ChatTTSModel,
         CosyVoiceModel,
         Confucius4TTSModel,
+        DotsTTSEditModel,
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
@@ -425,6 +428,8 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Confucius4-TTS":
         model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "dots_tts_edit":
+        model = DotsTTSEditModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Ming-3.0-tts":
         model = MingTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
