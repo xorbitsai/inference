@@ -18,11 +18,23 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+    no_type_check,
+)
 
 import numpy as np
 import torch
 
+from ....core.exceptions import InvalidModelRequestError
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ....utils import dependency_import_guard
 from ...batch import BatchMixin
@@ -397,6 +409,34 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._embedder = None
+        self._native_embedding_dimensions = self.model_family.dimensions
+
+    def _wrap_method(self) -> Callable[..., Awaitable[Embedding]]:
+        enqueue = super()._wrap_method()
+
+        async def create_embedding(
+            model: "SentenceTransformerEmbeddingModel", *args: Any, **kwargs: Any
+        ) -> Embedding:
+            dimensions = kwargs.get("dimensions")
+            if dimensions is not None and model._embedder is None:
+                if (
+                    isinstance(dimensions, bool)
+                    or not isinstance(dimensions, int)
+                    or dimensions <= 0
+                ):
+                    raise InvalidModelRequestError(
+                        "The `dimensions` argument must be a positive integer."
+                    )
+                if dimensions > model._native_embedding_dimensions:
+                    raise InvalidModelRequestError(
+                        "The `dimensions` argument must be at most "
+                        f"{model._native_embedding_dimensions} for this model."
+                    )
+                if is_wemm_model(model.model_family.model_name):
+                    model._validate_wemm_dimensions(dimensions)
+            return await enqueue(model, *args, **kwargs)
+
+        return create_embedding
 
     def load(self):
         # TODO: load model
@@ -550,6 +590,25 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
+
+        # The dimension getter includes the configured truncation. Query the
+        # untruncated width once, before the model starts serving requests.
+        get_dimension = getattr(self._model, "get_embedding_dimension", None)
+        if get_dimension is None:
+            get_dimension = getattr(
+                self._model, "get_sentence_embedding_dimension", None
+            )
+        if get_dimension is not None:
+            truncate_dim = self._model.truncate_dim
+            try:
+                self._model.truncate_dim = None
+                native_dimensions = get_dimension()
+            finally:
+                self._model.truncate_dim = truncate_dim
+            self._native_embedding_dimensions = (
+                native_dimensions or self.model_family.dimensions
+            )
+
         if is_wemm_model(self.model_family.model_name) and dimensions is not None:
             self._validate_wemm_dimensions(dimensions)
 
@@ -558,7 +617,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         config = self._model[0].auto_model.config
         supported = getattr(config, "matryoshka_dimensions", None)
         if supported is not None and dimensions not in supported:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 f"WeMM-Embedding dimensions must be one of {list(supported)}, got {dimensions}."
             )
 
@@ -604,6 +663,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             convert_to_tensor: bool = False,
             device: str = None,
             normalize_embeddings: bool = False,
+            dimensions: Optional[int] = None,
             **kwargs,
         ):
             """
@@ -617,6 +677,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             :param convert_to_tensor: If true, you get one large tensor as return. Overwrites any setting from convert_to_numpy
             :param device: Which torch.device to use for the computation
             :param normalize_embeddings: If set to true, returned vectors will have length 1. In that case, the faster dot-product (util.dot_score) instead of cosine similarity can be used.
+            :param dimensions: Truncate each embedding to this many dimensions (OpenAI ``dimensions``), before normalization.
 
             :return:
                By default, a list of tensors is returned. If convert_to_tensor, a stacked tensor is returned. If convert_to_numpy, a numpy matrix is returned.
@@ -634,6 +695,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
             if convert_to_tensor:
                 convert_to_numpy = False
+
+            truncate_dim = model.truncate_dim if dimensions is None else dimensions
 
             if output_value != "sentence_embedding":
                 convert_to_tensor = False
@@ -733,7 +796,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     from sentence_transformers.util import truncate_embeddings
 
                     out_features["sentence_embedding"] = truncate_embeddings(
-                        out_features["sentence_embedding"], model.truncate_dim
+                        out_features["sentence_embedding"], truncate_dim
                     )
 
                     if output_value == "token_embeddings":
@@ -866,7 +929,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 )
             dimensions = wemm_kwargs.pop("dimensions", None)
             if dimensions is not None:
-                self._validate_wemm_dimensions(dimensions)
                 wemm_kwargs["truncate_dim"] = dimensions
             wemm_kwargs.setdefault("batch_size", 1)
 

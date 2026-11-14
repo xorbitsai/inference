@@ -121,6 +121,10 @@ msgid ""
 "when the matched model spec is GGUF."
 msgstr "``llama.cpp``：用于部署 GGUF 格式的嵌入模型；当匹配到的模型规格是 GGUF 时默认选择此引擎。"
 
+#: models/model_abilities/embed.rst:55
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer up to the model's native embedding dimension. Invalid values return HTTP 400 for that request."
+msgstr "对于通过 ``sentence_transformers`` 引擎支持 ``dimensions`` 的模型，请传入不超过模型原生嵌入维度的正整数。传入无效值的请求会收到 HTTP 400。"
+
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"
 msgstr "截断输入"

@@ -3930,6 +3930,8 @@ class RESTfulAPI(CancelMixin):
             if payload.get("encoding_format") == "base64":
                 embedding = _encode_embeddings_base64(embedding)
             return Response(embedding, media_type="application/json")
+        except InvalidModelRequestError as e:
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)

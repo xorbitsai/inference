@@ -1,0 +1,10 @@
+msgid ""
+msgstr ""
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: models/model_abilities/embed.rst:55
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer up to the model's native embedding dimension. Invalid values return HTTP 400 for that request."
+msgstr "``sentence_transformers`` エンジンで ``dimensions`` に対応するモデルには、モデル本来の埋め込み次元以下の正の整数を指定してください。無効な値を指定したリクエストには HTTP 400 が返ります。"
