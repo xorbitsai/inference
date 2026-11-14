@@ -245,7 +245,33 @@ async def _read_llm_request_body(request: Request) -> dict:
     return raw_body
 
 
+# Nullable in the OpenAI API but typed without ``None`` in our schema (or, for
+# the penalties, forwarded to the engine as an explicit ``None``);
+# ``null`` means "not given".
+_NULLABLE_OPENAI_PARAMS = (
+    "temperature",
+    "top_p",
+    "stream",
+    "echo",
+    "presence_penalty",
+    "frequency_penalty",
+)
+
+
+def _drop_null_openai_params(raw_body: dict) -> None:
+    """Treat ``"temperature": null`` and similar as "not given".
+
+    Many OpenAI clients send ``null`` for unset sampling parameters. The schema
+    gives these fields a default but no ``None`` type, so ``null`` was rejected
+    with a 422 instead of falling back to the default.
+    """
+    for name in _NULLABLE_OPENAI_PARAMS:
+        if name in raw_body and raw_body[name] is None:
+            del raw_body[name]
+
+
 def _parse_llm_request(schema, raw_body: dict):
+    _drop_null_openai_params(raw_body)
     # Resolve/validate the raw salt after authorization, allowing provider overrides.
     try:
         return schema.parse_obj(
