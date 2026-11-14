@@ -409,7 +409,7 @@ class ChatModelMixin:
         # Non-mutating: callers may reuse the input `messages` for history
         # tracking / logging / serialization, so we deep-copy only the
         # affected message + tool_call + function dict when a string
-        # argument is successfully parsed. Messages without string
+        # argument is blank or successfully parsed. Messages without string
         # arguments are returned by reference (no copy).
         normalized: List[Dict] = []
         for message in messages:
@@ -420,8 +420,9 @@ class ChatModelMixin:
             if not isinstance(tool_calls, list):
                 normalized.append(message)
                 continue
-            # Identify indices that need rewriting (string arguments that
-            # parse successfully into a JSON object). Malformed JSON and
+            # Identify indices that need rewriting (blank string arguments,
+            # and string arguments that parse successfully into a JSON
+            # object). Malformed JSON and
             # non-object JSON values (e.g. `"[]"`, `"null"`, `"1"`) are
             # left as-is: the Qwen templates iterate `tool_call.arguments|items`
             # which only works on mappings, so non-object values would still
@@ -437,7 +438,12 @@ class ChatModelMixin:
                 if not isinstance(fn, dict):
                     continue
                 args = fn.get("arguments")
-                if not (isinstance(args, str) and args):
+                if not isinstance(args, str):
+                    continue
+                if not args.strip():
+                    # Clients that accumulate streamed deltas send "" for a
+                    # tool called without arguments; that means no arguments.
+                    rewrites[i] = {**fn, "arguments": {}}
                     continue
                 try:
                     parsed = json.loads(args)

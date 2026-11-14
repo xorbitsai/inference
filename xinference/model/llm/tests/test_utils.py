@@ -3688,7 +3688,8 @@ class TestEvalLlama3ChatArgumentsSecurity:
 def test_normalize_tool_call_arguments_to_dict():
     # Pure-function unit test for ChatModelMixin._normalize_tool_call_arguments_to_dict.
     # Contract: string arguments are parsed to dict; dict passthrough; malformed
-    # JSON and empty strings are left as-is so downstream surfaces a clear error;
+    # JSON is left as-is so downstream surfaces a clear error; empty or blank
+    # strings (a tool called without arguments) become an empty dict;
     # None / missing arguments are skipped; non-assistant messages are skipped.
     messages = [
         {
@@ -3724,7 +3725,7 @@ def test_normalize_tool_call_arguments_to_dict():
                     "type": "function",
                     "function": {
                         "name": "empty_str",
-                        "arguments": "",  # empty string, left as-is
+                        "arguments": "",  # empty string, no arguments -> {}
                     },
                 },
                 {
@@ -3779,7 +3780,7 @@ def test_normalize_tool_call_arguments_to_dict():
     assert (
         assistant_tc[2]["function"]["arguments"] == "{not json"
     )  # malformed preserved
-    assert assistant_tc[3]["function"]["arguments"] == ""  # empty preserved
+    assert assistant_tc[3]["function"]["arguments"] == {}  # empty -> no arguments
     assert assistant_tc[4]["function"]["arguments"] is None  # null preserved
     # Valid JSON but not an object — must be left as-is so the template
     # raises a clear error rather than silently producing garbage.
