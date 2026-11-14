@@ -11,12 +11,52 @@ import copy
 import logging
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 from .exceptions import ModelReloadInProgress
 from .utils import parse_replica_model_uid
 
 logger = logging.getLogger(__name__)
+
+# Uncertain placement must not hold a rollout indefinitely. This is separate
+# from drain_timeout, which also applies to parser-only updates.
+UNKNOWN_PLACEMENT_RETIREMENT_TIMEOUT = 300
+
+
+async def _reload_gpu_indices(worker: Any, replica_uid: str) -> Optional[Set[int]]:
+    try:
+        allocation = await worker.get_gpu_allocation_status()
+        # Launch args retain gpu_idx=None for automatic placement. Both kinds
+        # of reservation record the actual worker-local device indices here.
+        devices = {
+            int(index)
+            for index, uids in allocation["models"].items()
+            if replica_uid in uids
+        }
+        devices.update(
+            int(index)
+            for index, entries in allocation["user_specified"].items()
+            if any(uid == replica_uid for uid, _ in entries)
+        )
+        return devices or None
+    except Exception:
+        logger.debug(
+            "Cannot determine GPU placement for %s", replica_uid, exc_info=True
+        )
+        return None
+
+
+async def _wait_for_retirement(model_ref: Any, check_only: bool = False) -> None:
+    try:
+        await model_ref.wait_for_generation_retirement(
+            model_ref.address, model_ref.uid, check_only=check_only
+        )
+    except (AttributeError, TypeError) as exc:
+        raise RuntimeError(
+            "The model was started without retirement-wait "
+            "support; restart it with a supporting Xinference "
+            "version before reloading multiple replicas"
+        ) from exc
 
 
 def _common_values(configs: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -306,6 +346,61 @@ class ModelReloadMixin:
                     await worker.validate_model_reload(uid, config) if config else {}
                 )
                 patches.append(config if normalized is None else normalized)
+            from ..model.llm.weight_cache import HOT_RELOAD_FIELDS
+
+            replacing = [
+                python_executable is not None
+                or not set(patch) <= HOT_RELOAD_FIELDS.keys()
+                for patch in patches
+            ]
+            # For each replacement, record earlier retirements it depends on.
+            # The value is True only when placement is unknown and needs a bound.
+            retirement_waits: List[Dict[int, bool]] = [{} for _ in targets]
+            model_refs = []
+            if len(targets) > 1 and any(replacing):
+                model_refs = [await worker.get_model(uid) for uid, worker in targets]
+                devices = [
+                    await _reload_gpu_indices(worker, uid) for uid, worker in targets
+                ]
+                for index, (_, worker) in enumerate(targets):
+                    if not replacing[index]:
+                        continue
+                    for previous in range(index):
+                        if not replacing[previous]:
+                            continue
+                        previous_worker = targets[previous][1]
+                        previous_devices = devices[previous]
+                        current_devices = devices[index]
+                        shared_process = (
+                            model_refs[previous].address
+                            and model_refs[previous].address
+                            == model_refs[index].address
+                        )
+                        same_worker = worker.address == previous_worker.address
+                        if shared_process:
+                            retirement_waits[index][previous] = False
+                        elif (
+                            worker.address
+                            and previous_worker.address
+                            and not same_worker
+                        ):
+                            continue
+                        elif (
+                            same_worker
+                            and worker.address
+                            and previous_devices
+                            and current_devices
+                        ):
+                            if previous_devices & current_devices:
+                                retirement_waits[index][previous] = False
+                        else:
+                            retirement_waits[index][previous] = True
+                # Probe the original actors before any cutover. A forwarded RPC
+                # cannot establish support, even if its serving generation is new.
+                for previous in sorted(
+                    {i for waits in retirement_waits for i in waits}
+                ):
+                    await _wait_for_retirement(model_refs[previous], check_only=True)
             status: Dict[str, Any] = {
                 "operation_id": str(uuid.uuid4()),
                 "model_uid": model_uid,
@@ -323,31 +418,54 @@ class ModelReloadMixin:
             self._model_reload_status[model_uid] = status
 
             async def run() -> None:
-                from ..model.llm.weight_cache import (
-                    HOT_RELOAD_FIELDS,
-                    IMAGE_LIMIT_FIELDS,
-                )
+                from ..model.llm.weight_cache import IMAGE_LIMIT_FIELDS
 
                 row = status["replicas"][0]
+                retired: Set[int] = set()
+
+                def has_failed_replica() -> bool:
+                    return any(
+                        member["status"] == "error" for member in status["replicas"]
+                    )
+
                 try:
-                    for (uid, worker), patch, row in zip(
-                        targets, patches, status["replicas"]
+                    for index, ((uid, worker), patch, row) in enumerate(
+                        zip(targets, patches, status["replicas"])
                     ):
                         if self._get_reload_targets(model_uid) != targets:
                             raise ValueError("Model placement changed during reload")
-                        if any(
-                            member["status"] == "error" for member in status["replicas"]
-                        ):
+                        if has_failed_replica():
+                            break
+                        for previous, bounded in retirement_waits[index].items():
+                            if previous in retired:
+                                continue
+                            status["stage"] = "draining"
+                            wait = _wait_for_retirement(model_refs[previous])
+                            if bounded:
+                                try:
+                                    await asyncio.wait_for(
+                                        wait, UNKNOWN_PLACEMENT_RETIREMENT_TIMEOUT
+                                    )
+                                except asyncio.TimeoutError as exc:
+                                    raise RuntimeError(
+                                        "Timed out waiting for engine retirement with "
+                                        "unknown GPU placement; current replicas keep "
+                                        "serving. Check replica settings and retry reload."
+                                    ) from exc
+                            else:
+                                await wait
+                            retired.add(previous)
+                            # A committed replica can roll back during the wait.
+                            if has_failed_replica():
+                                break
+                        if self._get_reload_targets(model_uid) != targets:
+                            raise ValueError("Model placement changed during reload")
+                        if has_failed_replica():
                             break
                         row.update(
                             status="reloading",
                             started_at=time.time(),
-                            stage=(
-                                "draining"
-                                if python_executable is None
-                                and set(patch) <= HOT_RELOAD_FIELDS.keys()
-                                else "loading"
-                            ),
+                            stage="loading" if replacing[index] else "draining",
                         )
                         status.update(stage=row["stage"], current_replica=uid)
                         row["weights_reused"] = (
@@ -434,8 +552,8 @@ class ModelReloadMixin:
                         except Exception:
                             pass
                     else:
-                        # Placement/persistence errors do not undo a committed
-                        # replica or imply that an untouched one was attempted.
+                        # Errors before cutover or during persistence do not
+                        # undo a committed replica or imply an untouched one was attempted.
                         status.update(status="error", stage="error", error=str(exc))
                     _update_progress(status, active=True)
                     logger.exception(
