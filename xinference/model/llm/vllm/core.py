@@ -81,6 +81,7 @@ from ..context_length import (
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
+from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
     convert_forced_completion,
     is_forced_tool_choice,
@@ -749,7 +750,13 @@ class VLLMModel(WeightCachedModel, LLM):
         prepare_inputs = getattr(self, "_prepare_chat_inputs", None)
         if prepare_inputs is None:
             return None
-        config = copy.deepcopy(config)
+        # Routing sees the request before REST normalizes its reasoning controls.
+        # Apply the loaded model's rules so we hash the generation prompt.
+        config = (
+            self.prepare_reasoning_request(config)
+            if has_reasoning_controls(config)
+            else copy.deepcopy(config)
+        )
         self._normalize_tool_choice_for_prompt(config)
         prompt, _, context, config = await prepare_inputs(
             copy.deepcopy(messages), config
