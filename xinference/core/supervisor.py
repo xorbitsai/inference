@@ -256,6 +256,8 @@ class InitialModelLaunch:
         default_factory=dict
     )
     cancelling: bool = False
+    cleanup_pending: bool = False
+    services: Dict[str, List[xo.ActorRefType]] = field(default_factory=dict)
 
 
 def model_service_address(owner):
@@ -485,6 +487,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         def done(completed: asyncio.Task) -> None:
             if (
                 not operation.cancelling
+                and not operation.cleanup_pending
                 and self._initial_model_launches.get(model_uid) is operation
             ):
                 self._initial_model_launches.pop(model_uid)
@@ -505,6 +508,132 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     callback_for_async_launch, self._async_launch_tasks, model_uid
                 )
             )
+
+    async def _fail_initial_model_launch(self, model_uid: str) -> None:
+        operation = self._initial_model_launches[model_uid]
+        # Record ownership before status reporting or remote admission can yield.
+        operation.cleanup_pending = True
+        from .supervisor_control import MODEL_SERVICE_FIELDS
+
+        for name in MODEL_SERVICE_FIELDS:
+            if name == "_pd_roles":
+                continue
+            refs = getattr(self, name, {}).get(model_uid)
+            if refs is not None:
+                operation.services[name] = (
+                    list(refs) if isinstance(refs, list) else [refs]
+                )
+        try:
+            await self._status_guard_ref.update_instance_info(
+                model_uid, {"status": LaunchStatus.ERROR.name}
+            )
+            await self.terminate_model(model_uid, suppress_exception=True)
+        except (Exception, asyncio.CancelledError):
+            # Rollback must not replace the original launch exception.
+            logger.warning(
+                "Initial launch cleanup pending for %s", model_uid, exc_info=True
+            )
+        finally:
+            if self._initial_model_launches.get(model_uid) is operation:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        model_uid, {"status": LaunchStatus.ERROR.name}
+                    )
+                except (Exception, asyncio.CancelledError):
+                    logger.warning(
+                        "Failed to report launch error for %s", model_uid, exc_info=True
+                    )
+
+    async def _recover_failed_initial_model_launch(self, model_uid: str) -> None:
+        operation = self._initial_model_launches.get(model_uid)
+        if operation is None or not operation.cleanup_pending or operation.cancelling:
+            return
+        async with self._get_model_replica_lock(model_uid):
+            if self._initial_model_launches.get(model_uid) is not operation:
+                raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
+            if operation.task.done():
+                await self._cleanup_failed_initial_model_launch(model_uid, operation)
+                await self._status_guard_ref.remove_failed_instance_info(model_uid)
+
+    async def _cleanup_failed_initial_model_launch(
+        self, model_uid: str, operation: InitialModelLaunch
+    ) -> None:
+        async def stop(uid: str, worker: xo.ActorRefType["WorkerActor"]) -> None:
+            await worker.terminate_model(model_uid=uid)
+            # A rejected, cancelled or uncertain RPC still owns its target.
+            operation.workers[uid].remove(worker)
+
+        try:
+            results = await asyncio.gather(
+                *(
+                    stop(uid, worker)
+                    for uid, workers in operation.workers.items()
+                    if not uid.endswith("-rank0")
+                    for worker in list(workers)
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            # Preserve the service teardown order, including rank zero before
+            # the collective manager. Keep actual refs independently of routes.
+            for name in (
+                "_pd_model_mapping",
+                "_xavier_source_mapping",
+                "_xavier_history_mapping",
+                "_xavier_cache_mapping",
+                "rank0",
+                "_collective_manager_mapping",
+                "_block_tracker_mapping",
+            ):
+                if name == "rank0":
+                    uid = model_uid + "-rank0"
+                    for worker in list(operation.workers.get(uid, [])):
+                        await stop(uid, worker)
+                    self._replica_model_uid_to_worker.pop(uid, None)
+                    continue
+                refs = operation.services.get(name, [])
+                for ref in (
+                    list(reversed(refs))
+                    if name == "_xavier_history_mapping"
+                    else list(refs)
+                ):
+                    control = getattr(self, "_controller_control", None)
+                    if control is not None:
+                        await control.check()
+                    try:
+                        await xo.wait_for(
+                            SupervisorActor._destroy_model_service_actor(self, ref),
+                            timeout=5,
+                        )
+                    except xo.ActorNotExist:
+                        # A previous destruction may have lost its response.
+                        # An absent dependency during teardown is not success.
+                        if await xo.has_actor(ref):
+                            raise
+                    refs.remove(ref)
+                    mapping = getattr(self, name, {})
+                    current = mapping.get(model_uid)
+                    if isinstance(current, list):
+                        if ref in current:
+                            current.remove(ref)
+                        if not current:
+                            mapping.pop(model_uid, None)
+                    elif current is ref:
+                        mapping.pop(model_uid, None)
+            await self._clear_model_routing(
+                model_uid,
+                [uid for uid in operation.workers if not uid.endswith("-rank0")],
+            )
+        finally:
+            # Worker callbacks can report TERMINATING during a failed rollback.
+            if self._initial_model_launches.get(model_uid) is operation:
+                await self._status_guard_ref.update_instance_info(
+                    model_uid, {"status": LaunchStatus.ERROR.name}
+                )
+        operation.cleanup_pending = False
+        self._initial_model_launches.pop(model_uid)
 
     def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
@@ -3344,6 +3473,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     "worker_ip / n_gpu / gpu_idx parameters."
                 )
 
+        if model_uid is not None:
+            # Old allocations must be released before placement validates GPUs.
+            await self._recover_failed_initial_model_launch(model_uid)
+
         if n_worker > 1:  # type: ignore
             if kwargs.get("xavier_cache_backend") not in (None, "native"):
                 raise ValueError("The LMCache backend requires one worker per replica")
@@ -4443,11 +4576,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     # The cancellation coordinator owns rollback until every
                     # launch RPC has settled and every initial replica is gone.
                     raise
-                # terminate_model will remove the replica info.
-                await self.terminate_model(model_uid, suppress_exception=True)
-                await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
-                )
+                await self._fail_initial_model_launch(model_uid)
                 raise
 
         if request_limits is not None and request_limits < 0:
@@ -4540,6 +4669,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
+        if model_uid is not None:
+            await self._recover_failed_initial_model_launch(model_uid)
         available_workers = []
         # search workers if registered
         tasks = []
@@ -4677,11 +4808,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if self._initial_model_launches[model_uid].cancelling:
                     raise
                 self._replica_model_uid_to_worker.update(pending_shards)
-                # terminate_model will remove the replica info.
-                await self.terminate_model(model_uid, suppress_exception=True)
-                await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
-                )
+                await self._fail_initial_model_launch(model_uid)
                 raise
 
         if model_uid is None:
@@ -5643,8 +5770,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
+        operation = self._initial_model_launches.get(model_uid)
         async with self._get_model_replica_lock(model_uid):
-            operation = self._initial_model_launches.get(model_uid)
+            if self._initial_model_launches.get(model_uid) is not operation:
+                raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
+            if (
+                operation is not None
+                and operation.cleanup_pending
+                and not operation.cancelling
+                and (operation.task.done() or operation.task is asyncio.current_task())
+            ):
+                await self._cleanup_failed_initial_model_launch(model_uid, operation)
+                if operation.task.done():
+                    await self._status_guard_ref.remove_failed_instance_info(model_uid)
+                return
             if operation is not None and operation.task is not asyncio.current_task():
                 raise ValueError(
                     "Initial launch is in progress; cancel the launch instead"
