@@ -1,12 +1,15 @@
 # CI: linux
 
+from types import SimpleNamespace
 from typing import Dict, Union
 
+import pynvml
 import pytest
 
+from xinference import device_utils
 from xinference.core import supervisor as supervisor_module
 from xinference.core.otel import ClusterMetricsCollector
-from xinference.core.resource import GPUStatus, ResourceStatus
+from xinference.core.resource import GPUStatus, ResourceStatus, gather_node_info
 from xinference.core.supervisor import SupervisorActor, WorkerStatus
 
 
@@ -172,6 +175,78 @@ async def test_supervisor_cluster_device_info_includes_gpu_utilization_average()
     assert worker_without_gpu["gpu_count"] == 0
     assert worker_without_gpu["gpu_utilization"] is None
     assert supervisor_info["gpu_utilization"] is None
+
+
+@pytest.mark.parametrize("has_memory_v2", [True, False])
+def test_unsupported_nvml_memory_preserves_gpu_status(
+    monkeypatch, caplog, has_memory_v2
+):
+    mib = 1024**2
+    memory = SimpleNamespace(total=8192 * mib, used=2048 * mib, free=6144 * mib)
+
+    def get_memory(handle, version=None):
+        if handle == 0:
+            raise pynvml.NVMLError_NotSupported()
+        return memory
+
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    monkeypatch.setattr(
+        device_utils,
+        "_find_device",
+        lambda: SimpleNamespace(get_gpu_info_fn=device_utils.get_nvidia_gpu_info),
+    )
+    monkeypatch.setattr(pynvml, "nvmlInit", lambda: None)
+    monkeypatch.setattr(pynvml, "nvmlShutdown", lambda: None)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetCount", lambda: 2)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetHandleByIndex", lambda index: index)
+    monkeypatch.setattr(
+        pynvml,
+        "nvmlDeviceGetName",
+        lambda handle: ("NVIDIA GB10", "Discrete GPU")[handle],
+    )
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetMemoryInfo", get_memory)
+    monkeypatch.setattr(
+        pynvml, "nvmlDeviceGetUtilizationRates", lambda handle: SimpleNamespace(gpu=37)
+    )
+    if not has_memory_v2:
+        monkeypatch.delattr(pynvml, "nvmlMemory_v2", raising=False)
+
+    info = device_utils.get_gpu_info()
+    assert info["gpu-0"] == {
+        "name": "NVIDIA GB10",
+        "total": 0,
+        "used": 0,
+        "free": 0,
+        "util": 37,
+    }
+    assert info["gpu-1"]["free_memory_mib"] == 6144
+    assert info["gpu-1"]["total_memory_mib"] == 8192
+    assert gather_node_info()["gpu-0"] == GPUStatus("NVIDIA GB10", 0, 0, 0, 0, 37)
+    assert "Fail to get GPU info" not in caplog.text
+
+
+def test_nvml_memory_v2_used_when_v1_is_unsupported(monkeypatch):
+    mib = 1024**2
+    memory = SimpleNamespace(total=8192 * mib, used=2048 * mib, free=6144 * mib)
+    memory_v2 = object()
+
+    def get_memory(handle, version=None):
+        if version is None:
+            raise pynvml.NVMLError_NotSupported()
+        assert version is memory_v2
+        return memory
+
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetHandleByIndex", lambda index: index)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetName", lambda handle: "Discrete GPU")
+    monkeypatch.setattr(pynvml, "nvmlMemory_v2", memory_v2, raising=False)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetMemoryInfo", get_memory)
+    monkeypatch.setattr(
+        pynvml, "nvmlDeviceGetUtilizationRates", lambda handle: SimpleNamespace(gpu=37)
+    )
+
+    info = device_utils._get_info_by_pynvml(0)
+    assert info["free_memory_mib"] == 6144
+    assert info["total_memory_mib"] == 8192
 
 
 @pytest.mark.asyncio
