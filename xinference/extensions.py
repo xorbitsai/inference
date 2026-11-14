@@ -214,6 +214,17 @@ def _call_hook(extension: Any, method: str, *args: Any) -> Any:
     )
 
 
+def resolve_replica_policy_provider() -> Any:
+    providers = [
+        extension
+        for extension in get_extensions()
+        if callable(getattr(extension, "replica_policy_provider", None))
+    ]
+    if len(providers) > 1:
+        raise ValueError("Multiple replica policy providers")
+    return _call_hook(providers[0], "replica_policy_provider") if providers else None
+
+
 def configure_api(context: APIExtensionContext) -> None:
     for extension in get_extensions():
         _call_hook(extension, "configure_api", context)

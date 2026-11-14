@@ -302,6 +302,17 @@ class SupervisorUpgradeState:
             "router_instances": copy.deepcopy(owner._token_router_registry._instances),
             "system_settings": dict(owner._system_settings),
             "uptime": owner._uptime,
+            "replica_autoscaling": {
+                uid: {"policy": state.policy.dict(), "model_type": state.model_type}
+                for uid, state in getattr(owner, "_replica_autoscalers", {}).items()
+                if uid in owner._model_uid_to_replica_info
+            },
+            "embedding_autoscaling": {
+                uid: state.policy.dict()
+                for uid, state in getattr(owner, "_replica_autoscalers", {}).items()
+                if state.model_type == "embedding"
+                and uid in owner._model_uid_to_replica_info
+            },
             "custom_models": CustomModelState.capture(owner),
         }
 
@@ -438,4 +449,17 @@ class SupervisorUpgradeState:
 
         apply_system_settings(SystemSettings.from_dict(owner._system_settings))
         owner._uptime = snapshot["uptime"]
+        from ..extensions import resolve_replica_policy_provider
+
+        provider = resolve_replica_policy_provider()
+        if provider is not None:
+            for uid, state in snapshot.get("replica_autoscaling", {}).items():
+                owner._start_replica_autoscaler(
+                    uid, provider.parse_policy(state["policy"]), state["model_type"]
+                )
+            for uid, policy in snapshot.get("embedding_autoscaling", {}).items():
+                if uid not in snapshot.get("replica_autoscaling", {}):
+                    owner._start_replica_autoscaler(
+                        uid, provider.parse_policy(policy), "embedding"
+                    )
         owner._supervisor_restored = True

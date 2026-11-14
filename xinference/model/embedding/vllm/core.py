@@ -16,9 +16,11 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
+from ....core.replica_load import EngineLoad
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ....utils import dependency_import_guard, dependency_import_message
@@ -44,7 +46,67 @@ SUPPORTED_MODELS_PREFIXES = [
 ]
 
 
+class _SchedulerLoad:
+    """One vLLM scheduler's latest queue count and continuous backlog duration."""
+
+    def __init__(self):
+        self.waiting = 0
+        self.running = 0
+        self.waiting_since = 0.0
+
+    def record(self, scheduler_stats, iteration_stats, **kwargs):
+        waiting = getattr(scheduler_stats, "num_waiting_reqs", None)
+        if not isinstance(waiting, int):
+            return
+        self.update(
+            waiting + getattr(scheduler_stats, "num_skipped_waiting_reqs", 0),
+            scheduler_stats.num_running_reqs,
+        )
+
+    def update(self, waiting: int, running: int):
+        if waiting and not self.waiting:
+            self.waiting_since = time.monotonic()
+        self.waiting = waiting
+        self.running = running
+
+    def backlog_age(self, now: float):
+        return max(0.0, now - self.waiting_since) if self.waiting else 0.0
+
+    def log(self):
+        pass
+
+    def log_engine_initialized(self):
+        pass
+
+    def record_sleep_state(self, *args, **kwargs):
+        pass
+
+
+class _PoolingProgress:
+    """Count unfinished inputs through LLM.embed's progress callback."""
+
+    def __init__(self, count: int):
+        self.count = count
+        self.n = 0
+        self.load = _SchedulerLoad()
+
+    def __call__(self, iterable=None, **kwargs):
+        # Older vLLM also passes the input iterator to tqdm during submission.
+        return self if iterable is None else iterable
+
+    def update(self, count: int):
+        self.n += count
+
+    def refresh(self):
+        pass
+
+    def close(self):
+        pass
+
+
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
+    replica_autoscaling = "native"
+
     # The backend can be either a synchronous LLM or an asynchronous engine.
     _model: Any
     _tokenizer: Any
@@ -55,6 +117,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._context_length = None
         self._chat_template = None
         self._native_pooling = False
+        self._scheduler_load: Optional[Dict[int, _SchedulerLoad]] = None
+        self._native_requests = 0
+        self._sync_capacity: Optional[int] = None
+        self._sync_metrics_verified = False
+        self._sync_progress: Optional[_PoolingProgress] = None
         self._prompts: Dict[str, str] = {}
         self._dimensions = None
 
@@ -66,6 +133,13 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             from vllm import LLM
             from vllm import __version__ as vllm_version
 
+        engine_version = Version(vllm_version)
+        # vLLM 0.12 removed V0. VACC can provide a different engine.
+        vllm_v1 = engine_version >= Version("0.12.0") and not is_vacc_available()
+        if not vllm_v1 and self._scheduler_load is not None:
+            raise ValueError(
+                "vLLM embedding autoscaling requires vLLM V1 (vLLM >= 0.12, excluding VACC)"
+            )
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)
 
@@ -87,6 +161,19 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 self._kwargs["hf_overrides"].update(
                     is_matryoshka=True,
                 )
+
+        native = (
+            vllm_v1
+            and engine_version >= Version("0.19.0")
+            and self.model_family.model_name != EMBEDDINGGEMMA2_MODEL_NAME
+            and not is_wemm_model(self.model_family.model_name)
+            and not self.model_family.model_name.startswith("Qwen3-VL-Embedding")
+        )
+        report_sync_load = (
+            self.__dict__.get("_scheduler_load") is not None and vllm_v1 and not native
+        )
+        if report_sync_load:
+            self._kwargs["disable_log_stats"] = False
 
         if self.model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
             supported = self._check_embeddinggemma2_support()
@@ -118,7 +205,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 self._chat_template = file.read()
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
         elif is_wemm_model(self.model_family.model_name):
-            if Version(vllm_version) < Version("0.27.0"):
+            if engine_version < Version("0.27.0"):
                 raise ValueError("WeMM-Embedding requires vLLM>=0.27.0")
             template_path = os.path.join(
                 self._model_path, "embedding_chat_template.jinja"
@@ -132,28 +219,94 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             self._kwargs.setdefault("gpu_memory_utilization", 0.6)
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
         elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            if Version(vllm_version) < Version("0.14.0"):
+            if engine_version < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
-        elif Version(vllm_version) >= Version("0.19.0") and not is_vacc_available():
+        elif native:
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.v1.engine.async_llm import AsyncLLM
 
             self._kwargs.setdefault("runner", "pooling")
-            self._model = AsyncLLM.from_engine_args(
-                AsyncEngineArgs(model=self._model_path, **self._kwargs)
-            )
+            engine_args = AsyncEngineArgs(model=self._model_path, **self._kwargs)
+            if self._scheduler_load is None:
+                self._model = AsyncLLM.from_engine_args(engine_args)
+            else:
+                self._model = AsyncLLM.from_engine_args(
+                    engine_args, stat_loggers=[self._scheduler_load_logger]
+                )
             self._native_pooling = True
             # Submit requests immediately; vLLM owns the cross-request queue.
             self.create_embedding = self._async_create_embedding
         else:
-            if Version(vllm_version) >= Version("0.13.0"):
+            if engine_version >= Version("0.13.0"):
                 self._model = LLM(
                     model=self._model_path, runner="pooling", **self._kwargs
                 )
             else:
                 self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
+        if report_sync_load:
+            config = self._model.llm_engine.vllm_config
+            self._sync_capacity = config.scheduler_config.max_num_seqs
+
+    def enable_engine_load_reporting(self):
+        self._scheduler_load = {}
+
+    def _scheduler_load_logger(self, vllm_config, engine_index: int = 0):
+        assert self._scheduler_load is not None
+        load = _SchedulerLoad()
+        self._scheduler_load[engine_index] = load
+        return load
+
+    def get_engine_load(self) -> Optional[EngineLoad]:
+        progress = self._sync_progress
+        sync_capacity = self._sync_capacity
+        if sync_capacity is not None:
+            if progress is None:
+                if not self._sync_metrics_verified:
+                    self._sync_metrics_verified = (
+                        self._get_sync_scheduler_load() is not None
+                    )
+                return EngineLoad() if self._sync_metrics_verified else None
+            metrics = self._get_sync_scheduler_load()
+            if metrics is None:
+                return None
+            waiting, running = metrics
+            if progress is not self._sync_progress:
+                return EngineLoad()
+            # Synchronous pooling can retain inputs outside EngineCore.
+            # At most max_num_seqs of the unfinished inputs can run at once.
+            waiting = max(waiting, progress.count - progress.n - sync_capacity)
+            progress.load.update(waiting, running)
+            return EngineLoad(
+                waiting, progress.load.backlog_age(time.monotonic()), running
+            )
+        schedulers = self._scheduler_load
+        if not schedulers:
+            return None
+        if not self._native_requests:
+            return EngineLoad()
+        now = time.monotonic()
+        waiting = sum(load.waiting for load in schedulers.values())
+        backlog_seconds = max(load.backlog_age(now) for load in schedulers.values())
+        return EngineLoad(
+            waiting, backlog_seconds, sum(load.running for load in schedulers.values())
+        )
+
+    def _get_sync_scheduler_load(self) -> Optional[Tuple[int, int]]:
+        counts = {"vllm:num_requests_waiting": 0, "vllm:num_requests_running": 0}
+        seen = set()
+        try:
+            for metric in self._model.get_metrics():
+                if metric.name in counts:
+                    seen.add(metric.name)
+                    counts[metric.name] += int(metric.value)
+        except Exception:
+            logger.debug("Could not read vLLM scheduler metrics", exc_info=True)
+            return None
+        if seen != counts.keys():
+            return None
+        return counts["vllm:num_requests_waiting"], counts["vllm:num_requests_running"]
 
     @staticmethod
     def _get_detailed_instruct(task_description: str, query: str) -> str:
@@ -231,6 +384,16 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             pool_params = PoolingParams(dimensions=dimensions)
         return sentences, pool_params, model_uid
 
+    def _embed_sync(self, prompts: Any, use_tqdm: bool = False, **kwargs):
+        if self.__dict__.get("_sync_capacity") is None:
+            return self._model.embed(prompts, use_tqdm=use_tqdm, **kwargs)
+        progress = _PoolingProgress(len(prompts) if isinstance(prompts, list) else 1)
+        self._sync_progress = progress
+        try:
+            return self._model.embed(prompts, use_tqdm=progress, **kwargs)
+        finally:
+            self._sync_progress = None
+
     def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
         sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
         if self.model_family.model_name == EMBEDDINGGEMMA2_MODEL_NAME:
@@ -240,9 +403,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
             outputs = self._embed_vl(sentences)
         else:
-            outputs = self._model.embed(
-                sentences, use_tqdm=False, pooling_params=pool_params
-            )
+            outputs = self._embed_sync(sentences, pooling_params=pool_params)
         result = self._format_embedding_outputs(outputs, model_uid)
         self._clean_cache_if_needed(result["usage"]["total_tokens"])
         return self._with_token_counts(
@@ -309,9 +470,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             vllm_inputs.append(item)
         if not vllm_inputs:
             return []
-        return self._model.embed(
-            vllm_inputs, use_tqdm=False, pooling_params=pool_params
-        )
+        return self._embed_sync(vllm_inputs, pooling_params=pool_params)
 
     async def _async_create_embedding(self, sentences: Any, **kwargs) -> Embedding:
         from vllm.outputs import EmbeddingRequestOutput
@@ -334,6 +493,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 raise RuntimeError("vLLM returned no embedding output")
             return EmbeddingRequestOutput.from_base(output)
 
+        schedulers = self._scheduler_load
+        if schedulers is not None:
+            if not self._native_requests:
+                for load in schedulers.values():
+                    load.waiting = load.running = 0
+            self._native_requests += 1
         tasks = [asyncio.create_task(encode(i, p)) for i, p in enumerate(prompts)]
         try:
             outputs = await asyncio.gather(*tasks)
@@ -343,7 +508,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             for task in tasks:
                 if not task.done():
                     task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            finally:
+                if schedulers is not None:
+                    self._native_requests -= 1
         # vLLM owns the worker's GPU allocations. Avoid collecting the actor's
         # Python heap every few requests while native inference is in flight.
         return self._format_embedding_outputs(outputs, model_uid)
@@ -423,11 +592,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 item["multi_modal_data"] = multi_modal_data
             vllm_inputs.append(item)
 
-        return self._model.embed(
-            vllm_inputs,
-            use_tqdm=False,
-            pooling_params=pool_params,
-        )
+        return self._embed_sync(vllm_inputs, pooling_params=pool_params)
 
     def _embed_vl(
         self, inputs: Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]
@@ -537,7 +702,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
         assert self._model is not None
         vllm_inputs = [_prepare_vllm_inputs(item, self._model) for item in normalized]
-        return self._model.embed(vllm_inputs)
+        return self._embed_sync(vllm_inputs, use_tqdm=True)
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:

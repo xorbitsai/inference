@@ -50,6 +50,7 @@ def install(monkeypatch, *, devices=None, name="test", version=1):
 
 def test_default_has_no_distribution_dependency():
     assert extensions.get_extensions() == ()
+    assert extensions.resolve_replica_policy_provider() is None
     worker = {"gpu_devices": [0, 1], "extensions": {}}
     assert extensions.filter_worker_resources(worker, [worker]) == [0, 1]
 
@@ -65,6 +66,17 @@ def test_process_local_load_and_named_operation(monkeypatch):
     assert extensions.call_extension("test", "status", {"a": 1}) == ("status", {"a": 1})
     with pytest.raises(ValueError):
         extensions.call_extension("missing", "status", {})
+
+
+def test_replica_policy_provider_must_be_unique(monkeypatch):
+    install(monkeypatch)
+    (extension,) = extensions.get_extensions()
+    provider = object()
+    extension.replica_policy_provider = lambda: provider
+    assert extensions.resolve_replica_policy_provider() is provider
+    monkeypatch.setattr(extensions, "get_extensions", lambda: (extension, extension))
+    with pytest.raises(ValueError, match="Multiple replica policy providers"):
+        extensions.resolve_replica_policy_provider()
 
 
 def test_filter_cannot_expand_visible_devices(monkeypatch):

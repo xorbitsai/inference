@@ -2614,6 +2614,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     "instance_created_ts": created_ts,
                 }
             )
+            policy = launch_args.get(
+                "_replica_autoscaling", launch_args.get("_embedding_autoscaling")
+            )
+            if policy is not None:
+                replica_states[-1]["replica_autoscaling"] = policy
+                replica_states[-1]["model_type"] = launch_args.get("model_type")
+                if "_embedding_autoscaling" in launch_args:
+                    replica_states[-1]["embedding_autoscaling"] = policy
         return replica_states
 
     @staticmethod
@@ -5473,6 +5481,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        autoscaling = kwargs.pop(
+            "_replica_autoscaling", kwargs.pop("_embedding_autoscaling", None)
+        )
+        if autoscaling is not None and n_worker != 1:
+            raise ValueError("Automatic replica changes require one worker per replica")
         from ..model.llm.context_length import validate_context_length_launch
 
         validate_context_length_launch(model_type, model_engine, kwargs)
@@ -5976,6 +5989,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             driver_info=driver_info,
                             model_engine=model_engine,
                             model_python_executable=model_python_executable,
+                            replica_admission=autoscaling,
                             **(
                                 {"worker_status_token": status_token}
                                 if status_token is not None

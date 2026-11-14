@@ -67,6 +67,7 @@ class RealtimeRuntime:
         limits: Optional[RealtimeLimits] = None,
         inference_lock: Optional[asyncio.Lock] = None,
         admission: Optional[Callable[[], bool]] = None,
+        on_session_finished: Optional[Callable[[], None]] = None,
     ):
         self.model = model
         self.model_uid = model_uid
@@ -78,6 +79,7 @@ class RealtimeRuntime:
         self._handlers: Dict[asyncio.Task, web.WebSocketResponse] = {}
         self._inference_lock = inference_lock or asyncio.Lock()
         self._admission = admission or (lambda: True)
+        self._on_session_finished = on_session_finished
         self._executor = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="realtime"
         )
@@ -346,6 +348,8 @@ class RealtimeRuntime:
                     finally:
                         self.active_count -= 1
                         self._handlers.pop(handler, None)
+                        if self._on_session_finished is not None:
+                            self._on_session_finished()
 
             try:
                 await _settle(asyncio.create_task(cleanup()))

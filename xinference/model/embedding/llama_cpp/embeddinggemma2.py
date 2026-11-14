@@ -111,6 +111,8 @@ def prepare_inputs(sentences: Any, **kwargs: Any) -> List[Dict[str, Any]]:
 
 
 class XllamaCppEmbeddingGemma2Model(XllamaCppEmbeddingModel):
+    replica_autoscaling = "native"
+
     supports_dimensions = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
