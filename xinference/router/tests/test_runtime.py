@@ -303,3 +303,71 @@ async def test_summary_reports_measured_asset_fingerprint(monkeypatch) -> None:
     assert summary["tokenizer_asset"]["fingerprint"] == "sha256:measured-fingerprint"
 
     await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_reload_keeps_capacity_of_unchanged_backend(
+    monkeypatch, tmp_path
+) -> None:
+    from xinference.router import runtime as runtime_module
+    from xinference.router.admission import AdmissionRejected
+    from xinference.router.config import config_from_control_plane
+
+    monkeypatch.setattr(
+        runtime_module, "TokenizationService", lambda *a, **kw: FakeTokenization()
+    )
+
+    def router_config(revision: int, max_active: int = 1):
+        return config_from_control_plane(
+            {
+                "config_version": 2,
+                "enabled": True,
+                "revision": revision,
+                "virtual_model_uid": "router-model",
+                "tokenizer_path": str(tmp_path),
+                "backend_url": "http://backend.invalid",
+                "backends": [
+                    {
+                        "id": "limited",
+                        "model_uid": "limited-model",
+                        "max_context_tokens": 4096,
+                        "admission": {"max_active": max_active, "max_queue": 0},
+                    }
+                ],
+                "routing": {
+                    "rules": [
+                        {
+                            "id": "route",
+                            "priority": 1,
+                            "match": {"total_tokens_gte": 0},
+                            "action": {"type": "route", "backend_id": "limited"},
+                        }
+                    ],
+                    "default_action": {"type": "reject", "reason": "no_route"},
+                },
+                "tokenization": {"max_workers": 1, "max_active": 1, "max_queue": 0},
+            }
+        )
+
+    runtime = RouterRuntime(router_config(1))
+    await runtime.start()
+    held = await runtime.acquire()
+    await held.gates["limited"].acquire()
+
+    await runtime.apply(router_config(2))
+    assert held.draining is True
+    current = await runtime.acquire()
+    try:
+        with pytest.raises(AdmissionRejected) as exc_info:
+            await current.gates["limited"].acquire()
+        assert exc_info.value.reason == "queue_full"
+        assert (await runtime.summary())["pools"]["limited"]["active"] == 1
+
+        # A changed limit starts a new gate rather than inheriting the old one.
+        await runtime.apply(router_config(3, max_active=2))
+        assert runtime.current.gates["limited"] is not held.gates["limited"]
+    finally:
+        await runtime.release(current)
+        await held.gates["limited"].release()
+        await runtime.release(held)
+        await runtime.aclose()
