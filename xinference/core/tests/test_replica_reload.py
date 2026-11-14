@@ -28,7 +28,15 @@ def make_replicas(count=2):
             mapping = getattr(worker, name)
             mapping[uid] = mapping.pop("test-replica")
         worker._model_uid_to_launch_args[uid]["model_uid"] = uid
-        actor.address, actor.uid = "anchor", uid.encode()
+        actor.address, actor.uid = f"anchor-{uid}", uid.encode()
+        worker.address = "worker"
+        worker._total_gpu_devices = [0, 1]
+        worker._gpu_to_model_uids = {}
+        worker._user_specified_gpu_to_model_uids = {
+            0: {(replica_uid, "LLM") for replica_uid in uids}
+        }
+        worker._allow_multi_replica_per_gpu = True
+        worker._get_allowed_gpu_devices = AsyncMock(return_value=None)
         ref = worker.get_model(uid)
         ref.address, ref.uid = actor.address, actor.uid
         ref.wait_for_generation_retirement = AsyncMock()
@@ -94,23 +102,56 @@ async def test_reload_is_sequential_and_fences_scale():
 
 
 @pytest.mark.asyncio
-async def test_rolling_reload_stops_if_anchor_lacks_retirement_wait():
-    owner, workers, actors, uids = make_replicas()
-    ref = await workers[0].get_model(uids[0])
-    del ref.wait_for_generation_retirement
-    workers[1].reload_model = AsyncMock()
+@pytest.mark.parametrize("older_index", [0, 1])
+@pytest.mark.parametrize("support", ["missing", "forwarded", "old_signature"])
+async def test_rolling_reload_stops_if_anchor_lacks_retirement_wait(
+    monkeypatch, older_index, support
+):
+    from .. import model_generation
+    from .test_model_generation import ServingGeneration
 
-    await owner.reload_model("test", {"max_num_seqs": 32})
-    await owner._model_reload_tasks["test"]
-    status = await owner.get_model_reload_status("test")
-    assert status["status"] == "error" and status["partial"]
-    assert "retirement-wait support" in status["error"]
-    assert [row["status"] for row in status["replicas"]] == ["ready", "skipped"]
-    assert [actor._model._reload_config["max_num_seqs"] for actor in actors] == [
-        32,
-        16,
-    ]
-    workers[1].reload_model.assert_not_awaited()
+    owner, workers, actors, uids = make_replicas(older_index + 2)
+    ref = await workers[older_index].get_model(uids[older_index])
+    if support == "missing":
+        del ref.wait_for_generation_retirement
+    elif support == "old_signature":
+
+        async def wait_without_check_only(address, uid):
+            pass
+
+        ref.wait_for_generation_retirement = wait_without_check_only
+    else:
+        monkeypatch.setattr(
+            model_generation,
+            "LOCAL_METHODS",
+            model_generation.LOCAL_METHODS - {"wait_for_generation_retirement"},
+        )
+        anchor = ServingGeneration("old")
+        anchor.address, anchor.uid = ref.address, ref.uid
+        target = ServingGeneration("new")
+        target.address, target.uid = "new-pool", b"new"
+        anchor._serving_generation = target
+
+        async def forwarded(*args, **kwargs):
+            return await anchor.__on_receive__(
+                ("wait_for_generation_retirement", 0, args, kwargs)
+            )
+
+        ref.wait_for_generation_retirement = forwarded
+
+    engines = [actor._model.engine for actor in actors]
+    for worker in workers:
+        worker.reload_model = AsyncMock(wraps=worker.reload_model)
+    with pytest.raises(RuntimeError, match="restart.*supporting Xinference"):
+        await owner.reload_model("test", {"max_num_seqs": 32})
+    assert not owner._model_reload_tasks
+    assert not owner._model_reload_status
+    assert [actor._model.engine for actor in actors] == engines
+    assert all(actor._model._reload_config["max_num_seqs"] == 16 for actor in actors)
+    assert all(not actor._model.stops for actor in actors)
+    for worker in workers:
+        worker.reload_model.assert_not_awaited()
+        worker._persist_launch_args.assert_not_called()
     owner._launch_history_store.update_autostart_launch_config.assert_not_called()
 
 
@@ -152,8 +193,8 @@ def retiring_replicas(monkeypatch):
         return_value=SimpleNamespace(retire_model_generation_pool=AsyncMock())
     )
 
-    async def wait_for_retirement(address, uid):
-        await anchor.wait_for_generation_retirement(address, uid)
+    async def wait_for_retirement(address, uid, **kwargs):
+        await anchor.wait_for_generation_retirement(address, uid, **kwargs)
 
     workers[0]._model_uid_to_model[
         uids[0]
@@ -198,11 +239,186 @@ def retiring_replicas(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("placement", ["explicit", "auto", "different_worker"])
+async def test_independent_replicas_cut_over_while_old_request_runs(
+    retiring_replicas, placement
+):
+    from ..model import request_limit
+    from .test_model_generation import ServingGeneration
+
+    owner, actors, state = retiring_replicas
+    uids = list(owner._replica_model_uid_to_worker)
+    workers = list(owner._replica_model_uid_to_worker.values())
+    if placement == "different_worker":
+        workers[1].address = "other-worker"
+        workers[1].get_gpu_allocation_status = AsyncMock(
+            side_effect=AttributeError("old worker has no allocation snapshot")
+        )
+    else:
+        for worker, uid, device in zip(workers, uids, [0, 1]):
+            if placement == "auto":
+                worker._model_uid_to_launch_args[uid].update(gpu_idx=None, n_gpu="auto")
+                worker._user_specified_gpu_to_model_uids = {}
+                worker._gpu_to_model_uids = {0: {uids[0]}, 1: {uids[1]}}
+            else:
+                worker._model_uid_to_launch_args[uid]["gpu_idx"] = [device]
+                worker._user_specified_gpu_to_model_uids = {
+                    0: {(uids[0], "LLM")},
+                    1: {(uids[1], "LLM")},
+                }
+    # The second GPU has room even while GPU 0 retains the old engine.
+    from ...model.llm import weight_cache
+
+    snapshot = weight_cache._gpu_memory_snapshot
+
+    def independent_snapshot():
+        total, _, processes = snapshot()[0]
+        processes.pop(67891, None)
+        return {1: (total, total - sum(processes.values()), processes)}
+
+    # Use the fixture's monkeypatch lifetime through a local context.
+    with pytest.MonkeyPatch.context() as patcher:
+        patcher.setattr(weight_cache, "_gpu_memory_snapshot", independent_snapshot)
+        old = ServingGeneration("old")
+        request_entered, request_release = asyncio.Event(), asyncio.Event()
+
+        @request_limit
+        async def held_request(self):
+            request_entered.set()
+            await request_release.wait()
+            assert not self.stopped
+            return "old-result"
+
+        request = asyncio.create_task(held_request(old))
+        await request_entered.wait()
+        actors[0]._serving_generation.generation_serve_count = AsyncMock(
+            side_effect=old.generation_serve_count
+        )
+        await owner.reload_model("test", {"max_num_seqs": 32})
+        task = owner._model_reload_tasks["test"]
+        try:
+            await asyncio.wait_for(asyncio.shield(task), 1)
+            status = await owner.get_model_reload_status("test")
+            assert status["status"] == "ready" and status["completed_replicas"] == 2
+            assert state.capacity_checked.is_set()
+            assert not request.done() and old._serve_count == 1
+            assert not state.entered.is_set() and not state.freed
+            assert actors[0]._serving_generation.uid == b"new"
+            assert actors[1]._model._reload_config["max_num_seqs"] == 32
+            request_release.set()
+            assert await asyncio.wait_for(request, 1) == "old-result"
+            await asyncio.wait_for(state.entered.wait(), 1)
+        finally:
+            request_release.set()
+            state.release.set()
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(request, task, return_exceptions=True)
+            await asyncio.wait_for(
+                asyncio.gather(*actors[0]._generation_retirement_tasks), 1
+            )
+
+
+@pytest.mark.asyncio
+async def test_unknown_placement_bounds_wait_and_preserves_retirement(
+    retiring_replicas, monkeypatch
+):
+    from .. import model_reload
+
+    owner, actors, state = retiring_replicas
+    workers = list(owner._replica_model_uid_to_worker.values())
+    workers[1].get_gpu_allocation_status = AsyncMock(return_value={})
+    monkeypatch.setattr(
+        model_reload, "UNKNOWN_PLACEMENT_RETIREMENT_TIMEOUT", 0, raising=False
+    )
+    await owner.reload_model("test", {"max_num_seqs": 32})
+    task = owner._model_reload_tasks["test"]
+    try:
+        await asyncio.wait_for(asyncio.shield(task), 1)
+        status = await owner.get_model_reload_status("test")
+        assert status["status"] == "error" and status["partial"]
+        assert "retirement" in status["error"] and "retry" in status["error"]
+        assert [row["status"] for row in status["replicas"]] == ["ready", "skipped"]
+        assert not state.capacity_checked.is_set() and not state.freed
+        assert actors[0]._serving_generation.uid == b"new"
+        assert actors[1]._model._reload_config["max_num_seqs"] == 16
+        assert all(
+            not cleanup.cancelled()
+            for cleanup in actors[0]._generation_retirement_tasks
+        )
+        owner._launch_history_store.update_autostart_launch_config.assert_not_called()
+    finally:
+        state.release.set()
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.wait_for(
+            asyncio.gather(*actors[0]._generation_retirement_tasks), 1
+        )
+    assert state.freed and not actors[0]._retiring_generations
+
+
+@pytest.mark.asyncio
+async def test_independent_replica_precedes_wait_for_nonadjacent_gpu_peer():
+    owner, workers, actors, uids = make_replicas(3)
+    entered, release = asyncio.Event(), asyncio.Event()
+    for worker in workers:
+        worker._user_specified_gpu_to_model_uids = {
+            0: {(uids[0], "LLM"), (uids[2], "LLM")},
+            1: {(uids[1], "LLM")},
+        }
+    ref = await workers[0].get_model(uids[0])
+
+    async def wait_for_retirement(address, uid, check_only=False):
+        assert (address, uid) == (ref.address, ref.uid)
+        if not check_only:
+            entered.set()
+            await release.wait()
+
+    ref.wait_for_generation_retirement = wait_for_retirement
+    # Neither independent nor final replicas need retirement-wait support.
+    for index in [1, 2]:
+        del (await workers[index].get_model(uids[index])).wait_for_generation_retirement
+    await owner.reload_model("test", {"max_num_seqs": 32})
+    task = owner._model_reload_tasks["test"]
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        assert [actor._model._reload_config["max_num_seqs"] for actor in actors] == [
+            32,
+            32,
+            16,
+        ]
+        status = await owner.get_model_reload_status("test")
+        assert [row["status"] for row in status["replicas"]] == [
+            "ready",
+            "ready",
+            "queued",
+        ]
+        release.set()
+        await asyncio.wait_for(task, 1)
+        assert (await owner.get_model_reload_status("test"))["status"] == "ready"
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["complete", "error", "cancel"])
+@pytest.mark.parametrize("placement", ["same_gpu", "shared_process"])
 async def test_rolling_reload_waits_for_retirement_before_next_capacity_check(
-    retiring_replicas, outcome
+    retiring_replicas, outcome, placement
 ):
     owner, actors, state = retiring_replicas
+    if placement == "shared_process":
+        uids = list(owner._replica_model_uid_to_worker)
+        workers = list(owner._replica_model_uid_to_worker.values())
+        ref = await workers[0].get_model(uids[0])
+        (await workers[1].get_model(uids[1])).address = ref.address
+        for worker in workers:
+            worker._user_specified_gpu_to_model_uids = {
+                0: {(uids[0], "LLM")},
+                1: {(uids[1], "LLM")},
+            }
     state.fail = outcome == "error"
     # This is not a deadline for retirement of the replacement's predecessor.
     await owner.reload_model("test", {"max_num_seqs": 32}, drain_timeout=0)

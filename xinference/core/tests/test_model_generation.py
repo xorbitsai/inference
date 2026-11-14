@@ -176,7 +176,10 @@ async def test_retirement_removes_only_private_generation_pool():
 
 
 @pytest.mark.asyncio
-async def test_retirement_wait_rejects_forwarding_from_an_older_anchor(monkeypatch):
+@pytest.mark.parametrize("check_only", [False, True])
+async def test_retirement_wait_rejects_forwarding_from_an_older_anchor(
+    monkeypatch, check_only
+):
     from .. import model_generation
 
     monkeypatch.setattr(
@@ -197,10 +200,30 @@ async def test_retirement_wait_rejects_forwarding_from_an_older_anchor(monkeypat
                 "wait_for_generation_retirement",
                 0,
                 (anchor.address, anchor.uid),
-                {},
+                {"check_only": True} if check_only else {},
             )
         )
     assert anchor._retiring_generations == [None]
+
+
+@pytest.mark.asyncio
+async def test_retirement_support_check_leaves_pending_requests_and_cleanup_running():
+    actor = ServingGeneration("current")
+    actor.address, actor.uid = "anchor", b"model"
+    actor._retiring_generations = [None]
+    actor._serve_count = 1
+    release = asyncio.Event()
+    retiring = asyncio.create_task(release.wait())
+    actor._generation_retirement_tasks = {retiring}
+    try:
+        await actor.wait_for_generation_retirement(
+            actor.address, actor.uid, check_only=True
+        )
+        assert not retiring.done() and actor._serve_count == 1
+        assert not actor.stopped and actor._retiring_generations == [None]
+    finally:
+        release.set()
+        await retiring
 
 
 @pytest.mark.asyncio

@@ -429,7 +429,7 @@ class ModelGenerationMixin:
         task.add_done_callback(completed)
 
     async def wait_for_generation_retirement(
-        self, expected_address: str, expected_uid: bytes
+        self, expected_address: str, expected_uid: bytes, check_only: bool = False
     ) -> None:
         """Keep later replicas from preparing until this replacement frees memory."""
         # Older anchors may forward this new RPC to their serving generation.
@@ -439,6 +439,8 @@ class ModelGenerationMixin:
                 "Retirement wait did not reach the original model actor; "
                 "restart the model with a supporting Xinference version"
             )
+        if check_only:
+            return
         tasks = tuple(self.__dict__.get("_generation_retirement_tasks", ()))
         if tasks:
             # Replacement requests may finish without a deadline. Cancelling
