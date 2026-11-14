@@ -3221,6 +3221,57 @@ def load_downloaded_models_to_dict(
         )
 
 
+def load_github_models(
+    model_type: str,
+    load_model_family_func: Callable[..., None],
+) -> Tuple[bool, Any]:
+    from ..core.model_catalog import github_catalog_path, read_github_catalog
+
+    complete, records = read_github_catalog(github_catalog_path(model_type))
+    if model_type == "llm":
+        families: Any = []
+        load_model_family_func(records, families, register_metadata=False)
+    else:
+        families = {}
+        load_model_family_func(records, families)
+    return complete, families
+
+
+def apply_github_catalog(
+    current: Dict[str, List[Any]],
+    downloaded: Dict[str, List[Any]],
+    bundled: Dict[str, List[Any]],
+    *,
+    complete: bool,
+    family_key: Optional[Callable[[Any], str]] = None,
+) -> Dict[str, List[Any]]:
+    """Apply the GitHub snapshot without elevating downloaded model provenance."""
+    active = {} if complete else current.copy()
+    if not complete and family_key is not None:
+        refreshed_families = {
+            family_key(model) for models in downloaded.values() for model in models
+        }
+        for name, models in current.items():
+            remaining = [
+                model for model in models if family_key(model) not in refreshed_families
+            ]
+            if remaining:
+                active[name] = remaining
+            else:
+                del active[name]
+
+    for name, models in downloaded.items():
+        bundled_by_value = {
+            family_identity_key(model): model for model in bundled.get(name, [])
+        }
+        for model in models:
+            model.is_builtin = False
+        active[name] = [
+            bundled_by_value.get(family_identity_key(model), model) for model in models
+        ]
+    return active
+
+
 def model_catalog_priority(model: Any, *, bundled: bool) -> float:
     """Rank catalog entries, preferring bundled entries with no comparable date."""
     timestamp = getattr(model, "updated_at", None)
@@ -3329,6 +3380,7 @@ def install_models_with_merge(
     load_model_family_func,
     model_identity_func: Optional[Callable[[Any], Any]] = None,
     model_normalize_func: Optional[Callable[[Any, Dict[str, List[Any]]], None]] = None,
+    github_family_key: Optional[Callable[[Any], str]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -3343,6 +3395,8 @@ def install_models_with_merge(
             versioned variants under the same model name.
         model_normalize_func: Optional function that upgrades downloaded model
             metadata before identity and timestamp comparison.
+        github_family_key: Replacement key for GitHub records that expand into
+            multiple model names.
     """
     import os.path
 
@@ -3366,8 +3420,11 @@ def install_models_with_merge(
         for _family in _specs:
             _family.is_builtin = True
 
-    # Then load user-defined models and merge with built-in models
-    if has_downloaded_models_func():
+    complete, github_models = load_github_models(
+        user_model_type, load_model_family_func
+    )
+    merged_models = freshly_loaded_builtins
+    if not complete and has_downloaded_models_func():
         user_models: Dict[str, Any] = {}
         load_downloaded_models_to_dict(
             user_models, user_model_type, user_json_filename, load_model_family_func
@@ -3383,12 +3440,16 @@ def install_models_with_merge(
             freshly_loaded_builtins, user_models, model_identity_func
         )
 
-        # Update the dictionary with merged results
-        built_in_dict.clear()
-        built_in_dict.update(merged_models)
-    else:
-        built_in_dict.clear()
-        built_in_dict.update(freshly_loaded_builtins)
+    if complete or github_models:
+        merged_models = apply_github_catalog(
+            merged_models,
+            github_models,
+            freshly_loaded_builtins,
+            complete=complete,
+            family_key=github_family_key,
+        )
+    built_in_dict.clear()
+    built_in_dict.update(merged_models)
 
 
 def allow_trust_remote_code(model_family) -> bool:

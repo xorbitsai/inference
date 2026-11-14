@@ -342,7 +342,8 @@ it('renders catalog actions from the Chinese dictionary', async () => {
     root.render(<LaunchModel routeType={ModelType.LLM} initialCustomType={ModelType.LLM} />)
   );
   const labels = [...host.querySelectorAll('button')].map((button) => button.textContent?.trim());
-  assert.ok(labels.includes('模型详情'));
+  assert.ok(labels.includes('更新单个模型'));
+  assert.ok(!labels.includes('模型详情'));
   assert.ok(labels.includes('启动'));
 });
 

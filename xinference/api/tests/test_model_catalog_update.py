@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
-from fastapi import APIRouter, FastAPI, HTTPException
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import APIRouter, FastAPI
 from xoscar.serialization import deserialize, serialize
 
-from xinference import extensions
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
 from xinference.api.restful_api import RESTfulAPI
 from xinference.api.routers import models
@@ -30,13 +30,12 @@ from xinference.core.exceptions import (
     ModelCatalogUnavailableError,
     ModelCatalogUpdateError,
 )
-from xinference.extensions import ModelCatalogCredentials
 
 TOKEN = "test-catalog-secret"
 
 
 @pytest.fixture
-def api(tmp_path, monkeypatch):
+def api(tmp_path):
     api = RESTfulAPI.__new__(RESTfulAPI)
     api._app = FastAPI()
     api._router = APIRouter()
@@ -49,15 +48,9 @@ def api(tmp_path, monkeypatch):
     api._get_supervisor_ref = AsyncMock(
         return_value=SimpleNamespace(update_model_type=AsyncMock())
     )
-    hook = Mock(return_value=ModelCatalogCredentials(TOKEN))
-    monkeypatch.setattr(
-        extensions,
-        "get_extensions",
-        lambda: (SimpleNamespace(name="catalog", model_catalog_credentials=hook),),
-    )
     models.register_routes(api)
     api._app.include_router(api._router)
-    return api, hook
+    return api
 
 
 def bearer(api, permissions):
@@ -91,65 +84,41 @@ async def update(api, headers, *, single=False, **request_kwargs):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("single", [False, True])
 @pytest.mark.parametrize("permissions, status", [(None, 401), (["models:read"], 403)])
-async def test_authentication_and_scope_checks_precede_provider(
+async def test_refresh_requires_authentication_and_registration_scope(
     api, permissions, status, single
 ):
-    runtime, hook = api
+    runtime = api
     headers = bearer(runtime, permissions) if permissions is not None else {}
     result = await update(runtime, headers, single=single)
     assert result.status_code == status
-    hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_authenticated_provider_and_unchanged_success_response(api):
-    runtime, hook = api
+async def test_authenticated_refresh_keeps_success_response(api):
+    runtime = api
     result = await update(runtime, bearer(runtime, ["models:register"]))
     assert result.status_code == 200
     assert result.json() == {
         "data": {"model_type": "llm", "message": "Successfully updated model type: llm"}
     }
-    request, model_type = hook.call_args.args
-    assert request.headers["authorization"].startswith("Bearer ")
-    assert model_type == "llm"
     supervisor = await runtime._get_supervisor_ref()
-    supervisor.update_model_type.assert_awaited_once_with(
-        "llm", credentials=ModelCatalogCredentials(TOKEN)
-    )
+    supervisor.update_model_type.assert_awaited_once_with("llm")
     assert TOKEN not in result.text
 
 
 @pytest.mark.asyncio
-async def test_anonymous_refresh_without_extension_keeps_rpc_shape(api, monkeypatch):
-    runtime, _ = api
+async def test_anonymous_refresh_keeps_rpc_shape(api):
+    runtime = api
     runtime._advanced_auth_service = None
     runtime._router = APIRouter()
     runtime._app = FastAPI()
     models.register_routes(runtime)
     runtime._app.include_router(runtime._router)
-    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
     result = await update(runtime, {})
     assert result.status_code == 200
     supervisor = await runtime._get_supervisor_ref()
     supervisor.update_model_type.assert_awaited_once_with("llm")
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("exception_type", [HTTPException, StarletteHTTPException])
-@pytest.mark.parametrize("status", [401, 403])
-async def test_provider_denial_preserves_http_status_headers_and_never_calls_supervisor(
-    api, exception_type, status
-):
-    runtime, hook = api
-    hook.side_effect = exception_type(
-        status, "Catalog access denied", headers={"WWW-Authenticate": "Bearer"}
-    )
-    result = await update(runtime, bearer(runtime, ["models:register"]))
-    assert result.status_code == status
-    assert result.json() == {"detail": "Catalog access denied"}
-    assert result.headers["WWW-Authenticate"] == "Bearer"
-    runtime._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -163,8 +132,8 @@ async def test_provider_denial_preserves_http_status_headers_and_never_calls_sup
         {"json": {"model_type": []}},
     ],
 )
-async def test_invalid_body_is_400_before_provider_or_rpc(api, caplog, request_kwargs):
-    runtime, hook = api
+async def test_invalid_body_is_400_before_rpc(api, caplog, request_kwargs):
+    runtime = api
     caplog.set_level(logging.DEBUG, logger="xinference.api.restful_api")
     headers = bearer(runtime, ["models:register"])
     headers.update(request_kwargs.get("headers", {}))
@@ -174,18 +143,12 @@ async def test_invalid_body_is_400_before_provider_or_rpc(api, caplog, request_k
     assert result.json() == {"detail": "Invalid request body"}
     assert TOKEN not in result.text
     assert TOKEN not in caplog.text
-    hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("credentialed", [False, True])
-async def test_single_model_refresh_uses_the_existing_provider_and_permission_path(
-    api, monkeypatch, credentialed
-):
-    runtime, hook = api
-    if not credentialed:
-        monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+async def test_single_model_refresh_reaches_supervisor(api):
+    runtime = api
     result = await update(
         runtime,
         bearer(runtime, ["models:register"]),
@@ -200,22 +163,16 @@ async def test_single_model_refresh_uses_the_existing_provider_and_permission_pa
             "message": "Successfully updated model: wanted",
         }
     }
-    expected: dict = {"model_name": "wanted"}
-    if credentialed:
-        expected["credentials"] = ModelCatalogCredentials(TOKEN)
-        hook.assert_called_once()
     supervisor = await runtime._get_supervisor_ref()
-    supervisor.update_model_type.assert_awaited_once_with("llm", **expected)
+    supervisor.update_model_type.assert_awaited_once_with("llm", model_name="wanted")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "name", [None, "", " padded", "a\nb", "a\x7fb", 42, False, [], "a" * 513]
 )
-async def test_single_model_name_is_required_and_validated_before_credentials(
-    api, name
-):
-    runtime, hook = api
+async def test_single_model_name_is_required_and_validated_before_rpc(api, name):
+    runtime = api
     result = await update(
         runtime,
         bearer(runtime, ["models:register"]),
@@ -224,13 +181,12 @@ async def test_single_model_name_is_required_and_validated_before_credentials(
     )
     assert result.status_code == 400
     assert result.json() == {"detail": "Invalid request body"}
-    hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_single_model_name_cannot_be_omitted(api):
-    runtime, hook = api
+    runtime = api
     result = await update(
         runtime,
         bearer(runtime, ["models:register"]),
@@ -238,7 +194,6 @@ async def test_single_model_name_cannot_be_omitted(api):
         json={"model_type": "llm"},
     )
     assert result.status_code == 400
-    hook.assert_not_called()
     runtime._get_supervisor_ref.assert_not_awaited()
 
 
@@ -246,16 +201,13 @@ async def test_single_model_name_cannot_be_omitted(api):
 async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
     api, tmp_path, monkeypatch
 ):
-    import json
     from functools import partial
 
-    import requests
-
-    from xinference.core.model_catalog import store_model_catalog
+    from xinference.core import model_catalog
     from xinference.core.supervisor import SupervisorActor
     from xinference.core.worker import WorkerActor
 
-    runtime, _ = api
+    runtime = api
 
     def record(name, timestamp):
         return {
@@ -282,13 +234,13 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
 
     monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr("xinference.model.llm.register_builtin_model", Mock())
-    path = tmp_path / "v2" / "builtin" / "llm" / "llm_models.json"
+    path = model_catalog.github_catalog_path("llm")
+    commit = "b" * 40
     keep, fresh = record("keep", 1), record("wanted", 2)
-    store_model_catalog(path, [keep, record("wanted", 1)])
-    worker = SimpleNamespace(_custom_register_type_to_cls={"LLM": None})
-    worker._store_complete_model_configurations = partial(
-        WorkerActor._store_complete_model_configurations, worker
+    model_catalog.store_model_catalog(
+        path, [keep, record("wanted", 1)], github_commit="a" * 40
     )
+    worker = SimpleNamespace()
     supervisor = SupervisorActor()
     supervisor._worker_address_to_worker = {
         "worker": SimpleNamespace(
@@ -296,14 +248,8 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
         )
     }
     runtime._get_supervisor_ref = AsyncMock(return_value=supervisor)
-    download = Mock(
-        return_value=SimpleNamespace(
-            status_code=200,
-            raise_for_status=Mock(),
-            json=lambda: fresh,
-        )
-    )
-    monkeypatch.setattr(requests, "get", download)
+    download = Mock(return_value=(commit, "wanted", [fresh]))
+    monkeypatch.setattr(model_catalog, "download_github_catalog", download)
     result = await update(
         runtime,
         bearer(runtime, ["models:register"]),
@@ -311,68 +257,35 @@ async def test_single_model_api_reaches_supervisor_worker_and_persisted_catalog(
         json={"model_type": "llm", "model_name": "wanted"},
     )
     assert result.status_code == 200
-    assert json.loads(path.read_text(encoding="utf-8")) == [keep, fresh]
-    assert download.call_args.kwargs["headers"] == {"X-Models-Token": TOKEN}
+    assert model_catalog.read_github_catalog(path) == (True, [keep, fresh])
+    download.assert_called_once_with("llm", "wanted")
     assert TOKEN not in result.text
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "source, failure, status, detail",
+    "failure, status, detail",
     [
-        ("provider", ValueError, 500, "Failed to resolve model catalog credentials"),
-        ("provider", TypeError, 500, "Failed to resolve model catalog credentials"),
-        ("provider", RuntimeError, 500, "Failed to resolve model catalog credentials"),
-        ("supervisor", ModelCatalogUpdateError, 502, "Failed to update model catalog"),
+        (ModelCatalogUpdateError, 502, "Failed to update model catalog"),
         (
-            "supervisor",
             ModelCatalogUnavailableError,
             503,
             "No workers available to update model catalog",
         ),
-        ("supervisor", ConnectionError, 503, "Model catalog supervisor unavailable"),
-        ("supervisor", RuntimeError, 503, "Model catalog supervisor unavailable"),
+        (ConnectionError, 503, "Model catalog supervisor unavailable"),
+        (RuntimeError, 503, "Model catalog supervisor unavailable"),
     ],
 )
-async def test_errors_are_classified_without_echoing_catalog_credentials(
-    api, caplog, failure, status, detail, source
+async def test_errors_are_classified_without_echoing_actor_exceptions(
+    api, caplog, failure, status, detail
 ):
-    runtime, hook = api
     caplog.set_level(logging.DEBUG, logger="xinference.api.restful_api")
-    error = failure(TOKEN)
-    if source == "provider":
-        hook.side_effect = error
-    else:
-        # Actor exceptions must retain their type across serialization while
-        # the API still ignores potentially sensitive exception messages.
-        header, buffers = serialize(error)
-        runtime._get_supervisor_ref.return_value.update_model_type.side_effect = (
-            deserialize(header, buffers)
-        )
-    result = await update(runtime, bearer(runtime, ["models:register"]))
+    header, buffers = serialize(failure(TOKEN))
+    api._get_supervisor_ref.return_value.update_model_type.side_effect = deserialize(
+        header, buffers
+    )
+    result = await update(api, bearer(api, ["models:register"]))
     assert result.status_code == status
     assert result.json() == {"detail": detail}
     assert TOKEN not in result.text
     assert TOKEN not in caplog.text
-    if source == "provider":
-        runtime._get_supervisor_ref.assert_not_awaited()
-    else:
-        runtime._get_supervisor_ref.return_value.update_model_type.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_multiple_providers_are_a_server_error_without_rpc(api, monkeypatch):
-    runtime, hook = api
-    monkeypatch.setattr(
-        extensions,
-        "get_extensions",
-        lambda: (
-            SimpleNamespace(name="first", model_catalog_credentials=hook),
-            SimpleNamespace(name="second", model_catalog_credentials=hook),
-        ),
-    )
-    result = await update(runtime, bearer(runtime, ["models:register"]))
-    assert result.status_code == 500
-    assert result.json() == {"detail": "Failed to resolve model catalog credentials"}
-    assert TOKEN not in result.text
-    runtime._get_supervisor_ref.assert_not_awaited()

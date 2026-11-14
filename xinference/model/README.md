@@ -14,44 +14,21 @@ Use `xinference._model_catalog.load_model_catalog` to read catalogs. Runtime
 normalization still happens in the corresponding model-family loader. Do not
 read only the first record of a model file or reorder its records.
 
-Submit built-in model changes as GitHub pull requests. The `updated_at` field is
-optional. When editing a spec directly, omit any inherited Hub timestamp so a
-previously downloaded copy cannot override the bundled change.
+## Publishing catalog updates
 
-## Models Hub integration
+Submit changes to the per-model JSON files as GitHub pull requests. Xinference
+refreshes model definitions from `main` at a fixed commit per request. Catalog
+updates can change model definitions that the installed runtime can load. New
+model implementations and engines ship with Xinference releases. The
+`updated_at` field is optional. GitHub refreshes use the commit SHA.
 
-The Hub download API and locally downloaded `<type>_models.json` files remain
-aggregate arrays. Custom registration formats and timestamp-based merge rules
-are unchanged. Splitting the repository does not require users to redownload
-their model catalogs or contact the network at startup.
-
-The Hub's repository PR writer must target the new model files. For a
-full-catalog sync, convert the aggregate response into a fresh staging directory:
+Maintainers can validate the catalogs or export an aggregate JSON file with
+the catalog tooling:
 
 ```sh
-python xinference/_model_catalog.py split llm_models.json /tmp/new-llm-models
-python xinference/_model_catalog.py validate /tmp/new-llm-models
-```
-
-Review the diff and replace the corresponding `xinference/model/llm/models`
-directory with that staging directory, including deletions. Do not split a
-partial update and use it to replace the full catalog. For a single-model
-update, preserve the other model files.
-
-The conversion rejects existing destination directories to prevent accidental
-overwrites. These maintenance commands use only the Python standard library.
-The Hub's publisher can generate the unchanged aggregate format for older
-clients rather than maintain a second authored copy:
-
-```sh
+python xinference/_model_catalog.py validate --all
 python xinference/_model_catalog.py export xinference/model/llm/models /tmp/llm_models.json
 ```
-
-Coordinate deployment of the Hub PR writer with this source-layout change;
-its implementation lives outside this repository. PRs that still modify the
-removed aggregate source paths must be converted before merging. The trusted
-documentation workflow accepts only catalog JSON data, validates filenames and
-model names, and refuses symlinks; it never runs PR-supplied Python code.
 
 After changing a catalog, run `python gen_docs.py` from `doc/source`. Packaging
 includes the model files recursively. Aggregate exports use the same stable
@@ -64,7 +41,7 @@ architecture dimensions and optional checkpoint size, not a fixed memory require
 context length and concurrency still affect the estimate. Store it per specification, since sizes
 within the same family can have different architectures.
 
-Maintainers and Models Hub jobs can extract this object from an already obtained
+Maintainers can extract this object from an already obtained
 `config.json` using:
 
 ```sh
@@ -87,10 +64,8 @@ checks; the catalog does not store an estimator-specific rejection reason.
 
 Use the configuration belonging to that exact checkpoint/revision. Re-extract
 metadata when updating a checkpoint; do not copy it to another size or assume all
-conversions share the same architecture. Hub updates must preserve this field
-when exporting aggregate catalogs. Existing catalogs without it remain valid.
-The external Hub job still needs to opt into extraction; this command does not
-change its deployment or automatically populate the built-in catalog.
+conversions share the same architecture. Preserve this field when exporting aggregate catalogs. Existing catalogs
+without it remain valid.
 
 To refresh all registered LLM sources, use the explicit maintenance command:
 
@@ -106,8 +81,7 @@ This command contacts the registered hubs, reads bounded configuration files
 generated model files. It does not run during startup or recommendation. Missing,
 gated, malformed or inaccessible configurations are reported, not replaced by
 guesses. Cached successful snapshots allow retrying failures; use a new cache
-directory to refresh moving revisions. The external Models Hub publisher must
-invoke this step explicitly and preserve its fields when syncing the catalog.
+directory to refresh moving revisions.
 
 For GGUF sources without vision dimensions in their text configuration, the
 collector also reads the first registered projector's metadata at the same

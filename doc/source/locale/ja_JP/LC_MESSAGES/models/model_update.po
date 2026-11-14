@@ -1,0 +1,11 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../source/models/model_update.rst:10
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference はモデル定義を `公開 GitHub リポジトリ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ から直接読み込みます。カテゴリを更新するには **Update** を、モデルを一つ更新するには **Update one model** を使います。これらの操作はモデル定義を更新します。重みは必要になった時点で、各定義で指定された配布元から取得します。"

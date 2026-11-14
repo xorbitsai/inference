@@ -64,7 +64,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
@@ -5889,9 +5888,7 @@ class RESTfulAPI(CancelMixin):
             ModelCatalogUnavailableError,
             ModelCatalogUpdateError,
         )
-        from ..extensions import resolve_model_catalog_credentials
 
-        # Parse client input before invoking any credential provider.
         try:
             schema = UpdateModelSpecRequest if single_model else UpdateModelRequest
             body = schema.parse_obj(await request.json())
@@ -5903,22 +5900,8 @@ class RESTfulAPI(CancelMixin):
         )
 
         try:
-            credentials = resolve_model_catalog_credentials(request, model_type)
-        except StarletteHTTPException:
-            raise
-        except Exception as e:
-            logger.error(
-                "Model catalog credential provider failed (%s)", type(e).__name__
-            )
-            raise HTTPException(
-                500, "Failed to resolve model catalog credentials"
-            ) from None
-
-        try:
             supervisor_ref = await self._get_supervisor_ref()
             options: Dict[str, Any] = {}
-            if credentials is not None:
-                options["credentials"] = credentials
             if model_name is not None:
                 options["model_name"] = model_name
             await supervisor_ref.update_model_type(model_type, **options)

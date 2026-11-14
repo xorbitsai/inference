@@ -34,10 +34,8 @@ msgstr ""
 "顶部的“类型选择 + 更新”按钮，用于快速刷新某一类型的模型。"
 
 #: ../../source/models/model_update.rst:10
-msgid ""
-"Model update rely on the online model list service provided by "
-":ref:`xinference_models_hub` ."
-msgstr "模型更新依赖 :ref:`xinference_models_hub` 提供的在线模型列表服务。"
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference 直接从 `公开的 GitHub 仓库 <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 读取模型定义。点击 **更新** 可刷新整个类别，点击 **更新单个模型** 可更新单个模型。这些操作只更新模型定义。模型权重在需要时从定义中指定的来源下载。"
 
 #: ../../source/models/model_update.rst:17
 msgid "Update Models"
@@ -69,4 +67,3 @@ msgid ""
 msgstr ""
 "点击“更新”按钮后，页面会向后端发送更新请求，并自动跳转到对应的选项卡，"
 "刷新该类型的模型列表。"
-

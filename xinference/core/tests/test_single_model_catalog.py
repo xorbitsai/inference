@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Single-model refresh preserves other entries and request-local credentials."""
+# CI: linux
+
+"""GitHub category and single-model refresh."""
 
 import json
 import os
@@ -20,25 +22,25 @@ import stat
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from importlib import import_module
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
-from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
 
 from xinference.core import model_catalog
-from xinference.core.exceptions import ModelCatalogUpdateError
+from xinference.core.exceptions import (
+    ModelCatalogUnavailableError,
+    ModelCatalogUpdateError,
+)
 from xinference.core.model_catalog import store_model_catalog
 from xinference.core.supervisor import SupervisorActor
 from xinference.core.worker import WorkerActor
-from xinference.extensions import ModelCatalogCredentials
 
-TOKEN = "single-catalog-test-secret"
+COMMIT = "a" * 40
 
 
 def catalog_record(model_type, name):
@@ -199,105 +201,30 @@ def test_readers_and_partial_writes_see_complete_full_refresh(tmp_path, monkeypa
     ]
 
 
-@pytest.fixture
-def worker(tmp_path, monkeypatch):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", model_catalog.MODEL_KINDS)
+async def test_worker_stores_and_reloads_github_catalog(
+    tmp_path, monkeypatch, model_type
+):
     monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
-    monkeypatch.setattr("xinference.model.llm.register_builtin_model", Mock())
-    worker = SimpleNamespace(_custom_register_type_to_cls={"LLM": None})
-    worker._store_complete_model_configurations = partial(
-        WorkerActor._store_complete_model_configurations, worker
-    )
-    return worker, tmp_path / "v2" / "builtin" / "llm" / "llm_models.json"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "model_type", ["llm", "embedding", "rerank", "image", "audio", "video", "world"]
-)
-@pytest.mark.parametrize("credentialed", [False, True])
-async def test_worker_encodes_name_and_stores_only_requested_model(
-    worker, monkeypatch, credentialed, model_type
-):
-    worker, path = worker
-    worker._custom_register_type_to_cls[model_type] = None
-    monkeypatch.setattr(f"xinference.model.{model_type}.register_builtin_model", Mock())
-    path = path.parents[1] / model_type / f"{model_type}_models.json"
-    name = "org/model & variant?x=1"
+    module = import_module(f"xinference.model.{model_type}")
+    reload = Mock()
+    monkeypatch.setattr(module, "register_builtin_model", reload)
+    path = model_catalog.github_catalog_path(model_type)
     unrelated = catalog_record(model_type, "unrelated")
-    record = catalog_record(model_type, name)
-    record["updated_at"] = 42
-    store_model_catalog(path, [unrelated])
-    response = SimpleNamespace(
-        status_code=200,
-        raise_for_status=Mock(),
-        json=lambda: record,
+    updated = catalog_record(model_type, "wanted")
+    worker = SimpleNamespace()
+
+    await WorkerActor.update_model_type(worker, model_type, COMMIT, catalog=[unrelated])
+    await WorkerActor.update_model_type(
+        worker, model_type, COMMIT, catalog=[updated], model_name="wanted"
     )
-    download = Mock(return_value=response)
-    monkeypatch.setattr(requests, "get", download)
-    reload = getattr(
-        import_module(f"xinference.model.{model_type}"), "register_builtin_model"
-    )
-    kwargs = {"credentials": ModelCatalogCredentials(TOKEN)} if credentialed else {}
-    await WorkerActor.update_model_type(worker, model_type, model_name=name, **kwargs)
-    assert parse_qs(urlsplit(download.call_args.args[0]).query) == {
-        "model_type": [model_type],
-        "model_name": [name],
-        "include_readme": ["true"],
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "last_update_commit": COMMIT,
+        "complete": True,
+        "models": [unrelated, updated],
     }
-    assert download.call_args.kwargs == (
-        {"timeout": 30, "allow_redirects": False, "headers": {"X-Models-Token": TOKEN}}
-        if credentialed
-        else {"timeout": 30}
-    )
-    assert json.loads(path.read_text(encoding="utf-8")) == [unrelated, record]
-    reload.assert_called_once_with()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "failure",
-    ["401", "404", "503", "redirect", "network", "json", "mismatch", "stored"],
-)
-async def test_single_refresh_failures_do_not_retry_write_or_expose_credentials(
-    worker, monkeypatch, caplog, failure
-):
-    worker, path = worker
-    store_model_catalog(path, [{"model_name": "keep"}])
-    before = path.read_bytes()
-    result = SimpleNamespace(
-        status_code=200, raise_for_status=Mock(), json=lambda: {"model_name": TOKEN}
-    )
-    if failure == "stored":
-        before = b"malformed local JSON"
-        path.write_bytes(before)
-        result.json = lambda: {"model_name": "wanted"}
-    download = Mock(return_value=result)
-    if failure == "network":
-        download.side_effect = requests.ConnectionError(TOKEN)
-    elif failure == "json":
-        result.json = Mock(side_effect=ValueError(TOKEN))
-    elif failure == "redirect":
-        result.status_code = 302
-    elif failure not in ("mismatch", "stored"):
-        result.status_code = int(failure)
-        result.raise_for_status.side_effect = requests.HTTPError(TOKEN)
-    monkeypatch.setattr(requests, "get", download)
-    with pytest.raises(ModelCatalogUpdateError) as caught:
-        await WorkerActor.update_model_type(
-            worker,
-            "llm",
-            model_name="wanted",
-            credentials=ModelCatalogCredentials(TOKEN),
-        )
-    assert download.call_count == 1
-    assert path.read_bytes() == before
-    assert TOKEN not in str(caught.value) + caplog.text
-    if failure in ("401", "404"):
-        assert "stage=download" in caplog.text and f"status={failure}" in caplog.text
-    elif failure in ("mismatch", "stored"):
-        assert "stage=store" in caplog.text and "status=200" in caplog.text
-        if failure == "stored":
-            assert "JSONDecodeError" in caplog.text
+    assert reload.call_count == 2
 
 
 @pytest.mark.parametrize("model_type", ["llm", "world"])
@@ -337,36 +264,190 @@ def test_single_update_loads_refreshed_and_unrelated_models_with_real_loader(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "model_type", ["llm", "embedding", "rerank", "image", "audio", "video", "world"]
-)
+@pytest.mark.parametrize("model_type", model_catalog.MODEL_KINDS)
+@pytest.mark.parametrize("single", [False, True])
 async def test_worker_rejects_invalid_family_before_publication(
-    worker, monkeypatch, caplog, model_type
+    tmp_path, monkeypatch, model_type, single
 ):
-    worker, path = worker
-    worker._custom_register_type_to_cls[model_type] = None
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    path = model_catalog.github_catalog_path(model_type)
     reload = Mock()
     monkeypatch.setattr(f"xinference.model.{model_type}.register_builtin_model", reload)
-    path = path.parents[1] / model_type / f"{model_type}_models.json"
-    store_model_catalog(path, [catalog_record(model_type, "keep")])
+    store_model_catalog(
+        path, [catalog_record(model_type, "keep")], github_commit=COMMIT
+    )
     before = path.read_bytes()
     record = catalog_record(model_type, "wanted")
     record["version"] = 999
-    monkeypatch.setattr(
-        requests,
-        "get",
-        Mock(
-            return_value=SimpleNamespace(
-                status_code=200, raise_for_status=Mock(), json=lambda: record
-            )
-        ),
-    )
     with pytest.raises(ModelCatalogUpdateError):
-        await WorkerActor.update_model_type(worker, model_type, model_name="wanted")
+        await WorkerActor.update_model_type(
+            SimpleNamespace(),
+            model_type,
+            COMMIT,
+            catalog=[record],
+            model_name="wanted" if single else None,
+        )
     assert path.read_bytes() == before
     reload.assert_not_called()
-    assert "stage=store" in caplog.text
     assert not list(path.parent.glob(".catalog-*"))
+
+
+@pytest.mark.parametrize("has_previous", [False, True])
+def test_failed_reload_restores_local_catalog(tmp_path, has_previous):
+    path = tmp_path / "catalog.json"
+    previous = [{"model_name": "previous"}]
+    if has_previous:
+        store_model_catalog(path, previous, github_commit=COMMIT)
+    reload = Mock(side_effect=[RuntimeError("reload failed"), None])
+    with pytest.raises(RuntimeError, match="reload failed"):
+        store_model_catalog(
+            path, [{"model_name": "new"}], github_commit=COMMIT, reload_catalog=reload
+        )
+    assert model_catalog.read_github_catalog(path) == (
+        has_previous,
+        previous if has_previous else [],
+    )
+    assert reload.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_image_github_refresh_overrides_without_timestamps_and_preserves_other_models(
+    tmp_path, monkeypatch
+):
+    from xinference.model import image
+
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(image, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    worker = SimpleNamespace()
+    name = "MiniCPM-OCR-1.0"
+    (bundled,) = json.loads(
+        (Path(image.__file__).parent / "models" / f"{name}.json").read_text()
+    )
+    changed = {**bundled, "updated_at": None, "model_specs": bundled["model_specs"][:1]}
+    legacy = catalog_record("image", "legacy-test-model")
+    legacy_path = tmp_path / "v2/builtin/image/image_models.json"
+    store_model_catalog(legacy_path, [legacy])
+
+    try:
+        await WorkerActor.update_model_type(
+            worker, "image", COMMIT, catalog=[changed], model_name=name
+        )
+        models = image.BUILTIN_IMAGE_MODELS
+        assert "legacy-test-model" in models
+        assert {spec.model_format for spec in models[name]} == {"pytorch"}
+        assert not any(spec.is_builtin for spec in models[name])
+        image.register_builtin_model()
+        assert {spec.model_format for spec in models[name]} == {"pytorch"}
+
+        await WorkerActor.update_model_type(worker, "image", COMMIT, catalog=[bundled])
+        assert set(models) == {name}
+        assert all(spec.is_builtin for spec in models[name])
+    finally:
+        model_catalog.github_catalog_path("image").unlink(missing_ok=True)
+        legacy_path.unlink(missing_ok=True)
+        image.register_builtin_model()
+
+
+@pytest.mark.asyncio
+async def test_world_single_refresh_removes_absent_family_variants(
+    tmp_path, monkeypatch
+):
+    from xinference.model import world
+
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    path = Path(world.__file__).parent / "models" / "LingBot-World-V2.json"
+    (family,) = json.loads(path.read_text(encoding="utf-8"))
+    removed = family["model_specs"].pop()["model_name"]
+    retained = {spec["model_name"] for spec in family["model_specs"]}
+    other = "Astra"
+    try:
+        world.register_builtin_model()
+        assert removed in world.BUILTIN_WORLD_MODELS
+
+        await WorkerActor.update_model_type(
+            SimpleNamespace(),
+            "world",
+            COMMIT,
+            catalog=[family],
+            model_name=family["model_family"],
+        )
+
+        for registry in (
+            world.BUILTIN_WORLD_MODELS,
+            world.WORLD_MODEL_DESCRIPTIONS,
+            world.WORLD_ENGINES,
+        ):
+            assert removed not in registry
+            assert retained | {other} <= registry.keys()
+        assert all(
+            model.is_builtin
+            for name in retained
+            for model in world.BUILTIN_WORLD_MODELS[name]
+        )
+    finally:
+        model_catalog.github_catalog_path("world").unlink(missing_ok=True)
+        world.register_builtin_model()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model_type", "name"),
+    [("embedding", "Qwen3-VL-Embedding-2B"), ("llm", "baichuan-2")],
+)
+async def test_exact_packaged_github_model_restores_trust_after_legacy_override(
+    tmp_path, monkeypatch, model_type, name
+):
+    from xinference.model.utils import allow_trust_remote_code
+
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr("xinference.constants.XINFERENCE_TRUST_REMOTE_CODE", False)
+    module = import_module(f"xinference.model.{model_type}")
+    path = Path(module.__file__).parent / "models" / f"{name}.json"
+    (bundled,) = json.loads(path.read_text(encoding="utf-8"))
+    legacy = {
+        **bundled,
+        "updated_at": bundled["updated_at"] + 1,
+        "model_description": "Legacy catalog version",
+    }
+    legacy_path = tmp_path / "v2" / "builtin" / model_type / f"{model_type}_models.json"
+    store_model_catalog(legacy_path, [legacy])
+
+    def active_family():
+        if model_type == "llm":
+            return next(
+                family
+                for family in module.BUILTIN_LLM_FAMILIES
+                if family.model_name == name
+            )
+        return module.BUILTIN_EMBEDDING_MODELS[name][0]
+
+    worker = SimpleNamespace()
+    try:
+        module.register_builtin_model()
+        assert active_family().model_description == legacy["model_description"]
+        assert not allow_trust_remote_code(active_family())
+
+        await WorkerActor.update_model_type(
+            worker, model_type, COMMIT, catalog=[bundled], model_name=name
+        )
+        assert active_family().is_builtin is True
+        assert allow_trust_remote_code(active_family())
+
+        changed = {
+            **bundled,
+            "model_description": "Changed GitHub definition",
+            "is_builtin": True,
+        }
+        await WorkerActor.update_model_type(
+            worker, model_type, COMMIT, catalog=[changed], model_name=name
+        )
+        assert active_family().model_description == changed["model_description"]
+        assert active_family().is_builtin is False
+        assert not allow_trust_remote_code(active_family())
+    finally:
+        model_catalog.github_catalog_path(model_type).unlink(missing_ok=True)
+        legacy_path.unlink(missing_ok=True)
+        module.register_builtin_model()
 
 
 @pytest.mark.parametrize("raw", [b"broken JSON", b"{}", b'["bad row"]'])
@@ -443,21 +524,90 @@ def test_windows_busy_reader_retries_replacement_without_truncating(
     assert not list(tmp_path.glob(".catalog-*"))
 
 
+def test_github_category_pins_directory_and_files_to_one_commit(monkeypatch):
+    def get(url, *, timeout, params=None):
+        assert timeout == 30
+        if url.endswith("/commits/main"):
+            payload = {"sha": COMMIT}
+        elif url.endswith("/contents/xinference/model/image/models"):
+            assert params == {"ref": COMMIT}
+            payload = [
+                {"name": "Zebra.json", "type": "file"},
+                {"name": "alpha.json", "type": "file"},
+                {"name": "README.md", "type": "file"},
+            ]
+        else:
+            assert f"/{COMMIT}/xinference/model/image/models/" in url
+            payload = [{"model_name": Path(url).stem}]
+        return SimpleNamespace(raise_for_status=Mock(), json=lambda: payload)
+
+    mock = Mock(side_effect=get)
+    monkeypatch.setattr(requests, "get", mock)
+    assert model_catalog.download_github_catalog("image") == (
+        COMMIT,
+        None,
+        [{"model_name": "alpha"}, {"model_name": "Zebra"}],
+    )
+    assert mock.call_count == 4
+
+
+def test_world_variant_updates_its_entire_family(monkeypatch):
+    record = catalog_record("world", "family")
+    responses = iter(
+        [
+            {"sha": COMMIT},
+            [{"name": "family.json", "type": "file"}],
+            [record],
+        ]
+    )
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda *a, **kw: SimpleNamespace(
+            raise_for_status=Mock(), json=lambda: next(responses)
+        ),
+    )
+    assert model_catalog.download_github_catalog(
+        "world", record["model_specs"][0]["model_name"]
+    ) == (COMMIT, "family", [record])
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("credentialed", [False, True])
-async def test_supervisor_forwards_model_name_and_reports_partial_failures(
-    monkeypatch, credentialed
+async def test_supervisor_downloads_once_and_sends_same_snapshot_to_all_workers(
+    monkeypatch,
 ):
+    catalog = [{"model_name": "wanted"}]
+    download = Mock(return_value=(COMMIT, "wanted", catalog))
+    monkeypatch.setattr(model_catalog, "download_github_catalog", download)
     supervisor = SupervisorActor()
-    first, second = AsyncMock(), AsyncMock(side_effect=RuntimeError(TOKEN))
+    first, second = AsyncMock(), AsyncMock(side_effect=RuntimeError("unavailable"))
     supervisor._worker_address_to_worker = {
         "a": SimpleNamespace(update_model_type=first),
         "b": SimpleNamespace(update_model_type=second),
     }
-    options: dict = {"model_name": "wanted"}
-    if credentialed:
-        options["credentials"] = ModelCatalogCredentials(TOKEN)
     with pytest.raises(ModelCatalogUpdateError):
-        await supervisor.update_model_type("llm", **options)
-    first.assert_awaited_once_with("llm", **options)
-    second.assert_awaited_once_with("llm", **options)
+        await supervisor.update_model_type("llm", model_name="wanted")
+    download.assert_called_once_with("llm", "wanted")
+    first.assert_awaited_once_with("llm", COMMIT, catalog=catalog, model_name="wanted")
+    second.assert_awaited_once_with("llm", COMMIT, catalog=catalog, model_name="wanted")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("has_worker", [False, True])
+async def test_supervisor_download_failure_leaves_workers_untouched(
+    monkeypatch, has_worker
+):
+    download = Mock(side_effect=requests.ConnectionError("GitHub unavailable"))
+    monkeypatch.setattr(model_catalog, "download_github_catalog", download)
+    supervisor = SupervisorActor()
+    update = AsyncMock()
+    if has_worker:
+        supervisor._worker_address_to_worker = {
+            "worker": SimpleNamespace(update_model_type=update)
+        }
+    with pytest.raises(
+        ModelCatalogUpdateError if has_worker else ModelCatalogUnavailableError
+    ):
+        await supervisor.update_model_type("llm")
+    assert download.call_count == int(has_worker)
+    update.assert_not_awaited()
