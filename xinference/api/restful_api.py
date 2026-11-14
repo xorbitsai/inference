@@ -2815,7 +2815,9 @@ class RESTfulAPI(CancelMixin):
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
         is_vllm_backend = await model.is_vllm_backend()
-        model_desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+        model_desc = await (await self._get_supervisor_ref()).describe_model(
+            model_uid, selected_replica_uid=model.uid.decode()
+        )
         RESTfulAPI._apply_multiple_choice_count(
             kwargs,
             getattr(body, "n", None),
@@ -4801,7 +4803,7 @@ class RESTfulAPI(CancelMixin):
             self._add_running_task(request_id)
 
             description = await (await self._get_supervisor_ref()).describe_model(
-                model_uid
+                model_uid, selected_replica_uid=model_ref.uid.decode()
             )
             preserve_alpha = description.get("model_name", "").lower() in {
                 "qwen-image-2.1",
@@ -5446,15 +5448,12 @@ class RESTfulAPI(CancelMixin):
             raw_kwargs.pop("request_id", None)
 
         try:
-            description_options = (
-                {"selected_replica_uid": model.uid.decode()} if routing_options else {}
-            )
             try:
                 desc = await supervisor_ref.describe_model(
-                    model_uid, **description_options
+                    model_uid, selected_replica_uid=model.uid.decode()
                 )
             except ModelNotReadyError:
-                if not description_options:
+                if not routing_options:
                     raise
                 # Scaling may remove the selected replica after lookup. Model
                 # metadata is still available from another live replica.

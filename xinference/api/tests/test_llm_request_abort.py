@@ -93,6 +93,79 @@ async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "kind,routing_key", [("chat", None), ("completion", None), ("chat", "task")]
+)
+async def test_llm_describes_selected_replica(monkeypatch, kind, routing_key, stream):
+    from ...core.exceptions import ModelNotReadyError
+    from ...core.supervisor import SupervisorActor
+    from ...core.utils import build_replica_model_uid
+
+    chunk = {"data": '{"choices": []}'}
+
+    async def chunks():
+        yield chunk
+
+    operation = AsyncMock(return_value=chunks() if stream else b'{"choices": []}')
+    model = SimpleNamespace(
+        uid=b"metadata-model-rep1",
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+        reserve_chat_request=AsyncMock(return_value=True),
+        release_chat_reservation=AsyncMock(),
+        decrease_serve_count=AsyncMock(),
+        **{"chat" if kind == "chat" else "generate": operation},
+    )
+    recovering = SimpleNamespace(
+        get_model=AsyncMock(side_effect=ModelNotReadyError("replica 0 is recovering")),
+        describe_model=AsyncMock(
+            side_effect=ModelNotReadyError("replica 0 is recovering")
+        ),
+    )
+    healthy = SimpleNamespace(
+        get_model=AsyncMock(return_value=model),
+        describe_model=AsyncMock(return_value={"model_family": "test-family"}),
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(2)
+    supervisor._model_uid_to_replica_info = {"metadata-model": info}
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("metadata-model", 0): recovering,
+        build_replica_model_uid("metadata-model", 1): healthy,
+    }
+    # Keep replica 0 active while round robin selects healthy replica 1.
+    assert next(info.scheduler) == 0
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    body = {"model": "metadata-model", "stream": stream}
+    if kind == "chat":
+        body["messages"] = [{"role": "user", "content": "hello"}]
+        if routing_key is not None:
+            body["routing_key"] = routing_key
+        response = await api.create_chat_completion(_Request(body))
+    else:
+        body["prompt"] = "hello"
+        response = await api.create_completion(_Request(body))
+    assert response.status_code == 200
+    if stream:
+        expected = [chunk, "[DONE]"] if kind == "chat" else [chunk]
+        assert [item async for item in response.body_iterator] == expected
+        if response.background is not None:
+            await response.background()
+    else:
+        assert response.body == b'{"choices": []}'
+    operation.assert_awaited_once()
+    healthy.get_model.assert_awaited_once_with(model_uid="metadata-model-rep1")
+    healthy.describe_model.assert_awaited_once_with(model_uid="metadata-model-rep1")
+    recovering.get_model.assert_not_awaited()
+    recovering.describe_model.assert_not_awaited()
+    api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("peer_ready", [True, False])
 async def test_chat_describes_live_peer_when_selected_replica_was_removed(
     monkeypatch, peer_ready
@@ -786,6 +859,7 @@ async def test_completion_reports_the_model_error_when_generation_cannot_start(
         generate=MagicMock(), model_family=SimpleNamespace(to_description=dict)
     )
     model = ModelActor("supervisor", "worker", backend, "completion-model-0")
+    model.uid = b"completion-model-rep0"
     # A failed reload leaves the actor here; _require_ready raises RuntimeError.
     model._model_state = "error"
     model.record_metrics = AsyncMock()
