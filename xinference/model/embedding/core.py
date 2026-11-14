@@ -246,14 +246,12 @@ class EmbeddingModel(abc.ABC):
         self,
         sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
-        # Check if sentences is a two-dimensional list of integers
-        if (
-            isinstance(sentences, list)
-            and len(sentences) > 0
-            and isinstance(sentences[0], list)
-            and len(sentences[0]) > 0
-            and isinstance(sentences[0][0], int)
-        ):
+        def is_token_array(item) -> bool:
+            return isinstance(item, list) and len(item) > 0 and isinstance(item[0], int)
+
+        # Check if any element is a list of integers (token ids); decode per
+        # element so token arrays can share a batch with texts
+        if isinstance(sentences, list) and any(is_token_array(s) for s in sentences):
             # List[List[int]] stands for encoded inputs
             import tiktoken
 
@@ -261,6 +259,9 @@ class EmbeddingModel(abc.ABC):
             lines_decoded = []
 
             for line in sentences:
+                if not is_token_array(line):
+                    lines_decoded.append(line)
+                    continue
                 try:
                     # Decode each token into bytes, then join them into a complete string
                     output = b"".join(
@@ -521,9 +522,6 @@ class EmbeddingModel(abc.ABC):
         # Token arrays: a single doc as a flat list of token ids.
         if isinstance(value, list) and len(value) > 0 and isinstance(value[0], int):
             return value[:n_tokens]
-        # Multiple docs, each a list of token ids.
-        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
-            return [inner[:n_tokens] for inner in value]
         # Multimodal / structured: truncate ONLY the ``text`` field. The
         # other Jina multimodal fields (``image`` / ``video`` / ``audio``)
         # carry URLs, file paths or base64 payloads; truncating them corrupts

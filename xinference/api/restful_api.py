@@ -3935,13 +3935,25 @@ class RESTfulAPI(CancelMixin):
 
         provider = resolve_replica_policy_provider()
 
+        embedding_input = body.input
+        if (
+            isinstance(embedding_input, list)
+            and len(embedding_input) > 0
+            and all(
+                isinstance(t, int) and not isinstance(t, bool) for t in embedding_input
+            )
+        ):
+            # A flat list of ints is ONE token array (OpenAI ``input: [1, 2]``).
+            # Wrap it before batching, which would merge it with other requests.
+            embedding_input = [embedding_input]
+
         async def serve():
             model = await require_model(
                 self._get_supervisor_ref, model_uid, self._report_error_event
             )
             try:
                 kwargs["model_uid"] = model_uid
-                embedding = await model.create_embedding(body.input, **kwargs)
+                embedding = await model.create_embedding(embedding_input, **kwargs)
                 if payload.get("encoding_format") == "base64":
                     embedding = _encode_embeddings_base64(embedding)
                 return Response(embedding, media_type="application/json")

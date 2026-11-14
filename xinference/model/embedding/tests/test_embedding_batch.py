@@ -552,3 +552,64 @@ def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
         model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
     assert collect.call_count == 1
     assert release.call_count == 100
+
+
+class _DecodingStubEmbeddingModel(_StubEmbeddingModel):
+    """Stub that decodes token arrays like the real engines, then embeds.
+
+    Records what it was given and returns one vector (``[len(text)]``) per
+    input, so a wrongly merged or undecoded batch is visible in the result.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seen = []
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        self.seen.append(sentences)
+        data = [
+            EmbeddingData(index=i, object="embedding", embedding=[float(len(s))])
+            for i, s in enumerate(sentences)
+        ]
+        return Embedding(
+            object="list",
+            model=self._model_uid,
+            model_replica=self._model_uid,
+            data=data,
+            usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+        )
+
+
+# cl100k_base: "hello world" -> [15339, 1917]; "hello" -> [15339]
+_HELLO_WORLD = [15339, 1917]
+
+
+def _decoding_model():
+    pytest.importorskip("tiktoken")
+    return _DecodingStubEmbeddingModel("stub-uid", "/tmp/stub-embedding", _STUB_SPEC)
+
+
+def test_batched_nested_token_array_next_to_text_request():
+    # Already broken on main: the batch is decoded as token arrays wholesale.
+    model = _decoding_model()
+    results = model.create_embedding.batch(
+        _ExtensibleWrapper.delay([[15339, 1917]]),
+        _ExtensibleWrapper.delay(["foo", {"text": "bar"}]),
+    )
+
+    assert model.seen == [["hello world", "foo", {"text": "bar"}]]
+    assert [len(r["data"]) for r in results] == [1, 2]
+
+
+def test_fix_langchain_openai_inputs_decodes_per_element():
+    pytest.importorskip("tiktoken")
+    fix = EmbeddingModel._fix_langchain_openai_inputs
+    assert fix(None, [[15339, 1917]]) == "hello world"
+    assert fix(None, [[15339], [1917]]) == ["hello", " world"]
+    assert fix(None, [[15339], "foo"]) == ["hello", "foo"]
+    assert fix(None, "foo") == "foo"
+    assert fix(None, ["a", "b"]) == ["a", "b"]
+    assert fix(None, [{"text": "b"}]) == [{"text": "b"}]

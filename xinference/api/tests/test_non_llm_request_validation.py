@@ -291,6 +291,27 @@ async def test_embedding_top_level_options_are_preserved(api_client):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "value,expected",
+    [
+        ([9906, 1917], [[9906, 1917]]),  # one flat token array is wrapped
+        (["1", "2"], ["1", "2"]),  # numeric strings stay texts
+        ([["101", "102"]], [[101, 102]]),
+        ([[9906], [1917]], [[9906], [1917]]),
+    ],
+)
+async def test_embedding_token_array_input(api_client, value, expected):
+    async with api_client.client as client:
+        response = await client.post(
+            "/v1/embeddings", json={"model": "test", "input": value}
+        )
+    assert response.status_code == 200
+    api_client.model.create_embedding.assert_awaited_once_with(
+        expected, model_uid="test"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "options,message",
     [
         ({"voice": "bad"}, "only accepts `voice`"),
