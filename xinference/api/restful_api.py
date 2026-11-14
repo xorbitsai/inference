@@ -95,6 +95,7 @@ from ..core.exceptions import (
     InvalidModelRequestError,
     ModelNotReadyError,
     ModelReloadInProgress,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from ..core.http_protocol import create_hardened_http_protocol
@@ -2901,6 +2902,12 @@ class RESTfulAPI(CancelMixin):
                         yield item
                     completed = True
                     abort_controller.mark_completed()
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
@@ -2953,6 +2960,8 @@ class RESTfulAPI(CancelMixin):
                     **model_call_kwargs,
                 )
                 return Response(data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -3019,6 +3028,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             413: "request_too_large",
             429: "rate_limit_error",
             504: "timeout_error",
@@ -3627,6 +3637,8 @@ class RESTfulAPI(CancelMixin):
                 return await start_streaming_response()
             except NotImplementedError as exc:
                 return self._anthropic_error(501, str(exc), request_id)
+            except RequestIdConflictError as exc:
+                return self._anthropic_error(409, exc.client_message, request_id)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -3671,6 +3683,8 @@ class RESTfulAPI(CancelMixin):
             )
         except NotImplementedError as exc:
             return self._anthropic_error(501, str(exc), request_id)
+        except RequestIdConflictError as exc:
+            return self._anthropic_error(409, exc.client_message, request_id)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
@@ -3692,6 +3706,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             429: "rate_limit_error",
         }.get(status_code, "server_error")
         return JSONResponse(
@@ -3702,6 +3717,8 @@ class RESTfulAPI(CancelMixin):
 
     @classmethod
     def _responses_model_error(cls, exc: Exception) -> JSONResponse:
+        if isinstance(exc, RequestIdConflictError):
+            return cls._responses_error(409, exc.client_message)
         message = str(exc)
         code = responses_error_code(message, exc)
         # A 400 keeps clients from retrying a request that can never fit.
@@ -3775,6 +3792,8 @@ class RESTfulAPI(CancelMixin):
                     data = data.decode("utf-8")
                 chat = json.loads(data) if isinstance(data, str) else data
                 return JSONResponse(content=chat_to_response(chat, req))
+            except RequestIdConflictError as exc:
+                return self._responses_model_error(exc)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -3786,6 +3805,8 @@ class RESTfulAPI(CancelMixin):
             iterator = await model.chat(
                 messages, kwargs, raw_params=raw_kwargs, request_id=model_request_id
             )
+        except RequestIdConflictError as exc:
+            return self._responses_model_error(exc)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
@@ -5815,6 +5836,12 @@ class RESTfulAPI(CancelMixin):
                     completed = True
                     abort_controller.mark_completed()
                     yield "[DONE]"
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
                 # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
@@ -5891,6 +5918,8 @@ class RESTfulAPI(CancelMixin):
                     )
                 data = await run_chat()
                 return Response(content=data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
