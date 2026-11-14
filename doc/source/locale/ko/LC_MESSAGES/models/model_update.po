@@ -34,10 +34,8 @@ msgstr ""
 " + 업데이트\" 버튼에 해당하며, 특정 유형의 모델을 빠르게 새로 고치는 데 사용됩니다."
 
 #: ../../source/models/model_update.rst:10
-msgid ""
-"Model update rely on the online model list service provided by "
-":ref:`xinference_models_hub` ."
-msgstr "모델 업데이트는 :ref:`xinference_models_hub`에서 제공하는 온라인 모델 목록 서비스에 의존합니다."
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference는 `공개 GitHub 저장소 <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 에서 모델 정의를 직접 읽습니다. 범주를 갱신하려면 **Update** 를, 모델 하나를 갱신하려면 **Update one model** 을 사용합니다. 이 작업은 모델 정의를 갱신합니다. 가중치는 필요할 때 각 정의에 지정된 출처에서 내려받습니다."
 
 #: ../../source/models/model_update.rst:17
 msgid "Update Models"

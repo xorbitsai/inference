@@ -1,6 +1,6 @@
 """Dependency-free readers and conversion tools for built-in model catalogs.
 
-Run this file directly when preparing Models Hub exports, without importing
+Run this file directly when preparing catalog exports, without importing
 Xinference or installing any model engines. Strict authoring validation uses
 the optional jsonschema dependency; split/export and structural checks do not.
 """
@@ -41,13 +41,32 @@ def _records(path: Path) -> List[Dict[str, Any]]:
 def _model_name(record: Dict[str, Any]) -> str:
     # World models may contain named variants under one family.
     name = record.get("model_name") or record.get("model_family")
-    if not isinstance(name, str) or not _FILENAME.fullmatch(f"{name}.json"):
+    if not isinstance(name, str):
         raise ValueError(f"Invalid catalog model name: {name!r}")
+    model_filename(name)
     return name
 
 
+def model_filename(name: Any) -> str:
+    filename = f"{name}.json"
+    if not isinstance(name, str) or not _FILENAME.fullmatch(filename):
+        raise ValueError(f"Invalid catalog model name: {name!r}")
+    return filename
+
+
+def validate_model_file(filename: str, records: Any) -> List[Dict[str, Any]]:
+    if not _FILENAME.fullmatch(filename):
+        raise ValueError(f"Invalid catalog filename: {filename}")
+    if not isinstance(records, list) or any(
+        not isinstance(record, dict) or _model_name(record) + ".json" != filename
+        for record in records
+    ):
+        raise ValueError(f"Model name does not match {filename}")
+    return records
+
+
 def load_model_catalog(path: Union[str, Path]) -> List[Dict[str, Any]]:
-    """Read a split directory or an unchanged Hub/custom aggregate JSON file.
+    """Read a split directory or an aggregate JSON file.
 
     Discover model files in stable, case-insensitive filename order. Preserve
     record order within each file, where engine/spec preference can matter.
@@ -66,16 +85,20 @@ def load_model_catalog(path: Union[str, Path]) -> List[Dict[str, Any]]:
         if file.name.casefold() in seen:
             raise ValueError(f"Catalog filename collision: {file}")
         seen.add(file.name.casefold())
-        records = _records(file)
-        for record in records:
-            if _model_name(record) + ".json" != file.name:
-                raise ValueError(f"Model name does not match {file}")
-        result.extend(records)
+        result.extend(validate_model_file(file.name, _records(file)))
     return result
 
 
+def read_model_records(
+    source: Union[str, List[Dict[str, Any]]], module_file: str
+) -> List[Dict[str, Any]]:
+    if isinstance(source, list):
+        return source
+    return load_model_catalog(Path(module_file).resolve().parent / source)
+
+
 def split_model_catalog(source: Union[str, Path], destination: Union[str, Path]):
-    """Convert a full Hub catalog to a new directory (never overwrite a source)."""
+    """Convert an aggregate catalog to a new directory."""
     records = load_model_catalog(source)
     grouped: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
     case_names: Dict[str, str] = {}
@@ -95,7 +118,7 @@ def split_model_catalog(source: Union[str, Path], destination: Union[str, Path])
 def _catalog_validator(model_type: str):
     if model_type not in MODEL_KINDS:
         raise ValueError(f"Unknown model type: {model_type!r}")
-    # Only authoring/CI validation needs jsonschema. Runtime loading and Hub
+    # Only authoring/CI validation needs jsonschema. Runtime loading and
     # split/export remain dependency-free and retain their existing behavior.
     try:
         from jsonschema import Draft202012Validator

@@ -13,7 +13,7 @@
 # limitations under the License.
 import os
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ..utils import flatten_model_src
 from .core import (
     BUILTIN_WORLD_MODELS,
@@ -82,13 +82,8 @@ def has_downloaded_models():
 
 
 def load_model_family_from_json(json_filename, target_families):
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(os.path.dirname(__file__), json_filename)
-
     flattened_model_specs = []
-    for spec in load_model_catalog(json_path):
+    for spec in read_model_records(json_filename, __file__):
         flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:

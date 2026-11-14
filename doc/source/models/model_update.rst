@@ -7,7 +7,7 @@ Model Update
 
 This section briefly introduces a common operation on the "Launch Model" page: updating the model list. It corresponds to the "Type Selection + Update" button at the top of the page, which is used to quickly refresh models of a specific type.
 
-Model update rely on the online model list service provided by :ref:`xinference_models_hub` .
+Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed.
 
 .. raw:: html
 

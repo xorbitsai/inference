@@ -3221,6 +3221,51 @@ def load_downloaded_models_to_dict(
         )
 
 
+def load_github_models(
+    model_type: str,
+    load_model_family_func: Callable[..., None],
+) -> Tuple[bool, Any]:
+    from ..core.model_catalog import github_catalog_path, read_github_catalog
+
+    complete, records = read_github_catalog(github_catalog_path(model_type))
+    if model_type == "llm":
+        families: Any = []
+        load_model_family_func(records, families, register_metadata=False)
+    else:
+        families = {}
+        load_model_family_func(records, families)
+    return complete, families
+
+
+def apply_github_catalog(
+    current: Dict[str, List[Any]],
+    downloaded: Dict[str, List[Any]],
+    *,
+    complete: bool,
+) -> Dict[str, List[Any]]:
+    """Apply the GitHub snapshot without elevating downloaded model provenance."""
+    active = {} if complete else current.copy()
+    for name, models in downloaded.items():
+        bundled_by_value = {
+            family_identity_key(model): model
+            for model in current.get(name, [])
+            if model.is_builtin
+        }
+        for model in models:
+            model.is_builtin = False
+        active[name] = [
+            bundled_by_value.get(family_identity_key(model), model) for model in models
+        ]
+    return active
+
+
+def _catalog_timestamp(model: Any, *, bundled: bool) -> float:
+    timestamp = getattr(model, "updated_at", None)
+    if type(timestamp) is int and timestamp >= 0:
+        return timestamp
+    return math.inf if bundled else -math.inf
+
+
 def merge_models_by_timestamp(
     built_in_models: Dict[str, List[Any]],
     user_models: Dict[str, List[Any]],
@@ -3241,23 +3286,20 @@ def merge_models_by_timestamp(
         merged_models: Dict[str, List[Any]] = {}
         model_names = dict.fromkeys([*built_in_models, *user_models])
         for model_name in model_names:
-            models_by_identity: Dict[Any, List[Any]] = {}
-            for model in [
-                *built_in_models.get(model_name, []),
-                *user_models.get(model_name, []),
-            ]:
-                models_by_identity.setdefault(model_identity_func(model), []).append(
-                    model
-                )
+            models_by_identity: Dict[Any, List[Tuple[float, Any]]] = {}
+            for catalog, bundled in ((built_in_models, True), (user_models, False)):
+                for model in catalog.get(model_name, []):
+                    models_by_identity.setdefault(
+                        model_identity_func(model), []
+                    ).append((_catalog_timestamp(model, bundled=bundled), model))
 
             merged_models[model_name] = []
             for models in models_by_identity.values():
                 # Variants with the same identity are interchangeable. Keep one
                 # newest entry; because built-ins are ordered first, an equal-
                 # timestamp downloaded copy does not create a duplicate.
-                merged_models[model_name].append(
-                    max(models, key=lambda model: model.updated_at)
-                )
+                _, model = max(models, key=lambda candidate: candidate[0])
+                merged_models[model_name].append(model)
         return merged_models
 
     merged_models = {}
@@ -3280,7 +3322,9 @@ def merge_models_by_timestamp(
 
             # Add built-in models
             for model in built_in_list:
-                all_models.append((model.updated_at, model))
+                all_models.append((_catalog_timestamp(model, bundled=True), model))
+            if any(timestamp == math.inf for timestamp, _ in all_models):
+                continue
 
             # Add user models, skipping any value-identical to a model already
             # present. install_models_with_merge reruns on every runtime refresh
@@ -3293,7 +3337,7 @@ def merge_models_by_timestamp(
                 if key in existing_keys:
                     continue
                 existing_keys.add(key)
-                all_models.append((model.updated_at, model))
+                all_models.append((_catalog_timestamp(model, bundled=False), model))
 
             # Sort by updated_at (newest first) and keep the latest
             all_models.sort(key=lambda x: x[0], reverse=True)
@@ -3357,8 +3401,11 @@ def install_models_with_merge(
         for _family in _specs:
             _family.is_builtin = True
 
-    # Then load user-defined models and merge with built-in models
-    if has_downloaded_models_func():
+    complete, github_models = load_github_models(
+        user_model_type, load_model_family_func
+    )
+    merged_models = freshly_loaded_builtins
+    if not complete and has_downloaded_models_func():
         user_models: Dict[str, Any] = {}
         load_downloaded_models_to_dict(
             user_models, user_model_type, user_json_filename, load_model_family_func
@@ -3374,12 +3421,12 @@ def install_models_with_merge(
             freshly_loaded_builtins, user_models, model_identity_func
         )
 
-        # Update the dictionary with merged results
-        built_in_dict.clear()
-        built_in_dict.update(merged_models)
-    else:
-        built_in_dict.clear()
-        built_in_dict.update(freshly_loaded_builtins)
+    if complete or github_models:
+        merged_models = apply_github_catalog(
+            merged_models, github_models, complete=complete
+        )
+    built_in_dict.clear()
+    built_in_dict.update(merged_models)
 
 
 def allow_trust_remote_code(model_family) -> bool:

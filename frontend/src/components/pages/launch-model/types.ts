@@ -34,7 +34,6 @@ export interface CatalogModel {
   model_description: string;
   abilities: string[];
   languages: string[];
-  detailUrl?: string;
   modelSpecs?: ModelSpec[];
   featured?: boolean;
   cached?: boolean;

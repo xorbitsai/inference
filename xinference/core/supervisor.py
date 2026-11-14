@@ -112,7 +112,6 @@ from .worker_registry import (
 )
 
 if TYPE_CHECKING:
-    from ..extensions import ModelCatalogCredentials
     from ..model.audio import AudioModelFamilyV2
     from ..model.embedding import EmbeddingModelFamilyV2
     from ..model.flexible import FlexibleModelSpec
@@ -372,6 +371,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # Single-flight lock: prevents concurrent list_models() cache-miss
         # sweeps so that only one RPC scan is in-flight at a time.
         self._list_models_sweep_lock = asyncio.Lock()
+        self._model_catalog_update_lock = asyncio.Lock()
         # Reverse-ping failure counter per worker
         self._reverse_ping_failures: Dict[str, int] = {}
         # Track workers currently launching models — when a worker has active
@@ -2690,55 +2690,53 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Unsupported model type: {model_type}")
 
     async def update_model_type(
-        self,
-        model_type: str,
-        *,
-        credentials: Optional["ModelCatalogCredentials"] = None,
-        model_name: Optional[str] = None,
+        self, model_type: str, *, model_name: Optional[str] = None
     ) -> None:
-        """
-        Update model configurations for a specific model type by forwarding
-        the request to all workers.
-
-        Args:
-            model_type: Type of model (LLM, embedding, image, etc.)
-            model_name: Refresh only this model when provided.
-        """
-
+        """Resolve and download a single GitHub snapshot for every Worker."""
         from .exceptions import ModelCatalogUnavailableError, ModelCatalogUpdateError
+        from .model_catalog import download_github_catalog
 
-        workers = list(self._worker_address_to_worker.items())
-        if not workers:
-            logger.warning("No workers available to update the model catalog")
-            raise ModelCatalogUnavailableError(
-                "No workers available to update the model catalog"
-            )
-
-        async def update_worker(worker_ref: Any) -> None:
-            options: Dict[str, Any] = {}
-            if credentials is not None:
-                options["credentials"] = credentials
-            if model_name is not None:
-                options["model_name"] = model_name
-            await worker_ref.update_model_type(model_type, **options)
-
-        results = await asyncio.gather(
-            *(update_worker(worker_ref) for _, worker_ref in workers),
-            return_exceptions=True,
-        )
-        failed = False
-        for (address, _), result in zip(workers, results):
-            if isinstance(result, BaseException):
-                failed = True
-                logger.error(
-                    "Model catalog update failed on worker %s (%s)",
-                    address,
-                    type(result).__name__,
+        async with self._model_catalog_update_lock:
+            workers = list(self._worker_address_to_worker.items())
+            if not workers:
+                raise ModelCatalogUnavailableError(
+                    "No workers available to update the model catalog"
                 )
-        if failed:
-            raise ModelCatalogUpdateError(
-                "One or more workers failed to update the model catalog"
+
+            try:
+                commit, family_name, catalog = await asyncio.to_thread(
+                    download_github_catalog, model_type.lower(), model_name
+                )
+            except Exception as e:
+                logger.error(
+                    "GitHub model catalog download failed (%s)", type(e).__name__
+                )
+                raise ModelCatalogUpdateError(
+                    "Failed to download model catalog"
+                ) from None
+
+            results = await asyncio.gather(
+                *(
+                    worker.update_model_type(
+                        model_type, commit, catalog=catalog, model_name=family_name
+                    )
+                    for _, worker in workers
+                ),
+                return_exceptions=True,
             )
+            failed = False
+            for (address, _), result in zip(workers, results):
+                if isinstance(result, BaseException):
+                    failed = True
+                    logger.error(
+                        "Model catalog update failed on worker %s (%s)",
+                        address,
+                        type(result).__name__,
+                    )
+            if failed:
+                raise ModelCatalogUpdateError(
+                    "One or more workers failed to update the model catalog"
+                )
 
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:

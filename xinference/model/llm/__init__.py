@@ -16,9 +16,16 @@ import os
 import warnings
 from typing import Any, Dict, List, Optional
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
-from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
+from ..utils import (
+    _catalog_timestamp,
+    apply_github_catalog,
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    load_github_models,
+)
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -240,19 +247,11 @@ def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
 def load_model_family_from_json(
     json_filename, target_families, *, register_metadata: bool = True
 ):
-    # Handle both relative (module directory) and absolute paths
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), json_filename
-        )
-
     # Dedup by value against a precomputed key set, O(1) per candidate instead
     # of an O(n) scan of target_families for each of the ~300 catalog entries.
     seen = {family_identity_key(family) for family in target_families}
 
-    for json_obj in load_model_catalog(json_path):
+    for json_obj in read_model_records(json_filename, __file__):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
@@ -311,7 +310,8 @@ def _install():
         family.is_builtin = True
 
     merged_models = freshly_loaded_builtins
-    if has_downloaded_models():
+    complete, github_models = load_github_models("llm", load_model_family_from_json)
+    if not complete and has_downloaded_models():
         downloaded_models: List[LLMFamilyV2] = []
         from ..utils import load_downloaded_models_to_dict
 
@@ -323,14 +323,33 @@ def _install():
         )
 
         # Stable sorting keeps the vetted built-in on an exact timestamp tie.
-        all_models = freshly_loaded_builtins + downloaded_models
-        all_models.sort(key=lambda x: x.updated_at, reverse=True)
+        all_models = [
+            (_catalog_timestamp(model, bundled=bundled), model)
+            for catalog, bundled in (
+                (freshly_loaded_builtins, True),
+                (downloaded_models, False),
+            )
+            for model in catalog
+        ]
+        all_models.sort(key=lambda candidate: candidate[0], reverse=True)
         seen_models = set()
         merged_models = []
-        for model in all_models:
+        for _, model in all_models:
             if model.model_name not in seen_models:
                 seen_models.add(model.model_name)
                 merged_models.append(model)
+
+    if complete or github_models:
+        current_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in merged_models:
+            current_by_name.setdefault(family.model_name, []).append(family)
+        github_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in github_models:
+            github_by_name.setdefault(family.model_name, []).append(family)
+        active = apply_github_catalog(
+            current_by_name, github_by_name, complete=complete
+        )
+        merged_models = [family for families in active.values() for family in families]
 
     # Publish a complete replacement even when the downloaded catalog is empty,
     # so models removed from a later refresh cannot survive in the live list.
