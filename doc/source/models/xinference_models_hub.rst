@@ -10,11 +10,7 @@ Overview
 
 The `Xinference Models Hub <https://model.xinference.io>`_ is Xinference’s unified platform for model management and collaboration. It provides end-to-end support for model browsing, registration, review, updates, and collaborative maintenance, serving both regular users and model maintainers.
 
-Before the introduction of the Models Hub, model JSON files were manually submitted and modified directly through PRs in the open-source repository (`xorbitsai/inference`). This approach resulted in uncontrolled versioning, long iteration cycles, and delays in delivering updated models—since model updates were tied to product release cycles, users could not obtain new models promptly.
-
-With centralized online model management, the Xinference Models Hub requires that **all model information—including metadata, parameters, and the README—be edited within the platform**. Based on modifications made by :ref:`model maintainers <model_maintainer_guide>`, the system **automatically generates and submits PRs** to the `xorbitsai/inference` repository, ensuring a standardized, automated, and traceable workflow that eliminates inconsistencies caused by manual edits.
-
-Users can obtain the latest model list at any time through the :ref:`model_update` feature, significantly improving model delivery efficiency and overall experience.
+Maintain built-in models through pull requests to the `xorbitsai/inference repository <https://github.com/xorbitsai/inference>`_. New and updated model definitions ship with Xinference releases. The :ref:`model_update` feature downloads the catalog published by Models Hub.
 
 User Guide for Regular Users
 ############################

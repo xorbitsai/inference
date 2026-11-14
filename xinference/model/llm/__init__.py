@@ -18,7 +18,12 @@ from typing import Any, Dict, List, Optional
 
 from ..._model_catalog import load_model_catalog
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
-from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
+from ..utils import (
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    model_catalog_priority,
+)
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -323,11 +328,18 @@ def _install():
         )
 
         # Stable sorting keeps the vetted built-in on an exact timestamp tie.
-        all_models = freshly_loaded_builtins + downloaded_models
-        all_models.sort(key=lambda x: x.updated_at, reverse=True)
+        all_models = [
+            (model_catalog_priority(model, bundled=True), model)
+            for model in freshly_loaded_builtins
+        ]
+        all_models.extend(
+            (model_catalog_priority(model, bundled=False), model)
+            for model in downloaded_models
+        )
+        all_models.sort(key=lambda candidate: candidate[0], reverse=True)
         seen_models = set()
         merged_models = []
-        for model in all_models:
+        for _, model in all_models:
             if model.model_name not in seen_models:
                 seen_models.add(model.model_name)
                 merged_models.append(model)

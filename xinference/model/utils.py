@@ -3221,43 +3221,49 @@ def load_downloaded_models_to_dict(
         )
 
 
+def model_catalog_priority(model: Any, *, bundled: bool) -> float:
+    """Rank catalog entries, preferring bundled entries with no comparable date."""
+    timestamp = getattr(model, "updated_at", None)
+    if type(timestamp) is int and timestamp >= 0:
+        return timestamp
+    return math.inf if bundled else -math.inf
+
+
 def merge_models_by_timestamp(
     built_in_models: Dict[str, List[Any]],
     user_models: Dict[str, List[Any]],
     model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
-    """Merge built-in and user models, keeping the latest version based on updated_at.
+    """Merge bundled and downloaded models using optional updated_at timestamps.
 
     Args:
         built_in_models: Dictionary of built-in models
-        user_models: Dictionary of user-defined models
+        user_models: Dictionary of downloaded models
         model_identity_func: Optional function that distinguishes independently
             versioned variants under the same model name.
 
     Returns:
-        Merged dictionary with latest models based on updated_at timestamp
+        Merged dictionary with the newest comparable entries and bundled
+        entries preferred when there is no comparable timestamp.
     """
     if model_identity_func is not None:
         merged_models: Dict[str, List[Any]] = {}
         model_names = dict.fromkeys([*built_in_models, *user_models])
         for model_name in model_names:
-            models_by_identity: Dict[Any, List[Any]] = {}
-            for model in [
-                *built_in_models.get(model_name, []),
-                *user_models.get(model_name, []),
-            ]:
-                models_by_identity.setdefault(model_identity_func(model), []).append(
-                    model
-                )
+            models_by_identity: Dict[Any, List[Tuple[float, Any]]] = {}
+            for catalog, bundled in ((built_in_models, True), (user_models, False)):
+                for model in catalog.get(model_name, []):
+                    models_by_identity.setdefault(
+                        model_identity_func(model), []
+                    ).append((model_catalog_priority(model, bundled=bundled), model))
 
             merged_models[model_name] = []
             for models in models_by_identity.values():
                 # Variants with the same identity are interchangeable. Keep one
                 # newest entry; because built-ins are ordered first, an equal-
                 # timestamp downloaded copy does not create a duplicate.
-                merged_models[model_name].append(
-                    max(models, key=lambda model: model.updated_at)
-                )
+                _, model = max(models, key=lambda candidate: candidate[0])
+                merged_models[model_name].append(model)
         return merged_models
 
     merged_models = {}
@@ -3276,11 +3282,14 @@ def merge_models_by_timestamp(
             built_in_list = merged_models[model_name]
 
             # Create a mapping of updated_at to model for comparison
-            all_models = []
-
-            # Add built-in models
-            for model in built_in_list:
-                all_models.append((model.updated_at, model))
+            all_models = [
+                (model_catalog_priority(model, bundled=True), model)
+                for model in built_in_list
+            ]
+            # A bundled family without a comparable date takes precedence as
+            # a whole, including variants that do have a date.
+            if any(priority == math.inf for priority, _ in all_models):
+                continue
 
             # Add user models, skipping any value-identical to a model already
             # present. install_models_with_merge reruns on every runtime refresh
@@ -3293,7 +3302,7 @@ def merge_models_by_timestamp(
                 if key in existing_keys:
                     continue
                 existing_keys.add(key)
-                all_models.append((model.updated_at, model))
+                all_models.append((model_catalog_priority(model, bundled=False), model))
 
             # Sort by updated_at (newest first) and keep the latest
             all_models.sort(key=lambda x: x[0], reverse=True)

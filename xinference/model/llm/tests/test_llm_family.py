@@ -4130,8 +4130,9 @@ def test_register_builtin_model_is_idempotent():
     assert len(BUILTIN_LLM_FAMILIES) == baseline_family_count
 
 
+@pytest.mark.parametrize("has_timestamp", [True, False])
 def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, has_timestamp
 ):
     import json
     import os
@@ -4157,6 +4158,8 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     )
     model_name = "downloaded-only-llm-refresh-test"
     downloaded_entry["model_name"] = model_name
+    if not has_timestamp:
+        downloaded_entry.pop("updated_at", None)
 
     builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "llm")
     os.makedirs(builtin_dir, exist_ok=True)

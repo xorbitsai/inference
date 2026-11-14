@@ -14,6 +14,10 @@ Use `xinference._model_catalog.load_model_catalog` to read catalogs. Runtime
 normalization still happens in the corresponding model-family loader. Do not
 read only the first record of a model file or reorder its records.
 
+Submit built-in model changes as GitHub pull requests. The `updated_at` field is
+optional. When editing a spec directly, omit any inherited Hub timestamp so a
+previously downloaded copy cannot override the bundled change.
+
 ## Models Hub integration
 
 The Hub download API and locally downloaded `<type>_models.json` files remain
