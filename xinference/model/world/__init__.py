@@ -59,6 +59,7 @@ def _install():
             model.model_hub,
             model.model_name,
         ),
+        github_family_key=lambda model: model.model_family,
     )
     for model_name, model_specs in BUILTIN_WORLD_MODELS.items():
         WORLD_MODEL_DESCRIPTIONS[model_name] = [

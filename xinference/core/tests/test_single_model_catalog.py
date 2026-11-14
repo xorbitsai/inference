@@ -348,6 +348,108 @@ async def test_image_github_refresh_overrides_without_timestamps_and_preserves_o
         image.register_builtin_model()
 
 
+@pytest.mark.asyncio
+async def test_world_single_refresh_removes_absent_family_variants(
+    tmp_path, monkeypatch
+):
+    from xinference.model import world
+
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    path = Path(world.__file__).parent / "models" / "LingBot-World-V2.json"
+    (family,) = json.loads(path.read_text(encoding="utf-8"))
+    removed = family["model_specs"].pop()["model_name"]
+    retained = {spec["model_name"] for spec in family["model_specs"]}
+    other = "Astra"
+    try:
+        world.register_builtin_model()
+        assert removed in world.BUILTIN_WORLD_MODELS
+
+        await WorkerActor.update_model_type(
+            SimpleNamespace(),
+            "world",
+            COMMIT,
+            catalog=[family],
+            model_name=family["model_family"],
+        )
+
+        for registry in (
+            world.BUILTIN_WORLD_MODELS,
+            world.WORLD_MODEL_DESCRIPTIONS,
+            world.WORLD_ENGINES,
+        ):
+            assert removed not in registry
+            assert retained | {other} <= registry.keys()
+        assert all(
+            model.is_builtin
+            for name in retained
+            for model in world.BUILTIN_WORLD_MODELS[name]
+        )
+    finally:
+        model_catalog.github_catalog_path("world").unlink(missing_ok=True)
+        world.register_builtin_model()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model_type", "name"),
+    [("embedding", "Qwen3-VL-Embedding-2B"), ("llm", "baichuan-2")],
+)
+async def test_exact_packaged_github_model_restores_trust_after_legacy_override(
+    tmp_path, monkeypatch, model_type, name
+):
+    from xinference.model.utils import allow_trust_remote_code
+
+    monkeypatch.setattr("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr("xinference.constants.XINFERENCE_TRUST_REMOTE_CODE", False)
+    module = import_module(f"xinference.model.{model_type}")
+    path = Path(module.__file__).parent / "models" / f"{name}.json"
+    (bundled,) = json.loads(path.read_text(encoding="utf-8"))
+    legacy = {
+        **bundled,
+        "updated_at": bundled["updated_at"] + 1,
+        "model_description": "Legacy catalog version",
+    }
+    legacy_path = tmp_path / "v2" / "builtin" / model_type / f"{model_type}_models.json"
+    store_model_catalog(legacy_path, [legacy])
+
+    def active_family():
+        if model_type == "llm":
+            return next(
+                family
+                for family in module.BUILTIN_LLM_FAMILIES
+                if family.model_name == name
+            )
+        return module.BUILTIN_EMBEDDING_MODELS[name][0]
+
+    worker = SimpleNamespace()
+    try:
+        module.register_builtin_model()
+        assert active_family().model_description == legacy["model_description"]
+        assert not allow_trust_remote_code(active_family())
+
+        await WorkerActor.update_model_type(
+            worker, model_type, COMMIT, catalog=[bundled], model_name=name
+        )
+        assert active_family().is_builtin is True
+        assert allow_trust_remote_code(active_family())
+
+        changed = {
+            **bundled,
+            "model_description": "Changed GitHub definition",
+            "is_builtin": True,
+        }
+        await WorkerActor.update_model_type(
+            worker, model_type, COMMIT, catalog=[changed], model_name=name
+        )
+        assert active_family().model_description == changed["model_description"]
+        assert active_family().is_builtin is False
+        assert not allow_trust_remote_code(active_family())
+    finally:
+        model_catalog.github_catalog_path(model_type).unlink(missing_ok=True)
+        legacy_path.unlink(missing_ok=True)
+        module.register_builtin_model()
+
+
 @pytest.mark.parametrize("raw", [b"broken JSON", b"{}", b'["bad row"]'])
 def test_full_refresh_can_repair_a_malformed_catalog(tmp_path, raw):
     path = tmp_path / "models.json"

@@ -346,8 +346,11 @@ def _install():
         github_by_name: Dict[str, List[LLMFamilyV2]] = {}
         for family in github_models:
             github_by_name.setdefault(family.model_name, []).append(family)
+        bundled_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in freshly_loaded_builtins:
+            bundled_by_name.setdefault(family.model_name, []).append(family)
         active = apply_github_catalog(
-            current_by_name, github_by_name, complete=complete
+            current_by_name, github_by_name, bundled_by_name, complete=complete
         )
         merged_models = [family for families in active.values() for family in families]
 
