@@ -1314,12 +1314,33 @@ def test_parse_relative_time_rejects_compound_date_math():
     assert admin._parse_relative_time("now-1d/d", now=now) is None
 
 
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "now-99999999999999999m",
+        "now-9999999999w",
+        "now-99999999d",
+        "99999999999999999999",
+        "99999999999999999",
+        "\N{SUPERSCRIPT TWO}",
+    ],
+)
+def test_parse_relative_time_returns_none_for_out_of_range_values(expr):
+    now = admin.datetime(2026, 9, 21, 0, 0, tzinfo=admin.timezone.utc)
+
+    assert admin._parse_relative_time(expr, now=now) is None
+    assert admin._freeze_es_time_bounds(expr, "now", now=now)[0] == expr
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("time_from", "time_to"),
     [
         ("now-1d-30d", "now"),
         ("now-1d", "now-1h+30d"),
+        ("now-99999999999999999m", "now"),
+        ("99999999999999999999", "now"),
+        ("now-1h", "\N{SUPERSCRIPT TWO}"),
     ],
 )
 async def test_search_correlated_logs_rejects_invalid_bounds_before_query(
