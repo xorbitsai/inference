@@ -1495,7 +1495,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             "request_id"
         )
         streams = self.__dict__.setdefault("_request_streams", {})
-        if request_id in streams and request_id not in self._running_tasks:
+        task = None if request_id is None else self._running_tasks.get(request_id)
+        if (
+            request_id is not None
+            and (task is None or task.done())
+            and (
+                request_id in streams
+                or any(
+                    lease.request_id == request_id
+                    for lease in self._realtime_file_streams
+                )
+            )
+        ):
             raise Exception(f"Duplicate request id: {request_id}")
         self._add_running_task(request_id)
         if priority is None:
