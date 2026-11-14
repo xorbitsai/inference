@@ -581,6 +581,185 @@ async def test_pd_sse_disconnect_destroys_router_stream(
 
 
 @pytest.mark.asyncio
+async def test_responses_disconnect_releases_decode_while_prefill_abort_is_blocked(
+    monkeypatch,
+):
+    import xoscar as xo
+
+    from ...core.pd_model import PDModelActor
+    from ...core.rpc_context import rpc_context
+    from ...core.tests.test_pd_model import FakeStage
+
+    entered, release, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    cancelled = asyncio.Event()
+    abort_calls = {b"p": 0, b"d": 0}
+
+    @rpc_context
+    async def abort_stage(self, request_id, block_duration=30):
+        abort_calls[self.uid] += 1
+        if self.uid == b"p":
+            entered.set()
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                # Xoscar waits for remote cancellation cleanup to unwind.
+                cancelled.set()
+                await release.wait()
+            finally:
+                finished.set()
+        return "DONE"
+
+    monkeypatch.setattr(FakeStage, "abort_request", abort_stage)
+    controllers = []
+    controller_type = restful_api._SSERequestAbortController
+
+    def short_abort_timeout(*args, **kwargs):
+        assert kwargs["abort_timeout"] == 5
+        kwargs["abort_timeout"] = 0.05
+        controller = controller_type(*args, **kwargs)
+        controllers.append(controller)
+        return controller
+
+    monkeypatch.setattr(restful_api, "_SSERequestAbortController", short_abort_timeout)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        prefill = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="p"
+        )
+        decode = await xo.create_actor(
+            FakeStage, address=pool.external_address, uid="d"
+        )
+        router = await xo.create_actor(
+            PDModelActor,
+            "pd",
+            model_engine="vllm",
+            transport_backend="nixl",
+            address=pool.external_address,
+        )
+        await router.add_prefill_actor("p", prefill)
+        await router.add_decode_actor("d", decode)
+        streams = []
+
+        async def infer(*args, **kwargs):
+            stream = await router.chat(*args, **kwargs)
+            stream.destroy = AsyncMock(wraps=stream.destroy)
+            streams.append(stream)
+            return stream
+
+        async def abort(request_id):
+            return await router.abort_request(request_id)
+
+        def configure(model):
+            model.chat.side_effect = infer
+            model.abort_request.side_effect = abort
+
+        response, model, _ = await _create_streaming_response(
+            monkeypatch, "responses", None, configure_model=configure
+        )
+        assert await decode.get_stream_counts() == (1, 0)
+        response_task = asyncio.create_task(
+            _run_asgi_disconnect(response, "before_body", None)
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 3)
+            # Do not cancel the response on failure; teardown opens the gate.
+            await asyncio.wait([response_task], timeout=0.35)
+            assert await decode.get_stream_counts() == (0, 1)
+            assert response_task.done()
+            await response_task
+            abort_task = controllers[0]._abort_task
+            assert abort_task is not None and not abort_task.done()
+            assert not release.is_set() and not finished.is_set()
+            assert not cancelled.is_set()
+            await response.background()
+            await response.background()
+            streams[0].destroy.assert_awaited_once()
+            model.abort_request.assert_awaited_once_with("responses-request")
+            model.decrease_serve_count.assert_not_called()
+
+            release.set()
+            await asyncio.wait_for(asyncio.shield(abort_task), 3)
+            assert finished.is_set()
+            assert controllers[0]._abort_task is abort_task
+            assert abort_task.result() is None
+            await response.background()
+            assert await decode.get_stream_counts() == (0, 1)
+            assert abort_calls == {b"p": 1, b"d": 1}
+            streams[0].destroy.assert_awaited_once()
+        finally:
+            release.set()
+            await asyncio.wait_for(asyncio.shield(response_task), 5)
+            if controllers[0]._abort_task is not None:
+                await asyncio.wait_for(
+                    asyncio.gather(controllers[0]._abort_task, return_exceptions=True),
+                    5,
+                )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("abort_timeout", [0.01, None])
+async def test_sse_abort_observes_late_exception(caplog, abort_timeout):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def abort_model(request_id):
+        entered.set()
+        await release.wait()
+        raise RuntimeError("late abort failure")
+
+    model = SimpleNamespace(abort_request=AsyncMock(side_effect=abort_model))
+    controller = restful_api._SSERequestAbortController(
+        model, "late-abort", _Request({}), "responses", abort_timeout=abort_timeout
+    )
+    loop = asyncio.get_running_loop()
+    unhandled = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: unhandled.append(context))
+    waiter = asyncio.create_task(controller.abort())
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        if abort_timeout is None:
+            await asyncio.wait([waiter], timeout=0.05)
+            assert not waiter.done()
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            await asyncio.wait_for(waiter, 1)
+            await controller.abort()
+            timeout_records = [
+                record
+                for record in caplog.records
+                if record.exc_info
+                and isinstance(record.exc_info[1], asyncio.TimeoutError)
+            ]
+            assert len(timeout_records) == 1
+        abort_task = controller._abort_task
+        assert abort_task is not None and not abort_task.done()
+        caplog.clear()
+        release.set()
+        await asyncio.wait([abort_task], timeout=1)
+        assert abort_task.done()
+        records = [
+            record
+            for record in caplog.records
+            if record.getMessage()
+            == "Failed to abort disconnected responses request late-abort"
+        ]
+        assert len(records) == 1
+        assert isinstance(records[0].exc_info[1], RuntimeError)
+        assert str(records[0].exc_info[1]) == "late abort failure"
+        model.abort_request.assert_awaited_once_with("late-abort")
+        await asyncio.sleep(0)
+        assert not unhandled
+    finally:
+        release.set()
+        await asyncio.gather(waiter, return_exceptions=True)
+        if controller._abort_task is not None:
+            await asyncio.gather(controller._abort_task, return_exceptions=True)
+        loop.set_exception_handler(previous_handler)
+
+
+@pytest.mark.asyncio
 async def test_responses_cleanup_waits_after_repeated_cancellation(monkeypatch):
     source, _, _ = _tracked_stream(wait_after_first=True)
     response, model, _ = await _create_streaming_response(

@@ -273,6 +273,8 @@ class _SSERequestAbortController:
         self._kind = kind
         self._abort_timeout = abort_timeout
         self._abort_task: Optional[asyncio.Task] = None
+        self._abort_deadline: Optional[float] = None
+        self._abort_timed_out = False
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
         self._completed = False
@@ -299,7 +301,7 @@ class _SSERequestAbortController:
         self._completed = True
 
     async def abort(self) -> None:
-        if self._completed:
+        if self._completed or self._abort_timed_out:
             return
         if self._abort_task is None:
 
@@ -318,15 +320,51 @@ class _SSERequestAbortController:
                     kwargs["stream_uid"] = iterator._uid
                 await model.abort_request(self._request_id, **kwargs)
 
-            operation = abort_model()
+            def observe_abort(task: asyncio.Task) -> None:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    logger.exception(
+                        "Failed to abort disconnected %s request %s",
+                        self._kind,
+                        self._request_id,
+                    )
+
             if self._abort_timeout is not None:
-                operation = asyncio.wait_for(operation, timeout=self._abort_timeout)
-            self._abort_task = asyncio.create_task(operation)
+                self._abort_deadline = (
+                    asyncio.get_running_loop().time() + self._abort_timeout
+                )
+            self._abort_task = asyncio.create_task(abort_model())
+            self._abort_task.add_done_callback(observe_abort)
+        waiter = asyncio.shield(self._abort_task)
+        # Keep the shield alive after timeout/cancellation and consume its copy
+        # of any exception; the task's callback owns logging the RPC outcome.
+        waiter.add_done_callback(
+            lambda future: future.exception() if not future.cancelled() else None
+        )
         try:
-            await asyncio.shield(self._abort_task)
+            # All callers share one deadline, including disconnect cleanup.
+            timeout = None
+            if self._abort_deadline is not None:
+                timeout = max(
+                    0.0, self._abort_deadline - asyncio.get_running_loop().time()
+                )
+            # Unlike wait_for, wait does not cancel the shield at the deadline.
+            done, _ = await asyncio.wait([waiter], timeout=timeout)
+            if not done:
+                if self._abort_timed_out:
+                    return
+                self._abort_timed_out = True
+                raise asyncio.TimeoutError
+            await waiter
         except asyncio.CancelledError:
             raise
         except Exception:
+            if self._abort_task.done():
+                # The done callback retrieves and logs the RPC's exception.
+                return
             logger.exception(
                 "Failed to abort disconnected %s request %s",
                 self._kind,
