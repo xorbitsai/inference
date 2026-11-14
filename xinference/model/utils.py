@@ -3272,7 +3272,8 @@ def apply_github_catalog(
     return active
 
 
-def _catalog_timestamp(model: Any, *, bundled: bool) -> float:
+def model_catalog_priority(model: Any, *, bundled: bool) -> float:
+    """Rank catalog entries, preferring bundled entries with no comparable date."""
     timestamp = getattr(model, "updated_at", None)
     if type(timestamp) is int and timestamp >= 0:
         return timestamp
@@ -3284,16 +3285,17 @@ def merge_models_by_timestamp(
     user_models: Dict[str, List[Any]],
     model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
-    """Merge built-in and user models, keeping the latest version based on updated_at.
+    """Merge bundled and downloaded models using optional updated_at timestamps.
 
     Args:
         built_in_models: Dictionary of built-in models
-        user_models: Dictionary of user-defined models
+        user_models: Dictionary of downloaded models
         model_identity_func: Optional function that distinguishes independently
             versioned variants under the same model name.
 
     Returns:
-        Merged dictionary with latest models based on updated_at timestamp
+        Merged dictionary with the newest comparable entries and bundled
+        entries preferred when there is no comparable timestamp.
     """
     if model_identity_func is not None:
         merged_models: Dict[str, List[Any]] = {}
@@ -3304,7 +3306,7 @@ def merge_models_by_timestamp(
                 for model in catalog.get(model_name, []):
                     models_by_identity.setdefault(
                         model_identity_func(model), []
-                    ).append((_catalog_timestamp(model, bundled=bundled), model))
+                    ).append((model_catalog_priority(model, bundled=bundled), model))
 
             merged_models[model_name] = []
             for models in models_by_identity.values():
@@ -3331,12 +3333,13 @@ def merge_models_by_timestamp(
             built_in_list = merged_models[model_name]
 
             # Create a mapping of updated_at to model for comparison
-            all_models = []
-
-            # Add built-in models
-            for model in built_in_list:
-                all_models.append((_catalog_timestamp(model, bundled=True), model))
-            if any(timestamp == math.inf for timestamp, _ in all_models):
+            all_models = [
+                (model_catalog_priority(model, bundled=True), model)
+                for model in built_in_list
+            ]
+            # A bundled family without a comparable date takes precedence as
+            # a whole, including variants that do have a date.
+            if any(priority == math.inf for priority, _ in all_models):
                 continue
 
             # Add user models, skipping any value-identical to a model already
@@ -3350,7 +3353,7 @@ def merge_models_by_timestamp(
                 if key in existing_keys:
                     continue
                 existing_keys.add(key)
-                all_models.append((_catalog_timestamp(model, bundled=False), model))
+                all_models.append((model_catalog_priority(model, bundled=False), model))
 
             # Sort by updated_at (newest first) and keep the latest
             all_models.sort(key=lambda x: x[0], reverse=True)

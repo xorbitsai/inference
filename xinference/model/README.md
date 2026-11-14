@@ -19,7 +19,8 @@ read only the first record of a model file or reorder its records.
 Submit changes to the per-model JSON files as GitHub pull requests. Xinference
 refreshes model definitions from `main` at a fixed commit per request. Catalog
 updates can change model definitions that the installed runtime can load. New
-model implementations and engines ship with Xinference releases.
+model implementations and engines ship with Xinference releases. The
+`updated_at` field is optional. GitHub refreshes use the commit SHA.
 
 Maintainers can validate the catalogs or export an aggregate JSON file with
 the catalog tooling:

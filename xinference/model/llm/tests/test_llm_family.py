@@ -4130,8 +4130,9 @@ def test_register_builtin_model_is_idempotent():
     assert len(BUILTIN_LLM_FAMILIES) == baseline_family_count
 
 
+@pytest.mark.parametrize("has_timestamp", [True, False])
 def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, has_timestamp
 ):
     import json
     import os
@@ -4157,6 +4158,8 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     )
     model_name = "downloaded-only-llm-refresh-test"
     downloaded_entry["model_name"] = model_name
+    if not has_timestamp:
+        downloaded_entry.pop("updated_at", None)
 
     builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "llm")
     os.makedirs(builtin_dir, exist_ok=True)
@@ -4184,3 +4187,40 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     assert model_name not in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
     assert model_name not in LLM_ENGINES
     assert model_name not in LLM_VERSION_INFOS
+
+
+def test_register_builtin_model_keeps_bundled_llm_over_undated_download(
+    tmp_path, monkeypatch
+):
+    import json
+    from pathlib import Path
+
+    from .... import constants
+    from .. import load_model_family_from_json, register_builtin_model
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    model_name = "baichuan-2"
+    bundled_path = Path(__file__).resolve().parents[1] / "models" / f"{model_name}.json"
+    bundled_families = []
+    load_model_family_from_json(
+        str(bundled_path), bundled_families, register_metadata=False
+    )
+    (bundled_family,) = bundled_families
+
+    (downloaded_entry,) = load_model_catalog(bundled_path)
+    downloaded_entry.pop("updated_at", None)
+    downloaded_entry["model_specs"] = downloaded_entry["model_specs"][:1]
+    catalog_dir = tmp_path / "v2" / "builtin" / "llm"
+    catalog_dir.mkdir(parents=True)
+    (catalog_dir / "llm_models.json").write_text(
+        json.dumps([downloaded_entry]), encoding="utf-8"
+    )
+
+    register_builtin_model()
+
+    (active,) = [
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    ]
+    assert active.model_specs == bundled_family.model_specs
+    assert active.is_builtin is True

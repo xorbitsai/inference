@@ -150,3 +150,55 @@ def test_llama_cpp_still_downloads_split_gguf(
     monkeypatch.setattr(LLMCacheManager, "cache", lambda self: "/cached")
     model = _launch(monkeypatch, Engine, "llama.cpp", model_name, size, quantization)
     assert model.path == "/cached"
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_interrupted_split_download_is_resumed(hub, tmp_path, monkeypatch):
+    import huggingface_hub
+    from modelscope.hub import file_download as modelscope_file_download
+
+    from .... import constants
+    from ... import utils
+    from ..cache_manager import LLMCacheManager
+    from ..llm_family import get_llm_family_by_name
+
+    family = get_llm_family_by_name("gemma-3-it").copy()
+    family.model_specs = [
+        s
+        for s in family.model_specs
+        if s.model_format == "ggufv2"
+        and s.model_id == "bartowski/google_gemma-3-27b-it-GGUF"
+        and s.quantization == "bf16"
+        and s.model_hub == hub
+    ]
+    assert len(family.model_specs) == 1
+    shards, _, _ = utils.generate_model_file_names_with_quantization_parts(
+        family.model_specs[0]
+    )
+    blob = tmp_path / "blob.gguf"
+    blob.write_bytes(b"GGUF")
+    fetched = []
+    broken = [True]
+
+    def download(model_id, filename, revision=None):
+        if broken[0] and filename == shards[1]:
+            raise OSError("connection lost")
+        fetched.append(filename)
+        return str(blob)
+
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(utils, "IS_NEW_HUGGINGFACE_HUB", True)
+    monkeypatch.setattr(utils, "retry_download", lambda fn, *a, **kw: fn(*a[2:], **kw))
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    monkeypatch.setattr(modelscope_file_download, "model_file_download", download)
+
+    with pytest.raises(OSError):
+        LLMCacheManager(family).cache()
+    assert not LLMCacheManager(family).get_cache_status()
+
+    broken[0] = False
+    manager = LLMCacheManager(family)
+    manager.cache()
+
+    assert shards[1] in fetched
+    assert manager.get_cache_status()

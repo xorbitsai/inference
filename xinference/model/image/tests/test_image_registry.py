@@ -36,6 +36,47 @@ from ..engine_family import IMAGE_ENGINES
 from ..ocr.ocr_family import OCR_ENGINES
 
 
+@pytest.mark.parametrize(
+    "downloaded_metadata",
+    [{}, {"updated_at": None}, {"updated_at": 1_800_000_000}],
+    ids=["missing", "null", "timestamped"],
+)
+def test_register_builtin_model_keeps_image_without_timestamp(
+    tmp_path, monkeypatch, downloaded_metadata
+):
+    import xinference.model.image as image_module
+
+    from .... import constants
+
+    monkeypatch.setattr(image_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    model_name = "MiniCPM-OCR-1.0"
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    bundled_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if entry["model_name"] == model_name
+    )
+    assert "updated_at" not in bundled_entry
+    downloaded_entry = {
+        **bundled_entry,
+        **downloaded_metadata,
+        "model_specs": bundled_entry["model_specs"][:1],
+    }
+    catalog_dir = tmp_path / "v2" / "builtin" / "image"
+    catalog_dir.mkdir(parents=True)
+    (catalog_dir / "image_models.json").write_text(
+        json.dumps([downloaded_entry]), encoding="utf-8"
+    )
+
+    image_module.register_builtin_model()
+
+    active = BUILTIN_IMAGE_MODELS[model_name]
+    assert all(spec.is_builtin for spec in active)
+    assert {spec.model_format for spec in active} == {"pytorch", "ggufv2"}
+
+
 def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     tmp_path, monkeypatch
 ):

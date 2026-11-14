@@ -19,12 +19,12 @@ from typing import Any, Dict, List, Optional
 from ..._model_catalog import read_model_records
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
 from ..utils import (
-    _catalog_timestamp,
     apply_github_catalog,
     extend_classes_once,
     family_identity_key,
     flatten_quantizations,
     load_github_models,
+    model_catalog_priority,
 )
 from .core import (
     LLM,
@@ -324,13 +324,13 @@ def _install():
 
         # Stable sorting keeps the vetted built-in on an exact timestamp tie.
         all_models = [
-            (_catalog_timestamp(model, bundled=bundled), model)
-            for catalog, bundled in (
-                (freshly_loaded_builtins, True),
-                (downloaded_models, False),
-            )
-            for model in catalog
+            (model_catalog_priority(model, bundled=True), model)
+            for model in freshly_loaded_builtins
         ]
+        all_models.extend(
+            (model_catalog_priority(model, bundled=False), model)
+            for model in downloaded_models
+        )
         all_models.sort(key=lambda candidate: candidate[0], reverse=True)
         seen_models = set()
         merged_models = []
