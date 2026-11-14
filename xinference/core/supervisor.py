@@ -7891,9 +7891,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return ret
         ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = ret and await worker.confirm_and_remove_model(
+            # Await every worker: a failure on one must not skip the rest.
+            removed = await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
+            ret = ret and removed
         return ret
 
     # Virtual environment management methods
