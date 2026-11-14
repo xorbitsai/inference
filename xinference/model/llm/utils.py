@@ -441,8 +441,8 @@ class ChatModelMixin:
                 if not isinstance(args, str):
                     continue
                 if not args.strip():
-                    # Clients that accumulate streamed deltas send "" for a
-                    # tool called without arguments; that means no arguments.
+                    # Some clients send "" for a tool called without
+                    # arguments; that means no arguments.
                     rewrites[i] = {**fn, "arguments": {}}
                     continue
                 try:
