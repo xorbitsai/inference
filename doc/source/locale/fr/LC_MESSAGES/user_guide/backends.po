@@ -114,74 +114,13 @@ msgstr ""
 "Depuis la v1.6.1, lorsque n-gpu-layers n'est pas spécifié (par défaut "
 "-1), l'estimation du nombre de couches GPU est automatiquement activée."
 
-#: ../../source/user_guide/backends.rst:53
-msgid ""
-"This feature automatically detects the number of GPU layers (NGL) for the"
-" llama.cpp backend. Please be aware that this is not an accurate "
-"calculation. Therefore, the ``-ngl`` result might not be the most "
-"optimized, and there is still a chance of encountering an out-of-memory "
-"error."
-msgstr ""
-"Cette fonctionnalité peut définir automatiquement le nombre de couches "
-"GPU (NGL) pour le backend llama.cpp. Veuillez noter qu'il ne s'agit pas "
-"d'un calcul précis, donc le résultat ``-ngl`` peut ne pas être optimal, "
-"et vous pourriez toujours rencontrer des erreurs de mémoire vidéo "
-"insuffisante."
-
-#: ../../source/user_guide/backends.rst:57
-msgid ""
-"Currently, there is no official implementation for auto ngl. Please refer"
-" to the following issues for more information:"
-msgstr ""
-"Actuellement, NGL automatique n'a pas de support officiel. Veuillez vous "
-"référer au problème ci-dessous pour plus de détails :"
-
-#: ../../source/user_guide/backends.rst:59
-msgid "https://github.com/ggml-org/llama.cpp/issues/13860"
-msgstr "https://github.com/ggml-org/llama.cpp/issues/13860"
-
-#: ../../source/user_guide/backends.rst:60
-msgid "https://github.com/ggml-org/llama.cpp/pull/6502"
-msgstr "https://github.com/ggml-org/llama.cpp/pull/6502"
-
 #: ../../source/user_guide/backends.rst:62
-msgid ""
-"Our implementation is based on the Ollama auto ngl, but there are some "
-"differences:"
-msgstr ""
-"Notre implémentation est basée sur le NGL automatique d'Ollama, mais avec"
-" quelques différences :"
+msgid "With ``xllamacpp`` v2026.11.12361 and later, Xinference uses native llama.cpp GPU memory fitting. Leave ``n_gpu_layers=-1``, ``fit_params=True`` and ``tensor_split`` at its default to enable automatic placement and startup retries after recoverable GPU allocation failures. Explicit layer counts and fitting settings are preserved. Use ``n_gpu_layers=0`` for CPU inference."
+msgstr "Avec ``xllamacpp`` v2026.11.12361 et les versions ultérieures, Xinference utilise l’ajustement natif de la mémoire GPU de llama.cpp. Conservez ``n_gpu_layers=-1``, ``fit_params=True`` et la valeur par défaut de ``tensor_split`` pour activer le placement automatique et les nouvelles tentatives de démarrage après un échec récupérable d’allocation mémoire GPU. Les nombres de couches et les paramètres d’ajustement explicites sont conservés. Utilisez ``n_gpu_layers=0`` pour l’inférence sur CPU."
 
 #: ../../source/user_guide/backends.rst:64
-msgid ""
-"We utilize device information detected by `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_."
-msgstr ""
-"Nous utilisons les informations sur les périphériques fournies par "
-"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_."
-
-#: ../../source/user_guide/backends.rst:65
-msgid ""
-"We have removed support for less popular architectures, these "
-"architectures will use the default calculation."
-msgstr ""
-"Nous avons supprimé la prise en charge de certaines architectures peu "
-"courantes, qui utilisaient la logique de calcul par défaut."
-
-#: ../../source/user_guide/backends.rst:66
-msgid ""
-"We fall back to offloading all the layers to the GPU if the auto ngl "
-"fails."
-msgstr "Si le NGL automatique échoue, nous essayons de tout charger sur le GPU."
-
-#: ../../source/user_guide/backends.rst:67
-msgid ""
-"We do not support multimodal projectors embedded into the model GGUF, as "
-"this is a very experimental feature."
-msgstr ""
-"Nous ne supportons pas l'intégration de projecteurs multimodaux dans le "
-"modèle GGUF. Ce format de modèle est actuellement encore en phase "
-"expérimentale."
+msgid "Legacy ``xllamacpp`` versions continue to use the Python GPU layer estimator, based on Ollama. If estimation fails, Xinference attempts to offload all layers to the GPU. Memory estimates can still result in out-of-memory errors."
+msgstr "Les anciennes versions de ``xllamacpp`` continuent d’utiliser l’estimateur Python de couches GPU basé sur Ollama. Si l’estimation échoue, Xinference tente de décharger toutes les couches sur le GPU. Les estimations de mémoire peuvent toujours entraîner des erreurs de mémoire insuffisante."
 
 #: ../../source/user_guide/backends.rst:71
 msgid "Common Issues"
