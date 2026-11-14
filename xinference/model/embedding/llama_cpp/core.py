@@ -80,12 +80,12 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "native"
 
     supports_dimensions = False
+    _report_engine_load = False
 
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._llm = None
-        self._report_engine_load = False
         self._metrics_verified = False
         self._engine_active = False
         self._engine_batch = 0
@@ -287,7 +287,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         if model_uid := kwargs.get("model_uid"):
             data["model"] = model_uid
 
-        if self.__dict__.get("_report_engine_load"):
+        if self._report_engine_load:
             # BatchMixin already runs one native call at a time off the actor loop.
             self._engine_backlog_since = None
             self._engine_batch += 1
