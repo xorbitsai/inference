@@ -81,6 +81,7 @@ from ..context_length import (
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
+from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
     convert_forced_completion,
     is_forced_tool_choice,
@@ -717,6 +718,60 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         config["thinking_token_budget"] = budget
 
+    async def get_chat_routing_tokens(
+        self, messages: List[Dict], config: Dict
+    ) -> Optional[List[int]]:
+        # Only the hybrid GPU connector publishes the exact prefix fingerprints
+        # used by routing today. Avoid rendering or fetching multimodal inputs.
+        engine = getattr(self, "_engine", None)
+        transfer = getattr(
+            getattr(engine, "vllm_config", None), "kv_transfer_config", None
+        )
+        if getattr(transfer, "kv_connector", None) not in (
+            "XavierHybridGPUConnector",
+            "XavierHybridTieredConnector",
+        ):
+            return None
+        if (
+            config.get("lora_name")
+            or config.get("add_special_tokens") is False
+            or config.get("truncate_prompt_tokens") is not None
+            or config.get("prompt_logprobs") is not None
+            or any(
+                isinstance(message.get("content"), list)
+                and any(
+                    not isinstance(part, dict) or part.get("type") != "text"
+                    for part in message["content"]
+                )
+                for message in messages
+            )
+        ):
+            return None
+        prepare_inputs = getattr(self, "_prepare_chat_inputs", None)
+        if prepare_inputs is None:
+            return None
+        # Routing sees the request before REST normalizes its reasoning controls.
+        # Apply the loaded model's rules so we hash the generation prompt.
+        config = (
+            self.prepare_reasoning_request(config)
+            if has_reasoning_controls(config)
+            else copy.deepcopy(config)
+        )
+        self._normalize_tool_choice_for_prompt(config)
+        prompt, _, context, config = await prepare_inputs(
+            copy.deepcopy(messages), config
+        )
+        prompt = self._prepare_structured_reasoning_prompt(
+            prompt, config or {}, context
+        )
+        if isinstance(prompt, dict) and prompt.get("multi_modal_data"):
+            return None
+        tokenizer = await self._get_tokenizer(None)
+        # Text input is tokenized by EngineCore with default special-token
+        # handling when an explicit generation budget is supplied.
+        tokens = await self._gen_tokens_prompt(tokenizer, prompt, {})
+        return tokens["prompt_token_ids"]
+
     async def async_count_tokens(
         self, messages: List[Dict], config: Optional[Dict] = None
     ) -> int:
@@ -738,6 +793,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 messages, config = prepare_forced_tools(messages, config)
             else:
                 validate_forced_tool_choice(config)
+        config = config or {}
         config.pop("parallel_tool_calls", None)
         self._normalize_tool_choice_for_prompt(config)
         prompt, _tools, context, config = await prepare_inputs(messages, config)

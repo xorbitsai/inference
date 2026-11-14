@@ -363,6 +363,72 @@ def _reservation_supervisor(*models):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "loads,cached,expected",
+    [
+        ([0, 0], {2: 900}, 1),
+        ([0, 1], {2: 900}, 1),
+        ([0, 2], {2: 900}, 0),
+        ([1, 0], {}, 1),
+        ([None, 0], {1: 900}, 1),
+    ],
+)
+async def test_chat_routing_balances_resident_prefix_and_inflight_load(
+    loads, cached, expected
+):
+    models = [
+        SimpleNamespace(
+            get_chat_routing_load=AsyncMock(return_value=load),
+            get_chat_routing_tokens=AsyncMock(return_value=[1] * 1000),
+            reserve_chat_request=AsyncMock(return_value=True),
+        )
+        for load in loads
+    ]
+    supervisor, info = _reservation_supervisor(*models)
+    tracker = SimpleNamespace(match_routing_prefixes=AsyncMock(return_value=cached))
+    supervisor._block_tracker_mapping = {"demo": tracker}
+    request = {"messages": [], "config": {"cache_salt": "scope"}}
+    assert await supervisor.get_chat_model("demo", "task", "chat", request) == (
+        models[expected],
+        True,
+    )
+    tracker.match_routing_prefixes.assert_awaited_once_with([1] * 1000, "scope")
+    assert info.routing_keys["task"] == expected
+    models[1 - expected].reserve_chat_request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_interactive_chat_uses_load_without_session_or_tokenization():
+    models = [_chat_actor(4, active=1), _chat_actor(4)]
+    supervisor, info = _reservation_supervisor(*models)
+    selected, reserved = await supervisor.get_chat_model(
+        "demo", None, "chat", {"interactive": True}
+    )
+    try:
+        assert selected is models[1] and reserved
+        assert info.routing_keys == {"task": 0}
+    finally:
+        selected.release_chat_reservation("chat")
+
+
+@pytest.mark.asyncio
+async def test_interactive_chat_does_not_select_draining_replica():
+    active = _chat_actor(4, active=1)
+    draining = _chat_actor(4)
+    supervisor, info = _reservation_supervisor(active, draining)
+    supervisor._replica_autoscalers = {"demo": SimpleNamespace(draining={1})}
+    selected, reserved = await supervisor.get_chat_model(
+        "demo", None, "chat", {"interactive": True}
+    )
+    try:
+        assert selected is active and reserved
+        assert info.routing_keys == {"task": 0}
+        assert not draining._chat_reservations
+    finally:
+        selected.release_chat_reservation("chat")
+
+
+@pytest.mark.asyncio
 async def test_affinity_timeout_releases_reservation_before_busy_fallback(monkeypatch):
     monkeypatch.setattr("xinference.core.supervisor._AFFINITY_CAPACITY_TIMEOUT", 0.02)
     actor = _chat_actor(1)

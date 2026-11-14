@@ -1,6 +1,7 @@
 # CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import json
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -68,6 +69,67 @@ async def test_chat_preserves_deepseek_v41_none_effort(
     assert config["chat_template_kwargs"]["reasoning_effort"] == "none"
     assert raw_config["chat_template_kwargs"]["reasoning_effort"] == "none"
     assert "reasoning_effort" not in config
+
+
+@pytest.mark.asyncio
+async def test_chat_residency_routing_renders_generation_reasoning_effort(monkeypatch):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    family = _family("qwen3.8")
+    api, actor = _chat_api(monkeypatch, "qwen3.8")
+    supervisor = await api._get_supervisor_ref()
+    supervisor.describe_model.return_value = family.to_description()
+
+    model = object.__new__(VLLMMultiModel)
+    model.model_family = family
+    model.reasoning_parser = None
+    model._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            kv_transfer_config=SimpleNamespace(kv_connector="XavierHybridGPUConnector")
+        )
+    )
+    tokenizer = Mock(
+        side_effect=lambda prompt, **_: SimpleNamespace(input_ids=list(prompt.encode()))
+    )
+    model._get_tokenizer = AsyncMock(return_value=tokenizer)
+    monkeypatch.setitem(sys.modules, "vllm", SimpleNamespace(TokensPrompt=dict))
+    monkeypatch.setitem(
+        sys.modules,
+        "qwen_omni_utils",
+        SimpleNamespace(
+            process_audio_info=None,
+            process_mm_info=None,
+            process_vision_info=lambda *_args, **_kwargs: (None, None, {}),
+        ),
+    )
+
+    async def route(_uid, _key, _reservation, *, routing_request):
+        nonlocal routing_tokens
+        routing_tokens = await model.get_chat_routing_tokens(
+            routing_request["messages"], routing_request["config"]
+        )
+        return actor, False
+
+    routing_tokens = None
+    supervisor.get_chat_model = AsyncMock(side_effect=route)
+    response = await api.create_chat_completion(
+        _Request(
+            {
+                "model": "model",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "routing_key": "session",
+                "reasoning_effort": "low",
+                "chat_template_kwargs": {"enable_thinking": True},
+                "stop_token_ids": [1],
+            }
+        )
+    )
+    assert response.status_code == 200
+    messages, config = actor.chat.await_args.args
+    inputs, _, _, _ = await model._prepare_chat_inputs(messages, dict(config))
+    tokens = await model._gen_tokens_prompt(tokenizer, inputs, {})
+    assert routing_tokens == tokens["prompt_token_ids"]
+    assert "Reasoning effort is set to low." in inputs["prompt"]
 
 
 @pytest.mark.asyncio

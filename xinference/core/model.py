@@ -2943,6 +2943,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def can_accept_chat_request(self) -> bool:
         return self._can_accept_chat_request()
 
+    async def get_chat_routing_load(self) -> Optional[int]:
+        if not self._can_accept_chat_request():
+            return None
+        return _count_replica_work(self)
+
+    async def get_chat_routing_tokens(
+        self, messages: List[Dict], config: Dict
+    ) -> Optional[List[int]]:
+        self._require_ready()
+        render = getattr(self._model, "get_chat_routing_tokens", None)
+        if render is not None:
+            return await render(messages, config)
+        return None
+
     async def reserve_chat_request(self, reservation_id: str) -> bool:
         if reservation_id in self._chat_reservations:
             return True

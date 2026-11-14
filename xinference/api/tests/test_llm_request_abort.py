@@ -91,6 +91,15 @@ async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
     await api.create_chat_completion(_Request(body))
     supervisor.get_model.assert_awaited_with("affinity-model")
 
+    await api.create_chat_completion(_Request(dict(body, priority_hint=-1)))
+    call = supervisor.get_chat_model.await_args
+    assert call.args[1] is None
+    assert call.kwargs["routing_request"] == {"interactive": True}
+
+    supervisor.get_chat_model.reset_mock()
+    await api.create_chat_completion(_Request(dict(body, priority_hint=-1, priority=0)))
+    supervisor.get_chat_model.assert_not_awaited()
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("peer_ready", [True, False])

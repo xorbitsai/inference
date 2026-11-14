@@ -5390,14 +5390,27 @@ class RESTfulAPI(CancelMixin):
         for config in (kwargs, raw_kwargs):
             config.pop(CACHE_SESSION_ARG, None)
         reserved = False
-        if routing_options:
+        interactive = kwargs.get("priority") is None and is_interactive_priority_hint(
+            priority_hint
+        )
+        if routing_options or interactive:
             reservation_id = uuid.uuid4().hex
+            routing_request: Dict[str, Any] = {"interactive": interactive}
+            # Reuse normalized, tenant-scoped prompt settings. Bulk prefill
+            # requests with explicit priority keep their requested placement.
+            if routing_options and not interactive and not kwargs.get("priority"):
+                routing_request.update(messages=messages, config=kwargs)
             model, reserved = await require_chat_model(
                 self._get_supervisor_ref,
                 model_uid,
                 self._report_error_event,
-                **routing_options,
+                routing_key=routing_options.get("routing_key"),
                 reservation_id=reservation_id,
+                routing_request=(
+                    routing_request
+                    if interactive or "messages" in routing_request
+                    else None
+                ),
             )
             if reserved:
 
@@ -5447,7 +5460,9 @@ class RESTfulAPI(CancelMixin):
 
         try:
             description_options = (
-                {"selected_replica_uid": model.uid.decode()} if routing_options else {}
+                {"selected_replica_uid": model.uid.decode()}
+                if routing_options or interactive
+                else {}
             )
             try:
                 desc = await supervisor_ref.describe_model(

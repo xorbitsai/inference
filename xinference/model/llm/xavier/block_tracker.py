@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import hashlib
 import random
+import struct
 import sys
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
@@ -20,6 +22,19 @@ import xoscar as xo
 
 if TYPE_CHECKING:
     from .local_directory import SharedBlockDirectory
+
+
+def routing_prefix_hashes(tokens, lengths, cache_salt):
+    """Fingerprint token prefixes independently of the engine's hash layout."""
+    salt = (cache_salt or "").encode("utf-8")
+    digest = hashlib.sha256(struct.pack("<I", len(salt)) + salt)
+    previous = 0
+    for length in sorted(lengths):
+        if length > len(tokens):
+            break
+        digest.update(struct.pack(f"<{length - previous}I", *tokens[previous:length]))
+        yield length, digest.digest()
+        previous = length
 
 
 class BlockTracker(xo.StatelessActor):
@@ -47,6 +62,7 @@ class BlockTracker(xo.StatelessActor):
         # At most one resident checkpoint per rank and prefix hash. These
         # entries are offers; the transfer actor authorizes each actual read.
         self._gpu_prefixes: Dict[int, dict] = {}
+        self._routing_prefixes: Dict[int, dict] = {}
         from .cache_lifecycle import CacheSessionRegistry
 
         self._cache_sessions = CacheSessionRegistry()
@@ -57,13 +73,40 @@ class BlockTracker(xo.StatelessActor):
     def get_cache_sessions(self, session_ids):
         return self._cache_sessions.get(session_ids)
 
-    def publish_gpu_prefix(self, rank, key, ticket, tokens, groups):
+    def publish_gpu_prefix(self, rank, key, ticket, tokens, groups, routing_hash=None):
         self._gpu_prefixes.setdefault(rank, {})[key] = (ticket, tokens, groups)
+        routing = self._routing_prefixes.setdefault(rank, {})
+        if routing_hash is None:
+            routing.pop(key, None)
+        else:
+            routing[key] = (tokens, routing_hash)
 
     def remove_gpu_prefix(self, rank, key, ticket):
         offers = self._gpu_prefixes.get(rank, {})
         if key in offers and offers[key][0] == ticket:
             del offers[key]
+            self._routing_prefixes.get(rank, {}).pop(key, None)
+
+    def match_routing_prefixes(self, tokens, cache_salt):
+        offers = {
+            rank: tuple(prefixes.values())
+            for rank, prefixes in self._routing_prefixes.items()
+            if rank not in self._unavailable_ranks
+        }
+        lengths = {
+            length
+            for prefixes in offers.values()
+            for length, _ in prefixes
+            if length < len(tokens)
+        }
+        hashes = dict(routing_prefix_hashes(tokens, lengths, cache_salt))
+        return {
+            rank: max(
+                (length for length, digest in prefixes if hashes.get(length) == digest),
+                default=0,
+            )
+            for rank, prefixes in offers.items()
+        }
 
     def query_gpu_prefix(self, rank, keys, session_ids=None, *, fine_prefix=None):
         best = None
@@ -272,6 +315,7 @@ class BlockTracker(xo.StatelessActor):
 
     def unregister_rank(self, rank: int):
         self._gpu_prefixes.pop(rank, None)
+        self._routing_prefixes.pop(rank, None)
         """
         This rank is in the recovery process, and its query results will be excluded.
         """
@@ -281,6 +325,8 @@ class BlockTracker(xo.StatelessActor):
         """
         After recovery is successful, clear all stale data of the rank and mark the rank as available.
         """
+        self._gpu_prefixes.pop(rank, None)
+        self._routing_prefixes.pop(rank, None)
         for engine, owned in self._rank_snapshots.items():
             self._unregister_snapshots(engine, rank, list(owned.get(rank, ())))
             owned.pop(rank, None)
