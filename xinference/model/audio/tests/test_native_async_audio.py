@@ -9,11 +9,12 @@ import asyncio
 import sys
 from contextlib import aclosing
 from types import SimpleNamespace as NS
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import numpy as np
 import pytest
 
+from ....core.exceptions import InvalidModelRequestError
 from ....core.realtime.protocol import RealtimeError, RealtimeLimits
 from ..native_async import NativeAsyncAudioModel
 from ..vllm import PCM_FORMAT, VLLMASRSession, VLLMQwen3ASRModel
@@ -466,17 +467,69 @@ async def test_tts_rejects_invalid_audio_and_aborts(native_modules, audio, rate)
     assert len(engine.aborted) == (0 if isinstance(audio, list) else 1)
 
 
-async def test_tts_validation_before_submission_and_stream_error(native_modules):
+@pytest.mark.parametrize(
+    "options,message",
+    [
+        ({"input": ""}, "Speech input must contain 1..5000 characters"),
+        ({"speed": 2}, "Native Qwen3-TTS currently requires speed=1"),
+        ({"response_format": "opus"}, "Unsupported speech format"),
+        (
+            {"stream": True, "response_format": "mp3"},
+            "Streamed Qwen3-TTS requires response_format=pcm",
+        ),
+        ({"seed": True}, "seed must be an integer"),
+        ({"unsupported": True}, "Unsupported speech options"),
+        (
+            {"instruct": "x" * 501},
+            "instruct must be a string of at most 500 characters",
+        ),
+        ({"max_new_tokens": 0}, "max_new_tokens must be 1..4096"),
+        ({"voice": 1}, "voice and language must be strings"),
+        ({"voice": "missing"}, "Unknown speaker: missing"),
+        ({"language": "missing"}, "Unsupported language: missing"),
+    ],
+    ids=[
+        "empty-input",
+        "speed",
+        "format",
+        "stream-format",
+        "seed-type",
+        "extra-option",
+        "long-instruct",
+        "token-limit",
+        "voice-type",
+        "voice",
+        "language",
+    ],
+)
+async def test_tts_invalid_request_before_submission(options, message):
     model = tts_model()
-    for kwargs in (
-        {"voice": "missing"},
-        {"language": "missing"},
-        {"speed": 2},
-        {"stream": True, "response_format": "mp3"},
-        {"seed": True},
-    ):
-        with pytest.raises(ValueError):
-            await model.async_speech("Hello", **kwargs)
+    model._engine.generate = Mock()
+    with pytest.raises(InvalidModelRequestError, match=message):
+        await model.async_speech(**{"input": "Hello", **options})
+    model._engine.generate.assert_not_called()
+    assert not model._requests
+
+
+@pytest.mark.parametrize(
+    "options,message",
+    [
+        ({"response_format": "text"}, "Supported transcription formats"),
+        ({"timestamp_granularities": ["word"]}, "does not support timestamp or extra"),
+    ],
+    ids=["format", "timestamps"],
+)
+async def test_asr_invalid_request_before_submission(options, message):
+    model = asr_model()
+    model._transcribe = AsyncMock()
+    with pytest.raises(InvalidModelRequestError, match=message):
+        await model.async_transcriptions(b"invalid audio", **options)
+    model._transcribe.assert_not_awaited()
+    assert not model._requests
+
+
+async def test_tts_stream_error_aborts_request(native_modules):
+    model = tts_model()
     engine = Engine()
     engine.default_sampling_params_list = model._engine.default_sampling_params_list
     model._engine = engine
