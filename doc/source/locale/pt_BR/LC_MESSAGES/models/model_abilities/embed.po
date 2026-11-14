@@ -144,6 +144,10 @@ msgstr ""
 "por padrão quando a especificação de modelo correspondente está no "
 "formato GGUF."
 
+#: models/model_abilities/embed.rst:55
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer to request a shorter embedding. Invalid values return HTTP 400 for that request."
+msgstr "Para modelos que aceitam ``dimensions`` com o mecanismo ``sentence_transformers``, envie um inteiro positivo para solicitar um vetor de dimensão menor. Um valor inválido faz com que essa solicitação retorne HTTP 400."
+
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"
 msgstr "Truncando a entrada"

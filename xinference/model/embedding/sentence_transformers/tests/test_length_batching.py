@@ -3,10 +3,17 @@
 # CI: linux
 
 import asyncio
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 import torch
+from fastapi import APIRouter, FastAPI
+from httpx import ASGITransport, AsyncClient
 
+from .....api.restful_api import RESTfulAPI
+from .....api.routers import embeddings
 from ...core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
 from ..core import SentenceTransformerEmbeddingModel, _get_sentence_batch_ranges
 
@@ -203,10 +210,48 @@ def test_request_dimensions_override_the_launch_truncate_dim(monkeypatch):
     assert result["data"][0]["embedding"] == _vector("text")[:1]
 
 
-@pytest.mark.parametrize("dimensions", [0, -2, 1.5, True, "2"])
-def test_invalid_request_dimensions_are_rejected(monkeypatch, dimensions):
+@pytest.mark.parametrize("dimensions", [0, -2, 1.5, 2.0, True, "2"])
+async def test_invalid_dimensions_do_not_fail_concurrent_requests(
+    monkeypatch, dimensions
+):
     model = _make_model(monkeypatch)
-    with pytest.raises(ValueError, match="dimensions"):
-        model._create_embedding(
-            ["text"], dimensions=dimensions, show_progress_bar=False
-        )
+    model.batch_size = 8
+    model.batch_interval = 0.01
+
+    async def create_embedding(sentences, **kwargs):
+        return json.dumps(await model.create_embedding(sentences, **kwargs))
+
+    supervisor = AsyncMock()
+    supervisor.get_model.return_value = SimpleNamespace(
+        uid=b"test-replica", create_embedding=create_embedding
+    )
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._router = APIRouter()
+    api._advanced_auth_service = None
+    api._auth_service = None
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._report_error_event = AsyncMock()
+    embeddings.register_routes(api)
+    app = FastAPI()
+    app.include_router(api._router)
+
+    payload = {"model": "test", "input": "text", "show_progress_bar": False}
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            invalid, valid = await asyncio.gather(
+                client.post(
+                    "/v1/embeddings", json=dict(payload, dimensions=dimensions)
+                ),
+                client.post("/v1/embeddings", json=dict(payload, dimensions=2)),
+            )
+    finally:
+        if model._process_batch_task is not None:
+            model._process_batch_task.cancel()
+            await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert valid.status_code == 200
+    assert len(valid.json()["data"][0]["embedding"]) == 2
+    assert invalid.status_code == 400
+    assert "dimensions" in invalid.json()["detail"]

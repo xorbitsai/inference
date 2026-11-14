@@ -142,6 +142,10 @@ msgstr ""
 "standardmäßig ausgewählt, wenn die passende Modellspezifikation im "
 "GGUF-Format vorliegt."
 
+#: models/model_abilities/embed.rst:55
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer to request a shorter embedding. Invalid values return HTTP 400 for that request."
+msgstr "Bei Modellen, die ``dimensions`` mit der Engine ``sentence_transformers`` unterstützen, fordert eine positive Ganzzahl eine kürzere Einbettung an. Bei einem ungültigen Wert erhält die Anfrage HTTP 400."
+
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"
 msgstr "Eingaben kürzen"

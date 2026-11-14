@@ -127,6 +127,10 @@ msgstr ""
 "``llama.cpp``：GGUF フォーマットの埋め込みモデルを提供します。一致したモデル仕様が GGUF "
 "の場合にデフォルトで選択されます。"
 
+#: models/model_abilities/embed.rst:55
+msgid "For models that support ``dimensions`` with the ``sentence_transformers`` engine, send a positive integer to request a shorter embedding. Invalid values return HTTP 400 for that request."
+msgstr "``sentence_transformers`` エンジンで ``dimensions`` に対応するモデルでは、正の整数を指定して短い埋め込みを取得できます。無効な値を指定したリクエストには HTTP 400 が返ります。"
+
 #: ../../source/models/model_abilities/embed.rst:55
 msgid "Truncating input"
 msgstr "入力の切り詰め"

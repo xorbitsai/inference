@@ -18,11 +18,23 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+    no_type_check,
+)
 
 import numpy as np
 import torch
 
+from ....core.exceptions import InvalidModelRequestError
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ....utils import dependency_import_guard
 from ...batch import BatchMixin
@@ -393,6 +405,28 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._embedder = None
 
+    def _wrap_method(self) -> Callable[..., Awaitable[Embedding]]:
+        enqueue = super()._wrap_method()
+
+        async def create_embedding(
+            model: "SentenceTransformerEmbeddingModel", *args: Any, **kwargs: Any
+        ) -> Embedding:
+            dimensions = kwargs.get("dimensions")
+            if dimensions is not None and model._embedder is None:
+                if (
+                    isinstance(dimensions, bool)
+                    or not isinstance(dimensions, int)
+                    or dimensions <= 0
+                ):
+                    raise InvalidModelRequestError(
+                        "The `dimensions` argument must be a positive integer."
+                    )
+                if is_wemm_model(model.model_family.model_name):
+                    model._validate_wemm_dimensions(dimensions)
+            return await enqueue(model, *args, **kwargs)
+
+        return create_embedding
+
     def load(self):
         # TODO: load model
         if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
@@ -553,7 +587,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         config = self._model[0].auto_model.config
         supported = getattr(config, "matryoshka_dimensions", None)
         if supported is not None and dimensions not in supported:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 f"WeMM-Embedding dimensions must be one of {list(supported)}, got {dimensions}."
             )
 
@@ -632,18 +666,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             if convert_to_tensor:
                 convert_to_numpy = False
 
-            truncate_dim = model.truncate_dim
-            if dimensions is not None:
-                if (
-                    isinstance(dimensions, bool)
-                    or not isinstance(dimensions, int)
-                    or dimensions <= 0
-                ):
-                    raise ValueError(
-                        "The `dimensions` argument must be a positive integer, "
-                        f"but got {dimensions!r}"
-                    )
-                truncate_dim = dimensions
+            truncate_dim = model.truncate_dim if dimensions is None else dimensions
 
             if output_value != "sentence_embedding":
                 convert_to_tensor = False
@@ -872,7 +895,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 )
             dimensions = wemm_kwargs.pop("dimensions", None)
             if dimensions is not None:
-                self._validate_wemm_dimensions(dimensions)
                 wemm_kwargs["truncate_dim"] = dimensions
             wemm_kwargs.setdefault("batch_size", 1)
 
