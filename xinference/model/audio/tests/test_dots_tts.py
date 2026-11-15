@@ -49,6 +49,41 @@ from ..engine_family import (
 MODEL = "dots.tts.edit-v1.1"
 
 
+@pytest.fixture
+def available_runtime_dependencies(monkeypatch):
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name: (
+            SimpleNamespace()
+            if name in PyTorchDotsTTSEditAudioModel.required_libs
+            else find_spec(name)
+        ),
+    )
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize(
+    "python_version", [(3, 9), (3, 10), (3, 11), (3, 12), (3, 13), (3, 14)]
+)
+def test_engine_discovery_reports_python_compatibility(
+    monkeypatch, available_runtime_dependencies, enable_virtual_env, python_version
+):
+    monkeypatch.setattr(sys, "version_info", (*python_version, 0))
+    query = (
+        get_engine_params_by_name_with_virtual_env
+        if enable_virtual_env
+        else get_engine_params_by_name
+    )
+    result = query("audio", MODEL, enable_virtual_env=enable_virtual_env)
+    if python_version in {(3, 10), (3, 11), (3, 12)}:
+        assert isinstance(result["PyTorch"], list)
+        assert "virtualenv_required" not in result["PyTorch"][0]
+    else:
+        assert result["PyTorch"] == ("dots.tts.edit requires Python 3.10 through 3.12.")
+
+
 @pytest.mark.parametrize("engine", ["PyTorch", "pytorch"])
 def test_soundfile_install_requirement_survives_engine_filtering(engine):
     spec = match_audio(MODEL, "modelscope")
@@ -82,6 +117,7 @@ def test_soundfile_install_requirement_survives_engine_filtering(engine):
 def test_engine_discovery_handles_missing_runtime_dependency(
     monkeypatch, enable_virtual_env, missing_lib
 ):
+    monkeypatch.setattr(sys, "version_info", (3, 12, 0))
     find_spec = importlib.util.find_spec
 
     def mocked_find_spec(name):
@@ -307,6 +343,32 @@ def test_load_uses_cached_path_and_runtime_options(model, runtime_module):
     assert not model._generation_lock.locked()
 
 
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_model_dispatch_can_use_a_compatible_interpreter(
+    monkeypatch, tmp_path, runtime_module, enable_virtual_env
+):
+    # Discovery uses the server's Python; dispatch still needs to work in a
+    # model process launched with an explicitly configured compatible Python.
+    monkeypatch.setattr(sys, "version_info", (3, 13, 0))
+    spec = match_audio(MODEL, "modelscope")
+    assert PyTorchDotsTTSEditAudioModel.match(spec)
+    model = create_audio_model_instance(
+        "dots",
+        MODEL,
+        "modelscope",
+        model_path=str(tmp_path),
+        model_engine="PyTorch",
+        enable_virtual_env=enable_virtual_env,
+    )
+    monkeypatch.setattr(sys, "version_info", (3, 12, 0))
+    try:
+        model.load()
+        assert runtime_module[0][0] == str(tmp_path)
+        assert isinstance(model._runtime, FakeRuntime)
+    finally:
+        model.stop()
+
+
 @pytest.mark.parametrize(
     "options, message",
     [
@@ -321,8 +383,9 @@ def test_load_rejects_invalid_options(model, runtime_module, options, message):
     assert not runtime_module
 
 
-def test_load_rejects_unsupported_python(model, monkeypatch):
-    monkeypatch.setattr(sys, "version_info", (3, 13, 0))
+@pytest.mark.parametrize("python_version", [(3, 9, 0), (3, 13, 0), (3, 14, 0)])
+def test_load_rejects_unsupported_python(model, monkeypatch, python_version):
+    monkeypatch.setattr(sys, "version_info", python_version)
     with pytest.raises(RuntimeError, match="Python 3.10 through 3.12"):
         model.load()
 

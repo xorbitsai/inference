@@ -21,7 +21,7 @@ from .ace_step import AceStepModel, is_ace_step_python_supported
 from .audio8_tts import Audio8TTSModel
 from .audio8_tts_sglang import SGLangOmniAudio8TTSModel
 from .breeze_tts import BreezeTTS2Model
-from .dots_tts import DotsTTSEditModel
+from .dots_tts import DotsTTSEditModel, is_dots_tts_python_supported
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -202,6 +202,12 @@ class PyTorchDotsTTSEditAudioModel(DotsTTSEditModel, AudioEngineModel):
         "lingua",
         "tn",
     )
+
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if not is_dots_tts_python_supported():
+            return False, "dots.tts.edit requires Python 3.10 through 3.12."
+        return True
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:

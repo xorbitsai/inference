@@ -31,6 +31,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def is_dots_tts_python_supported() -> bool:
+    return (3, 10) <= sys.version_info[:2] < (3, 13)
+
+
 def _load_dots_tts_runtime():
     from ...thirdparty.dots_tts.edit_runtime import DotsTtsEditRuntime
 
@@ -61,7 +65,7 @@ class DotsTTSEditModel:
         return self._model_spec.model_ability
 
     def load(self) -> None:
-        if not (3, 10) <= sys.version_info[:2] < (3, 13):
+        if not is_dots_tts_python_supported():
             raise RuntimeError("dots.tts.edit requires Python 3.10 through 3.12.")
 
         import torch
