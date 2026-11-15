@@ -22,6 +22,7 @@ PROTOCOL_VERSION = 1
 INFERENCE_READS = {
     "get_model",
     "get_chat_model",
+    "get_realtime_endpoint",
     "abort_request",
     "describe_model",
     "describe_running_model",

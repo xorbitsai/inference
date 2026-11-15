@@ -3114,6 +3114,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         pool_kwargs = (
             {} if external_address is None else {"external_address": external_address}
         )
+        if model_uid:
+            # Apply the model process identity to rank and generation subpools
+            # as well as to the primary replica.
+            env = {**(env or {}), "XINFERENCE_MODEL_UID": model_uid}
         async with self._subpool_creation_lock:
             # A failed candidate spawn must never reap pools that were already
             # serving before this call, even if their bootstrap command matches.
@@ -3217,10 +3221,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        # G: inject model_uid into the sub-pool env dict (not os.environ).
-        # os.environ mutation is thread-unsafe under concurrent launches and
-        # ineffective (the sub-pool is forked from this env dict). Passing it
-        # here lets the sub-pool and its vLLM descendants inherit the tag.
+        # Keep the launch identity with the allocated environment.
         env["XINFERENCE_MODEL_UID"] = model_uid
 
         return env, [str(dev) for dev in devices]

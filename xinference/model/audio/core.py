@@ -11,42 +11,46 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .ace_step import AceStepModel, is_ace_step_python_supported
-from .audio8_tts import Audio8TTSModel
-from .auk import AukModel
-from .breeze_tts import BreezeTTS2Model
-from .chattts import ChatTTSModel
-from .confucius4_tts import Confucius4TTSModel
-from .cosyvoice import CosyVoiceModel
-from .engine_family import AudioEngineModel
-from .f5tts import F5TTSModel
-from .f5tts_mlx import F5TTSMLXModel
-from .fireredtts3 import FireRedTTS3Model
-from .fish_speech import FishSpeechModel
-from .funasr import FunASRModel
-from .indextts2 import Indextts2
-from .irodori_tts import IrodoriTTSModel
-from .kokoro import KokoroModel
-from .kokoro_mlx import KokoroMLXModel
-from .kokoro_zh import KokoroZHModel
-from .megatts import MegaTTSModel
-from .melotts import MeloTTSModel
-from .ming_tts import MingTTSModel
-from .minimax_music3 import MiniMaxMusic3Model
-from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
-from .qwen3_asr import Qwen3ASRModel
-from .qwen3_tts import Qwen3TTSModel
-from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
-from .voxcpm import VoxCPMModel
-from .whisper import WhisperModel
-from .whisper_mlx import WhisperMLXModel
-from .yue2 import YuE2Model
+
+if TYPE_CHECKING:
+    from .ace_step import AceStepModel
+    from .audio8_tts import Audio8TTSModel
+    from .auk import AukModel
+    from .breeze_tts import BreezeTTS2Model
+    from .chattts import ChatTTSModel
+    from .confucius4_tts import Confucius4TTSModel
+    from .cosyvoice import CosyVoiceModel
+    from .engine_family import AudioEngineModel
+    from .f5tts import F5TTSModel
+    from .f5tts_mlx import F5TTSMLXModel
+    from .fireredtts3 import FireRedTTS3Model
+    from .fish_speech import FishSpeechModel
+    from .funasr import FunASRModel
+    from .indextts2 import Indextts2
+    from .irodori_tts import IrodoriTTSModel
+    from .kokoro import KokoroModel
+    from .kokoro_mlx import KokoroMLXModel
+    from .kokoro_zh import KokoroZHModel
+    from .megatts import MegaTTSModel
+    from .melotts import MeloTTSModel
+    from .ming_tts import MingTTSModel
+    from .minimax_music3 import MiniMaxMusic3Model
+    from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+    from .qwen3_asr import Qwen3ASRModel
+    from .qwen3_tts import Qwen3TTSModel
+    from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
+    from .voxcpm import VoxCPMModel
+    from .whisper import WhisperModel
+    from .whisper_mlx import WhisperMLXModel
+    from .yue2 import YuE2Model
 
 logger = logging.getLogger(__name__)
 
@@ -287,7 +291,34 @@ def create_audio_model_instance(
     AudioEngineModel,
 ]:
     from ..cache_manager import CacheManager
+    from .ace_step import is_ace_step_python_supported
+    from .audio8_tts import Audio8TTSModel
+    from .auk import AukModel
+    from .breeze_tts import BreezeTTS2Model
+    from .chattts import ChatTTSModel
+    from .confucius4_tts import Confucius4TTSModel
+    from .cosyvoice import CosyVoiceModel
     from .engine_family import AUDIO_ENGINES
+    from .f5tts import F5TTSModel
+    from .f5tts_mlx import F5TTSMLXModel
+    from .fireredtts3 import FireRedTTS3Model
+    from .fish_speech import FishSpeechModel
+    from .funasr import FunASRModel
+    from .indextts2 import Indextts2
+    from .irodori_tts import IrodoriTTSModel
+    from .kokoro import KokoroModel
+    from .kokoro_mlx import KokoroMLXModel
+    from .kokoro_zh import KokoroZHModel
+    from .megatts import MegaTTSModel
+    from .melotts import MeloTTSModel
+    from .ming_tts import MingTTSModel
+    from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+    from .qwen3_asr import Qwen3ASRModel
+    from .qwen3_tts import Qwen3TTSModel
+    from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
+    from .voxcpm import VoxCPMModel
+    from .whisper import WhisperModel
+    from .whisper_mlx import WhisperMLXModel
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(

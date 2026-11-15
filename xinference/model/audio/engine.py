@@ -36,8 +36,8 @@ from .minimax_music3_mlx import MLXMiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
-from .vllm import VLLMQwen3ASRModel
-from .vllm_omni import VLLMOmniTTSModel
+from .vllm import VLLMQwen3ASRAudioModel
+from .vllm_omni import VLLMQwen3TTSAudioModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
@@ -103,46 +103,6 @@ class TransformersQwen3ASRAudioModel(Qwen3ASRModel, AudioEngineModel):
     @classmethod
     def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
         return model_family.model_family == "qwen3_asr"
-
-
-class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
-    required_libs = ("vllm", "silero_vad", "onnxruntime")
-
-    @classmethod
-    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        if platform.system() != "Linux":
-            return False
-        if not has_cuda_device():
-            return False
-        return cls.is_model_family_supported(model_family)
-
-    @classmethod
-    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return (
-            model_family.model_family == "qwen3_asr"
-            and model_family.model_format == "pytorch"
-        )
-
-
-class VLLMQwen3TTSAudioModel(VLLMOmniTTSModel, AudioEngineModel):
-    required_libs = ("vllm", "vllm_omni")
-
-    @classmethod
-    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return (
-            platform.system() == "Linux"
-            and has_cuda_device()
-            and cls.is_model_family_supported(model_family)
-        )
-
-    @classmethod
-    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return (
-            model_family.model_family == "qwen3_tts"
-            and model_family.model_format == "pytorch"
-            and model_family.model_name
-            in {"Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen3-TTS-12Hz-1.7B-CustomVoice"}
-        )
 
 
 class TransformersWhisperAudioModel(WhisperModel, AudioEngineModel):

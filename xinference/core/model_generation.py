@@ -613,6 +613,7 @@ class ModelGenerationMixin:
 
 
 def build_generation_model(snapshot):
+    from ..model.llm import _ensure_model_metadata
     from ..model.llm.llm_family import LLMFamilyV2
     from ..model.llm.weight_cache import BorrowedWeightCache
 
@@ -622,6 +623,7 @@ def build_generation_model(snapshot):
         "sglang",
     }:
         raise ValueError("Unsupported model generation class")
+    _ensure_model_metadata()
     cls = getattr(importlib.import_module(snapshot["module"]), snapshot["class"])
     family = LLMFamilyV2.parse_obj(snapshot["model_family"])
     model = cls(

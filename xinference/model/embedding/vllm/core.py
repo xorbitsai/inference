@@ -26,6 +26,7 @@ from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ....utils import dependency_import_guard, dependency_import_message
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
+from ...vllm_load import VLLMSchedulerLoad
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 from ..embeddinggemma2 import MATRYOSHKA_DIMENSIONS
 from ..embeddinggemma2 import MODEL_NAME as EMBEDDINGGEMMA2_MODEL_NAME
@@ -46,49 +47,13 @@ SUPPORTED_MODELS_PREFIXES = [
 ]
 
 
-class _SchedulerLoad:
-    """One vLLM scheduler's latest queue count and continuous backlog duration."""
-
-    def __init__(self):
-        self.waiting = 0
-        self.running = 0
-        self.waiting_since = 0.0
-
-    def record(self, scheduler_stats, iteration_stats, **kwargs):
-        waiting = getattr(scheduler_stats, "num_waiting_reqs", None)
-        if not isinstance(waiting, int):
-            return
-        self.update(
-            waiting + getattr(scheduler_stats, "num_skipped_waiting_reqs", 0),
-            scheduler_stats.num_running_reqs,
-        )
-
-    def update(self, waiting: int, running: int):
-        if waiting and not self.waiting:
-            self.waiting_since = time.monotonic()
-        self.waiting = waiting
-        self.running = running
-
-    def backlog_age(self, now: float):
-        return max(0.0, now - self.waiting_since) if self.waiting else 0.0
-
-    def log(self):
-        pass
-
-    def log_engine_initialized(self):
-        pass
-
-    def record_sleep_state(self, *args, **kwargs):
-        pass
-
-
 class _PoolingProgress:
     """Count unfinished inputs through LLM.embed's progress callback."""
 
     def __init__(self, count: int):
         self.count = count
         self.n = 0
-        self.load = _SchedulerLoad()
+        self.load = VLLMSchedulerLoad()
 
     def __call__(self, iterable=None, **kwargs):
         # Older vLLM also passes the input iterator to tqdm during submission.
@@ -117,7 +82,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._context_length = None
         self._chat_template = None
         self._native_pooling = False
-        self._scheduler_load: Optional[Dict[int, _SchedulerLoad]] = None
+        self._scheduler_load: Optional[Dict[int, VLLMSchedulerLoad]] = None
         self._native_requests = 0
         self._sync_capacity: Optional[int] = None
         self._sync_metrics_verified = False
@@ -254,7 +219,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def _scheduler_load_logger(self, vllm_config, engine_index: int = 0):
         assert self._scheduler_load is not None
-        load = _SchedulerLoad()
+        load = VLLMSchedulerLoad()
         self._scheduler_load[engine_index] = load
         return load
 

@@ -116,25 +116,30 @@ class RegistryManager:
 
     @classmethod
     def get_registry(cls, model_type: str) -> ModelRegistry:
-        from .audio.custom import AudioModelRegistry
-        from .embedding.custom import EmbeddingModelRegistry
-        from .flexible.custom import FlexibleModelRegistry
-        from .image.custom import ImageModelRegistry
-        from .llm.custom import LLMModelRegistry
-        from .rerank.custom import RerankModelRegistry
-
         if model_type not in cls._instances:
             if model_type == "rerank":
+                from .rerank.custom import RerankModelRegistry
+
                 cls._instances[model_type] = RerankModelRegistry()
             elif model_type == "image":
+                from .image.custom import ImageModelRegistry
+
                 cls._instances[model_type] = ImageModelRegistry()
             elif model_type == "audio":
+                from .audio.custom import AudioModelRegistry
+
                 cls._instances[model_type] = AudioModelRegistry()
             elif model_type == "llm":
+                from .llm.custom import LLMModelRegistry
+
                 cls._instances[model_type] = LLMModelRegistry()
             elif model_type == "flexible":
+                from .flexible.custom import FlexibleModelRegistry
+
                 cls._instances[model_type] = FlexibleModelRegistry()
             elif model_type == "embedding":
+                from .embedding.custom import EmbeddingModelRegistry
+
                 cls._instances[model_type] = EmbeddingModelRegistry()
             else:
                 raise ValueError(f"Unknown model type: {model_type}")

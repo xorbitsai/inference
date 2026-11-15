@@ -18,6 +18,7 @@ import inspect
 import json
 import os
 import queue
+import sys
 import threading
 import time
 import types
@@ -55,6 +56,7 @@ if TYPE_CHECKING:
     from .realtime.runtime import RealtimeRuntime
     from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.llm.vllm.core import VLLMModel as VLLMBackend
     from ..model.llm.weight_cache import WeightCachedModel
     import PIL
 
@@ -96,6 +98,14 @@ XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
 _CHAT_RESERVATION_TTL = 30
+
+
+def _is_backend(model: Any, module_name: str, class_name: str) -> bool:
+    # An instantiated adapter already imported its base classes. Importing a
+    # different engine just to rule out an isinstance check can be expensive.
+    module = sys.modules.get(f"xinference.model.{module_name}")
+    cls = getattr(module, class_name, None)
+    return cls is not None and isinstance(model, cls)
 
 
 async def _await_owned_task(
@@ -207,7 +217,11 @@ def _count_replica_work(
     model: "ModelActor", reservation_id: Optional[str] = None
 ) -> int:
     realtime = getattr(model, "_realtime_runtime", None)
-    realtime_count = realtime.active_count if realtime is not None else 0
+    realtime_count = (
+        realtime.active_count + getattr(realtime, "pending_admissions", 0)
+        if realtime is not None
+        else 0
+    )
     reserved = _pending_chat_reservations(model, reservation_id)
     return model._serve_count + realtime_count + reserved
 
@@ -449,18 +463,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
             await asyncio.to_thread(cache.stop)
-        from ..model.embedding.core import EmbeddingModel
-        from ..model.llm.sglang.core import SGLANGModel
-        from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
-        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
-        from ..model.rerank.core import RerankModel
-
         await ModelActor._close_gpu_caches(self)
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
 
-        if isinstance(self._model, LLMVLLMModel):
+        is_vllm = ModelActor.is_vllm_backend(self)
+        if is_vllm:
             if self._transfer_ref is not None:
                 try:
                     await xo.destroy_actor(self._transfer_ref)
@@ -479,10 +488,17 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         # format guard keeps the torch-free llama.cpp embedding/rerank paths
         # out of the torch-dependent branch below.
         if (
-            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
+            (
+                is_vllm
+                or ModelActor.is_sglang_backend(self)
+                or _is_backend(self._model, "llm.transformers.core", "PytorchModel")
+            )
             and self._model.model_spec.model_format == "pytorch"
         ) or (
-            isinstance(self._model, (EmbeddingModel, RerankModel))
+            (
+                _is_backend(self._model, "embedding.core", "EmbeddingModel")
+                or _is_backend(self._model, "rerank.core", "RerankModel")
+            )
             and self._model._model_spec.model_format == "pytorch"
         ):
             with dependency_import_guard("torch"):
@@ -538,12 +554,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             # Sharded launches may spawn their pool before the download resolves.
             os.environ.setdefault(context_env, "1")
 
-        from ..model.llm.vllm.core import VLLMModel
-
         self._supervisor_address = supervisor_address
         self._worker_address = worker_address
         self._replica_model_uid = replica_model_uid
         self._model = model
+        if _is_backend(model, "llm.core", "LLM"):
+            from ..model.llm import _ensure_model_metadata
+
+            _ensure_model_metadata()
         self._model_description = self._model.model_family.to_description()
         self._request_limits = (
             float("inf") if request_limits is None else request_limits
@@ -625,9 +643,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._shard = shard
         self._driver_info = driver_info
 
-        if isinstance(self._model, VLLMModel):
+        if self.is_vllm_backend():
             self._xavier_config = xavier_config
-            self._model.set_xavier_config(xavier_config)
+            cast("VLLMBackend", self._model).set_xavier_config(xavier_config)
             self._transfer_ref = None
 
     async def __post_create__(self):
@@ -866,17 +884,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         return progressor
 
     def is_vllm_backend(self) -> bool:
-        from ..model.llm.vllm.core import VLLMModel
-
-        return isinstance(self._model, VLLMModel)
+        return _is_backend(self._model, "llm.vllm.core", "VLLMModel")
 
     def is_transformers_batching_enabled(self) -> bool:
         return bool(getattr(self._model, "_batch_scheduler", None))
 
     def is_sglang_backend(self) -> bool:
-        from ..model.llm.sglang.core import SGLANGModel
-
-        return isinstance(self._model, SGLANGModel)
+        return _is_backend(self._model, "llm.sglang.core", "SGLANGModel")
 
     def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         from ..model.llm.vllm.core import VLLMModel
@@ -1025,10 +1039,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             inference_lock=self._lock,
             admission=lambda: self._model_state == "ready"
             and not self.__dict__.get("_replica_draining")
-            and self._serve_count
-            + runtime.active_count
-            + _pending_chat_reservations(self)
-            < self.__dict__.get("_replica_concurrency", self._request_limits),
+            and _has_request_capacity(self),
             on_session_finished=(
                 self._mark_replica_activity
                 if self.__dict__.get("_replica_concurrency") is not None
@@ -1062,7 +1073,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             raise RealtimeError(
                 "unsupported_task", "Model has no realtime input adapter"
             )
-        return self._realtime_runtime.issue_ticket(subject, task)
+        return self._realtime_runtime.issue_ticket(
+            subject, task, reserve=self.__dict__.get("_replica_concurrency") is not None
+        )
 
     async def get_runtime_context_length(self) -> Optional[int]:
         """Read the serving generation, without inferring from registry metadata."""
@@ -2867,7 +2880,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         spare = self._replica_concurrency - _count_replica_work(self)
         runtime = self.__dict__.get("_realtime_runtime")
         if runtime is not None:
-            spare = min(spare, runtime.limits.max_sessions - runtime.active_count)
+            spare = min(
+                spare,
+                runtime.limits.max_sessions
+                - runtime.active_count
+                - getattr(runtime, "pending_admissions", 0),
+            )
         return ReplicaLoad(
             queued,
             oldest_wait,

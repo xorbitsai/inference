@@ -15,6 +15,7 @@
 
 import asyncio
 from contextlib import asynccontextmanager
+from itertools import cycle
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -23,6 +24,8 @@ import pytest
 from fastapi import APIRouter, FastAPI, HTTPException
 from starlette.requests import Request
 
+from ...core.realtime.protocol import RealtimeError
+from ...core.supervisor import ReplicaInfo, SupervisorActor
 from ...core.tests.test_realtime_runtime import (
     CONFIG,
     FakeModel,
@@ -49,6 +52,10 @@ async def serve_gateway(authenticated=False, backend_model=None, api_instance=No
     supervisor = SimpleNamespace(
         describe_model=AsyncMock(return_value={"model_type": "audio"}),
         get_model=AsyncMock(return_value=actor),
+    )
+    supervisor._replica_autoscalers = {}
+    supervisor.get_realtime_endpoint = SupervisorActor.get_realtime_endpoint.__get__(
+        supervisor
     )
     api = SimpleNamespace(
         _router=APIRouter(),
@@ -105,6 +112,37 @@ async def test_gateway_common_protocol(task_name):
         await wait_empty(service.runtime)
         service.supervisor.get_model.assert_awaited_once_with("fake")
         service.actor.get_realtime_endpoint.assert_awaited_once()
+
+
+async def test_autoscaled_realtime_skips_full_or_draining_replica():
+    async with serve_gateway() as service:
+        supervisor = service.supervisor
+        supervisor._replica_autoscalers["fake"] = SimpleNamespace(
+            draining={1}, should_avoid=lambda replica: False
+        )
+        supervisor._model_uid_to_replica_info = {
+            "fake": ReplicaInfo(3, cycle([0, 1, 2]), active_replica_ids=[0, 1, 2])
+        }
+        full = SimpleNamespace(
+            get_realtime_endpoint=AsyncMock(
+                side_effect=RealtimeError("capacity_exceeded", "Full", 1013)
+            )
+        )
+        supervisor._get_replica_model = AsyncMock(
+            side_effect=lambda uid, replica: {0: full, 2: service.actor}[replica]
+        )
+        async with aiohttp.ClientSession() as client:
+            async with client.ws_connect(service.url) as ws:
+                await ws.send_json(CONFIG)
+                assert (await ws.receive_json())["event"] == "session.started"
+                await ws.send_bytes(b"1234")
+                assert (await ws.receive_json())["data"]["received_bytes"] == 4
+        assert [
+            call.args[1] for call in supervisor._get_replica_model.await_args_list
+        ] == [
+            0,
+            2,
+        ]
 
 
 async def test_gateway_media_frame_below_limit_completes():

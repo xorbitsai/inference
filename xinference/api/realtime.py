@@ -81,10 +81,11 @@ async def realtime_session(api, websocket: WebSocket, model_uid: str) -> None:
         if message.get("text") is None:
             raise RealtimeError("invalid_state", "First message must be session.start")
         config = validate_start(parse_event(message["text"]))
-        model = await supervisor.get_model(model_uid)
-        # This is the last control-plane call for this session. No media or
-        # output polling ever goes through a model Actor.
-        descriptor = await model.get_realtime_endpoint(subject, config["task"])
+        # Discovery finishes before media forwarding begins. The backend
+        # WebSocket remains pinned to the selected replica for its lifetime.
+        descriptor = await supervisor.get_realtime_endpoint(
+            model_uid, subject, config["task"]
+        )
         if not descriptor.get("readiness") or descriptor.get("model_uid") != model_uid:
             raise RealtimeError(
                 "endpoint_unavailable", "Realtime endpoint is not ready", 1013
