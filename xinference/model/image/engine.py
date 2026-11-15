@@ -23,6 +23,7 @@ from .flux3 import Flux3Model
 from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
 from .iris import IrisModel
 from .ming_image import MingImageModel
+from .minimax_h3 import MiniMaxH3ImageModel
 from .moss_image import MOSSImageModel
 from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
@@ -49,6 +50,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
             "moss_image",
             "fibo2",
             "flux3",
+            "minimax_h3_image",
         )
 
 
@@ -80,6 +82,16 @@ class Flux3ImageModel(Flux3Model, ImageEngineModel):
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_family == "flux3"
+
+
+class MiniMaxH3DiffusersImageModel(MiniMaxH3ImageModel, ImageEngineModel):
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("torch", "transformers", "diffusers")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "minimax_h3_image"
 
 
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
@@ -175,6 +187,7 @@ class VLLMMinerUImageModel(Mineru2_5Model, ImageEngineModel):
 
 def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [
+        MiniMaxH3DiffusersImageModel,
         Flux3ImageModel,
         HiDreamO1ImageModel,
         MingImageEngineModel,
