@@ -69,6 +69,7 @@ from .exceptions import (
     BatchRequestRedirect,
     InvalidModelRequestError,
     ModelNotReadyError,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from .model_generation import ModelGenerationMixin
@@ -1646,7 +1647,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 )
             )
         ):
-            raise Exception(f"Duplicate request id: {request_id}")
+            raise RequestIdConflictError(f"Duplicate request id: {request_id}")
         self._add_running_task(request_id)
         if priority is None:
             result = await self._call_wrapper_inner(output_type, fn, *args, **kwargs)

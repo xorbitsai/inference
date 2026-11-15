@@ -38,6 +38,17 @@ class InvalidModelRequestError(ValueError):
         return "Invalid model request."
 
 
+class RequestIdConflictError(Exception):
+    """A request ID is already active or blocked by a previous abort."""
+
+    @property
+    def client_message(self) -> str:
+        """Return the admission message without xoscar's actor prefix."""
+        if self.args:
+            return str(self.args[0])
+        return "Request ID conflicts with an active request or abort block."
+
+
 class InvalidAudioInputError(ValueError):
     """Raised when client-provided audio cannot be used by a model."""
 

@@ -49,6 +49,280 @@ def _new_api():
     return api
 
 
+@pytest.fixture
+async def admission_api(monkeypatch):
+    import httpx
+    from fastapi import FastAPI
+    from xoscar.serialization import deserialize, serialize
+    from xoscar.utils import wrap_exception
+
+    from ...core.tests.test_request_priority import _close
+    from ...core.tests.test_request_tracking import _streaming_actor
+
+    actor, _, _ = _streaming_actor("chat", native=True)
+    actor._model.async_generate = actor._model.async_chat
+    streams, tasks, errors = [], [], []
+    request_id = "admission-request"
+
+    async def rpc(method, *args, target=None, **kwargs):
+        error = None
+        try:
+            result = await asyncio.create_task(
+                getattr(target or actor, method)(*args, **kwargs)
+            )
+        except Exception as exc:
+            # Exercise xoscar's reducer and diagnostic wrapper, not just pickle.
+            header, buffers = serialize(
+                wrap_exception(exc, message=f"[address=worker:123, pid=42] {exc}")
+            )
+            error = deserialize(header, buffers)
+            errors.append(error)
+        if error is not None:
+            # Do not attach the local exception as the remote error's context.
+            raise error
+        if hasattr(result, "__aiter__"):
+            result._actor_ref, result._gc_destroy = actor, False
+            streams.append(result)
+        return result
+
+    model = SimpleNamespace(
+        uid=b"test-model-0",
+        chat=AsyncMock(),
+        generate=AsyncMock(),
+        abort_request=AsyncMock(),
+        decrease_serve_count=AsyncMock(),
+        is_vllm_backend=AsyncMock(return_value=False),
+        is_transformers_batching_enabled=AsyncMock(return_value=False),
+        get_limit_mm_per_prompt=AsyncMock(return_value=None),
+    )
+
+    async def chat(*args, **kwargs):
+        return await rpc("chat", *args, **kwargs)
+
+    async def generate(*args, **kwargs):
+        return await rpc("generate", *args, **kwargs)
+
+    model.chat.side_effect, model.generate.side_effect = chat, generate
+    api = _new_api()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    api._get_supervisor_ref = AsyncMock(
+        return_value=SimpleNamespace(
+            describe_model=AsyncMock(return_value={"model_family": "test-family"}),
+            resolve_token_router_runtime=AsyncMock(return_value=None),
+        )
+    )
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    app = FastAPI()
+    for path, handler in (
+        ("/v1/chat/completions", api.create_chat_completion),
+        ("/v1/completions", api.create_completion),
+        ("/v1/responses", api.create_response),
+        ("/v1/messages", api.create_message),
+        ("/anthropic/v1/messages", api.create_message),
+    ):
+        app.add_api_route(path, handler, methods=["POST"])
+
+    async def reject(kind):
+        if kind == "aborted":
+            actor._cancel_running_task(request_id, block_duration=30)
+            tasks.append(actor._running_tasks[request_id])
+        elif kind == "stream":
+            stream = await rpc("chat", [], {"stream": True}, request_id=request_id)
+            assert stream is not None
+        else:
+            entered = asyncio.Event()
+
+            async def running():
+                actor._add_running_task(request_id)
+                entered.set()
+                await asyncio.Event().wait()
+
+            tasks.append(asyncio.create_task(running()))
+            await asyncio.wait_for(entered.wait(), 3)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        try:
+            yield SimpleNamespace(
+                client=client,
+                actor=actor,
+                model=model,
+                api=api,
+                reject=reject,
+                request_id=request_id,
+                errors=errors,
+                rpc=rpc,
+                tasks=tasks,
+            )
+        finally:
+            for stream in streams:
+                await _close(stream)
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,stream,is_vllm,rejection",
+    [
+        ("/v1/chat/completions", False, False, "duplicate"),
+        ("/v1/chat/completions", True, False, "duplicate"),
+        ("/v1/chat/completions", False, True, "aborted"),
+        ("/v1/chat/completions", True, True, "aborted"),
+        ("/v1/completions", False, True, "duplicate"),
+        ("/v1/completions", True, True, "duplicate"),
+        ("/v1/completions", False, False, "aborted"),
+        ("/v1/completions", True, False, "aborted"),
+        ("/v1/chat/completions", False, False, "stream"),
+    ],
+)
+async def test_request_id_admission_conflict(
+    admission_api, path, stream, is_vllm, rejection
+):
+    c = admission_api
+    c.model.is_vllm_backend.return_value = is_vllm
+    await c.reject(rejection)
+    owner = c.actor._running_tasks.get(c.request_id)
+    body = {"model": "test-model", "stream": stream, "request_id": c.request_id}
+    body.update(
+        {"prompt": "hello"}
+        if path == "/v1/completions"
+        else {"messages": [{"role": "user", "content": "hello"}]}
+    )
+    response = await c.client.post(path, json=body)
+    assert response.status_code == (200 if stream else 409)
+    message = (
+        "The request has been aborted"
+        if rejection == "aborted"
+        else "Duplicate request id"
+    ) + f": {c.request_id}"
+    if stream:
+        events = [
+            json.loads(line[len("data:") :])
+            for line in response.text.splitlines()
+            if line.startswith("data:")
+        ]
+        assert events == [{"error": message}]
+    else:
+        assert response.json() == {"detail": message}
+    from ...core.exceptions import RequestIdConflictError
+
+    assert isinstance(c.errors[-1], RequestIdConflictError)
+    assert c.errors[-1].client_message == message
+    assert c.errors[-1].__context__ is None
+    assert "worker:123" in str(c.errors[-1])
+    c.api._get_model_last_error.assert_not_awaited()
+    c.api._report_error_event.assert_not_awaited()
+    c.model.abort_request.assert_not_awaited()
+    c.model.decrease_serve_count.assert_not_awaited()
+    assert c.actor._running_tasks.get(c.request_id) is owner
+    if rejection == "stream":
+        assert c.request_id in c.actor._request_streams
+    elif owner is not None:
+        assert not owner.done()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path", ["/v1/responses", "/v1/messages", "/anthropic/v1/messages"]
+)
+@pytest.mark.parametrize("stream", [False, True])
+async def test_protocol_request_id_admission_conflict(
+    admission_api, monkeypatch, path, stream
+):
+    from ...core import model as model_module
+
+    c = admission_api
+    c.model.is_vllm_backend.return_value = True
+    fixed_uuid = SimpleNamespace(
+        uuid4=lambda: SimpleNamespace(hex=c.request_id), uuid1=lambda: c.request_id
+    )
+    monkeypatch.setattr(restful_api, "uuid", fixed_uuid)
+    monkeypatch.setattr(model_module, "uuid", fixed_uuid)
+    await c.reject("aborted")
+    body = {"model": "test-model", "stream": stream}
+    body.update(
+        {"input": "hello"}
+        if path == "/v1/responses"
+        else {"messages": [{"role": "user", "content": "hello"}], "max_tokens": 8}
+    )
+    response = await c.client.post(
+        path, json=body, headers={"anthropic-version": "2023-06-01"}
+    )
+    assert response.status_code == 409
+    error = response.json()["error"]
+    assert error["type"] == "invalid_request_error"
+    assert error["message"] == f"The request has been aborted: {c.request_id}"
+    c.api._get_model_last_error.assert_not_awaited()
+    c.model.abort_request.assert_not_awaited()
+    c.model.decrease_serve_count.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_pd_request_id_admission_conflict(admission_api):
+    from ...core.pd_model import PDModelActor
+
+    c = admission_api
+    router = PDModelActor("test-model")
+    router._prefill_policy = router._decode_policy = MagicMock()
+    router._request_set.add(c.request_id)
+
+    async def chat(*args, **kwargs):
+        return await c.rpc("chat", *args, target=router, **kwargs)
+
+    c.model.chat.side_effect = chat
+    c.model.is_vllm_backend.return_value = True
+    response = await c.client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": False,
+            "request_id": c.request_id,
+        },
+    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": f"Request {c.request_id} is already running"}
+    from ...core.exceptions import RequestIdConflictError
+
+    assert isinstance(c.errors[-1], RequestIdConflictError)
+    assert c.errors[-1].client_message == f"Request {c.request_id} is already running"
+    assert c.errors[-1].__context__ is None
+    assert router._request_set == {c.request_id}
+    router._prefill_policy.schedule.assert_not_called()
+    c.model.abort_request.assert_not_awaited()
+    c.api._get_model_last_error.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_unrelated_actor_value_error_keeps_status(admission_api, stream):
+    c = admission_api
+    message = "Duplicate request id: worker secret"
+
+    async def fail(*args, **kwargs):
+        raise ValueError(message)
+
+    c.actor._model.async_chat = fail
+    response = await c.client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": stream,
+            "request_id": c.request_id,
+        },
+    )
+    assert response.status_code == (200 if stream else 500)
+    assert message not in response.text
+    assert "worker:123" not in response.text
+    assert restful_api.RESTfulAPI._chat_completion_error_detail() in response.text
+    c.model.abort_request.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_chat_routing_key_is_scoped_to_the_credential(monkeypatch):
     model = SimpleNamespace(
@@ -1305,7 +1579,7 @@ async def test_rejected_stream_setup_does_not_abort_request_owner(
             configure_model=configure,
         )
         if kind == "responses":
-            assert response.status_code == (500 if failure == "duplicate" else 429)
+            assert response.status_code == (409 if failure == "duplicate" else 429)
             assert model.chat.await_args.kwargs["request_id"] == request_id
             assert not disconnect_handlers
             model.abort_request.assert_not_awaited()
