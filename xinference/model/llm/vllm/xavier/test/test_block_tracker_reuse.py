@@ -168,3 +168,21 @@ def test_gpu_prefix_directory_prefers_longest_and_invalidates_exact_ticket():
     assert tracker.query_gpu_prefix(0, [tail])[1] == "long"
     tracker.unregister_rank(2)
     assert tracker.query_gpu_prefix(0, [tail]) is None
+
+
+def test_routing_prefixes_respect_salt_and_live_offers():
+    from ....xavier.block_tracker import BlockTracker, routing_prefix_hashes
+
+    tracker = BlockTracker()
+    prompt = list(range(40))
+    routing_hash = dict(routing_prefix_hashes(prompt[:32], [32], "tenant"))[32]
+    tracker.publish_gpu_prefix(1, "key", "ticket", 32, [], routing_hash)
+    assert tracker.match_routing_prefixes(prompt, "tenant") == {1: 32}
+    assert tracker.match_routing_prefixes(prompt, "other") == {1: 0}
+    assert tracker.match_routing_prefixes(prompt[:32], "tenant") == {1: 0}
+    assert tracker.match_routing_prefixes([99, *prompt[1:]], "tenant") == {1: 0}
+    tracker.remove_gpu_prefix(1, "key", "old-ticket")
+    assert tracker.match_routing_prefixes(prompt, "tenant") == {1: 32}
+    tracker.unregister_rank(1)
+    tracker.register_rank(1)
+    assert tracker.match_routing_prefixes(prompt, "tenant") == {}
