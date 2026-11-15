@@ -41,6 +41,18 @@ from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
 
+
+def _is_token_array(item) -> bool:
+    return isinstance(item, list) and len(item) > 0 and isinstance(item[0], int)
+
+
+def _decode_token_array(enc, line) -> str:
+    # Decode each token into bytes, join them, then read them as UTF-8.
+    return b"".join(enc.decode_single_token_bytes(token) for token in line).decode(
+        "utf-8"
+    )
+
+
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
 EMBEDDING_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
@@ -242,16 +254,58 @@ class EmbeddingModel(abc.ABC):
         Load embedding model
         """
 
+    # Engines that decode token arrays with tiktoken (see
+    # ``_fix_langchain_openai_inputs``) set this so that ``validate_input`` can
+    # reject undecodable ids for one request before it joins a shared batch.
+    _decodes_token_arrays = False
+
+    def validate_input(self, sentences) -> None:
+        """Reject token arrays the engine could not decode, for ONE request.
+
+        The decoding engines run ``_fix_langchain_openai_inputs`` over a batch
+        shared with other requests, where one bad id would fail every caller.
+        Raises ``InvalidModelRequestError`` (an HTTP 400) instead.
+        """
+        if not self._decodes_token_arrays or not isinstance(sentences, list):
+            return
+        import tiktoken
+
+        from ...core.exceptions import InvalidModelRequestError
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        unknown: List[int] = []
+        for line in sentences:
+            if not _is_token_array(line):
+                continue
+            for token in line:
+                try:
+                    enc.decode_single_token_bytes(token)
+                except (KeyError, OverflowError, TypeError, ValueError):
+                    if token not in unknown:
+                        unknown.append(token)
+            if not unknown:
+                try:
+                    _decode_token_array(enc, line)
+                except UnicodeDecodeError:
+                    raise InvalidModelRequestError(
+                        "Token ids do not decode to valid UTF-8 text with the "
+                        "cl100k_base tokenizer."
+                    ) from None
+        if unknown:
+            shown = ", ".join(str(t) for t in unknown[:10])
+            raise InvalidModelRequestError(
+                f"Token ids not recognized by the cl100k_base tokenizer used to "
+                f"decode token arrays: {shown}"
+                f"{', ...' if len(unknown) > 10 else ''}."
+            )
+
     def _fix_langchain_openai_inputs(
         self,
         sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
-        def is_token_array(item) -> bool:
-            return isinstance(item, list) and len(item) > 0 and isinstance(item[0], int)
-
         # Check if any element is a list of integers (token ids); decode per
         # element so token arrays can share a batch with texts
-        if isinstance(sentences, list) and any(is_token_array(s) for s in sentences):
+        if isinstance(sentences, list) and any(_is_token_array(s) for s in sentences):
             # List[List[int]] stands for encoded inputs
             import tiktoken
 
@@ -259,17 +313,11 @@ class EmbeddingModel(abc.ABC):
             lines_decoded = []
 
             for line in sentences:
-                if not is_token_array(line):
+                if not _is_token_array(line):
                     lines_decoded.append(line)
                     continue
                 try:
-                    # Decode each token into bytes, then join them into a complete string
-                    output = b"".join(
-                        enc.decode_single_token_bytes(token) for token in line
-                    )
-                    # Convert the byte sequence into a UTF-8 encoded string
-                    decoded_line = output.decode("utf-8")
-                    lines_decoded.append(decoded_line)
+                    lines_decoded.append(_decode_token_array(enc, line))
                 except (ValueError, TypeError, UnicodeDecodeError) as e:
                     raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], self)
 

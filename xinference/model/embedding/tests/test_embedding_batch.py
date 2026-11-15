@@ -23,6 +23,7 @@ import pytest
 import torch
 from xoscar.batch import _ExtensibleWrapper
 
+from ....core.exceptions import InvalidModelRequestError
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...utils import virtualenv_discovery_var
 from .. import core as embedding_core
@@ -138,6 +139,35 @@ def test_create_embedding_batch_treats_dict_as_one_multimodal_input():
     assert len(results) == 2
     assert [len(result["data"]) for result in results] == [1, 1]
     assert [result["data"][0]["index"] for result in results] == [0, 0]
+
+
+@pytest.mark.parametrize(
+    "value,bad",
+    [
+        ([[9906, 151000]], "151000"),  # nested array, id outside cl100k_base
+        ([[9906], [100256, 151000, 151000]], "100256, 151000"),
+        ([[-1]], "-1"),
+    ],
+)
+def test_validate_input_names_undecodable_token_ids(value, bad):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    with pytest.raises(InvalidModelRequestError, match=f"recognized.*: {bad}\\."):
+        model.validate_input(value)
+
+
+@pytest.mark.parametrize("value", [[[9906, 1917]], ["text", [9906]], "text", []])
+def test_validate_input_accepts_decodable_input(value):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    model.validate_input(value)
+
+
+def test_validate_input_skips_engines_that_do_not_decode():
+    # llama.cpp and flag read the ids as the model's own vocabulary ids.
+    model = _make_stub_model()
+    assert model._decodes_token_arrays is False
+    model.validate_input([[151000]])
 
 
 class _CountingEncoder:

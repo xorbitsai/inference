@@ -106,6 +106,7 @@ class _PoolingProgress:
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "native"
+    _decodes_token_arrays = True
 
     # The backend can be either a synchronous LLM or an asynchronous engine.
     _model: Any

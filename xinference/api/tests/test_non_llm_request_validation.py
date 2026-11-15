@@ -34,7 +34,10 @@ from ...model.audio.ace_step import AceStepModel
 from ...model.audio.melotts import MeloTTSModel
 from ...model.audio.vllm import VLLMQwen3ASRModel
 from ...model.audio.vllm_omni import VLLMOmniTTSModel
+from ...model.batch import BatchMixin
+from ...model.embedding.core import EmbeddingModel
 from ...model.video.diffusers import DiffusersVideoModel
+from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..restful_api import RESTfulAPI
 
 JSON_ENDPOINTS = [
@@ -308,6 +311,86 @@ async def test_embedding_token_array_input(api_client, value, expected):
     api_client.model.create_embedding.assert_awaited_once_with(
         expected, model_uid="test"
     )
+
+
+class _TiktokenDecodingEngine(EmbeddingModel, BatchMixin):
+    """Batching engine that decodes token arrays like the real engines do."""
+
+    _decodes_token_arrays = True
+
+    def __init__(self):
+        EmbeddingModel.__init__(
+            self,
+            "test",
+            "unused",
+            SimpleNamespace(
+                model_specs=[None],
+                model_name="stub-embedding",
+                to_description=lambda: {},
+            ),
+        )
+        BatchMixin.__init__(self, self.create_embedding, batch_interval=0.2)
+        self.batches = []
+
+    @classmethod
+    def check_lib(cls):
+        return True
+
+    @classmethod
+    def match_json(cls, model_family, model_spec, quantization):
+        return True
+
+    def load(self):
+        pass
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        self.batches.append(list(sentences))
+        data = [
+            EmbeddingData(index=i, object="embedding", embedding=[float(len(s))])
+            for i, s in enumerate(sentences)
+        ]
+        return Embedding(
+            object="list",
+            model="test",
+            model_replica="test-rep0",
+            data=data,
+            usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+        )
+
+
+@pytest.mark.asyncio
+async def test_undecodable_token_ids_only_fail_their_own_request(api_client):
+    engine = _TiktokenDecodingEngine()
+    actor = ModelActor("test:123", "test:345", engine, "test-rep0")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    api_client.model.create_embedding.side_effect = actor.create_embedding
+
+    async def post(client, value):
+        return await client.post(
+            "/v1/embeddings", json={"model": "test", "input": value}
+        )
+
+    try:
+        async with api_client.client as client:
+            # 151000 is a Qwen id that cl100k_base cannot decode.
+            bad, good = await asyncio.gather(
+                post(client, [9906, 151000]), post(client, "hello world")
+            )
+    finally:
+        task = engine._process_batch_task
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+    assert bad.status_code == 400, bad.text
+    assert "151000" in bad.json()["detail"]
+    assert good.status_code == 200, good.text
+    assert json.loads(good.content)["data"][0]["embedding"] == [11.0]
+    assert engine.batches == [["hello world"]]
+    api_client.api._report_error_event.assert_not_awaited()
 
 
 @pytest.mark.asyncio
