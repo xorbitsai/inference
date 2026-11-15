@@ -25,6 +25,8 @@ from ...model.video.engine import (
     register_builtin_video_engines,
 )
 from ...model.video.engine_family import SUPPORTED_ENGINES as VIDEO_ENGINES
+from ...model.video.minimax_h3 import SGLangMiniMaxH3Model
+from ...model.video.native import SGLangVideoModel
 from ..exceptions import RequestQueueFullError
 from ..model import ModelActor
 from ..replica_load import ReplicaLoad, SerializedReplicaAdmission
@@ -231,3 +233,28 @@ def test_sglang_requires_an_observable_scheduler_configuration(options):
     adapter._kwargs = options
     with pytest.raises(ValueError, match="monolithic singleton scheduler"):
         adapter.validate_serialized_replica_admission()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "adapter_class, model_type",
+    [
+        (SGLangImageModel, "image"),
+        (SGLangVideoModel, "video"),
+        (SGLangMiniMaxH3Model, "video"),
+    ],
+)
+async def test_sglang_replica_admission_rejects_finite_rpc_timeout(
+    adapter_class, model_type
+):
+    adapter = adapter_class.__new__(adapter_class)
+    adapter.model_family = SimpleNamespace(
+        to_description=lambda: {"model_type": model_type, "model_name": "pipeline"}
+    )
+    adapter._kwargs = {"scheduler_rpc_timeout": 1}
+    ModelActor("supervisor", "worker", adapter, "fixed-0")
+    with pytest.raises(ValueError, match="scheduler_rpc_timeout=None"):
+        await new_replica(model_type, model=adapter)
+    adapter._kwargs["scheduler_rpc_timeout"] = None
+    actor = await new_replica(model_type, model=adapter)
+    assert await actor.get_replica_load() == ReplicaLoad(0, 0, 1)

@@ -129,6 +129,11 @@ class SGLangDiffusionModel:
         return self._abilities
 
     def validate_serialized_replica_admission(self) -> None:
+        if self._kwargs.get("scheduler_rpc_timeout") is not None:
+            raise ValueError(
+                "SGLang replica autoscaling requires scheduler_rpc_timeout=None. "
+                "The scheduler can keep generating after the client times out."
+            )
         # DiffGenerator waits for the generation to finish. With the default
         # singleton scheduler, sending additional requests would hide them in
         # the transport queue. Keep them at the actor where they can move.
