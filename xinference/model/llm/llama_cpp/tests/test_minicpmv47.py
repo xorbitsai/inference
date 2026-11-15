@@ -20,8 +20,20 @@ from unittest.mock import Mock
 
 import pytest
 
+from ..... import constants
+from ....utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+    virtualenv_discovery_var,
+)
+from ... import generate_engine_config_by_model_family
 from ...cache_manager import LLMCacheManager
-from ...llm_family import check_engine_by_spec_parameters_with_virtual_env, match_llm
+from ...core import create_llm_model_instance
+from ...llm_family import (
+    LLM_ENGINES,
+    check_engine_by_spec_parameters_with_virtual_env,
+    match_llm,
+)
 from .. import core
 from ..core import XllamaCppModel
 
@@ -97,6 +109,17 @@ def native_runtime(monkeypatch):
     )
     monkeypatch.setitem(sys.modules, "xllamacpp", runtime)
     monkeypatch.setattr(core, "configure_gpu_layers", Mock())
+    # Keep cached engine entries from a compatible runtime to test revalidation.
+    engines = {}
+    for name, size in [
+        ("MiniCPM-V-4.7", 1),
+        ("MiniCPM-V-4.7", 35),
+        ("MiniCPM-V-4.6", 1),
+    ]:
+        family = match_llm(name, "ggufv2", size, "F16", "huggingface")
+        generate_engine_config_by_model_family(family, target_engines=engines)
+    for name, params in engines.items():
+        monkeypatch.setitem(LLM_ENGINES, name, params)
     return runtime
 
 
@@ -133,8 +156,74 @@ def test_old_runtime_rejected_before_loading(native_runtime, tmp_path, version):
     assert model._executor is None
 
 
+@pytest.mark.parametrize(
+    "discover", [get_engine_params_by_name, get_engine_params_by_name_with_virtual_env]
+)
+@pytest.mark.parametrize("virtualenv", [False, True])
+@pytest.mark.parametrize("version", ["2026.7.10068", "2026.10.11870", "invalid"])
+def test_runtime_version_discovery(
+    native_runtime, monkeypatch, discover, virtualenv, version
+):
+    native_runtime.__version__ = version
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", not virtualenv)
+    before = virtualenv_discovery_var.get()
+    params = discover("LLM", "MiniCPM-V-4.7", enable_virtual_env=virtualenv)
+    accepted = virtualenv or version == "2026.10.11870"
+    assert isinstance(params.get("llama.cpp"), list) is accepted
+    if accepted:
+        assert {
+            int(entry["model_size_in_billions"]) for entry in params["llama.cpp"]
+        } == {1, 35}
+    else:
+        assert "2026.10.11870" in params["llama.cpp"]
+    assert virtualenv_discovery_var.get() is before
+
+
+@pytest.mark.parametrize("virtualenv", [False, True])
+@pytest.mark.parametrize("version", ["2026.7.10068", "2026.10.11870", "invalid"])
+@pytest.mark.parametrize("size", [1, 35])
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_factory_checks_runtime_before_caching(
+    native_runtime, monkeypatch, virtualenv, version, size, hub
+):
+    native_runtime.__version__ = version
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", not virtualenv)
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    before = virtualenv_discovery_var.get()
+
+    def launch():
+        return create_llm_model_instance(
+            "minicpm-preflight",
+            "MiniCPM-V-4.7",
+            "llama.cpp",
+            "ggufv2",
+            size,
+            "F16",
+            download_hub=hub,
+            enable_virtual_env=virtualenv,
+        )
+
+    if virtualenv or version == "2026.10.11870":
+        assert isinstance(launch(), XllamaCppModel)
+        cache.assert_called_once_with()
+    else:
+        with pytest.raises(ValueError, match="2026.10.11870"):
+            launch()
+        cache.assert_not_called()
+    assert virtualenv_discovery_var.get() is before
+
+
+def test_old_runtime_still_discovers_older_models(native_runtime):
+    native_runtime.__version__ = "2026.7.10068"
+    params = get_engine_params_by_name("LLM", "MiniCPM-V-4.6", enable_virtual_env=False)
+    assert isinstance(params.get("llama.cpp"), list)
+
+
 def test_release_common_params(monkeypatch, tmp_path):
-    runtime = pytest.importorskip("xllamacpp")
+    runtime = pytest.importorskip(
+        "xllamacpp", minversion=core.MINICPMV47_MIN_XLLAMACPP_VERSION
+    )
     server = Mock()
     monkeypatch.setattr(runtime, "Server", server)
     model = make_model(tmp_path)

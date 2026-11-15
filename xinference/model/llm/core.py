@@ -734,7 +734,13 @@ def create_llm_model_instance(
 
     validate_launch = getattr(llm_cls, "validate_launch", None)
     if callable(validate_launch):
-        validate_launch(llm_family)
+        from ..utils import virtualenv_discovery_var
+
+        token = virtualenv_discovery_var.set(bool(enable_virtual_env))
+        try:
+            validate_launch(llm_family)
+        finally:
+            virtualenv_discovery_var.reset(token)
 
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:
