@@ -13,10 +13,11 @@
 # limitations under the License.
 
 # CI: linux
+import asyncio
 import sys
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -212,6 +213,57 @@ def test_factory_checks_runtime_before_caching(
             launch()
         cache.assert_not_called()
     assert virtualenv_discovery_var.get() is before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("size", [1, 35])
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("cached_engine", [False, True])
+async def test_worker_cache_only_allows_older_runtime(
+    native_runtime, monkeypatch, size, hub, cached_engine
+):
+    from .....core.worker import WorkerActor
+
+    native_runtime.__version__ = "2026.7.10068"
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", False)
+    if not cached_engine:
+        monkeypatch.setitem(LLM_ENGINES, "MiniCPM-V-4.7", {})
+    cache = Mock(return_value="/models/test")
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    worker = SimpleNamespace(
+        address="worker:1234",
+        _cache_uid_to_download_info={},
+        _download_artifact_cleanup_lock=asyncio.Lock(),
+        _launch_semaphore=asyncio.Semaphore(1),
+        _check_model_is_valid=Mock(),
+        _get_progressor=AsyncMock(return_value=MagicMock()),
+        _upload_download_progress=Mock(),
+        update_cache_status=AsyncMock(),
+        _allocate_subpool_devices=AsyncMock(),
+        _spawn_subpool=AsyncMock(),
+    )
+    worker._download_model_files = WorkerActor._download_model_files.__get__(worker)
+    worker.cache_builtin_model = WorkerActor.cache_builtin_model.__get__(worker)
+
+    result = await worker.cache_builtin_model(
+        cache_uid="minicpm-cache-only",
+        model_name="MiniCPM-V-4.7",
+        model_size_in_billions=size,
+        model_format="ggufv2",
+        quantization="F16",
+        model_engine="llama.cpp",
+        download_hub=hub,
+        enable_virtual_env=False,
+        multimodal_projector=PROJECTORS[0],
+    )
+
+    assert result["cache_uid"] == "minicpm-cache-only"
+    cache.assert_called_once_with()
+    worker.update_cache_status.assert_awaited_once()
+    worker._allocate_subpool_devices.assert_not_awaited()
+    worker._spawn_subpool.assert_not_awaited()
+    native_runtime.Server.assert_not_called()
+    assert not worker._cache_uid_to_download_info
 
 
 def test_old_runtime_still_discovers_older_models(native_runtime):

@@ -708,12 +708,14 @@ def create_llm_model_instance(
             f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
+    cache_only = kwargs.pop("_xinference_cache_only", False)
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
         enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
-    if enable_virtual_env:
+    # Cache-only requests may stage weights before the engine is upgraded.
+    if enable_virtual_env or cache_only:
         llm_cls = check_engine_by_spec_parameters_with_virtual_env(
             model_engine,
             llm_family.model_name,
@@ -733,7 +735,7 @@ def create_llm_model_instance(
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     validate_launch = getattr(llm_cls, "validate_launch", None)
-    if callable(validate_launch):
+    if callable(validate_launch) and not cache_only:
         from ..utils import virtualenv_discovery_var
 
         token = virtualenv_discovery_var.set(bool(enable_virtual_env))
