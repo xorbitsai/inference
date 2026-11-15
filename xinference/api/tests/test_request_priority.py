@@ -91,6 +91,7 @@ async def test_api_forwards_priority(monkeypatch, engine, endpoint, stream, prio
     )
     supervisor = SimpleNamespace(
         get_model=AsyncMock(return_value=model),
+        get_chat_model=AsyncMock(return_value=(model, False)),
         describe_model=AsyncMock(
             return_value={"model_family": "test-family", "model_engine": engine}
         ),
@@ -130,6 +131,23 @@ async def test_api_forwards_priority(monkeypatch, engine, endpoint, stream, prio
         assert "priority" not in call.await_args.args[1]
     else:
         assert call.await_args.args[1]["priority"] == priority
+    if endpoint == "chat" and priority == "omitted":
+        supervisor.get_chat_model.assert_awaited_once()
+        model_uid, routing_key, reservation_id = (
+            supervisor.get_chat_model.await_args.args
+        )
+        assert model_uid == "priority-model"
+        assert routing_key is None and reservation_id
+        assert supervisor.get_chat_model.await_args.kwargs == {
+            "routing_request": {"interactive": True}
+        }
+        supervisor.describe_model.assert_awaited_once_with(
+            "priority-model", selected_replica_uid="priority-model-0"
+        )
+        supervisor.get_model.assert_not_awaited()
+    else:
+        supervisor.get_chat_model.assert_not_awaited()
+        supervisor.get_model.assert_awaited_once_with("priority-model")
     api._report_error_event.assert_not_awaited()
 
 

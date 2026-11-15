@@ -14,7 +14,9 @@ from xinference import extensions
 
 from ..control_session import CONTROL_CONTEXT_KEY, ControlSessionRejected
 from ..model import ModelActor
-from ..supervisor import ReplicaInfo, SupervisorActor
+from ..replica_config import DeviceConfig, ReplicaConfig
+from ..status_guard import StatusGuardActor
+from ..supervisor import ReplicaInfo, SupervisorActor, WorkerStatus
 from ..supervisor_control import SupervisorControl, SupervisorControlPort
 from ..supervisor_upgrade import SupervisorGateway
 from ..utils import CancelMixin, build_replica_model_uid
@@ -34,6 +36,828 @@ class Provider:
 
     async def close(self):
         pass
+
+
+class _LaunchWorker:
+    def __init__(self, runtime, index):
+        self.runtime, self.index = runtime, index
+        self.address, self.uid = f"worker-{index}:1234", b"worker"
+        self.models = set()
+        self.gpu_models = set()
+        self.terminated = []
+        self.entered, self.release = asyncio.Event(), asyncio.Event()
+        self.fail_uid, self.fail_stage = None, "load"
+        self.cleanup_error = None
+
+    async def get_extension_resources(self, **kwargs):
+        return {"extensions": {}}
+
+    async def get_node_metadata(self, **kwargs):
+        return {"software_version": "test"}
+
+    async def update_system_settings(self, settings, **kwargs):
+        pass
+
+    async def get_model_registration(self, *args, **kwargs):
+        return None
+
+    async def get_model_count(self, **kwargs):
+        return len(self.models)
+
+    async def list_models(self, **kwargs):
+        return {uid: {} for uid in self.models if not uid.endswith("-rank0")}
+
+    async def get_model_launch_status(self, model_uid, **kwargs):
+        return "READY" if model_uid in self.models else None
+
+    async def get_gpu_allocation_status(self, **kwargs):
+        return {
+            "total": [0],
+            "models": {0: list(self.gpu_models)},
+            "user_specified": {},
+        }
+
+    async def resolve_download_hub(self, download_hub, model_path, **kwargs):
+        return download_hub or "huggingface"
+
+    async def _fail(self, uid, stage):
+        if uid == self.fail_uid and stage == self.fail_stage:
+            self.entered.set()
+            await self.release.wait()
+            self.runtime.state.failed = self.runtime.loss == "rollback"
+            raise self.runtime.error
+
+    async def launch_builtin_model(self, model_uid, **kwargs):
+        if self.runtime.replacing:
+            assert not any(w.models for w in self.runtime.workers)
+            self.runtime.replacing = False
+        assert model_uid not in self.models
+        self.models.add(model_uid)
+        if kwargs.get("gpu_idx"):
+            self.gpu_models.add(model_uid)
+        await self._fail(model_uid, "dispatch")
+        return (
+            ("subpool", {"driver": "info"}) if kwargs.get("shard") == 0 else "subpool"
+        )
+
+    async def launch_rank0_model(self, model_uid, config, **kwargs):
+        self.models.add(model_uid)
+        await self._fail(model_uid, "dispatch")
+        return "worker-0:4321", 9876
+
+    async def wait_for_load(self, model_uid, **kwargs):
+        await self._fail(model_uid, "load")
+        self.runtime.guard.update_instance_info("failed", {"status": "READY"})
+
+    async def terminate_model(self, model_uid, **kwargs):
+        self.runtime.guard.update_instance_info("failed", {"status": "TERMINATING"})
+        if self.runtime.loss == "worker":
+            self.runtime.state.failed = True
+            raise ControlSessionRejected("authority_unavailable")
+        if self.cleanup_error is not None:
+            raise self.cleanup_error
+        self.models.discard(model_uid)
+        self.gpu_models.discard(model_uid)
+        self.terminated.append(model_uid)
+        if self.runtime.loss == "service" and not any(
+            uid
+            for worker in self.runtime.workers
+            for uid in worker.models
+            if not uid.endswith("-rank0")
+        ):
+            self.runtime.state.failed = True
+
+    async def start_transfer_for_vllm(self, *args, **kwargs):
+        pass
+
+    async def get_model(self, **kwargs):
+        return AsyncMock()
+
+
+@pytest.fixture
+async def failed_launch_runtime(monkeypatch, tmp_path):
+    from .. import supervisor as supervisor_module
+    from ..worker_registry import WorkerOwnership
+
+    monkeypatch.setattr(extensions, "get_extensions", lambda: ())
+    for name in ("DOWNLOAD_TASK", "LAUNCH_HISTORY", "TOKEN_ROUTER"):
+        monkeypatch.setattr(
+            supervisor_module, f"XINFERENCE_{name}_DB_PATH", str(tmp_path / name)
+        )
+    owner, guard = SupervisorActor(), StatusGuardActor()
+    owner.address = "supervisor:1234"
+    owner._collective_manager_mapping, owner._block_tracker_mapping = {}, {}
+    owner._worker_ownership = WorkerOwnership(str(tmp_path / "ownership.json"))
+    owner._schedule_autostart = Mock()
+    owner._status_guard_ref = SimpleNamespace(
+        **{
+            name: AsyncMock(side_effect=getattr(guard, name))
+            for name in (
+                "set_instance_info",
+                "get_instance_info",
+                "update_instance_info",
+                "update_replica_status",
+                "get_replica_statuses",
+                "remove_failed_instance_info",
+            )
+        }
+    )
+    state = SimpleNamespace(owner=session(), phase="active", failed=False)
+    authority = Provider(state, state.owner)
+    control = SupervisorControl(owner, authority)
+    control.fence.ready = control.has_served = True
+    owner._controller_control = control
+    runtime = SimpleNamespace(
+        owner=owner,
+        guard=guard,
+        path=tmp_path,
+        state=state,
+        authority=authority,
+        loss="rollback",
+        replacing=False,
+        actors={},
+        destroyed=[],
+        error=RuntimeError("original launch failure"),
+    )
+    workers = runtime.workers = [_LaunchWorker(runtime, i) for i in range(2)]
+    monkeypatch.setattr(
+        xo,
+        "actor_ref",
+        AsyncMock(
+            side_effect=lambda **kw: next(
+                w for w in workers if w.address == kw["address"]
+            )
+        ),
+    )
+    for worker in workers:
+        await owner.add_worker(worker.address)
+
+    async def create(cls, args, kwargs, address, uid):
+        assert uid not in runtime.actors
+        ref = AsyncMock(address=address, uid=uid.encode())
+        runtime.actors[uid] = ref
+        return ref
+
+    async def destroy(ref):
+        if runtime.reject_destroy:
+            state.failed = True
+            if runtime.reject_destroy == "uncertain":
+                del runtime.actors[ref.uid.decode()]
+                raise asyncio.TimeoutError()
+            if runtime.reject_destroy == "dependency":
+                raise xo.ActorNotExist("dependency")
+            raise ControlSessionRejected("authority_unavailable")
+        if ref.uid.decode() not in runtime.actors:
+            raise xo.ActorNotExist(ref.uid)
+        runtime.destroyed.append(ref.uid.decode())
+        del runtime.actors[ref.uid.decode()]
+
+    authority.create_model_service, authority.destroy_model_service = create, destroy
+    monkeypatch.setattr(
+        xo,
+        "has_actor",
+        AsyncMock(side_effect=lambda ref: ref.uid.decode() in runtime.actors),
+    )
+    runtime.reject_destroy = False
+    runtime.kwargs = dict(
+        model_uid="failed",
+        model_name="qwen3",
+        model_size_in_billions="0_6",
+        model_format="pytorch",
+        quantization="none",
+        model_engine="Transformers",
+        model_type="LLM",
+        n_gpu=None,
+        replica=2,
+    )
+    return runtime
+
+
+async def _failed_launch(runtime, wait_ready=True, sharded=False):
+    worker = runtime.workers[1]
+    worker.fail_uid = "failed-rep1"
+    launch = asyncio.create_task(
+        runtime.owner.launch_builtin_model(**runtime.kwargs, wait_ready=wait_ready)
+    )
+    await asyncio.wait_for(worker.entered.wait(), 5)
+    operation = runtime.owner._initial_model_launches["failed"]
+    if sharded:
+        assert "failed-rep0" in runtime.owner._replica_model_uid_to_worker
+        assert "failed-rep1" not in runtime.owner._replica_model_uid_to_worker
+    worker.release.set()
+    if not wait_ready:
+        assert await launch == "failed"
+        launch = operation.task
+    result = (await asyncio.gather(launch, return_exceptions=True))[0]
+    assert result is runtime.error
+    return operation
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wait_ready", [True, False])
+@pytest.mark.parametrize("recovery", ["launch", "terminate"])
+@pytest.mark.parametrize(
+    "loss,stage,engine,model_format,quantization",
+    [
+        ("rollback", "load", "Transformers", "pytorch", "none"),
+        ("worker", "load", "vLLM", "pytorch", "none"),
+        ("healthy", "dispatch", "llama.cpp", "ggufv2", "Q4_K_M"),
+        ("legacy", "dispatch", "Transformers", "pytorch", "none"),
+        ("rollback", "dispatch", "SGLang", "pytorch", "none"),
+        ("rollback", "load", "MLX", "mlx", "bf16"),
+        ("worker", "dispatch", "TRT-LLM", "pytorch", "none"),
+    ],
+)
+async def test_failed_initial_launch_recovery(
+    failed_launch_runtime,
+    wait_ready,
+    recovery,
+    loss,
+    stage,
+    engine,
+    model_format,
+    quantization,
+):
+    rt = failed_launch_runtime
+    rt.loss, rt.workers[1].fail_stage = loss, stage
+    rt.kwargs.update(
+        model_engine=engine, model_format=model_format, quantization=quantization
+    )
+    targets = [
+        ReplicaConfig(devices=[DeviceConfig(worker_ip=w.address, gpu_idx=[0])])
+        for w in rt.workers
+    ]
+    if engine == "vLLM":
+        rt.kwargs.pop("n_gpu")
+        rt.kwargs["replica_config"] = targets
+    if loss == "legacy":
+        rt.owner._controller_control = None
+        rt.owner._worker_address_to_worker = {w.address: w for w in rt.workers}
+    operation = await _failed_launch(rt, wait_ready)
+    assert rt.guard.get_instance_info(model_uid="failed")[0].status == "ERROR"
+    if loss in ("rollback", "worker"):
+        assert rt.owner._initial_model_launches["failed"] is operation
+        assert operation.cleanup_pending and not operation.cancelling
+        assert any(w.models for w in rt.workers)
+        before = [list(w.terminated) for w in rt.workers]
+        with pytest.raises(ControlSessionRejected):
+            await rt.owner.terminate_model("failed", suppress_exception=True)
+        assert before == [w.terminated for w in rt.workers]
+    else:
+        assert all(not w.models for w in rt.workers)
+        assert "failed" not in rt.owner._initial_model_launches
+    rt.state.failed, rt.loss = False, "healthy"
+    rt.workers[1].fail_uid = None
+    if operation.cleanup_pending:
+        for worker in rt.workers:
+            rt.owner._rebuild_worker_replica_state(
+                rt.owner._worker_address_to_worker[worker.address], []
+            )
+        assert any(operation.workers.values())
+    if recovery == "launch":
+        # Validate real GPU occupancy only after recovery releases old models.
+        rt.kwargs.pop("n_gpu", None)
+        rt.kwargs["replica_config"] = targets
+        rt.replacing = True
+        assert await rt.owner.launch_builtin_model(**rt.kwargs) == "failed"
+        assert all(w.models for w in rt.workers)
+        with pytest.raises(ValueError, match="already"):
+            await rt.owner.launch_builtin_model(**{**rt.kwargs, "replica_config": None})
+        await rt.owner.terminate_model("failed")
+    else:
+        await rt.owner.terminate_model("failed")
+        assert not rt.guard.get_instance_info(model_uid="failed")
+    assert all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+    assert not rt.owner._model_uid_to_replica_info
+    assert not rt.owner._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("recovery", ["launch", "terminate"])
+async def test_failed_sharded_initial_launch_recovery(failed_launch_runtime, recovery):
+    rt = failed_launch_runtime
+    rt.kwargs.update(model_engine="vLLM", n_worker=2)
+    rt.workers[1].fail_stage = "dispatch"
+    operation = await _failed_launch(rt, sharded=True)
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert all(operation.workers.values())
+    assert rt.guard.get_instance_info(model_uid="failed")[0].status == "ERROR"
+    rt.state.failed, rt.loss, rt.workers[1].fail_uid = False, "healthy", None
+    if recovery == "launch":
+        rt.replacing = True
+        await rt.owner.launch_builtin_model(**rt.kwargs)
+        assert all(w.models == {"failed-rep0", "failed-rep1"} for w in rt.workers)
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engine,shape",
+    [
+        ("vLLM", "collective"),
+        ("vLLM", "rank0"),
+        ("vLLM", "pd"),
+        ("SGLang", "pd"),
+        ("MLX", "pd"),
+        ("TRT-LLM", "pd"),
+        ("vLLM", "cache"),
+        ("SGLang", "cache"),
+        ("MLX", "cache"),
+        ("TRT-LLM", "cache"),
+        ("vLLM", "history-host"),
+        ("vLLM", "uncertain"),
+        ("vLLM", "dependency"),
+        ("vLLM", "nixl"),
+        ("SGLang", "nixl"),
+        ("TRT-LLM", "nixl"),
+    ],
+)
+async def test_failed_initial_launch_retains_services(
+    failed_launch_runtime, engine, shape
+):
+    rt = failed_launch_runtime
+    destruction = shape
+    if shape in ("uncertain", "dependency"):
+        shape = "history-host"
+    rt.kwargs.update(model_engine=engine, enable_xavier=shape != "nixl")
+    if engine == "MLX":
+        rt.kwargs.update(model_format="mlx", quantization="bf16")
+    if shape in ("pd", "nixl", "history-host"):
+        rt.kwargs.pop("n_gpu")
+        rt.kwargs["replica_config"] = [
+            ReplicaConfig(
+                role=role,
+                devices=[DeviceConfig(worker_ip=w.address, gpu_idx=[0])],
+                model_engine="MLX" if shape == "history-host" and i == 0 else engine,
+                engine_config=(
+                    {"model_format": "mlx"}
+                    if shape == "history-host" and i == 0
+                    else {}
+                ),
+            )
+            for i, (w, role) in enumerate(zip(rt.workers, ("prefill", "decode")))
+        ]
+    if shape == "nixl":
+        rt.kwargs["vllm_transfer_backend_type"] = "nixl"
+    if shape == "cache":
+        rt.kwargs.update(xavier_cache_bytes=1024)
+        if engine == "vLLM":
+            rt.kwargs["xavier_gpu_cache_bytes"] = 0
+    if shape == "history-host":
+        rt.kwargs.update(
+            xavier_cache_backend="lmcache",
+            xavier_cache_backend_config={
+                "cpu_bytes": 1024,
+                "disk_bytes": 4096,
+                "disk_path": str(rt.path / "cache"),
+            },
+        )
+
+    async def fail_notification(uid):
+        rt.state.failed = True
+        raise rt.error
+
+    rt.authority.model_services_changed = fail_notification
+    rt.error = ControlSessionRejected("support launch failed")
+    if shape == "rank0":
+        rt.workers[0].fail_uid, rt.workers[0].fail_stage = "failed-rank0", "dispatch"
+        rt.workers[0].release.set()
+    with pytest.raises(ControlSessionRejected, match="support launch failed"):
+        await rt.owner.launch_builtin_model(**rt.kwargs)
+    operation = rt.owner._initial_model_launches["failed"]
+    assert operation.cleanup_pending and rt.actors
+    if engine == "vLLM" and shape in ("collective", "pd"):
+        assert "failed-rank0" in rt.workers[0].models
+    if shape == "rank0":
+        assert "failed-rank0" not in rt.owner._replica_model_uid_to_worker
+    if shape == "history-host":
+        assert rt.owner._xavier_source_mapping["failed"]
+        assert len(rt.owner._xavier_history_mapping["failed"]) == 2
+    assert {id(ref) for refs in operation.services.values() for ref in refs} == {
+        id(ref) for ref in rt.actors.values()
+    }
+    before = dict(rt.actors)
+    for loss in ("service", "healthy"):
+        rt.state.failed, rt.loss, rt.reject_destroy = False, loss, loss == "healthy"
+        if destruction in ("uncertain", "dependency") and loss == "healthy":
+            rt.reject_destroy = destruction
+        with pytest.raises(
+            (ControlSessionRejected, asyncio.TimeoutError, xo.ActorNotExist)
+        ):
+            await rt.owner.terminate_model("failed", suppress_exception=True)
+        assert not rt.destroyed
+        assert len(rt.actors) == len(before) - int(
+            destruction == "uncertain" and loss == "healthy"
+        )
+        assert rt.owner._initial_model_launches["failed"] is operation
+        assert rt.guard.get_instance_info(model_uid="failed")[0].status == "ERROR"
+    # Recovery still owns the actual actors after routing/service maps change.
+    rt.owner._pd_model_mapping.clear()
+    rt.owner._xavier_cache_mapping.clear()
+    rt.state.failed, rt.reject_destroy = False, False
+    await rt.owner.terminate_model("failed")
+    assert not rt.actors and all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+    assert not rt.guard.get_instance_info(model_uid="failed")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("queued", ["launch", "terminate"])
+@pytest.mark.parametrize(
+    "cleanup_error", [RuntimeError, asyncio.CancelledError, asyncio.TimeoutError]
+)
+async def test_failed_initial_launch_recovery_ownership(
+    failed_launch_runtime, queued, cleanup_error
+):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    assert rt.owner._initial_model_launches["failed"] is operation
+    rt.state.failed, rt.loss, rt.workers[1].fail_uid = False, "healthy", None
+    rt.workers[1].cleanup_error = cleanup_error()
+    with pytest.raises(cleanup_error):
+        if queued == "launch":
+            await rt.owner.launch_builtin_model(**rt.kwargs)
+        else:
+            await rt.owner.terminate_model("failed", suppress_exception=True)
+    assert rt.workers[1].models and operation.workers["failed-rep1"]
+    assert not rt.workers[0].models and not operation.workers["failed-rep0"]
+    assert rt.guard.get_instance_info(model_uid="failed")[0].status == "ERROR"
+    rt.workers[1].cleanup_error = None
+    # Queue both requests while they can observe only the failed operation.
+    entered = asyncio.Queue()
+
+    async def intercept(invocation, call):
+        entered.put_nowait(invocation.method)
+        return await call()
+
+    rt.authority.around_supervisor_call = intercept
+    lock = rt.owner._get_model_replica_lock("failed")
+    await lock.acquire()
+    first = asyncio.create_task(rt.owner.launch_builtin_model(**rt.kwargs))
+    await asyncio.wait_for(entered.get(), 5)
+    second = asyncio.create_task(
+        rt.owner.launch_builtin_model(**rt.kwargs)
+        if queued == "launch"
+        else rt.owner.terminate_model("failed")
+    )
+    await asyncio.wait_for(entered.get(), 5)
+    lock.release()
+    results = await asyncio.gather(first, second, return_exceptions=True)
+    assert results[0] == "failed"
+    assert isinstance(results[1], ValueError)
+    assert "ownership changed" in str(results[1])
+    assert all(w.models for w in rt.workers)
+    assert rt.guard.get_instance_info(model_uid="failed")[0].status == "READY"
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+
+
+@pytest.mark.asyncio
+async def test_failed_initial_launch_retired_worker(failed_launch_runtime):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    retired = rt.workers[1]
+    await rt.owner.remove_worker(retired.address)
+    assert retired.address not in rt.owner._worker_address_to_worker
+    # Permanent shutdown has removed the models as well as the registration.
+    retired.models.clear()
+    retired.cleanup_error = ConnectionRefusedError("retired worker")
+    assert rt.owner._initial_model_launches["failed"] is operation
+
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+    assert not rt.guard.get_instance_info(model_uid="failed")
+    rt.kwargs.update(replica=1, worker_ip=rt.workers[0].address)
+    rt.replacing = True
+    assert await rt.owner.launch_builtin_model(**rt.kwargs) == "failed"
+    assert rt.workers[0].models == {"failed-rep0"}
+    assert not retired.models
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timeout", ["heartbeat", "reverse_ping"])
+@pytest.mark.parametrize("resolution", ["termination", "inventory"])
+async def test_failed_initial_launch_live_worker_health_timeout(
+    failed_launch_runtime, monkeypatch, timeout, resolution
+):
+    from .. import supervisor as supervisor_module
+
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    healthy, worker = rt.workers
+    rt.owner._actor_loop = asyncio.get_running_loop()
+    worker.cleanup_error = asyncio.TimeoutError("reverse link unavailable")
+    for current in rt.workers:
+        monkeypatch.setattr(current, "ping", AsyncMock(), raising=False)
+        rt.owner._worker_status[current.address] = WorkerStatus(
+            update_time=supervisor_module.time.time(),
+            failure_remaining_count=2,
+            status={},
+        )
+    worker.ping.side_effect = asyncio.TimeoutError("reverse link unavailable")
+    if timeout == "heartbeat":
+        rt.owner._worker_status[worker.address].update_time = 0
+    with monkeypatch.context() as health:
+        health.setattr(
+            supervisor_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 2
+        )
+        health.setattr(
+            supervisor_module.asyncio,
+            "sleep",
+            AsyncMock(side_effect=[None, asyncio.CancelledError()]),
+        )
+        with pytest.raises(asyncio.CancelledError):
+            await rt.owner._check_dead_nodes()
+    assert worker.ping.await_count == (2 if timeout == "reverse_ping" else 1)
+    assert worker.address not in rt.owner._worker_address_to_worker
+    assert healthy.address in rt.owner._worker_address_to_worker
+    assert worker.models == {"failed-rep1"}
+    assert operation.workers["failed-rep1"]
+
+    with pytest.raises(asyncio.TimeoutError) as exc:
+        await rt.owner.terminate_model("failed")
+    assert exc.value is worker.cleanup_error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"] and worker.models
+    assert not healthy.models and not operation.workers["failed-rep0"]
+    rt.kwargs.update(replica=1, worker_ip=healthy.address)
+    rt.replacing = True
+    with pytest.raises(asyncio.TimeoutError) as exc:
+        await rt.owner.launch_builtin_model(**rt.kwargs)
+    assert exc.value is worker.cleanup_error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"] and worker.models
+    assert not healthy.models
+
+    if resolution == "inventory":
+        await rt.owner.add_worker(worker.address)
+        # Re-registration alone does not establish absence of the old replica.
+        with pytest.raises(asyncio.TimeoutError):
+            await rt.owner.terminate_model("failed")
+        assert operation.workers["failed-rep1"] and worker.models
+        inventory = AsyncMock(wraps=worker.list_models)
+        launch_status = AsyncMock(wraps=worker.get_model_launch_status)
+        monkeypatch.setattr(worker, "list_models", inventory)
+        monkeypatch.setattr(worker, "get_model_launch_status", launch_status)
+        worker.models.clear()
+    else:
+        worker.cleanup_error = None
+    await rt.owner.terminate_model("failed")
+    if resolution == "inventory":
+        inventory.assert_awaited_once()
+        launch_status.assert_awaited_once_with("failed-rep1")
+    assert not operation.workers["failed-rep1"]
+    assert not rt.owner._initial_model_launches
+    assert not rt.guard.get_instance_info(model_uid="failed")
+    assert all(not w.models for w in rt.workers)
+    assert await rt.owner.launch_builtin_model(**rt.kwargs) == "failed"
+    assert healthy.models == {"failed-rep0"} and not worker.models
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "inventory_error", [ConnectionRefusedError, asyncio.TimeoutError]
+)
+async def test_failed_initial_launch_registered_worker_inventory(
+    failed_launch_runtime, monkeypatch, inventory_error
+):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    worker = rt.workers[1]
+    worker.cleanup_error = ConnectionRefusedError("registered worker")
+    inventory = AsyncMock(side_effect=inventory_error("inventory unavailable"))
+    monkeypatch.setattr(worker, "list_models", inventory)
+    for unavailable in (True, False):
+        if not unavailable:
+            inventory.side_effect = None
+            inventory.return_value = {"failed-rep1": {}}
+        with pytest.raises(ConnectionRefusedError) as exc:
+            await rt.owner.terminate_model("failed", suppress_exception=True)
+        assert exc.value is worker.cleanup_error
+        assert worker.address in rt.owner._worker_address_to_worker
+        assert rt.owner._initial_model_launches["failed"] is operation
+        assert operation.workers["failed-rep1"] and worker.models
+        assert not operation.workers["failed-rep0"] and not rt.workers[0].models
+
+    # Failed re-registration removes the registry entry without proving death.
+    resources = worker.get_extension_resources
+    monkeypatch.setattr(
+        worker,
+        "get_extension_resources",
+        AsyncMock(side_effect=RuntimeError("registration failed")),
+    )
+    with pytest.raises(RuntimeError, match="registration failed"):
+        await rt.owner.add_worker(worker.address)
+    assert worker.address not in rt.owner._worker_address_to_worker
+    with pytest.raises(ConnectionRefusedError) as exc:
+        await rt.owner.terminate_model("failed")
+    assert exc.value is worker.cleanup_error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"] and worker.models
+    monkeypatch.setattr(worker, "get_extension_resources", resources)
+    await rt.owner.add_worker(worker.address)
+
+    # Only a fresh successful inventory for this registration proves absence.
+    worker.models.clear()
+    inventory.return_value = {}
+    await rt.owner.terminate_model("failed")
+    assert not rt.owner._initial_model_launches
+    assert all(not w.models for w in rt.workers)
+    assert not rt.guard.get_instance_info(model_uid="failed")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed_write", ["first", "final", "all"])
+async def test_failed_initial_launch_status_write_failure(
+    failed_launch_runtime, failed_write
+):
+    rt = failed_launch_runtime
+    rt.loss = "healthy"
+    error_writes = 0
+
+    def update(uid, info):
+        nonlocal error_writes
+        if info.get("status") == "ERROR":
+            error_writes += 1
+            if (
+                failed_write == "all"
+                or (failed_write == "first" and error_writes == 1)
+                or (failed_write == "final" and error_writes == 2)
+            ):
+                raise RuntimeError("status write failed")
+        return rt.guard.update_instance_info(uid, info)
+
+    rt.owner._status_guard_ref.update_instance_info.side_effect = update
+    # The helper asserts identity of the propagated original launch exception.
+    await _failed_launch(rt)
+    assert error_writes >= (2 if failed_write == "final" else 1)
+    assert all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+    assert not rt.owner._model_uid_to_replica_info
+    assert not rt.owner._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+async def test_failed_initial_launch_status_failure_preserves_cleanup_error(
+    failed_launch_runtime,
+):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    worker = rt.workers[1]
+    worker.cleanup_error = RuntimeError("worker cleanup failed")
+    update = rt.owner._status_guard_ref.update_instance_info
+    update.side_effect = RuntimeError("status write failed")
+    with pytest.raises(RuntimeError) as exc:
+        await rt.owner.terminate_model("failed")
+    assert exc.value is worker.cleanup_error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"] and worker.models
+    update.side_effect = rt.guard.update_instance_info
+    worker.cleanup_error = None
+    await rt.owner.terminate_model("failed")
+    assert all(not w.models for w in rt.workers)
+    assert not rt.owner._initial_model_launches
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hidden", ["launching", "rank0"])
+async def test_failed_initial_launch_catalog_absence_is_not_cleanup(
+    failed_launch_runtime, monkeypatch, hidden
+):
+    rt = failed_launch_runtime
+    if hidden == "rank0":
+        rt.kwargs.update(model_engine="vLLM", enable_xavier=True)
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    worker = rt.workers[0 if hidden == "rank0" else 1]
+    uid = "failed-rank0" if hidden == "rank0" else "failed-rep1"
+    assert uid in worker.models
+    error = RuntimeError("cleanup unresolved")
+    terminate = worker.terminate_model
+
+    async def stop(model_uid, **kwargs):
+        if model_uid == uid:
+            raise error
+        await terminate(model_uid, **kwargs)
+
+    # Use the production catalog and launch-status semantics for hidden targets.
+    inventory = SimpleNamespace(
+        _model_uid_to_model_spec={},
+        _model_uid_to_model={uid: object()} if hidden == "rank0" else {},
+        _model_uid_launching_guard={uid: object()} if hidden == "launching" else {},
+    )
+
+    async def list_models(**kwargs):
+        return await WorkerActor.list_models(inventory)
+
+    async def launch_status(model_uid, **kwargs):
+        return WorkerActor.get_model_launch_status(inventory, model_uid)
+
+    monkeypatch.setattr(worker, "terminate_model", stop)
+    monkeypatch.setattr(worker, "list_models", list_models)
+    monkeypatch.setattr(worker, "get_model_launch_status", launch_status)
+    with pytest.raises(RuntimeError) as exc:
+        await rt.owner.terminate_model("failed")
+    assert exc.value is error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers[uid] and uid in worker.models
+    if hidden == "rank0":
+        assert rt.actors
+
+    worker.models.discard(uid)
+    inventory._model_uid_to_model.clear()
+    inventory._model_uid_launching_guard.clear()
+    await rt.owner.terminate_model("failed")
+    assert not rt.owner._initial_model_launches
+    assert not rt.actors and all(not w.models for w in rt.workers)
+
+
+@pytest.mark.asyncio
+async def test_failed_initial_launch_stale_inventory(
+    failed_launch_runtime, monkeypatch
+):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    worker = rt.workers[1]
+    worker.cleanup_error = ConnectionRefusedError("cleanup unresolved")
+    worker.models.clear()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def inventory(**kwargs):
+        entered.set()
+        await release.wait()
+        return {}
+
+    monkeypatch.setattr(worker, "list_models", inventory)
+    cleanup = asyncio.create_task(rt.owner.terminate_model("failed"))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        await rt.owner.add_worker(worker.address)
+    finally:
+        release.set()
+    with pytest.raises(ConnectionRefusedError) as exc:
+        await cleanup
+    assert exc.value is worker.cleanup_error
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"]
+    worker.cleanup_error = None
+    await rt.owner.terminate_model("failed")
+    assert not rt.owner._initial_model_launches
+    assert all(not w.models for w in rt.workers)
+
+
+@pytest.mark.asyncio
+async def test_failed_initial_launch_stale_retirement(
+    failed_launch_runtime, monkeypatch
+):
+    rt = failed_launch_runtime
+    operation = await _failed_launch(rt)
+    rt.state.failed, rt.loss = False, "healthy"
+    worker = rt.workers[1]
+    registered = rt.owner._worker_address_to_worker[worker.address]
+    generation = rt.owner._worker_metadata_generation[worker.address]
+    entered, release = asyncio.Event(), asyncio.Event()
+    resources = worker.get_extension_resources
+
+    async def register(**kwargs):
+        entered.set()
+        await release.wait()
+        return await resources(**kwargs)
+
+    monkeypatch.setattr(worker, "get_extension_resources", register)
+    registration = asyncio.create_task(rt.owner.add_worker(worker.address))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        removal = asyncio.create_task(
+            rt.owner._remove_dead_worker(worker.address, registered)
+        )
+        await asyncio.sleep(0)
+        assert not removal.done()
+    finally:
+        release.set()
+    await registration
+    assert rt.owner._worker_address_to_worker[worker.address] is registered
+    assert rt.owner._worker_metadata_generation[worker.address] != generation
+    assert await removal is False
+    assert rt.owner._worker_address_to_worker[worker.address] is registered
+    assert rt.owner._initial_model_launches["failed"] is operation
+    assert operation.workers["failed-rep1"] and worker.models
+    await rt.owner.terminate_model("failed")
+    assert not rt.owner._initial_model_launches
+    assert all(not w.models for w in rt.workers)
 
 
 class InterceptedSupervisor(SupervisorActor):

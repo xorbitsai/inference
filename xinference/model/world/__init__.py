@@ -22,7 +22,6 @@ from .core import (
     generate_world_description,
     get_world_model_descriptions,
 )
-from .engine import register_builtin_world_engines
 from .engine_family import WORLD_ENGINES, generate_engine_config_by_model_name
 
 
@@ -44,6 +43,7 @@ def register_builtin_model():
 
 def _install():
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_world_engines
 
     BUILTIN_WORLD_MODELS.clear()
     WORLD_MODEL_DESCRIPTIONS.clear()

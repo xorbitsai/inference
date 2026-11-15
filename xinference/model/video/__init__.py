@@ -26,7 +26,6 @@ from .core import (
     generate_video_description,
     get_video_model_descriptions,
 )
-from .engine import register_builtin_video_engines
 from .engine_family import VIDEO_ENGINES, generate_engine_config_by_model_name
 
 
@@ -63,6 +62,7 @@ def register_builtin_model():
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_video_engines
 
     # Build a complete replacement away from the live registries. A reload can
     # overlap model discovery/launch, and readers must never observe an empty or

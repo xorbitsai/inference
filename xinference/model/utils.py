@@ -1808,6 +1808,10 @@ def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, An
     support_draft_model = getattr(param.get(class_field), "support_draft_model", None)
     if support_draft_model is not None:
         cleaned["support_draft_model"] = bool(support_draft_model)
+    model_class = param.get(class_field)
+    if class_field == "audio_class" and model_class is not None:
+        if vars(model_class).get("replica_autoscaling") == "native":
+            cleaned["replica_autoscaling"] = True
     return cleaned
 
 

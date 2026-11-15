@@ -13,6 +13,7 @@
 # limitations under the License.
 import codecs
 import os
+import threading
 import warnings
 from typing import Any, Dict, List, Optional
 
@@ -65,6 +66,9 @@ from .utils import (
     MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
+
+_metadata_lock = threading.Lock()
+_metadata_loaded = False
 
 
 def register_builtin_model():
@@ -265,35 +269,7 @@ def load_model_family_from_json(
             _register_model_family_metadata(model_spec)
 
 
-def _install():
-    from .llama_cpp.core import XllamaCppModel
-    from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
-    from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
-    from .transformers.core import PytorchChatModel, PytorchModel
-    from .trt_llm.core import TRTLLMModel
-    from .vllm.core import VLLMChatModel, VLLMModel, VLLMMultiModel
-
-    # register llm classes.
-    extend_classes_once(LLAMA_CLASSES, [XllamaCppModel])
-    extend_classes_once(
-        SGLANG_CLASSES, [SGLANGModel, SGLANGChatModel, SGLANGVisionModel]
-    )
-    extend_classes_once(VLLM_CLASSES, [VLLMModel, VLLMChatModel, VLLMMultiModel])
-    extend_classes_once(MLX_CLASSES, [MLXModel, MLXChatModel, MLXVisionModel])
-    extend_classes_once(TRANSFORMERS_CLASSES, [PytorchChatModel, PytorchModel])
-    extend_classes_once(TRTLLM_CLASSES, [TRTLLMModel])
-
-    # Register built-in engines.
-    SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
-    SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
-    SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
-    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
-    SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
-    SUPPORTED_ENGINES["TRT-LLM"] = TRTLLM_CLASSES
-
-    # Distribution-specific engines are appended after the built-ins.
-    _run_engine_registration_hooks(MODEL_TYPE_LLM, SUPPORTED_ENGINES)
-
+def _load_model_metadata():
     # Install models with intelligent merging based on timestamps
     # LLM models use a different structure (list instead of dict), so we need special handling
 
@@ -374,12 +350,54 @@ def _install():
         LLAMA3_TOOL_CALL_FAMILY,
         DEEPSEEK_TOOL_CALL_FAMILY,
         KIMI_K3_TOOL_CALL_FAMILY,
+        MINICPM5_TOOL_CALL_FAMILY,
     ):
         family_set.clear()
     for family in BUILTIN_LLM_FAMILIES:
         _register_model_family_metadata(family)
 
     register_custom_model()
+
+
+def _ensure_model_metadata(*, refresh: bool = False):
+    # Replicas still need model-family metadata for chat templates, tool calls,
+    # inherited capabilities and auxiliary files such as GGUF tokenizers.
+    global _metadata_loaded
+    with _metadata_lock:
+        if refresh or not _metadata_loaded:
+            _load_model_metadata()
+            _metadata_loaded = True
+
+
+def _install():
+    from .llama_cpp.core import XllamaCppModel
+    from .mlx.core import MLXChatModel, MLXModel, MLXVisionModel
+    from .sglang.core import SGLANGChatModel, SGLANGModel, SGLANGVisionModel
+    from .transformers.core import PytorchChatModel, PytorchModel
+    from .trt_llm.core import TRTLLMModel
+    from .vllm.core import VLLMChatModel, VLLMModel, VLLMMultiModel
+
+    # register llm classes.
+    extend_classes_once(LLAMA_CLASSES, [XllamaCppModel])
+    extend_classes_once(
+        SGLANG_CLASSES, [SGLANGModel, SGLANGChatModel, SGLANGVisionModel]
+    )
+    extend_classes_once(VLLM_CLASSES, [VLLMModel, VLLMChatModel, VLLMMultiModel])
+    extend_classes_once(MLX_CLASSES, [MLXModel, MLXChatModel, MLXVisionModel])
+    extend_classes_once(TRANSFORMERS_CLASSES, [PytorchChatModel, PytorchModel])
+    extend_classes_once(TRTLLM_CLASSES, [TRTLLMModel])
+
+    # Register built-in engines.
+    SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["SGLang"] = SGLANG_CLASSES
+    SUPPORTED_ENGINES["Transformers"] = TRANSFORMERS_CLASSES
+    SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
+    SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
+    SUPPORTED_ENGINES["TRT-LLM"] = TRTLLM_CLASSES
+
+    # Distribution-specific engines are appended after the built-ins.
+    _run_engine_registration_hooks(MODEL_TYPE_LLM, SUPPORTED_ENGINES)
+    _ensure_model_metadata(refresh=True)
 
     # Rebuild the engine and version registries from all currently live families.
     # Custom registration may have populated the old engine table as a side

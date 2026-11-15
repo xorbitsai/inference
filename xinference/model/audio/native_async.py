@@ -29,6 +29,7 @@ async def settle_request(awaitable) -> Any:
 class NativeAsyncAudioModel:
     allow_batch = True
     realtime_native_async = True
+    _cancel_async_request_on_abort = True
 
     def __init__(self, model_uid: str, model_path: str, model_spec, **kwargs):
         self.model_family = self._model_spec = model_spec

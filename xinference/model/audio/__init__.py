@@ -36,7 +36,6 @@ from .custom import (
     register_audio,
     unregister_audio,
 )
-from .engine import register_builtin_audio_engines
 from .engine_family import AUDIO_ENGINES, generate_engine_config_by_model_name
 
 BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV2"]] = {}
@@ -108,6 +107,7 @@ def _normalize_legacy_audio_model(
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_audio_engines
 
     # Startup and tests may call the installer more than once in one process.
     # Rebuild these derived registries so model sources and engine variants do
