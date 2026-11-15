@@ -1803,6 +1803,9 @@ def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, An
     can run a drafter for speculative decoding, rather than finding out when the
     launch is rejected. Shared by both engine-discovery entry points: they build
     otherwise identical payloads and have to stay in sync.
+
+    The actor payload carries replica capability for response extensions in the
+    API process.
     """
     cleaned = {k: v for k, v in param.items() if k != class_field}
     support_draft_model = getattr(param.get(class_field), "support_draft_model", None)

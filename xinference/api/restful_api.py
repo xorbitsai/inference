@@ -6016,6 +6016,8 @@ class RESTfulAPI(CancelMixin):
     async def query_engines_by_model_name(
         self, request: Request, model_name: str, model_type: Optional[str] = None
     ) -> JSONResponse:
+        from ..extensions import engine_specs_for_response
+
         try:
             model_type = model_type or request.path_params.get("model_type", "LLM")
             enable_virtual_env = request.query_params.get("enable_virtual_env")
@@ -6028,7 +6030,7 @@ class RESTfulAPI(CancelMixin):
                 model_type=model_type,
                 enable_virtual_env=enable_virtual_env,
             )
-            return JSONResponse(content=content)
+            return JSONResponse(content=engine_specs_for_response(content))
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))

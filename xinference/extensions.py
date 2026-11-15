@@ -230,6 +230,35 @@ def configure_api(context: APIExtensionContext) -> None:
         _call_hook(extension, "configure_api", context)
 
 
+def engine_specs_for_response(
+    engines: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Render engine discovery with optional API-local capability fields."""
+    if engines is None:
+        return None
+    providers = [
+        extension
+        for extension in get_extensions()
+        if callable(getattr(extension, "engine_spec_fields", None))
+    ]
+    response: Dict[str, Any] = {}
+    for engine, specs in engines.items():
+        if not isinstance(specs, list):
+            response[engine] = specs
+            continue
+        public_specs = []
+        for spec in specs:
+            public = spec.copy()
+            capabilities = {
+                "replica_autoscaling": public.pop("replica_autoscaling", False) is True
+            }
+            for provider in providers:
+                public.update(_call_hook(provider, "engine_spec_fields", capabilities))
+            public_specs.append(public)
+        response[engine] = public_specs
+    return response
+
+
 def resolve_auth_store(context: AuthStoreContext) -> Any:
     """Allow one distribution to supply auth storage during initialization.
 

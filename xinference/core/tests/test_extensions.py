@@ -402,6 +402,51 @@ async def test_api_serve_composes_extension_context_and_route(
     assert response.text == "extension works"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_provider", [False, True])
+async def test_engine_response_scopes_capability_to_api_extension(
+    monkeypatch, extension_api, with_provider
+):
+    from xinference.api.routers.models import register_routes
+
+    if with_provider:
+        install(monkeypatch)
+        (extension,) = extensions.get_extensions()
+        extension.engine_spec_fields = lambda capabilities: (
+            {"extension_capability": True}
+            if capabilities["replica_autoscaling"]
+            else {}
+        )
+    specs = {
+        "diffusers": [
+            {"model_format": "supported", "replica_autoscaling": True},
+            {"model_format": "unsupported"},
+        ],
+        "unavailable": "Missing dependency",
+    }
+    supervisor = SimpleNamespace(
+        query_engines_by_model_name=AsyncMock(return_value=specs)
+    )
+    extension_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    monkeypatch.setattr(type(extension_api), "is_authenticated", lambda self: False)
+    register_routes(extension_api)
+    extension_api._app.include_router(extension_api._router)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=extension_api._app), base_url="http://test"
+    ) as client:
+        response = await client.get("/v1/engines/image/TestImage")
+
+    expected = {"model_format": "supported"}
+    if with_provider:
+        expected["extension_capability"] = True
+    assert response.status_code == 200
+    assert response.json() == {
+        "diffusers": [expected, {"model_format": "unsupported"}],
+        "unavailable": "Missing dependency",
+    }
+    assert specs["diffusers"][0]["replica_autoscaling"] is True
+
+
 def test_extension_route_requires_response_annotation(monkeypatch, extension_api):
     install(monkeypatch)
     monkeypatch.setattr(type(extension_api), "is_authenticated", lambda self: False)
