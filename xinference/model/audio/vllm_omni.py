@@ -25,6 +25,7 @@ import numpy as np
 from ...core.exceptions import InvalidModelRequestError
 from ...core.replica_load import EngineLoad
 from ..utils import has_cuda_device
+from ..vllm_load import read_omni_request_counts
 from .engine_family import AudioEngineModel
 from .native_async import NativeAsyncAudioModel
 
@@ -79,32 +80,17 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         await runner.check_health()
         if self._engine is not runner or self._stopping:
             return None
-        engine = runner.engine
-        # AsyncOmni's per-instance counters include stage scheduler waiting.
-        # Its dispatched counter also includes jobs waiting inside a stage.
-        dispatched = engine._running_counter.value
-        stage_waiting = engine._engines_waiting_counter.value
-        if (
-            type(dispatched) is not int
-            or type(stage_waiting) is not int
-            or dispatched < 0
-            or stage_waiting < 0
-        ):
+        counts = read_omni_request_counts(runner.engine, len(self._requests))
+        if counts is None:
             return None
-        unfinished = len(self._requests)
-        # Include submissions still waiting for the orchestrator, including
-        # when the engine is below ModelActor's request limit.
-        in_stage = min(unfinished, dispatched)
-        waiting = unfinished - in_stage + min(stage_waiting, in_stage)
+        waiting, running = counts
         if not waiting:
             self._backlog_since = None
-            return EngineLoad(running=max(unfinished, dispatched))
+            return EngineLoad(running=running)
         now = time.monotonic()
         if self._backlog_since is None:
             self._backlog_since = now
-        return EngineLoad(
-            waiting, now - self._backlog_since, max(unfinished, dispatched) - waiting
-        )
+        return EngineLoad(waiting, now - self._backlog_since, running)
 
     async def _generate(self, prompt, **kwargs):
         if not self._requests:

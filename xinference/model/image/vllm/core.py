@@ -18,12 +18,15 @@ import logging
 import random
 import re
 import threading
+import time
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from ....core.replica_load import EngineLoad
 from ....types import LoRA
 from ....utils import dependency_import_guard
 from ...lightning import resolve_request_lightning
+from ...vllm_load import VLLMSchedulerLoad, read_omni_request_counts
 from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
@@ -36,6 +39,8 @@ logger = logging.getLogger(__name__)
 VLLM_SUPPORTED_IMAGE_MODELS = (
     "Qwen-Image",
     "Qwen-Image-2512",
+    "Qwen-Image-2.1",
+    "Qwen-Image-2.1-Turbo",
     "Z-Image",
     "Z-Image-Turbo",
     "FLUX.1-dev",
@@ -145,6 +150,7 @@ class VLLMDiffusionModel:
         # set on fatal engine errors; subsequent requests fail immediately
         # with this as the cause instead of hanging on a dead backend
         self._fatal_error: Optional[BaseException] = None
+        self._scheduler_load: Optional[VLLMSchedulerLoad] = None
 
     def __getstate__(self):
         # the instance is pickled when handed to the model actor subprocess
@@ -164,6 +170,27 @@ class VLLMDiffusionModel:
     def model_ability(self):
         return self._abilities
 
+    def enable_engine_load_reporting(self) -> None:
+        self._scheduler_load = VLLMSchedulerLoad()
+        self._kwargs["collect_stage_metrics"] = True
+
+    def get_engine_load(self) -> Optional[EngineLoad]:
+        tracker = self._scheduler_load
+        runner = self._model
+        if tracker is None or runner is None or not self._concurrency_available():
+            return None
+        runner.check_health()
+        with self._submit_lock:
+            if self._closed or self._model is not runner:
+                return None
+            counts = read_omni_request_counts(runner.engine, len(self._waiters))
+        if counts is None:
+            return None
+        tracker.update(*counts)
+        return EngineLoad(
+            tracker.waiting, tracker.backlog_age(time.monotonic()), tracker.running
+        )
+
     def load(self):
         with dependency_import_guard(
             "vllm_omni",
@@ -171,14 +198,28 @@ class VLLMDiffusionModel:
         ):
             from vllm_omni.entrypoints.omni import Omni
 
+        if self._model_spec.model_name in ("Qwen-Image-2.1", "Qwen-Image-2.1-Turbo"):
+            from importlib.metadata import version
+
+            from packaging.version import Version
+
+            if Version(version("vllm-omni")) < Version("0.32.0"):
+                raise ImportError("Qwen-Image-2.1 requires vllm-omni>=0.32.0")
+        options = self._kwargs.copy()
+        # Built-in image specs also serve Diffusers. Omni consumes its own
+        # dtype option and does not accept the Diffusers loader setting.
+        dtype = options.pop("torch_dtype", None)
+        options.pop("low_cpu_mem_usage", None)
+        if dtype is not None:
+            options.setdefault("dtype", dtype)
         logger.debug(
             "Loading vLLM-Omni diffusion model from %s, kwargs: %s",
             self._model_path,
-            self._kwargs,
+            options,
         )
         self._model = Omni(
             model=self._model_path,
-            **self._kwargs,
+            **options,
         )
 
     def stop(self):
@@ -375,6 +416,8 @@ class VLLMDiffusionModel:
         waiter = _RequestWaiter()
         with self._submit_lock:
             self._raise_if_unavailable()
+            if not self._waiters and self._scheduler_load is not None:
+                self._scheduler_load.update(0, 0)
             self._waiters[request_id] = waiter
             self._ensure_dispatcher()
         try:

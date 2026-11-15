@@ -12,9 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Read vLLM scheduler load through its stat logger interface."""
+"""Read scheduler load from vLLM and vLLM-Omni."""
 
 import time
+from typing import Optional, Tuple
+
+
+def read_omni_request_counts(engine, unfinished: int) -> Optional[Tuple[int, int]]:
+    dispatched = getattr(getattr(engine, "_running_counter", None), "value", None)
+    stage_waiting = getattr(
+        getattr(engine, "_engines_waiting_counter", None), "value", None
+    )
+    if (
+        type(dispatched) is not int
+        or type(stage_waiting) is not int
+        or dispatched < 0
+        or stage_waiting < 0
+    ):
+        return None
+    # Dispatched requests include work queued inside a stage. Include both
+    # that queue and requests still waiting for the orchestrator.
+    in_stage = min(unfinished, dispatched)
+    waiting = unfinished - in_stage + min(stage_waiting, in_stage)
+    return waiting, max(unfinished, dispatched) - waiting
 
 
 class VLLMSchedulerLoad:

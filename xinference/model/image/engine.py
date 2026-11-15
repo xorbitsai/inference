@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 
 class DiffusersImageModel(DiffusionModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("diffusers",)
@@ -53,6 +54,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
 
 
 class Fibo2DiffusersImageModel(Fibo2ImageModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("torch", "diffusers", "transformers")
@@ -63,6 +65,7 @@ class Fibo2DiffusersImageModel(Fibo2ImageModel, ImageEngineModel):
 
 
 class MOSSDiffusersImageModel(MOSSImageModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("torch", "diffusers", "transformers")
@@ -73,6 +76,7 @@ class MOSSDiffusersImageModel(MOSSImageModel, ImageEngineModel):
 
 
 class Flux3ImageModel(Flux3Model, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("torch", "transformers", "diffusers")
@@ -83,6 +87,7 @@ class Flux3ImageModel(Flux3Model, ImageEngineModel):
 
 
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "pytorch"
     engine_quantization = "none"
     required_libs = ("torch", "transformers")
@@ -93,6 +98,7 @@ class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
 
 
 class HiDreamO1ImageModel(HiDreamO1Model, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "pytorch"
     engine_quantization = "none"
     required_libs = ("transformers", "diffusers", "einops")
@@ -106,6 +112,7 @@ class HiDreamO1ImageModel(HiDreamO1Model, ImageEngineModel):
 
 
 class TransformersIrisImageModel(IrisModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "pytorch"
     engine_quantization = "none"
     required_libs = ("torch", "torchvision", "transformers", "omegaconf", "safetensors")
@@ -116,6 +123,7 @@ class TransformersIrisImageModel(IrisModel, ImageEngineModel):
 
 
 class MingImageEngineModel(MingImageModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "pytorch"
     engine_quantization = "none"
     required_libs = ("torch", "transformers", "diffusers")
@@ -126,6 +134,7 @@ class MingImageEngineModel(MingImageModel, ImageEngineModel):
 
 
 class VLLMImageModel(VLLMDiffusionModel, ImageEngineModel):
+    replica_autoscaling = "native"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("vllm_omni",)
@@ -140,6 +149,7 @@ class VLLMImageModel(VLLMDiffusionModel, ImageEngineModel):
 
 
 class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("sglang",)

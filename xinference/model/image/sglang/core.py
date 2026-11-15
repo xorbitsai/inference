@@ -39,6 +39,8 @@ SGLANG_SUPPORTED_IMAGE_MODELS = (
     "Krea-2-Turbo",
     "Qwen-Image",
     "Qwen-Image-2512",
+    "Qwen-Image-2.1",
+    "Qwen-Image-2.1-Turbo",
     "Z-Image",
     "Z-Image-Turbo",
     "FLUX.1-dev",
@@ -126,13 +128,34 @@ class SGLangDiffusionModel:
     def model_ability(self):
         return self._abilities
 
+    def validate_serialized_replica_admission(self) -> None:
+        # DiffGenerator waits for the generation to finish. With the default
+        # singleton scheduler, sending additional requests would hide them in
+        # the transport queue. Keep them at the actor where they can move.
+        if (
+            int(self._kwargs.get("batching_max_size") or 1) > 1
+            or self._kwargs.get("disagg_mode")
+            or str(self._kwargs.get("disagg_role") or "monolithic") != "monolithic"
+            or int(self._kwargs.get("dp_size") or 1) > 1
+        ):
+            raise ValueError(
+                "SGLang replica autoscaling requires a monolithic singleton scheduler. "
+                "This configuration uses native concurrency without observable load."
+            )
+
     def load(self):
         from importlib.metadata import version
 
         from packaging.version import Version
 
-        if Version(version("sglang")) < Version("0.5.20"):
+        current_version = Version(version("sglang"))
+        if current_version < Version("0.5.20"):
             raise ImportError("Concurrent diffusion requires sglang[diffusion]>=0.5.20")
+        if self._model_spec.model_name in (
+            "Qwen-Image-2.1",
+            "Qwen-Image-2.1-Turbo",
+        ) and current_version < Version("0.5.21"):
+            raise ImportError("Qwen-Image-2.1 requires sglang[diffusion]>=0.5.21")
         # sglang JIT-compiles kernels at runtime via the ninja binary, which
         # the ninja wheel installs into the interpreter's bin directory; that
         # directory is not on PATH when the model subprocess is spawned with

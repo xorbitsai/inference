@@ -27,6 +27,7 @@ import pytest
 from PIL import Image
 
 from ....core.exceptions import InvalidModelRequestError
+from ....core.replica_load import EngineLoad
 from .. import BUILTIN_IMAGE_MODELS, _install
 from ..engine import VLLMImageModel
 from ..engine import platform as engine_platform
@@ -318,6 +319,28 @@ def _make_concurrent_model():
     model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
     model._model = _FakeOmni()
     return model, model._model.engine
+
+
+def test_reports_both_transport_and_native_diffusion_queue():
+    model, engine = _make_concurrent_model()
+    model.enable_engine_load_reporting()
+    model._model.check_health = lambda: None
+    assert model.get_engine_load() is None
+    engine._running_counter = types.SimpleNamespace(value=0)
+    engine._engines_waiting_counter = types.SimpleNamespace(value=0)
+    assert model.get_engine_load() == EngineLoad()
+
+    model._waiters.update({str(i): object() for i in range(5)})
+    engine._running_counter.value = 4
+    engine._engines_waiting_counter.value = 2
+    load = model.get_engine_load()
+    assert load.waiting == 3
+    assert load.running == 2
+
+    model._waiters.clear()
+    engine._running_counter.value = 0
+    engine._engines_waiting_counter.value = 0
+    assert model.get_engine_load() == EngineLoad()
 
 
 async def _wait_for_requests(engine, count, timeout=5.0):
