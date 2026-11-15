@@ -22,6 +22,7 @@ _KV = "kv"
 # Hashes TP-sharded pools per rank even for MLA models (SGLang's Mamba state).
 _RANK_SHARDED_POOLS = ("mamba",)
 _MAX_RPC_ENTRIES = 1024
+_MAX_RPC_BYTES = 32 * 1024**2
 
 
 class _V1Transfer:
@@ -59,6 +60,7 @@ class XavierHiCacheStorage(HiCacheStorage):
             self._contract = KVCacheContract.from_dict(self._config["contract"])
         self._layouts = {}
         self._namespace = None
+        self._batch_size = 128
         self._closed = False
         self._rpc_loop = None
         self._rpc_thread = None
@@ -122,6 +124,9 @@ class XavierHiCacheStorage(HiCacheStorage):
             or pool.layout != "layer_first"
         ):
             raise ValueError("SGLang host KV pool differs from Xavier's contract")
+        page_bytes = contract.layer_nbytes * contract.num_layers
+        budget = min(_MAX_RPC_BYTES, self._config.get("capacity_bytes", _MAX_RPC_BYTES))
+        self._batch_size = max(1, min(128, budget // page_bytes))
         if self._config.get("shared_prefix"):
             from sglang.srt.mem_cache.utils import get_storage_hash_str
 
@@ -138,7 +143,9 @@ class XavierHiCacheStorage(HiCacheStorage):
                 raise ValueError(
                     "SGLang storage hashes differ from Xavier's shared-prefix protocol"
                 )
-            self._namespace = self._rpc("configure", contract.to_dict())["namespace"]
+            metadata = self._rpc("configure", contract.to_dict())
+            self._namespace = metadata["namespace"]
+            self._batch_size = min(self._batch_size, metadata["capacity_pages"])
             return
         self._namespace = self._rpc(
             "configure",
@@ -152,33 +159,55 @@ class XavierHiCacheStorage(HiCacheStorage):
         )
 
     def _request(self, method, keys, fallback, *args):
+        shared = self._config.get("shared_prefix")
         result = 0 if method == "exists" else []
-        for offset in range(0, len(keys), 128):
-            batch = keys[offset : offset + 128]
-            batch_args = [arg[offset : offset + 128] for arg in args]
+        for offset in range(0, len(keys), self._batch_size):
+            end = offset + self._batch_size
+            batch = keys[offset:end]
+            batch_args = [arg[offset:end] for arg in args]
             try:
-                if self._config.get("shared_prefix") and method == "put":
+                if shared and method == "put":
                     batch_args[0] = [self._to_canonical(page) for page in batch_args[0]]
-                value = self._rpc(method, self._namespace, batch, *batch_args)
+                    # Canonical stores need the whole chain to protect its head;
+                    # only the suffix carries new page bytes.
+                    value = self._rpc(
+                        method, self._namespace, keys[:end], *batch_args, offset
+                    )
+                    # Rejections can cover the full key list even when an
+                    # earlier batch succeeded. Report only this suffix's flags.
+                    value = value[offset:end] if all(value[:offset]) else []
+                else:
+                    value = self._rpc(method, self._namespace, batch, *batch_args)
             except Exception:
                 logger.warning(
                     "Xavier storage %s failed; treating pages as misses",
                     method,
                     exc_info=True,
                 )
-                value = 0 if method == "exists" else fallback[offset : offset + 128]
+                value = 0 if method == "exists" else fallback[offset:end]
             if method == "exists":
                 result += value
                 if value != len(batch):
                     break
             else:
-                if self._config.get("shared_prefix") and method == "get":
-                    value = [
-                        self._from_canonical(page) if page is not None else None
-                        for page in value
-                    ]
-                    value += [None] * (len(batch) - len(value))
+                if shared:
+                    boundary = next(
+                        (
+                            index
+                            for index, page in enumerate(value)
+                            if (page is None if method == "get" else not page)
+                        ),
+                        len(value),
+                    )
+                    value = value[:boundary]
+                    if method == "get":
+                        value = [self._from_canonical(page) for page in value]
                 result.extend(value)
+                if shared and len(value) != len(batch):
+                    # A miss/rejection ends this causal chain, including on RPC
+                    # failure. Native Torch pages remain independently addressable.
+                    result.extend(fallback[len(result) :])
+                    break
         return result
 
     def _to_canonical(self, page):

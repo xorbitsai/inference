@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 
 import asyncio
+import importlib.metadata
 import importlib.util
 import json
 import sys
@@ -13,8 +14,11 @@ import pytest
 import torch
 import xoscar as xo
 
+from ...xavier.backends.bytes.history import XavierHistoryCacheActor
 from ...xavier.backends.torch.storage import XavierCacheActor
 from ...xavier.contract import KVCacheContract
+from ...xavier.history import XavierHistoryProxy
+from ...xavier.prefix import prefix_keys
 from ...xavier.tests.utils import mock_lmcache_backend
 from ..xavier.config import configure_xavier
 
@@ -50,7 +54,11 @@ def storage_class(monkeypatch):
         "sglang.srt.mem_cache.hicache_storage",
         SimpleNamespace(HiCacheStorage=Base),
     )
-    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.5.21")
+    version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "0.5.21" if name == "sglang" else version(name),
+    )
     name = "xinference.model.llm.sglang.xavier._test_storage"
     spec = importlib.util.spec_from_file_location(
         name, Path(__file__).parents[1] / "xavier/storage.py"
@@ -69,8 +77,18 @@ class HostPool:
     head_dim = 4
     layout = "layer_first"
 
-    def __init__(self):
-        self.data = torch.arange(576, dtype=self.dtype).reshape(2, 3, 12, 2, 4)
+    def __init__(self, num_pages=3):
+        self.data = (
+            (torch.arange(192 * num_pages, dtype=torch.int64) % 1024)
+            .to(self.dtype)
+            .reshape(2, 3, num_pages * self.page_size, 2, 4)
+        )
+        if num_pages > 3:
+            # Keep pages in different RPC batches distinguishable in FP16.
+            tags = torch.arange(num_pages, dtype=self.dtype).repeat_interleave(
+                self.page_size
+            )
+            self.data.div_(1024).add_(2 * tags.reshape(1, 1, -1, 1, 1))
 
     def get_data_page(self, index, flat=True):
         return self.data[:, :, index : index + self.page_size].flatten()
@@ -79,6 +97,172 @@ class HostPool:
         self.data[:, :, index : index + self.page_size].copy_(
             page.reshape(2, 3, 4, 2, 4)
         )
+
+
+@pytest.fixture
+def shared_storage(contract, storage_class, monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.mem_cache.utils",
+        SimpleNamespace(
+            get_storage_hash_str=lambda tokens, page_size: prefix_keys(
+                tokens, page_size, getattr(tokens, "cache_salt", None)
+            )
+        ),
+    )
+    storage = storage_class(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": contract.to_dict(), "shared_prefix": True},
+        )
+    )
+    calls = []
+    rpc = storage._rpc
+
+    def record(method, *args):
+        calls.append((method, args))
+        return rpc(method, *args)
+
+    monkeypatch.setattr(storage, "_rpc", record)
+    yield storage, calls
+    storage.close()
+
+
+@pytest.mark.asyncio
+async def test_shared_prefix_history_batches_fit_queue(
+    contract, shared_storage, monkeypatch, tmp_path
+):
+    storage, calls = shared_storage
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    config, _ = mock_lmcache_backend(monkeypatch, cpu_bytes=100 * page_bytes)
+    config["config"].update(disk_bytes=4 * 1024**2, disk_path=str(tmp_path / "kv"))
+    keys = prefix_keys(list(range(1200)), contract.block_size)
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierHistoryCacheActor, config, address=pool.external_address
+        )
+        proxy = await xo.create_actor(
+            XavierHistoryProxy,
+            {"address": actor.address, "uid": actor.uid},
+            100 * page_bytes,
+            address=pool.external_address,
+        )
+        storage._config.update(address=proxy.address, uid=proxy.uid)
+        await asyncio.to_thread(storage.register_mem_pool_host, HostPool(300))
+        rpc = storage._rpc
+
+        def drain(method, *args):
+            result = rpc(method, *args)
+            if method == "put":
+                # Keep backpressure deterministic while exercising the real writer.
+                rpc("flush")
+            return result
+
+        monkeypatch.setattr(storage, "_rpc", drain)
+        assert (
+            await asyncio.to_thread(storage.batch_set_v1, keys, torch.arange(1200))
+            == [True] * 300
+        )
+        writes = [args for method, args in calls if method == "put"]
+        assert [len(args[2]) for args in writes] == [100, 100, 100]
+        assert [args[1] for args in writes] == [keys[:100], keys[:200], keys]
+        assert [args[3] for args in writes] == [0, 100, 200]
+        stats = await proxy.get_stats()
+        assert stats["written_pages"] == 300 and stats["dropped_pages"] == 0
+        expected = storage.mem_pool_host.data.clone()
+        storage.mem_pool_host.data.zero_()
+        assert (
+            await asyncio.to_thread(storage.batch_get_v1, keys, torch.arange(1200))
+            == [True] * 300
+        )
+        assert torch.equal(storage.mem_pool_host.data, expected)
+
+
+@pytest.mark.parametrize(
+    "shared,method,missing",
+    [
+        (True, "put", 0),
+        (True, "put", 128),
+        (True, "get", 145),
+        (False, "put", 0),
+        (False, "get", 17),
+    ],
+)
+def test_storage_continues_past_holes_only_for_native(
+    contract, shared_storage, monkeypatch, shared, method, missing
+):
+    storage, _ = shared_storage
+    storage._config["shared_prefix"] = shared
+    page = torch.zeros(contract.num_layers * contract.layer_nbytes, dtype=torch.uint8)
+    calls = []
+
+    def rpc(op, *args):
+        if op == "configure":
+            return {"namespace": "test", "capacity_pages": 300} if shared else "test"
+        calls.append(args[1])
+        if method == "put":
+            # A rejected canonical put can return False for the entire chain.
+            return [len(calls) != missing // 128 + 1] * len(args[1])
+        if shared:
+            # Canonical reads return only the prefix before the first miss.
+            count = min(len(args[1]), max(0, missing - int(args[1][0])))
+            return [storage._to_canonical(page)] * count
+        return [page if key != str(missing) else None for key in args[1]]
+
+    monkeypatch.setattr(storage, "_rpc", rpc)
+    storage.register_mem_pool_host(HostPool())
+    keys = [str(index) for index in range(300)]
+    fallback = [None if method == "get" else False] * 300
+    args = ([page] * 300,) if method == "put" else ()
+    result = storage._request(method, keys, fallback, *args)
+    present = [value is not None for value in result] if method == "get" else result
+    if shared:
+        expected = [True] * missing + [False] * (300 - missing)
+    elif method == "put":
+        expected = [False] * 128 + [True] * 172
+    else:
+        expected = [key != str(missing) for key in keys]
+    assert present == expected
+    assert len(calls) == (missing // 128 + 1 if shared else 3)
+
+
+@pytest.mark.parametrize("capacity", [7, 1000])
+def test_shared_prefix_batches_respect_byte_limits(
+    contract, shared_storage, monkeypatch, capacity
+):
+    storage, _ = shared_storage
+    contract = replace(contract, head_dim=8192)
+    storage._contract = contract
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    storage._config["capacity_bytes"] = capacity * page_bytes
+    sizes = []
+
+    def rpc(method, *args):
+        if method == "configure":
+            return {"namespace": "test", "capacity_pages": 1000}
+        sizes.append(len(args[2]))
+        return [True] * len(args[1])
+
+    monkeypatch.setattr(storage, "_rpc", rpc)
+    monkeypatch.setattr(storage, "_to_canonical", lambda page: b"page")
+    storage.register_mem_pool_host(
+        SimpleNamespace(
+            dtype=torch.float16,
+            page_size=contract.block_size,
+            layer_num=contract.num_layers,
+            head_num=contract.num_kv_heads,
+            head_dim=contract.head_dim,
+            layout="layer_first",
+        )
+    )
+    keys = [str(index) for index in range(100)]
+    assert storage._request("put", keys, [False] * 100, [None] * 100) == [True] * 100
+    limit = min(128, capacity, 32 * 1024**2 // page_bytes)
+    assert sizes == [limit] * (100 // limit) + ([100 % limit] if 100 % limit else [])
 
 
 @pytest.mark.asyncio
