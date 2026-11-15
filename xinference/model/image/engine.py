@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import platform
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple, Union
 
 from ..utils import has_cuda_device
 from .docanalyze.mineru25 import Mineru2_5Model
@@ -88,6 +88,29 @@ class MiniMaxH3DiffusersImageModel(MiniMaxH3ImageModel, ImageEngineModel):
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("torch", "transformers", "diffusers")
+
+    @classmethod
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        from importlib.metadata import PackageNotFoundError, version
+
+        from packaging.requirements import Requirement
+        from packaging.version import InvalidVersion
+
+        result = super().check_lib()
+        if result is not True:
+            return result
+        try:
+            installed = version("diffusers")
+            compatible = installed in Requirement(cls._diffusers_requirement).specifier
+        except (PackageNotFoundError, InvalidVersion) as exc:
+            return False, f"Cannot determine the installed Diffusers version: {exc}"
+        if not compatible:
+            return (
+                False,
+                f"{cls._display_name} requires {cls._diffusers_requirement}; "
+                f"found diffusers=={installed}.",
+            )
+        return True
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:

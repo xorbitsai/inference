@@ -15,10 +15,12 @@
 # CI: linux
 
 import base64
+import importlib.metadata
 import sys
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import torch
@@ -85,6 +87,45 @@ def test_catalog_and_dispatch(spec, tmp_path):
     assert isinstance(model, MiniMaxH3DiffusersImageModel)
     assert model.model_family.model_hub == spec.model_hub
     assert model.model_family.model_engine == "diffusers"
+
+
+@pytest.mark.parametrize("virtualenv_aware", [False, True])
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("version", ["0.33.1", "0.42.0", "0.43.0", "0.44.0"])
+def test_engine_discovery_checks_diffusers_version(
+    monkeypatch, spec, virtualenv_aware, enable_virtual_env, version
+):
+    from ...utils import (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    )
+    from ..engine_family import ImageEngineModel
+
+    monkeypatch.setattr(ImageEngineModel, "check_lib", classmethod(lambda cls: True))
+    installed_version = importlib.metadata.version
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda name: version if name == "diffusers" else installed_version(name),
+    )
+    query = (
+        get_engine_params_by_name_with_virtual_env
+        if virtualenv_aware
+        else get_engine_params_by_name
+    )
+    result = query("image", spec.model_name, enable_virtual_env=enable_virtual_env)
+    needs_upgrade = version in ("0.33.1", "0.42.0")
+    if needs_upgrade and not (virtualenv_aware and enable_virtual_env):
+        assert isinstance(result["diffusers"], str)
+        assert "diffusers>=0.43.0" in result["diffusers"]
+        assert version in result["diffusers"]
+    else:
+        assert result["diffusers"][0]["model_name"] == spec.model_name
+        if needs_upgrade:
+            assert result["diffusers"][0]["virtualenv_required"] is True
+            assert "diffusers>=0.43.0" in result["diffusers"][0]["virtualenv_reason"]
+        else:
+            assert not result["diffusers"][0].get("virtualenv_required", False)
 
 
 @pytest.fixture
@@ -163,22 +204,86 @@ def loaded_model(monkeypatch, tmp_path, spec):
             ComponentsManager=Manager, MiniMaxH3ImageModularPipeline=Pipeline
         ),
     )
-    model = MiniMaxH3ImageModel("minimax-image", str(model_path), spec, device="cpu")
+    model = MiniMaxH3ImageModel(
+        "minimax-image", str(model_path), spec, device="cpu", cpu_offload=False
+    )
     model.load()
     return model, calls
 
 
-def test_loading_and_offload(loaded_model):
+def test_loading_and_offload(monkeypatch, loaded_model):
     model, calls = loaded_model
     load = calls.loads[0]
     assert load["dtype"] == {"vae": torch.float32, "default": torch.bfloat16}
     assert load["local_files_only"] is True
     assert load["revision"] is None
-    assert calls.offloads == [{"device": "cpu"}]
-    assert not calls.devices
-    model._kwargs["cpu_offload"] = False
-    model.load()
+    assert not calls.offloads
     assert calls.devices == ["cpu"]
+    backend = Mock()
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers.utils.torch_utils",
+        SimpleNamespace(TorchDeviceBackend=backend),
+    )
+    model._device = "cuda:1"
+    model._kwargs["cpu_offload"] = True
+    model.load()
+    backend.assert_called_once_with("cuda:1")
+    backend.return_value.mem_get_info.assert_called_once_with()
+    assert calls.offloads == [{"device": "cuda:1"}]
+    assert calls.devices == ["cpu"]
+
+
+@pytest.mark.parametrize("device", ["cpu", "mps"])
+@pytest.mark.parametrize("automatic_device", [False, True])
+def test_unsupported_offload_fails_before_loading_components(
+    monkeypatch, loaded_model, device, automatic_device
+):
+    from .... import device_utils
+
+    loaded, calls = loaded_model
+    backend = Mock()
+    backend.return_value.mem_get_info.side_effect = NotImplementedError(
+        f"No free-memory query for {device}"
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers.utils.torch_utils",
+        SimpleNamespace(TorchDeviceBackend=backend),
+    )
+    monkeypatch.setattr(device_utils, "get_available_device", lambda: device)
+    from_pretrained = Mock(side_effect=AssertionError("Must check offload first"))
+    monkeypatch.setattr(type(loaded._model), "from_pretrained", from_pretrained)
+    model = MiniMaxH3ImageModel(
+        "minimax-image",
+        loaded._model_path,
+        loaded.model_family,
+        device=None if automatic_device else device,
+    )
+    with pytest.raises(ValueError, match="cpu_offload=False") as error:
+        model.load()
+    assert device in str(error.value)
+    backend.assert_called_once_with(device)
+    backend.return_value.mem_get_info.assert_called_once_with()
+    from_pretrained.assert_not_called()
+    assert len(calls.loads) == 1
+    assert not calls.offloads
+
+
+@pytest.mark.parametrize("device", ["cpu", "mps"])
+def test_disabled_offload_skips_memory_query(monkeypatch, loaded_model, device):
+    model, calls = loaded_model
+    backend = Mock(side_effect=AssertionError("Offload is disabled"))
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers.utils.torch_utils",
+        SimpleNamespace(TorchDeviceBackend=backend),
+    )
+    model._device = device
+    model.load()
+    backend.assert_not_called()
+    assert calls.devices[-1] == device
+    assert not calls.offloads
 
 
 def test_component_failure_surfaces_at_load(monkeypatch, loaded_model):

@@ -88,6 +88,21 @@ class ModularDiffusionModel(SDAPIDiffusionModelMixin):
                 raise ValueError(f"{self._display_name} does not support {option}")
 
         self._device = self._device or get_available_device()
+        cpu_offload = self._kwargs.get("cpu_offload", False)
+        if cpu_offload:
+            from diffusers.utils.torch_utils import TorchDeviceBackend
+
+            # Auto offload needs a free-memory query for the selected device.
+            # Check before downloading or allocating any component weights.
+            try:
+                TorchDeviceBackend(self._device).mem_get_info()
+            except (AttributeError, NotImplementedError, RuntimeError) as exc:
+                raise ValueError(
+                    f"{self._display_name} CPU offload is unavailable on device "
+                    f"{self._device!r}: {exc} Select a device with a supported "
+                    "free-memory query, or set cpu_offload=False if the model "
+                    "fits in the selected device's memory."
+                ) from exc
         dtype = self._kwargs.get("torch_dtype", "bfloat16")
         if isinstance(dtype, str):
             dtype = getattr(torch, dtype)
@@ -165,7 +180,7 @@ class ModularDiffusionModel(SDAPIDiffusionModelMixin):
             raise RuntimeError(
                 f"Failed to load {self._component_label} components: {', '.join(missing)}"
             )
-        if self._kwargs.get("cpu_offload", False):
+        if cpu_offload:
             manager.enable_auto_cpu_offload(device=self._device)
         else:
             pipeline.to(self._device)

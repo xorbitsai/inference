@@ -2638,6 +2638,11 @@ def _get_engine_params_by_name_with_virtual_env(
                                 enable_virtual_env
                                 and engine_name.lower() in engine_markers
                             ):
+                                # Other classes for this engine may have weaker
+                                # requirements. Keep the matched model's reason.
+                                for param in engine_data:
+                                    param["virtualenv_required"] = True
+                                    param["virtualenv_reason"] = lib_reason
                                 break
                             _append_unavailable_engine(
                                 engine_name, lib_reason, lib_type, lib_details
