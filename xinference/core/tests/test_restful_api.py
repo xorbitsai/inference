@@ -1321,7 +1321,7 @@ async def test_chat_completion_enable_thinking_injected(monkeypatch, payload, ex
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
 
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     model.chat = AsyncMock(return_value="{}")
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3"})
@@ -1350,7 +1350,7 @@ def _build_mock_chat_api(monkeypatch, desc):
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
 
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     model.chat = AsyncMock(return_value="{}")
     model.preflight_multimodal_request = AsyncMock(
         return_value={
@@ -1447,7 +1447,7 @@ def _build_mock_completion_api(monkeypatch, desc, is_vllm):
     supervisor = AsyncMock()
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     model.generate = AsyncMock(return_value=b"{}")
     model.is_vllm_backend = AsyncMock(return_value=is_vllm)
     model.is_transformers_batching_enabled = AsyncMock(return_value=False)
@@ -1764,7 +1764,7 @@ async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
     mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(
         return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 1}}
@@ -2385,7 +2385,7 @@ async def test_chat_completion_stream_sanitizes_worker_error(monkeypatch):
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
     mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
 
     async def stream_error():
         yield "ignored"
@@ -2425,7 +2425,7 @@ async def test_chat_completion_does_not_apply_strict_role_validation_to_other_mo
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
     mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     model.chat = AsyncMock(return_value="{}")
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "other"})
@@ -2451,7 +2451,7 @@ async def test_chat_completion_sanitizes_worker_error(monkeypatch):
     api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
     mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     model = AsyncMock()
-    model.uid = "test-model"
+    model.uid = b"test-rep0"
     model.chat = AsyncMock(
         side_effect=RuntimeError("[address=10.0.0.1:12345, pid=6789] invalid request")
     )

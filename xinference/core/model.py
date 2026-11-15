@@ -69,6 +69,7 @@ from .exceptions import (
     BatchRequestRedirect,
     InvalidModelRequestError,
     ModelNotReadyError,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from .model_generation import ModelGenerationMixin
@@ -1674,7 +1675,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 )
             )
         ):
-            raise Exception(f"Duplicate request id: {request_id}")
+            raise RequestIdConflictError(f"Duplicate request id: {request_id}")
         if (
             "_serialized_replica_admission" not in self.__dict__
             or task is not asyncio.current_task()

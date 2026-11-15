@@ -63,6 +63,7 @@ async def calls(monkeypatch):
         model_family=SimpleNamespace(to_description=lambda: {}),
     )
     actor = ModelActor("supervisor", "worker", backend, "test-model-0")
+    actor.uid = b"test-model-rep0"
     actor._model_state = "ready"
     actor.record_metrics = AsyncMock()
     actor.decrease_serve_count = AsyncMock()
@@ -161,7 +162,11 @@ async def test_routes(calls, kind, audit, status):
 
 async def test_pd_router_disconnect(calls, monkeypatch):
     c = calls()
-    router = SimpleNamespace(generate=c.model.generate, abort_request=AsyncMock())
+    router = SimpleNamespace(
+        uid=b"test-model-pd-model-actor",
+        generate=c.model.generate,
+        abort_request=AsyncMock(),
+    )
     router.is_vllm_backend = PDModelActor.is_vllm_backend.__get__(router)
     monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=router))
     task = c.start()
