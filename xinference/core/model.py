@@ -1513,7 +1513,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception as e:
                     return e
 
-            if len(pending) == 4:
+            if isinstance(pending[3], _RealtimeFileStream):
                 # For realtime-enabled adapters, lock ownership was transferred
                 # from generator creation to this pending stream, not released.
                 lease = pending[3]
@@ -1560,7 +1560,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     await _await_owned_task(asyncio.create_task(close_stream()))
                 continue
 
-            while True:
+            # Set by the consumer when it is closed, so an abandoned stream
+            # stops pulling its source instead of draining it.
+            cancelled, raw = pending[3], pending[4]
+            while not cancelled.is_set():
                 try:
                     if inspect.isgenerator(gen):
                         r = await asyncio.to_thread(_wrapper, gen)
@@ -1577,6 +1580,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception:
                     logger.exception("stream encountered an error.")
                 break
+            if cancelled.is_set():
+                try:
+                    if inspect.isgenerator(gen):
+                        try:
+                            await asyncio.to_thread(gen.close)
+                        finally:
+                            await asyncio.to_thread(raw.close)
+                    elif inspect.isasyncgen(gen):
+                        try:
+                            await gen.aclose()
+                        finally:
+                            await raw.aclose()
+                except Exception:
+                    logger.exception("Failed to close an abandoned stream.")
 
     def _queue_realtime_file_stream(self, output_type: str, raw, request_id):
         lease = _RealtimeFileStream(raw, request_id)
@@ -1911,17 +1928,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     gen = self._to_generator(output_type, ret)
                     stream_out = queue.Queue()
                     stop = object()
-                    self._pending_requests.put_nowait((gen, stream_out, stop))
+                    cancelled = threading.Event()
+                    self._pending_requests.put_nowait(
+                        (gen, stream_out, stop, cancelled, ret)
+                    )
 
                     def _stream_out_generator():
-                        while True:
-                            o = stream_out.get()
-                            if o is stop:
-                                break
-                            elif isinstance(o, Exception):
-                                raise o
-                            else:
-                                yield o
+                        try:
+                            while True:
+                                o = stream_out.get()
+                                if o is stop:
+                                    break
+                                elif isinstance(o, Exception):
+                                    raise o
+                                else:
+                                    yield o
+                        finally:
+                            cancelled.set()
 
                     return _stream_out_generator()
 
@@ -1929,17 +1952,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     gen = self._to_async_gen(output_type, ret)
                     stream_out = asyncio.Queue()
                     stop = object()
-                    self._pending_requests.put_nowait((gen, stream_out, stop))
+                    cancelled = threading.Event()
+                    self._pending_requests.put_nowait(
+                        (gen, stream_out, stop, cancelled, ret)
+                    )
 
                     async def _stream_out_async_gen():
-                        while True:
-                            o = await stream_out.get()
-                            if o is stop:
-                                break
-                            elif isinstance(o, Exception):
-                                raise o
-                            else:
-                                yield o
+                        try:
+                            while True:
+                                o = await stream_out.get()
+                                if o is stop:
+                                    break
+                                elif isinstance(o, Exception):
+                                    raise o
+                                else:
+                                    yield o
+                        finally:
+                            cancelled.set()
 
                     return _stream_out_async_gen()
 
