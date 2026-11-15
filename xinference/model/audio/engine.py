@@ -185,7 +185,23 @@ class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
 
 
 class PyTorchDotsTTSEditAudioModel(DotsTTSEditModel, AudioEngineModel):
-    required_libs = ("torch", "transformers", "torchaudio", "soundfile")
+    required_libs = (
+        "torch",
+        "transformers",
+        "torchaudio",
+        "soundfile",
+        "numpy",
+        "huggingface_hub",
+        "loguru",
+        "langcodes",
+        "einops",
+        "librosa",
+        "pydantic",
+        "safetensors",
+        "torchdiffeq",
+        "lingua",
+        "tn",
+    )
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:

@@ -1309,8 +1309,9 @@ The upstream runtime derives source and target transcripts from the tags.
 ``source_text`` (or ``prompt_text``) and ``target_text`` override them.
 ``instruction`` and ``instruct`` are aliases for an explicit editing
 instruction and also select editing mode. ``template_name="edit"`` selects
-the same mode. For worker-local audio files, use ``source_audio_path`` for
-editing or ``prompt_audio_path`` for TTS instead of uploading bytes.
+the same mode. Upload reference audio with ``prompt_speech``. The HTTP API
+rejects ``source_audio_path`` and ``prompt_audio_path``; worker-local paths
+are available only to trusted callers using the model directly in process.
 
 Supported edit tags include ``<del>``, ``<ins>``, ``<sub targ="replacement">``,
 ``<emo>``, ``<pitch>``, ``<rate>``, ``<enhance>``, ``<bg>``, ``<pause/>`` and

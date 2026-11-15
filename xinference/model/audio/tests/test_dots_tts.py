@@ -59,14 +59,42 @@ def test_soundfile_install_requirement_survives_engine_filtering(engine):
 
 
 @pytest.mark.parametrize("enable_virtual_env", [False, True])
-def test_engine_discovery_handles_missing_host_soundfile(
-    monkeypatch, enable_virtual_env
+@pytest.mark.parametrize(
+    "missing_lib",
+    [
+        "torch",
+        "transformers",
+        "torchaudio",
+        "soundfile",
+        "numpy",
+        "huggingface_hub",
+        "loguru",
+        "langcodes",
+        "einops",
+        "librosa",
+        "pydantic",
+        "safetensors",
+        "torchdiffeq",
+        "lingua",
+        "tn",
+    ],
+)
+def test_engine_discovery_handles_missing_runtime_dependency(
+    monkeypatch, enable_virtual_env, missing_lib
 ):
     find_spec = importlib.util.find_spec
+
+    def mocked_find_spec(name):
+        if name == missing_lib:
+            return None
+        if name in PyTorchDotsTTSEditAudioModel.required_libs:
+            return SimpleNamespace()
+        return find_spec(name)
+
     monkeypatch.setattr(
         importlib.util,
         "find_spec",
-        lambda name: None if name == "soundfile" else find_spec(name),
+        mocked_find_spec,
     )
     query = (
         get_engine_params_by_name_with_virtual_env
@@ -77,9 +105,9 @@ def test_engine_discovery_handles_missing_host_soundfile(
     if enable_virtual_env:
         assert isinstance(result["PyTorch"], list)
         assert result["PyTorch"][0]["virtualenv_required"] is True
-        assert "soundfile" in result["PyTorch"][0]["virtualenv_reason"]
+        assert missing_lib in result["PyTorch"][0]["virtualenv_reason"]
     else:
-        assert result["PyTorch"] == "Library 'soundfile' is not installed"
+        assert result["PyTorch"] == f"Library '{missing_lib}' is not installed"
 
 
 class FakeRuntime:

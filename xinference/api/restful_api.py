@@ -4284,6 +4284,15 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model_type("audio")
         self._check_model_access(request, model_uid, "audio")
         parsed_kwargs = _parse_kwargs(body.kwargs)
+        for field in ("source_audio_path", "prompt_audio_path"):
+            if field in f or field in parsed_kwargs:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{field} is not allowed in speech requests. "
+                        "Upload reference audio with prompt_speech instead."
+                    ),
+                )
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
