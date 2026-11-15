@@ -552,3 +552,25 @@ def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
         model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
     assert collect.call_count == 1
     assert release.call_count == 100
+
+
+class _VocabTokenizer:
+    _vocab = {7: "hello", 8: "world"}
+
+    def convert_ids_to_tokens(self, ids):
+        if isinstance(ids, int):
+            return self._vocab[ids]
+        return [self._vocab[i] for i in ids]
+
+    def decode(self, ids):
+        return " ".join(self._vocab[i] for i in ids)
+
+
+@pytest.mark.parametrize("token_id", [7, "7"])
+def test_convert_ids_to_tokens_returns_the_whole_token_for_one_id(token_id):
+    model = _make_stub_model()
+    model._model = object()
+    model._tokenizer = _VocabTokenizer()
+
+    assert model.convert_ids_to_tokens(token_id) == "hello"
+    assert model.convert_ids_to_tokens([7, 8]) == ["hello", "world"]

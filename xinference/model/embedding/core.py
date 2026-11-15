@@ -589,7 +589,7 @@ class EmbeddingModel(abc.ABC):
         """
         assert self._model is not None
         if isinstance(batch_token_ids, (int, str)):
-            return self._tokenizer.decode([int(str(batch_token_ids))])[0]
+            return self._tokenizer.convert_ids_to_tokens(int(str(batch_token_ids)))
 
         batch_decoded_texts: List[str] = []
 
