@@ -1484,6 +1484,12 @@ class RESTfulAPI(CancelMixin):
                 status_code=400,
                 detail=CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
             )
+        if isinstance(e, RequestQueueFullError):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit reached" if sanitize else message,
+                headers={"Retry-After": "1"},
+            )
         if "Rate limit reached" in message or (
             sanitize and isinstance(e, HTTPException) and e.status_code == 429
         ):

@@ -315,6 +315,7 @@ class _MiniMaxH3VideoModel(_NativeVideoModel):
 class SGLangMiniMaxH3Model(
     _MiniMaxH3VideoModel, SGLangDiffusionModel, VideoEngineModel
 ):
+    replica_autoscaling = "serialized"
     engine_name = "SGLang"
     required_libs = ("sglang",)
 
@@ -420,6 +421,7 @@ class SGLangMiniMaxH3Model(
 
 
 class VLLMMiniMaxH3Model(_MiniMaxH3VideoModel, VLLMDiffusionModel, VideoEngineModel):
+    replica_autoscaling = "native"
     engine_name = "vLLM"
     generation_mode = "text-to-video"
     required_libs = ("vllm_omni",)

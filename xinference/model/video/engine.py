@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 
 class DiffusersVideoEngineModel(DiffusersVideoModel, VideoEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("diffusers",)
@@ -57,6 +58,7 @@ MLX_VIDEO_MODEL_NAMES = {
 
 
 class MLXVideoEngineModel(MLXVideoModel, VideoEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "mlx"
     engine_quantization = "none"
     required_libs = ("mlx", "mlx_video")

@@ -62,8 +62,8 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "vllm-omni==0.28.* ; #engine# == \"vLLM\"",
-        "vllm==0.28.* ; #engine# == \"vLLM\"",
+        "vllm-omni==0.32.* ; #engine# == \"vLLM\"",
+        "vllm==0.32.* ; #engine# == \"vLLM\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"

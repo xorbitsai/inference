@@ -100,8 +100,8 @@
     },
     "virtualenv": {
       "packages": [
-        "vllm-omni==0.28.* ; #engine# == \"vLLM\"",
-        "vllm==0.28.* ; #engine# == \"vLLM\"",
+        "vllm-omni==0.32.* ; #engine# == \"vLLM\"",
+        "vllm==0.32.* ; #engine# == \"vLLM\"",
         "imageio",
         "imageio-ffmpeg"
       ]
