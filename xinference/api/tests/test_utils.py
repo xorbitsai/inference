@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import pytest
 from fastapi import HTTPException
 
@@ -151,3 +153,40 @@ async def test_require_model_forwards_correlation_id_without_changing_signature(
     assert metadata["correlation_id"] == "http-request-id"
     assert metadata["actor_call_id"]
     assert "operation_request_id" not in metadata
+
+
+@pytest.mark.asyncio
+async def test_launch_model_by_version_clears_negative_cache():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from ..restful_api import RESTfulAPI
+
+    supervisor = DummySupervisor()
+
+    async def get_supervisor_ref():
+        return supervisor
+
+    with pytest.raises(HTTPException) as exc_info:
+        await require_model(get_supervisor_ref, "my-model")
+    assert exc_info.value.status_code == 404
+    assert "my-model" in _MODEL_NOT_FOUND_CACHE
+
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    launcher = MagicMock()
+    launcher.launch_model_by_version = AsyncMock(return_value="my-model")
+    api._get_supervisor_ref = AsyncMock(return_value=launcher)
+    request = MagicMock(
+        json=AsyncMock(
+            return_value={
+                "model_uid": "my-model",
+                "model_type": "LLM",
+                "model_version": "qwen3--8B--pytorch--none",
+            }
+        )
+    )
+    response = await api.launch_model_by_version(request, wait_ready=True)
+    assert response.status_code == 200
+    assert "my-model" not in _MODEL_NOT_FOUND_CACHE
+
+    supervisor._models["my-model"] = DummyModel("my-model")
+    assert (await require_model(get_supervisor_ref, "my-model")).uid == "my-model"

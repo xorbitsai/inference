@@ -69,6 +69,7 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
+from ..extensions import resolve_replica_policy_provider
 from ..model.utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
@@ -84,6 +85,7 @@ from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .model_reload import ModelReloadMixin
+from .realtime.protocol import RealtimeError
 from .replica_config import (
     ReplicaConfig,
     normalize_replica_configs,
@@ -112,7 +114,6 @@ from .worker_registry import (
 )
 
 if TYPE_CHECKING:
-    from ..extensions import ModelCatalogCredentials
     from ..model.audio import AudioModelFamilyV2
     from ..model.embedding import EmbeddingModelFamilyV2
     from ..model.flexible import FlexibleModelSpec
@@ -247,6 +248,7 @@ class ReplicaInfo:
 
 _MAX_ROUTING_KEYS_PER_MODEL = 4096
 _AFFINITY_CAPACITY_TIMEOUT = 1
+_CHAT_ROUTING_PROBE_TIMEOUT = 0.1
 
 
 @dataclass
@@ -256,6 +258,8 @@ class InitialModelLaunch:
         default_factory=dict
     )
     cancelling: bool = False
+    cleanup_pending: bool = False
+    services: Dict[str, List[xo.ActorRefType]] = field(default_factory=dict)
 
 
 def model_service_address(owner):
@@ -372,6 +376,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # Single-flight lock: prevents concurrent list_models() cache-miss
         # sweeps so that only one RPC scan is in-flight at a time.
         self._list_models_sweep_lock = asyncio.Lock()
+        self._model_catalog_update_lock = asyncio.Lock()
         # Reverse-ping failure counter per worker
         self._reverse_ping_failures: Dict[str, int] = {}
         # Track workers currently launching models — when a worker has active
@@ -405,6 +410,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # get_cluster_metrics_data() and translated into the
         # xinference:model_unexpected_termination gauge in the API process.
         self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
+        self._replica_autoscalers: Dict[str, Any] = {}
         self._autostart_task: Optional[asyncio.Task] = None
         self._autostart_requested = False
         self._autostart_lock = asyncio.Lock()
@@ -485,6 +491,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         def done(completed: asyncio.Task) -> None:
             if (
                 not operation.cancelling
+                and not operation.cleanup_pending
                 and self._initial_model_launches.get(model_uid) is operation
             ):
                 self._initial_model_launches.pop(model_uid)
@@ -505,6 +512,177 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     callback_for_async_launch, self._async_launch_tasks, model_uid
                 )
             )
+
+    async def _fail_initial_model_launch(self, model_uid: str) -> None:
+        operation = self._initial_model_launches[model_uid]
+        # Record ownership before status reporting or remote admission can yield.
+        operation.cleanup_pending = True
+        from .supervisor_control import MODEL_SERVICE_FIELDS
+
+        for name in MODEL_SERVICE_FIELDS:
+            if name == "_pd_roles":
+                continue
+            refs = getattr(self, name, {}).get(model_uid)
+            if refs is not None:
+                operation.services[name] = (
+                    list(refs) if isinstance(refs, list) else [refs]
+                )
+        try:
+            await self._status_guard_ref.update_instance_info(
+                model_uid, {"status": LaunchStatus.ERROR.name}
+            )
+        except (Exception, asyncio.CancelledError):
+            logger.warning(
+                "Failed to report launch error for %s", model_uid, exc_info=True
+            )
+        try:
+            await self.terminate_model(model_uid, suppress_exception=True)
+        except (Exception, asyncio.CancelledError):
+            # Rollback must not replace the original launch exception.
+            logger.warning(
+                "Initial launch cleanup pending for %s", model_uid, exc_info=True
+            )
+        finally:
+            if self._initial_model_launches.get(model_uid) is operation:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        model_uid, {"status": LaunchStatus.ERROR.name}
+                    )
+                except (Exception, asyncio.CancelledError):
+                    logger.warning(
+                        "Failed to report launch error for %s", model_uid, exc_info=True
+                    )
+
+    async def _recover_failed_initial_model_launch(self, model_uid: str) -> None:
+        operation = self._initial_model_launches.get(model_uid)
+        if operation is None or not operation.cleanup_pending or operation.cancelling:
+            return
+        async with self._get_model_replica_lock(model_uid):
+            if self._initial_model_launches.get(model_uid) is not operation:
+                raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
+            if operation.task.done():
+                await self._cleanup_failed_initial_model_launch(model_uid, operation)
+                await self._status_guard_ref.remove_failed_instance_info(model_uid)
+
+    async def _cleanup_failed_initial_model_launch(
+        self, model_uid: str, operation: InitialModelLaunch
+    ) -> None:
+        async def stop(uid: str, worker: xo.ActorRefType["WorkerActor"]) -> None:
+            targets = operation.workers[uid]
+            if worker not in targets:
+                return
+            address = worker.address
+            registered = self._worker_address_to_worker.get(address)
+            generation = self._worker_metadata_generation.get(address)
+            try:
+                await worker.terminate_model(model_uid=uid)
+            except Exception as error:
+                # The removal path may have resolved this registration while
+                # termination was pending. An RPC error alone is not evidence.
+                if worker not in targets:
+                    return
+                if registered is None or registered != worker:
+                    raise
+                try:
+                    inventory = await worker.list_models()
+                    # The catalog omits rank zero and in-progress launches.
+                    launch_status = await worker.get_model_launch_status(uid)
+                except Exception:
+                    if worker not in targets:
+                        return
+                    raise error from None
+                if worker not in targets:
+                    return
+                # Use a fresh inventory from the retained reference, with no
+                # re-registration while either RPC was pending.
+                if (
+                    not isinstance(inventory, dict)
+                    or uid in inventory
+                    or launch_status is not None
+                    or self._worker_address_to_worker.get(address) is not registered
+                    or self._worker_metadata_generation.get(address) != generation
+                ):
+                    raise
+            # Only acknowledged cleanup or confirmed absence resolves a target.
+            if worker in targets:
+                targets.remove(worker)
+
+        try:
+            results = await asyncio.gather(
+                *(
+                    stop(uid, worker)
+                    for uid, workers in operation.workers.items()
+                    if not uid.endswith("-rank0")
+                    for worker in list(workers)
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            # Preserve the service teardown order, including rank zero before
+            # the collective manager. Keep actual refs independently of routes.
+            for name in (
+                "_pd_model_mapping",
+                "_xavier_source_mapping",
+                "_xavier_history_mapping",
+                "_xavier_cache_mapping",
+                "rank0",
+                "_collective_manager_mapping",
+                "_block_tracker_mapping",
+            ):
+                if name == "rank0":
+                    uid = model_uid + "-rank0"
+                    for worker in list(operation.workers.get(uid, [])):
+                        await stop(uid, worker)
+                    self._replica_model_uid_to_worker.pop(uid, None)
+                    continue
+                refs = operation.services.get(name, [])
+                for ref in (
+                    list(reversed(refs))
+                    if name == "_xavier_history_mapping"
+                    else list(refs)
+                ):
+                    control = getattr(self, "_controller_control", None)
+                    if control is not None:
+                        await control.check()
+                    try:
+                        await xo.wait_for(
+                            SupervisorActor._destroy_model_service_actor(self, ref),
+                            timeout=5,
+                        )
+                    except xo.ActorNotExist:
+                        # A previous destruction may have lost its response.
+                        # An absent dependency during teardown is not success.
+                        if await xo.has_actor(ref):
+                            raise
+                    refs.remove(ref)
+                    mapping = getattr(self, name, {})
+                    current = mapping.get(model_uid)
+                    if isinstance(current, list):
+                        if ref in current:
+                            current.remove(ref)
+                        if not current:
+                            mapping.pop(model_uid, None)
+                    elif current is ref:
+                        mapping.pop(model_uid, None)
+            await self._clear_model_routing(
+                model_uid,
+                [uid for uid in operation.workers if not uid.endswith("-rank0")],
+            )
+        finally:
+            # Worker callbacks can report TERMINATING during a failed rollback.
+            if self._initial_model_launches.get(model_uid) is operation:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        model_uid, {"status": LaunchStatus.ERROR.name}
+                    )
+                except (Exception, asyncio.CancelledError):
+                    logger.warning(
+                        "Failed to report launch error for %s", model_uid, exc_info=True
+                    )
+        operation.cleanup_pending = False
+        self._initial_model_launches.pop(model_uid)
 
     def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
@@ -738,6 +916,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _handle_dead_worker(self, worker_address: str) -> List[str]:
         """Shared cleanup for a worker that has gone away — heartbeat-dead,
         reverse-channel-dead, or graceful remove_worker.
+
+        Liveness timeouts do not prove resource absence. Retained failed-launch
+        cleanup targets are resolved separately.
 
         1. Record each downed replica into _unexpected_down_replicas (per-replica;
            degraded models keep their healthy replicas).
@@ -2690,55 +2871,53 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Unsupported model type: {model_type}")
 
     async def update_model_type(
-        self,
-        model_type: str,
-        *,
-        credentials: Optional["ModelCatalogCredentials"] = None,
-        model_name: Optional[str] = None,
+        self, model_type: str, *, model_name: Optional[str] = None
     ) -> None:
-        """
-        Update model configurations for a specific model type by forwarding
-        the request to all workers.
-
-        Args:
-            model_type: Type of model (LLM, embedding, image, etc.)
-            model_name: Refresh only this model when provided.
-        """
-
+        """Resolve and download a single GitHub snapshot for every Worker."""
         from .exceptions import ModelCatalogUnavailableError, ModelCatalogUpdateError
+        from .model_catalog import download_github_catalog
 
-        workers = list(self._worker_address_to_worker.items())
-        if not workers:
-            logger.warning("No workers available to update the model catalog")
-            raise ModelCatalogUnavailableError(
-                "No workers available to update the model catalog"
-            )
-
-        async def update_worker(worker_ref: Any) -> None:
-            options: Dict[str, Any] = {}
-            if credentials is not None:
-                options["credentials"] = credentials
-            if model_name is not None:
-                options["model_name"] = model_name
-            await worker_ref.update_model_type(model_type, **options)
-
-        results = await asyncio.gather(
-            *(update_worker(worker_ref) for _, worker_ref in workers),
-            return_exceptions=True,
-        )
-        failed = False
-        for (address, _), result in zip(workers, results):
-            if isinstance(result, BaseException):
-                failed = True
-                logger.error(
-                    "Model catalog update failed on worker %s (%s)",
-                    address,
-                    type(result).__name__,
+        async with self._model_catalog_update_lock:
+            workers = list(self._worker_address_to_worker.items())
+            if not workers:
+                raise ModelCatalogUnavailableError(
+                    "No workers available to update the model catalog"
                 )
-        if failed:
-            raise ModelCatalogUpdateError(
-                "One or more workers failed to update the model catalog"
+
+            try:
+                commit, family_name, catalog = await asyncio.to_thread(
+                    download_github_catalog, model_type.lower(), model_name
+                )
+            except Exception as e:
+                logger.error(
+                    "GitHub model catalog download failed (%s)", type(e).__name__
+                )
+                raise ModelCatalogUpdateError(
+                    "Failed to download model catalog"
+                ) from None
+
+            results = await asyncio.gather(
+                *(
+                    worker.update_model_type(
+                        model_type, commit, catalog=catalog, model_name=family_name
+                    )
+                    for _, worker in workers
+                ),
+                return_exceptions=True,
             )
+            failed = False
+            for (address, _), result in zip(workers, results):
+                if isinstance(result, BaseException):
+                    failed = True
+                    logger.error(
+                        "Model catalog update failed on worker %s (%s)",
+                        address,
+                        type(result).__name__,
+                    )
+            if failed:
+                raise ModelCatalogUpdateError(
+                    "One or more workers failed to update the model catalog"
+                )
 
     def _gen_model_uid(self, model_name: str) -> str:
         if model_name not in self._model_uid_to_replica_info:
@@ -2765,6 +2944,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         n_gpu: Optional[Union[int, str]] = "auto",
         wait_ready: bool = True,
         replica_config: Optional[List[ReplicaConfig]] = None,
+        autoscaling: Optional[Dict[str, Any]] = None,
     ):
         parse_results = parse_model_version(model_version, model_type)
 
@@ -2773,6 +2953,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         else:
             kwargs = {}
 
+        if autoscaling is not None:
+            kwargs["autoscaling"] = autoscaling
         return await self.launch_builtin_model(
             model_uid=model_uid,
             model_name=parse_results[0],
@@ -3285,9 +3467,34 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         virtual_env_find_links: Optional[List[str]] = None,
         virtual_env_index_url: Optional[str] = None,
         virtual_env_extra_index_urls: Optional[List[str]] = None,
+        autoscaling: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> str:
+        if "_embedding_autoscaling" in kwargs or "_replica_autoscaling" in kwargs:
+            raise ValueError(
+                "Internal autoscaling settings are reserved for replica recovery"
+            )
         n_worker = normalize_n_worker(n_worker)
+        policy = None
+        if autoscaling is not None:
+            provider = resolve_replica_policy_provider()
+            if provider is None:
+                raise ValueError("Replica policy extension is unavailable")
+            policy, placements = await provider.prepare_launch(
+                self,
+                autoscaling,
+                model_type=model_type,
+                n_worker=n_worker,
+                n_gpu=n_gpu,
+                worker_ip=worker_ip,
+                gpu_idx=gpu_idx,
+                replica_config=replica_config,
+                request_limits=request_limits,
+                replica=replica,
+            )
+            replica_config = placements
+            replica = len(placements)
+            n_gpu = "auto"
         from ..model.llm.context_length import validate_context_length_launch
 
         validate_context_length_launch(model_type or "LLM", model_engine, kwargs)
@@ -3343,6 +3550,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     "replica_config cannot be used together with the legacy "
                     "worker_ip / n_gpu / gpu_idx parameters."
                 )
+
+        if model_uid is not None:
+            # Old allocations must be released before placement validates GPUs.
+            await self._recover_failed_initial_model_launch(model_uid)
 
         if n_worker > 1:  # type: ignore
             if kwargs.get("xavier_cache_backend") not in (None, "native"):
@@ -3969,6 +4180,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 self._initial_model_launches[model_uid].workers[_replica_model_uid] = [
                     worker_ref
                 ]
+                if policy is not None:
+                    policy_key = (
+                        "_embedding_autoscaling"
+                        if (model_type or "").lower() == "embedding"
+                        else "_replica_autoscaling"
+                    )
+                    replica_kwargs[policy_key] = policy.dict()
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,
@@ -4438,16 +4656,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         idx: cfg.role for idx, cfg in enumerate(replica_config)
                     }
                 await SupervisorActor._notify_model_services_changed(self, model_uid)
+                if policy is not None:
+                    self._start_replica_autoscaler(model_uid, policy, model_type)
             except (Exception, asyncio.CancelledError):
                 if self._initial_model_launches[model_uid].cancelling:
                     # The cancellation coordinator owns rollback until every
                     # launch RPC has settled and every initial replica is gone.
                     raise
-                # terminate_model will remove the replica info.
-                await self.terminate_model(model_uid, suppress_exception=True)
-                await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
-                )
+                await self._fail_initial_model_launch(model_uid)
                 raise
 
         if request_limits is not None and request_limits < 0:
@@ -4540,6 +4756,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
+        if model_uid is not None:
+            await self._recover_failed_initial_model_launch(model_uid)
         available_workers = []
         # search workers if registered
         tasks = []
@@ -4677,11 +4895,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if self._initial_model_launches[model_uid].cancelling:
                     raise
                 self._replica_model_uid_to_worker.update(pending_shards)
-                # terminate_model will remove the replica info.
-                await self.terminate_model(model_uid, suppress_exception=True)
-                await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
-                )
+                await self._fail_initial_model_launch(model_uid)
                 raise
 
         if model_uid is None:
@@ -5310,15 +5524,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         result = []
         for info in sorted(infos, key=lambda info: info.model_uid):
             operation = self._initial_model_launches.get(info.model_uid)
-            result.append(
-                {
-                    **info.dict(),
-                    "can_cancel_launch": bool(
-                        operation
-                        and (operation.cancelling or not operation.task.done())
-                    ),
-                }
+            record = {
+                **info.dict(),
+                "can_cancel_launch": bool(
+                    operation and (operation.cancelling or not operation.task.done())
+                ),
+            }
+            autoscaling = SupervisorActor.get_replica_autoscaling_status(
+                self, info.model_uid
             )
+            if autoscaling is not None:
+                record["autoscaling"] = autoscaling
+            result.append(record)
         return result
 
     async def _get_replica_runtime_info(
@@ -5462,9 +5679,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             try:
                 dead_nodes = []
                 dead_worker_refs = {}
+                dead_worker_generations = {}
                 for address, status in self._worker_status.items():
                     if self._ownership_registry().protected(address):
                         continue
+                    generation = self._worker_metadata_generation.get(address)
                     if (
                         time.time() - status.update_time
                         > XINFERENCE_HEALTH_CHECK_TIMEOUT
@@ -5496,6 +5715,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         dead_worker_refs[address] = self._worker_address_to_worker.get(
                             address
                         )
+                        dead_worker_generations[address] = generation
                     elif (
                         status.failure_remaining_count
                         != XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
@@ -5512,7 +5732,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     # mapping cleanup (preserves healthy replicas of multi-replica
                     # models on surviving workers) + TERMINATED for fully-gone models.
                     if await self._remove_dead_worker(
-                        address, dead_worker_refs[address]
+                        address,
+                        dead_worker_refs[address],
+                        dead_worker_generations[address],
                     ):
                         removed_nodes.append(address)
                 dead_nodes = removed_nodes
@@ -5529,6 +5751,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     if address in dead_nodes:
                         self._reverse_ping_failures.pop(address, None)
                         continue
+                    generation = self._worker_metadata_generation.get(address)
                     try:
                         await xo.wait_for(worker_ref.ping(), timeout=5)
                         # Reset on success
@@ -5537,6 +5760,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         if (
                             self._ownership_registry().protected(address)
                             or self._worker_address_to_worker.get(address) != worker_ref
+                            or self._worker_metadata_generation.get(address)
+                            != generation
                         ):
                             continue
                         # If the worker is launching a model, exempt it from
@@ -5595,7 +5820,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                             # fully-gone models. Iterating a copied list above,
                             # so full worker removal here is safe and keeps
                             # _worker_status consistent with workers_total.
-                            if await self._remove_dead_worker(address, worker_ref):
+                            if await self._remove_dead_worker(
+                                address, worker_ref, generation
+                            ):
                                 self._schedule_autostart()
                                 dead_nodes.append(address)
                                 self._reverse_ping_failures.pop(address, None)
@@ -5643,8 +5870,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
+        operation = self._initial_model_launches.get(model_uid)
         async with self._get_model_replica_lock(model_uid):
-            operation = self._initial_model_launches.get(model_uid)
+            if self._initial_model_launches.get(model_uid) is not operation:
+                raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
+            if (
+                operation is not None
+                and operation.cleanup_pending
+                and not operation.cancelling
+                and (operation.task.done() or operation.task is asyncio.current_task())
+            ):
+                await self._cleanup_failed_initial_model_launch(model_uid, operation)
+                if operation.task.done():
+                    await self._status_guard_ref.remove_failed_instance_info(model_uid)
+                return
             if operation is not None and operation.task is not asyncio.current_task():
                 raise ValueError(
                     "Initial launch is in progress; cancel the launch instead"
@@ -5674,6 +5913,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
+            autoscaler = getattr(self, "_replica_autoscalers", {}).pop(model_uid, None)
+            if autoscaler is not None:
+                autoscaler.close()
+                return
             if suppress_exception:
                 return
             # Launch rollback removes routing but retains the failure details.
@@ -5696,6 +5939,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _clear_model_routing(
         self, model_uid: str, rep_model_uids: List[str]
     ) -> None:
+        autoscaler = getattr(self, "_replica_autoscalers", {}).pop(model_uid, None)
+        if autoscaler is not None:
+            autoscaler.close()
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._model_reload_status.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
@@ -5821,6 +6067,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     ) -> Dict[str, Any]:
         """Add one replica while serializing scale changes for this model."""
         async with self._get_model_replica_lock(model_uid):
+            SupervisorActor._check_manual_autoscaling(self, model_uid)
             return await self._add_model_replica(
                 model_uid, replica_config, model_engine=model_engine, n_gpu=n_gpu
             )
@@ -5843,6 +6090,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError("Per-replica engine settings require explicit PD roles")
 
         async with self._get_model_replica_lock(model_uid):
+            SupervisorActor._check_manual_autoscaling(self, model_uid)
             results: List[Dict[str, Any]] = []
             try:
                 for index in range(replica):
@@ -6146,6 +6394,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
         async with self._get_model_replica_lock(model_uid):
+            SupervisorActor._check_manual_autoscaling(self, model_uid)
             return await self._terminate_model_replica(
                 model_uid, replica_id, suppress_exception
             )
@@ -6511,6 +6760,65 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # alongside startup, upsert_autostart_model and add_worker.
         self._schedule_autostart()
 
+    def _start_replica_autoscaler(
+        self, model_uid: str, policy: Any, model_type: Optional[str]
+    ) -> None:
+        current = self._replica_autoscalers.get(model_uid)
+        if current is not None:
+            if current.policy == policy and not current.closed:
+                return
+            current.close()
+        provider = resolve_replica_policy_provider()
+        if provider is not None:
+            state = self._replica_autoscalers[model_uid] = provider.create_controller(
+                policy, model_type=model_type or "LLM"
+            )
+            state.task = asyncio.create_task(state.run(self, model_uid))
+
+    def _check_manual_autoscaling(self, model_uid: str) -> None:
+        if model_uid in getattr(self, "_replica_autoscalers", {}):
+            raise ValueError(
+                "This deployment manages its replica count through autoscaling"
+            )
+
+    def get_replica_autoscaling_status(
+        self, model_uid: str, *, include_model_type: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        if state is None:
+            return None
+        info = self._model_uid_to_replica_info.get(model_uid)
+        ready = (
+            0 if info is None else len(set(info.active_replica_ids) - state.draining)
+        )
+        status = state.status(ready)
+        if include_model_type:
+            status["model_type"] = state.model_type
+        return status
+
+    def get_embedding_autoscaling_status(
+        self, model_uid: str
+    ) -> Optional[Dict[str, Any]]:
+        return self.get_replica_autoscaling_status(model_uid)
+
+    async def reconcile_autoscaled_replicas(self, model_uid: str) -> None:
+        state = self._replica_autoscalers.get(model_uid)
+        if state is None or model_uid in self._initial_model_launches or self._standby:
+            return
+        lock = self._get_model_replica_lock(model_uid)
+        if lock.locked():
+            return
+        async with lock:
+            if (
+                self._replica_autoscalers.get(model_uid) is not state
+                or not self._upgrade_state.maintenance.begin()
+            ):
+                return
+            try:
+                await state.reconcile(self, model_uid)
+            finally:
+                self._upgrade_state.maintenance.end()
+
     @log_async(logger=logger)
     async def get_model(
         self, model_uid: str, routing_key: Optional[str] = None
@@ -6518,17 +6826,57 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         model, _ = await self._select_model(model_uid, routing_key)
         return model
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, ignore_kwargs=["routing_request"])
     async def get_chat_model(
-        self, model_uid: str, routing_key: str, reservation_id: str
+        self,
+        model_uid: str,
+        routing_key: Optional[str],
+        reservation_id: str,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
-        return await self._select_model(model_uid, routing_key, reservation_id)
+        return await self._select_model(
+            model_uid, routing_key, reservation_id, routing_request
+        )
+
+    async def get_realtime_endpoint(
+        self, model_uid: str, subject: str, task: str
+    ) -> Dict[str, Any]:
+        state = self._replica_autoscalers.get(model_uid)
+        if state is None:
+            model = await self.get_model(model_uid)
+            return await model.get_realtime_endpoint(subject, task)
+        info = self._model_uid_to_replica_info.get(model_uid)
+        if info is None or not info.active_replica_ids:
+            raise RealtimeError("endpoint_unavailable", "Model is not ready", 1013)
+        ids = list(info.active_replica_ids)
+        start = ids.index(next(info.scheduler))
+        candidates = sorted(ids[start:] + ids[:start], key=state.should_avoid)
+        busy = False
+        for replica_id in candidates:
+            if replica_id in state.draining:
+                continue
+            try:
+                model = await self._get_replica_model(model_uid, replica_id)
+                return await model.get_realtime_endpoint(subject, task)
+            except RealtimeError as exc:
+                if exc.code == "capacity_exceeded":
+                    busy = True
+                elif exc.code != "endpoint_unavailable":
+                    raise
+            except ModelNotReadyError:
+                continue
+        if busy:
+            raise RealtimeError(
+                "capacity_exceeded", "Realtime capacity unavailable", 1013
+            )
+        raise RealtimeError("endpoint_unavailable", "Model is not ready", 1013)
 
     async def _select_model(
         self,
         model_uid: str,
         routing_key: Optional[str],
         reservation_id: Optional[str] = None,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
@@ -6545,35 +6893,123 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        if routing_key is not None:
+        if routing_key is not None or (
+            routing_request is not None and len(replica_info.active_replica_ids) > 1
+        ):
             return await self._get_affinity_model(
-                model_uid, replica_info, routing_key, reservation_id
+                model_uid, replica_info, routing_key, reservation_id, routing_request
             )
-        return (
-            await self._get_replica_model(model_uid, next(replica_info.scheduler)),
-            False,
+        state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        first = next(replica_info.scheduler)
+        if state is None:
+            return await self._get_replica_model(model_uid, first), False
+        if first not in state.draining and not state.should_avoid(first):
+            return await self._get_replica_model(model_uid, first), False
+
+        # Advance the round robin once per request, including when all
+        # replicas are congested and the preferred route is the fallback.
+        ids = replica_info.active_replica_ids
+        start = ids.index(first)
+        fallback = None if first in state.draining else first
+        for offset in range(1, len(ids)):
+            replica_id = ids[(start + offset) % len(ids)]
+            if replica_id in state.draining:
+                continue
+            if not state.should_avoid(replica_id):
+                return await self._get_replica_model(model_uid, replica_id), False
+            if fallback is None:
+                fallback = replica_id
+        if fallback is not None:
+            return await self._get_replica_model(model_uid, fallback), False
+        raise ModelNotReadyError(f"Model {model_uid} has no available replica")
+
+    async def _rank_chat_replicas(
+        self, model_uid: str, info: ReplicaInfo, preferred: int, request: dict
+    ) -> tuple[list[int], dict[int, Any]]:
+        replicas = (preferred, *(r for r in info.active_replica_ids if r != preferred))
+
+        async def probe(replica):
+            try:
+                model = await self._get_replica_model(model_uid, replica)
+                return model, await model.get_chat_routing_load()
+            except Exception:
+                # Missing signals (including rolling upgrades) keep the usual
+                # affinity and reservation path available.
+                return None, None
+
+        snapshots = await asyncio.wait_for(
+            asyncio.gather(*(probe(replica) for replica in replicas)),
+            _CHAT_ROUTING_PROBE_TIMEOUT,
         )
+        models = {
+            replica: model
+            for replica, (model, _) in zip(replicas, snapshots)
+            if model is not None
+        }
+        loads = {
+            replica: load
+            for replica, (_, load) in zip(replicas, snapshots)
+            if type(load) is int
+        }
+        if not loads:
+            return list(replicas), models
+        cached, prompt_length = {}, 0
+        tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
+        model = next((model for model, _ in snapshots if model is not None), None)
+        if tracker is not None and "messages" in request and model is not None:
+
+            async def match():
+                config = request["config"]
+                tokens = await model.get_chat_routing_tokens(
+                    request["messages"], config
+                )
+                if not tokens:
+                    return {}, 0
+                return await tracker.match_routing_prefixes(
+                    tokens, config.get("cache_salt")
+                ), len(tokens)
+
+            try:
+                cached, prompt_length = await asyncio.wait_for(
+                    match(), _CHAT_ROUTING_PROBE_TIMEOUT
+                )
+            except Exception:
+                logger.debug("Chat routing cache probe unavailable", exc_info=True)
+
+        def score(replica):
+            load = loads.get(replica, float("inf"))
+            # A largely cached prefill can justify one extra in-flight
+            # request. Interactive traffic chooses the least loaded replica.
+            tokens = cached.get(replica + 1, 0)
+            return load - 2 * tokens / max(1, prompt_length)
+
+        return sorted(replicas, key=score), models
 
     async def _get_affinity_model(
         self,
         model_uid: str,
         info: ReplicaInfo,
-        routing_key: str,
+        routing_key: Optional[str],
         reservation_id: Optional[str] = None,
+        routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         routes = info.routing_keys
-        preferred = routes.get(routing_key)
+        state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        draining = state.draining if state is not None else ()
+        preferred = routes.get(routing_key) if routing_key is not None else None
         if preferred is None or preferred not in info.active_replica_ids:
             preferred = next(info.scheduler)
             # Publish the first choice before awaiting a worker so concurrent
             # requests for a new key start with the same replica.
-            routes[routing_key] = preferred
-        routes.move_to_end(routing_key)
-        if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
-            routes.popitem(last=False)
+            if routing_key is not None:
+                routes[routing_key] = preferred
+        if routing_key is not None:
+            routes.move_to_end(routing_key)
+            if len(routes) > _MAX_ROUTING_KEYS_PER_MODEL:
+                routes.popitem(last=False)
         # Consume the scheduler only when falling back, so displaced sessions
         # spread across replicas without disturbing ordinary sticky requests.
-        candidates = itertools.chain(
+        candidates: Iterator[int] = itertools.chain(
             (preferred,),
             (
                 replica
@@ -6586,6 +7022,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # Include any replicas that its interleaved iteration skipped.
             tuple(info.active_replica_ids),
         )
+        models: Dict[int, Any] = {}
+        if routing_request and len(info.active_replica_ids) > 1:
+            try:
+                ranked, models = await self._rank_chat_replicas(
+                    model_uid, info, preferred, routing_request
+                )
+                candidates = iter(ranked)
+            except asyncio.TimeoutError:
+                pass
         busy = None
         last_error: Optional[Exception] = None
         preserve_route = False
@@ -6601,12 +7046,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 logger.debug("Chat reservation cleanup failed", exc_info=True)
 
         for replica in candidates:
-            if replica in tried:
+            if replica in tried or replica in draining:
                 continue
             tried.add(replica)
             try:
                 try:
-                    model = await self._get_replica_model(model_uid, replica)
+                    model = models.get(replica)
+                    if model is None:
+                        model = await self._get_replica_model(model_uid, replica)
                 except Exception as exc:
                     cause = getattr(exc, "__wrapped__", exc)
                     if type(cause) is not Exception:
@@ -6685,7 +7132,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 last_error = exc
                 continue
             current_info = self._model_uid_to_replica_info.get(model_uid)
-            if current_info is not info or replica not in info.active_replica_ids:
+            if (
+                current_info is not info
+                or replica not in info.active_replica_ids
+                or replica in draining
+            ):
                 if reserved:
                     await release_reservation(model)
                 if current_info is not info:
@@ -6693,7 +7144,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 continue
             if available:
                 # A concurrent request may already have moved or evicted this key.
-                if not preserve_route and routes.get(routing_key) == preferred:
+                if (
+                    routing_key is not None
+                    and not preserve_route
+                    and routes.get(routing_key) == preferred
+                ):
                     routes[routing_key] = replica
                 return model, reserved
             if busy is None:
@@ -6702,6 +7157,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             busy is not None
             and self._model_uid_to_replica_info.get(model_uid) is info
             and busy[0] in info.active_replica_ids
+            and busy[0] not in draining
         ):
             # Preserve the model's normal admission/error handling when every
             # reachable replica is at its limit or reloading.
@@ -7187,6 +7643,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if control is not None:
             control.fence.ready = False
         try:
+            autoscalers = list(getattr(self, "_replica_autoscalers", {}).values())
+            for state in autoscalers:
+                state.close()
+            if autoscalers:
+                await asyncio.gather(
+                    *(state.task for state in autoscalers if state.task is not None),
+                    return_exceptions=True,
+                )
             isolation = getattr(self, "_isolation", None)
             if isolation is not None:
                 self._isolation = None
@@ -7525,6 +7989,28 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        for row in normalized:
+            policy = row.get("replica_autoscaling", row.get("embedding_autoscaling"))
+            uid = row.get("model_uid")
+            if (
+                policy is not None
+                and isinstance(uid, str)
+                and uid in self._model_uid_to_replica_info
+                and uid not in self._initial_model_launches
+            ):
+                try:
+                    provider = resolve_replica_policy_provider()
+                    if provider is None:
+                        continue
+                    parsed_policy = provider.parse_policy(policy)
+                except ValueError:
+                    logger.warning(
+                        "Invalid restored replica autoscaling policy for %s", uid
+                    )
+                else:
+                    self._start_replica_autoscaler(
+                        uid, parsed_policy, row.get("model_type", "embedding")
+                    )
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
 
@@ -7577,6 +8063,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # for fully-gone models (graceful worker shutdown is the third path
         # where models won't auto-recover and need redeploy).
         await self._handle_dead_worker(worker_address)
+
+        # Graceful shutdown acknowledges retirement. Health-check timeouts also
+        # remove routing, but cannot prove that these resources are gone.
+        worker_ref = self._worker_address_to_worker.get(worker_address)
+        for operation in getattr(self, "_initial_model_launches", {}).values():
+            if operation.cleanup_pending and not operation.cancelling:
+                for workers in operation.workers.values():
+                    workers[:] = [worker for worker in workers if worker != worker_ref]
 
         if worker_address in self._worker_address_to_worker:
             del self._worker_address_to_worker[worker_address]
@@ -7726,9 +8220,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             return ret
         ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = ret and await worker.confirm_and_remove_model(
+            # Await every worker: a failure on one must not skip the rest.
+            removed = await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
+            ret = ret and removed
         return ret
 
     # Virtual environment management methods

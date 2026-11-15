@@ -18,6 +18,7 @@ import inspect
 import json
 import os
 import queue
+import sys
 import threading
 import time
 import types
@@ -36,6 +37,7 @@ from typing import (
     Optional,
     Set,
     Union,
+    cast,
     no_type_check,
 )
 
@@ -54,6 +56,7 @@ if TYPE_CHECKING:
     from .realtime.runtime import RealtimeRuntime
     from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.llm.vllm.core import VLLMModel as VLLMBackend
     from ..model.llm.weight_cache import WeightCachedModel
     import PIL
 
@@ -62,9 +65,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
-from .exceptions import InvalidModelRequestError, ModelNotReadyError
+from .exceptions import (
+    BatchRequestRedirect,
+    InvalidModelRequestError,
+    ModelNotReadyError,
+    RequestQueueFullError,
+)
 from .model_generation import ModelGenerationMixin
-from .rpc_context import rpc_context
+from .replica_load import (
+    EngineLoad,
+    EngineLoadReporter,
+    ReplicaLoad,
+    validate_engine_load,
+)
+from .rpc_context import actor_call, get_current_rpc_metadata, rpc_context
 from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
 try:
@@ -84,6 +98,14 @@ XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
 _CHAT_RESERVATION_TTL = 30
+
+
+def _is_backend(model: Any, module_name: str, class_name: str) -> bool:
+    # An instantiated adapter already imported its base classes. Importing a
+    # different engine just to rule out an isinstance check can be expensive.
+    module = sys.modules.get(f"xinference.model.{module_name}")
+    cls = getattr(module, class_name, None)
+    return cls is not None and isinstance(model, cls)
 
 
 async def _await_owned_task(
@@ -188,10 +210,20 @@ def _pending_chat_reservations(
 def _has_request_capacity(
     model: "ModelActor", reservation_id: Optional[str] = None
 ) -> bool:
+    return 1 + _count_replica_work(model, reservation_id) <= model._request_limits
+
+
+def _count_replica_work(
+    model: "ModelActor", reservation_id: Optional[str] = None
+) -> int:
     realtime = getattr(model, "_realtime_runtime", None)
-    realtime_count = realtime.active_count if realtime is not None else 0
+    realtime_count = (
+        realtime.active_count + getattr(realtime, "pending_admissions", 0)
+        if realtime is not None
+        else 0
+    )
     reserved = _pending_chat_reservations(model, reservation_id)
-    return 1 + model._serve_count + realtime_count + reserved <= model._request_limits
+    return model._serve_count + realtime_count + reserved
 
 
 def request_limit(fn=None, *, keep_chat_reservation=False):
@@ -205,8 +237,9 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
         return functools.partial(
             request_limit, keep_chat_reservation=keep_chat_reservation
         )
+    operation = inspect.unwrap(fn).__name__
 
-    async def wrapped_func(self, *args, **kwargs):
+    async def serve_request(self, *args, **kwargs):
         if getattr(self, "_model_state", None) == "reloading":
             admission = self.__dict__.get("_reload_admission")
             if admission is None:
@@ -216,6 +249,8 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
+        if self.__dict__.get("_replica_draining", False):
+            raise ModelNotReadyError("Model replica is draining")
         reservation_id = kwargs.pop("_chat_reservation_id", None)
         preflight_reservation_id = None
         if reservation_id is not None and not keep_chat_reservation:
@@ -241,12 +276,18 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                 "add",
                 {"labels": self._metrics_labels, "value": 1},
             )
-            raise RuntimeError(
+            error = (
+                RequestQueueFullError
+                if self.__dict__.get("_replica_concurrency") is not None
+                else RuntimeError
+            )
+            raise error(
                 f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
             )
         start_time = time.time()
         ret = None
         _error = False
+        redirected = False
         released = False
         stream_transferred = False
 
@@ -254,6 +295,8 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
             if preflight_reservation_id is not None:
                 self._chat_preflight_reservations.discard(preflight_reservation_id)
             self._serve_count = max(0, self._serve_count - 1)
+            if "_replica_idle_since" in self.__dict__:
+                self._replica_idle_since = time.monotonic()
 
         try:
             try:
@@ -271,6 +314,9 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                             state.stream = self._generators[ret._uid]
                             state.entry_task = None
                             ret._xinference_stream_uid = ret._uid
+            except BatchRequestRedirect:
+                redirected = True
+                raise
             except Exception:
                 _error = True
                 raise
@@ -285,14 +331,15 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                     release_slot()
                     released = True
                 stream_label = "true" if _is_stream else "false"
-                await self.record_metrics(
-                    "model_request_total",
-                    "add",
-                    {
-                        "labels": {**self._metrics_labels, "stream": stream_label},
-                        "value": 1,
-                    },
-                )
+                if not redirected:
+                    await self.record_metrics(
+                        "model_request_total",
+                        "add",
+                        {
+                            "labels": {**self._metrics_labels, "stream": stream_label},
+                            "value": 1,
+                        },
+                    )
                 if not _is_stream:
                     await self.record_metrics(
                         "model_serve_count",
@@ -302,11 +349,12 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                     logger.debug(
                         f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
                     )
-                await self.record_metrics(
-                    "model_request_duration_seconds",
-                    "observe",
-                    {"labels": self._metrics_labels, "value": duration},
-                )
+                if not redirected:
+                    await self.record_metrics(
+                        "model_request_duration_seconds",
+                        "observe",
+                        {"labels": self._metrics_labels, "value": duration},
+                    )
                 if _error:
                     await self.record_metrics(
                         "model_request_errors_total",
@@ -335,6 +383,40 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                         )
                 finally:
                     release_slot()
+
+    @functools.wraps(fn)
+    async def wrapped_func(self, *args, **kwargs):
+        remaining = kwargs.pop(
+            "_replica_queue_budget", kwargs.pop("_embedding_queue_budget", None)
+        )
+        if self.__dict__.get("_replica_concurrency") is None:
+            return await serve_request(self, *args, **kwargs)
+
+        from ..model.batch import batch_queue_budget
+
+        if remaining is not None and remaining <= 0:
+            raise RequestQueueFullError("Timed out waiting for a batch")
+        token = batch_queue_budget.set(remaining)
+        try:
+            return await serve_request(self, *args, **kwargs)
+        except BatchRequestRedirect as redirect:
+            target, deadline = redirect.args
+        finally:
+            batch_queue_budget.reset(token)
+        kwargs.pop("_chat_reservation_id", None)
+        budget_key = (
+            "_embedding_queue_budget"
+            if operation == "create_embedding"
+            else "_replica_queue_budget"
+        )
+        kwargs[budget_key] = deadline - asyncio.get_running_loop().time()
+        return await actor_call(
+            target,
+            operation,
+            *args,
+            _rpc_parent_metadata=get_current_rpc_metadata(),
+            **kwargs,
+        )
 
     return wrapped_func
 
@@ -381,18 +463,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         await self.close_model_generations()
         for cache in self.__dict__.get("_generation_caches", {}).values():
             await asyncio.to_thread(cache.stop)
-        from ..model.embedding.core import EmbeddingModel
-        from ..model.llm.sglang.core import SGLANGModel
-        from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
-        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
-        from ..model.rerank.core import RerankModel
-
         await ModelActor._close_gpu_caches(self)
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
 
-        if isinstance(self._model, LLMVLLMModel):
+        is_vllm = ModelActor.is_vllm_backend(self)
+        if is_vllm:
             if self._transfer_ref is not None:
                 try:
                     await xo.destroy_actor(self._transfer_ref)
@@ -411,10 +488,17 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         # format guard keeps the torch-free llama.cpp embedding/rerank paths
         # out of the torch-dependent branch below.
         if (
-            isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
+            (
+                is_vllm
+                or ModelActor.is_sglang_backend(self)
+                or _is_backend(self._model, "llm.transformers.core", "PytorchModel")
+            )
             and self._model.model_spec.model_format == "pytorch"
         ) or (
-            isinstance(self._model, (EmbeddingModel, RerankModel))
+            (
+                _is_backend(self._model, "embedding.core", "EmbeddingModel")
+                or _is_backend(self._model, "rerank.core", "RerankModel")
+            )
             and self._model._model_spec.model_format == "pytorch"
         ):
             with dependency_import_guard("torch"):
@@ -460,6 +544,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         model_engine: Optional[str] = None,
         model_python_executable: Optional[str] = None,
         worker_status_token: Optional[str] = None,
+        replica_admission: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self._generation_python_executable = model_python_executable
@@ -469,12 +554,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             # Sharded launches may spawn their pool before the download resolves.
             os.environ.setdefault(context_env, "1")
 
-        from ..model.llm.vllm.core import VLLMModel
-
         self._supervisor_address = supervisor_address
         self._worker_address = worker_address
         self._replica_model_uid = replica_model_uid
         self._model = model
+        if _is_backend(model, "llm.core", "LLM"):
+            from ..model.llm import _ensure_model_metadata
+
+            _ensure_model_metadata()
         self._model_description = self._model.model_family.to_description()
         self._request_limits = (
             float("inf") if request_limits is None else request_limits
@@ -489,6 +576,36 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._worker_status_token = worker_status_token
         self._progress_tracker_ref = None
         self._serve_count = 0
+        if replica_admission is not None:
+            from ..model.batch import BatchMixin
+
+            # Each registered adapter must opt in, including subclasses of supported engines.
+            mode = vars(type(model)).get("replica_autoscaling")
+            engine = model_engine or type(model).__name__
+            self._replica_autoscaling_error = (
+                f"Model engine {engine} does not support replica autoscaling"
+            )
+            if mode == "native":
+                if not all(
+                    callable(getattr(model, method, None))
+                    for method in ("enable_engine_load_reporting", "get_engine_load")
+                ):
+                    raise ValueError(
+                        f"{self._replica_autoscaling_error}: incomplete engine load reporting"
+                    )
+                self._engine_load_reporter = cast(EngineLoadReporter, model)
+                self._engine_load_reporter.enable_engine_load_reporting()
+            elif mode != "batch" or not isinstance(model, BatchMixin):
+                raise ValueError(self._replica_autoscaling_error)
+            self._replica_concurrency = min(
+                self._request_limits, replica_admission["concurrency_per_replica"]
+            )
+            if isinstance(model, BatchMixin):
+                self._replica_batch = model
+                model.enable_batch_redistribution(
+                    replica_admission["queue_capacity"],
+                    replica_admission["queue_timeout_ms"] / 1000,
+                )
         self._chat_reservations: Dict[str, asyncio.TimerHandle] = {}
         self._chat_preflight_reservations: set[str] = set()
         self._realtime_runtime = None
@@ -526,9 +643,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._shard = shard
         self._driver_info = driver_info
 
-        if isinstance(self._model, VLLMModel):
+        if self.is_vllm_backend():
             self._xavier_config = xavier_config
-            self._model.set_xavier_config(xavier_config)
+            cast("VLLMBackend", self._model).set_xavier_config(xavier_config)
             self._transfer_ref = None
 
     async def __post_create__(self):
@@ -635,6 +752,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         if streams:
             await _await_owned_task(asyncio.gather(*(s.done for s in streams)))
         self._serve_count = max(0, self._serve_count - 1)
+        if "_replica_idle_since" in self.__dict__:
+            self._replica_idle_since = time.monotonic()
         await self.record_metrics(
             "model_serve_count",
             "set",
@@ -765,17 +884,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         return progressor
 
     def is_vllm_backend(self) -> bool:
-        from ..model.llm.vllm.core import VLLMModel
-
-        return isinstance(self._model, VLLMModel)
+        return _is_backend(self._model, "llm.vllm.core", "VLLMModel")
 
     def is_transformers_batching_enabled(self) -> bool:
         return bool(getattr(self._model, "_batch_scheduler", None))
 
     def is_sglang_backend(self) -> bool:
-        from ..model.llm.sglang.core import SGLANGModel
-
-        return isinstance(self._model, SGLANGModel)
+        return _is_backend(self._model, "llm.sglang.core", "SGLANGModel")
 
     def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
         from ..model.llm.vllm.core import VLLMModel
@@ -868,6 +983,23 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def wait_for_load(self):
         if hasattr(self._model, "wait_for_load"):
             await asyncio.to_thread(self._model.wait_for_load)
+        if self.__dict__.get("_replica_concurrency") is not None:
+            if "_engine_load_reporter" in self.__dict__:
+                try:
+                    load = await asyncio.wait_for(self._read_engine_load(), timeout=1)
+                except asyncio.TimeoutError:
+                    load = None
+                if load is None:
+                    raise ValueError(
+                        f"{self._replica_autoscaling_error}: engine load is unavailable or invalid"
+                    )
+            if not self._has_redistributable_batch():
+                if "_engine_load_reporter" not in self.__dict__:
+                    raise ValueError(
+                        f"{self._replica_autoscaling_error}: shared batch queue is inactive"
+                    )
+                self._request_limits = self._replica_concurrency
+            self._replica_idle_since = time.monotonic()
         await self._start_realtime_runtime()
         self._model_state = "ready"
 
@@ -906,10 +1038,13 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             limits=RealtimeLimits(max_sessions=max_sessions),
             inference_lock=self._lock,
             admission=lambda: self._model_state == "ready"
-            and self._serve_count
-            + runtime.active_count
-            + _pending_chat_reservations(self)
-            < self._request_limits,
+            and not self.__dict__.get("_replica_draining")
+            and _has_request_capacity(self),
+            on_session_finished=(
+                self._mark_replica_activity
+                if self.__dict__.get("_replica_concurrency") is not None
+                else None
+            ),
         )
         worker_host = urlsplit(
             self._worker_address
@@ -932,11 +1067,15 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self._require_ready()
         from .realtime.protocol import RealtimeError
 
+        if self.__dict__.get("_replica_draining"):
+            raise RealtimeError("endpoint_unavailable", "Model replica is draining")
         if self._realtime_runtime is None:
             raise RealtimeError(
                 "unsupported_task", "Model has no realtime input adapter"
             )
-        return self._realtime_runtime.issue_ticket(subject, task)
+        return self._realtime_runtime.issue_ticket(
+            subject, task, reserve=self.__dict__.get("_replica_concurrency") is not None
+        )
 
     async def get_runtime_context_length(self) -> Optional[int]:
         """Read the serving generation, without inferring from registry metadata."""
@@ -1495,7 +1634,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             "request_id"
         )
         streams = self.__dict__.setdefault("_request_streams", {})
-        if request_id in streams and request_id not in self._running_tasks:
+        task = None if request_id is None else self._running_tasks.get(request_id)
+        if (
+            request_id is not None
+            and (task is None or task.done())
+            and (
+                request_id in streams
+                or any(
+                    lease.request_id == request_id
+                    for lease in self._realtime_file_streams
+                )
+            )
+        ):
             raise Exception(f"Duplicate request id: {request_id}")
         self._add_running_task(request_id)
         if priority is None:
@@ -1634,14 +1784,24 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         self, output_type: str, fn: Callable, *args, **kwargs
     ):
         priority_managed = kwargs.pop("_priority_managed", False)
+        autoscaled = self.__dict__.get("_replica_concurrency") is not None
         wait_for_sync_on_cancel = (
             kwargs.pop("_wait_for_sync_on_cancel", False)
             or priority_managed
             or (getattr(self, "_realtime_runtime", None) is not None)
+            or autoscaled
         )
 
         async def _invoke():
             if inspect.iscoroutinefunction(fn):
+                if autoscaled:
+                    return await _await_owned_task(
+                        asyncio.create_task(fn(*args, **kwargs)),
+                        cancel_on_cancel=self._has_redistributable_batch()
+                        or getattr(
+                            self._model, "_cancel_async_request_on_abort", False
+                        ),
+                    )
                 config = args[1] if len(args) > 1 else kwargs.get("generate_config")
                 if (
                     priority_managed
@@ -1674,9 +1834,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 close_sync=self._run_priority_sync if priority_managed else None,
             )
 
-        if (
+        if self._lock is not None and (
             getattr(self, "_realtime_runtime", None) is not None
-            and self._lock is not None
+            or (autoscaled and not priority_managed)
         ):
             await self._lock.acquire()
             transferred = False
@@ -1694,7 +1854,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     self._lock.release()
         elif self._lock is None or priority_managed:
             ret = await _invoke()
-            close_on_exit = priority_managed or kwargs.get("request_id") is not None
+            close_on_exit = (
+                priority_managed or autoscaled or kwargs.get("request_id") is not None
+            )
 
             if inspect.isgenerator(ret):
                 gen = self._to_generator(output_type, ret, close_on_exit=close_on_exit)
@@ -2050,11 +2212,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             raise active_error
         return generation_result
 
-    @request_limit
     @log_async(logger=logger)
+    @request_limit
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
         self._require_ready()
         kwargs.pop("request_id", None)
+        kwargs.pop("_batch_queue_budget", None)
         if hasattr(self._model, "create_embedding"):
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
@@ -2669,8 +2832,126 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
 
+    def _has_redistributable_batch(self) -> bool:
+        batch = self.__dict__.get("_replica_batch")
+        return batch is not None and batch.supports_batch_redistribution()
+
+    def _mark_replica_activity(self) -> None:
+        self._replica_idle_since = time.monotonic()
+
+    async def _read_engine_load(self) -> Optional[EngineLoad]:
+        reporter = self.__dict__.get("_engine_load_reporter")
+        if reporter is None:
+            return EngineLoad()
+        try:
+            snapshot = reporter.get_engine_load()
+            if inspect.isawaitable(snapshot):
+                snapshot = await snapshot
+            if snapshot is None:
+                return None
+            validate_engine_load(snapshot)
+            return snapshot
+        except Exception:
+            logger.debug("Could not read engine load for %s", self, exc_info=True)
+            return None
+
+    def _can_report_replica_load(self) -> bool:
+        return (
+            self._model_state == "ready"
+            and not self.__dict__.get("_replica_draining")
+            and self.__dict__.get("_replica_concurrency") is not None
+        )
+
+    async def get_replica_load(self) -> Optional[ReplicaLoad]:
+        if not self._can_report_replica_load():
+            return None
+        engine = await self._read_engine_load()
+        if not self._can_report_replica_load():
+            return None
+        queued, oldest_wait = (
+            self._replica_batch.batch_queue_load()
+            if self._has_redistributable_batch()
+            else (0, 0.0)
+        )
+        if engine is None and not queued:
+            return None
+        if engine is None:
+            return ReplicaLoad(queued, oldest_wait, 0)
+        spare = self._replica_concurrency - _count_replica_work(self)
+        runtime = self.__dict__.get("_realtime_runtime")
+        if runtime is not None:
+            spare = min(
+                spare,
+                runtime.limits.max_sessions
+                - runtime.active_count
+                - getattr(runtime, "pending_admissions", 0),
+            )
+        return ReplicaLoad(
+            queued,
+            oldest_wait,
+            max(0, spare),
+            *engine,
+        )
+
+    async def get_embedding_load(self):
+        load = await self.get_replica_load()
+        return tuple(load) if load is not None else None
+
+    def redistribute_replica_requests(self, target, limit: int) -> int:
+        if not self._can_report_replica_load() or not self._has_redistributable_batch():
+            return 0
+        moved = self._replica_batch.redirect_batch_waiters(target, limit)
+        if moved:
+            logger.debug(
+                "Redistributed %d queued requests from %s to %s",
+                moved,
+                self,
+                target,
+            )
+        return moved
+
+    def redistribute_embedding_requests(self, target, limit: int) -> int:
+        return self.redistribute_replica_requests(target, limit)
+
+    async def begin_replica_drain(self, idle_seconds: float) -> bool:
+        if not self._replica_is_idle(idle_seconds):
+            return False
+        engine = await self._read_engine_load()
+        if engine is None or engine.waiting or engine.running:
+            return False
+        if not self._replica_is_idle(idle_seconds):
+            return False
+        self._replica_draining = True
+        return True
+
+    async def begin_embedding_drain(self, idle_seconds: float) -> bool:
+        return await self.begin_replica_drain(idle_seconds)
+
+    def _replica_is_idle(self, idle_seconds: float) -> bool:
+        return (
+            self._can_report_replica_load()
+            and not _count_replica_work(self)
+            and not self.__dict__.get("_realtime_file_streams")
+            and (
+                not self._has_redistributable_batch()
+                or not self._replica_batch.batch_queue_load()[0]
+            )
+            and time.monotonic() - self._replica_idle_since >= idle_seconds
+        )
+
+    def cancel_replica_drain(self) -> None:
+        self._replica_draining = False
+        self._mark_replica_activity()
+
+    def cancel_embedding_drain(self) -> None:
+        self.cancel_replica_drain()
+
     def _can_accept_chat_request(self) -> bool:
-        if self._model_state != "ready" or not _has_request_capacity(self):
+        if (
+            self._model_state != "ready"
+            or self.__dict__.get("_replica_draining")
+            or not _has_request_capacity(self)
+        ):
             return False
         get_capacity = getattr(self._model, "get_max_concurrent_requests", None)
         capacity = get_capacity() if get_capacity is not None else None
@@ -2679,6 +2960,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
     async def can_accept_chat_request(self) -> bool:
         return self._can_accept_chat_request()
+
+    async def get_chat_routing_load(self) -> Optional[int]:
+        if not self._can_accept_chat_request():
+            return None
+        return _count_replica_work(self)
+
+    async def get_chat_routing_tokens(
+        self, messages: List[Dict], config: Dict
+    ) -> Optional[List[int]]:
+        self._require_ready()
+        render = getattr(self._model, "get_chat_routing_tokens", None)
+        if render is not None:
+            return await render(messages, config)
+        return None
 
     async def reserve_chat_request(self, reservation_id: str) -> bool:
         if reservation_id in self._chat_reservations:
@@ -2696,6 +2991,8 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         if timer is not None:
             self._chat_preflight_reservations.discard(reservation_id)
             timer.cancel()
+            if "_replica_idle_since" in self.__dict__:
+                self._mark_replica_activity()
 
     @log_async(logger=logger)
     async def free_model_cache(self, request_id: str):

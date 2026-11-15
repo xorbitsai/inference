@@ -1,10 +1,19 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 
+# CI: linux
+
 import asyncio
+import json
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 import torch
+from fastapi import APIRouter, FastAPI
+from httpx import ASGITransport, AsyncClient
 
+from .....api.restful_api import RESTfulAPI
+from .....api.routers import embeddings
 from ...core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
 from ..core import SentenceTransformerEmbeddingModel, _get_sentence_batch_ranges
 
@@ -178,3 +187,77 @@ async def test_concurrent_requests_are_split_back_after_length_batching(monkeypa
         )
         assert [item["index"] for item in result["data"]] == [0, 1]
     assert sorted(map(len, model._model.batches)) == [16, 16]
+
+
+def test_request_dimensions_truncate_before_normalization(monkeypatch):
+    model = _make_model(monkeypatch)
+    texts = ["short", "long " * 100]
+    result = model._create_embedding(texts, dimensions=2, show_progress_bar=False)
+    expected = torch.nn.functional.normalize(
+        torch.tensor([_vector(text)[:2] for text in texts])
+    )
+    torch.testing.assert_close(
+        torch.tensor([item["embedding"] for item in result["data"]]), expected
+    )
+
+
+def test_request_dimensions_override_the_launch_truncate_dim(monkeypatch):
+    model = _make_model(monkeypatch)
+    model._model.truncate_dim = 2
+    result = model._create_embedding(
+        ["text"], dimensions=1, normalize_embeddings=False, show_progress_bar=False
+    )
+    assert result["data"][0]["embedding"] == _vector("text")[:1]
+
+
+@pytest.mark.parametrize("dimensions", [0, -2, 1.5, 2.0, True, "2", 4])
+async def test_invalid_dimensions_do_not_fail_concurrent_requests(
+    monkeypatch, dimensions
+):
+    model = _make_model(monkeypatch)
+    model._model.truncate_dim = 2
+    model.batch_size = 8
+    model.batch_interval = 0.01
+
+    async def create_embedding(sentences, **kwargs):
+        return json.dumps(await model.create_embedding(sentences, **kwargs))
+
+    supervisor = AsyncMock()
+    supervisor.get_model.return_value = SimpleNamespace(
+        uid=b"test-replica", create_embedding=create_embedding
+    )
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._router = APIRouter()
+    api._advanced_auth_service = None
+    api._auth_service = None
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._report_error_event = AsyncMock()
+    embeddings.register_routes(api)
+    app = FastAPI()
+    app.include_router(api._router)
+
+    payload = {"model": "test", "input": "text", "show_progress_bar": False}
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            invalid, valid, default = await asyncio.gather(
+                client.post(
+                    "/v1/embeddings", json=dict(payload, dimensions=dimensions)
+                ),
+                client.post("/v1/embeddings", json=dict(payload, dimensions=3)),
+                client.post("/v1/embeddings", json=payload),
+            )
+    finally:
+        if model._process_batch_task is not None:
+            model._process_batch_task.cancel()
+            await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert valid.status_code == 200
+    assert len(valid.json()["data"][0]["embedding"]) == 3
+    assert default.status_code == 200
+    assert len(default.json()["data"][0]["embedding"]) == 2
+    assert invalid.status_code == 400
+    assert "dimensions" in invalid.json()["detail"]
+    if dimensions == 4:
+        assert "at most 3" in invalid.json()["detail"]

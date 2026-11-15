@@ -202,3 +202,31 @@ async def test_embedding_model_with_xllamacpp():
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
+
+
+@pytest.mark.asyncio
+async def test_reports_native_deferred_work_with_single_embedding_call(monkeypatch):
+    model = XllamaCppEmbeddingModel("mock", "/unused", TEST_MODEL_SPEC)
+    model.enable_engine_load_reporting()
+    model._llm = MagicMock()
+    model._llm.handle_metrics.return_value = b"# no scheduler metrics"
+    assert await model.get_engine_load() is None
+    model._llm.handle_metrics.return_value = (
+        b"llamacpp:requests_processing 0\nllamacpp:requests_deferred 0\n"
+    )
+    assert await model.get_engine_load() == (0, 0.0, 0)
+    model._llm.handle_metrics.return_value = (
+        b"# TYPE llamacpp:requests_processing gauge\n"
+        b"llamacpp:requests_processing 1\n"
+        b"llamacpp:requests_deferred 7\n"
+    )
+    model._engine_active = True
+    monotonic = 200.0
+    monkeypatch.setattr(
+        "xinference.model.embedding.llama_cpp.core.time.monotonic", lambda: monotonic
+    )
+    assert await model.get_engine_load() == (7, 0.0, 1)
+    monotonic += 0.5
+    assert await model.get_engine_load() == (7, 0.5, 1)
+    model._engine_active = False
+    assert await model.get_engine_load() == (0, 0.0, 0)

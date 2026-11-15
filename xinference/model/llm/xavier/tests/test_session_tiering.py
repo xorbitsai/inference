@@ -72,6 +72,63 @@ def test_waiting_prefix_survives_pressure_but_does_not_pin_capacity(backend, end
     assert actor.put(namespace, keys[5:6], [page]) == [True]
 
 
+def _bind_with_stale_sessions(policy: SessionPrefixPolicy, end: str) -> list[str]:
+    now = [0.0]
+    policy.registry.clock = lambda: now[0]
+    keys = [f"{i:064x}" for i in range(4200)]
+    assert policy.bind(session("waiting", id="live"), keys[:1000])
+    now[0] = 10.0
+    for i in range(3):
+        assert policy.bind(
+            session(id=f"stale-{i}"), keys[1000 * (i + 1) : 1000 * (i + 2)]
+        )
+    assert policy.key_count == 4000
+    now[0] = 240.0
+    assert policy.registry.update(session("waiting", id="live"))
+    if end == "finished":
+        for i in range(3):
+            assert policy.registry.update(session("finished", 1, id=f"stale-{i}"))
+    now[0] = 320.0
+    # The live hint lasts until 540; older hints expired at 310 or finished.
+    # Bind before any storage operation gets a chance to prune the old hints.
+    assert policy.bind(session(id="new"), keys[4000:])
+    return keys
+
+
+@pytest.mark.parametrize("end", ["expired", "finished"])
+def test_stale_bindings_are_pruned_before_session_key_limit(end):
+    policy = SessionPrefixPolicy()
+    keys = _bind_with_stale_sessions(policy, end)
+    assert policy.key_count == 1200
+    assert set(policy.prefixes) == {"live", "new"}
+    assert policy.waiting_keys() == list(reversed(keys[:1000]))
+
+
+@pytest.mark.parametrize("backend", ["bytes", "torch"])
+@pytest.mark.parametrize("end", ["expired", "finished"])
+def test_stale_binding_page_is_evicted_before_live_waiting_page(backend, end):
+    c = contract()
+    page_bytes = c.num_layers * c.layer_nbytes
+    live, stale, new = [f"{i:064x}" for i in (0, 1000, 4000)]
+    if backend == "bytes":
+        actor = XavierBytesCacheActor(2 * page_bytes)
+        namespace = actor.configure(c.to_dict())["namespace"]
+        page = bytes(page_bytes)
+    else:
+        actor = XavierCacheActor(2 * page_bytes)
+        namespace = actor.configure(c.to_dict(), {"layout": "layer_first"})
+        page = torch.zeros(page_bytes, dtype=torch.uint8)
+    # Make the live page the oldest, so only its waiting hint saves it.
+    assert actor.put(namespace, [live], [page]) == [True]
+    assert actor.put(namespace, [stale], [page]) == [True]
+    _bind_with_stale_sessions(actor._sessions, end)
+    assert actor.put(namespace, [new], [page]) == [True]
+    assert actor.exists(namespace, [live]) == 1
+    assert actor.exists(namespace, [stale]) == 0
+    assert actor.exists(namespace, [new]) == 1
+    assert actor.get_stats()["evicted_pages"] == 1
+
+
 def test_session_bindings_are_bounded_and_ignore_reordered_hints():
     policy = SessionPrefixPolicy()
     keys = [f"{i:064x}" for i in range(4096)]

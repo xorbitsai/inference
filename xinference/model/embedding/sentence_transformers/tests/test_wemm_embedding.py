@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
+import asyncio
 import sys
 import types
 from types import SimpleNamespace
@@ -19,6 +22,8 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
+from .....core.exceptions import InvalidModelRequestError
+from ....batch import BatchMixin
 from .. import core as core_module
 from ..core import SentenceTransformerEmbeddingModel
 
@@ -34,6 +39,7 @@ def _make_model(monkeypatch):
     model._model_name = "WeMM-Embedding-2B"
     model._model_uid = "wemm"
     model._embedder = None
+    model._native_embedding_dimensions = 2048
     model._kwargs = {}
     model._model = MagicMock()
     model._model.__getitem__.return_value.auto_model.config = SimpleNamespace(
@@ -72,3 +78,24 @@ def test_wemm_sentence_transformers_preserves_batch_cardinality(monkeypatch):
     model = _make_model(monkeypatch)
     result = model._create_embedding(["text", {"image": "x.jpg"}, {"video": "x.mp4"}])
     assert len(result["data"]) == 3
+
+
+async def test_unsupported_wemm_dimensions_do_not_fail_concurrent_requests(monkeypatch):
+    model = _make_model(monkeypatch)
+    BatchMixin.__init__(
+        model, model.create_embedding, batch_size=8, batch_interval=0.01
+    )
+    try:
+        invalid, valid = await asyncio.gather(
+            model.create_embedding("first", dimensions=96),
+            model.create_embedding("second", dimensions=128),
+            return_exceptions=True,
+        )
+    finally:
+        if model._process_batch_task is not None:
+            model._process_batch_task.cancel()
+            await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+    assert isinstance(invalid, InvalidModelRequestError)
+    assert "WeMM-Embedding dimensions" in invalid.client_message
+    assert len(valid["data"][0]["embedding"]) == 128

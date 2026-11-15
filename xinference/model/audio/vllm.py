@@ -17,18 +17,27 @@ from __future__ import annotations
 
 import asyncio
 import io
+import platform
 import re
+import time
 from collections import deque
 from contextlib import aclosing, suppress
 from types import SimpleNamespace
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional
 
 import numpy as np
 
-from ...core.exceptions import InvalidAudioInputError
+from ...core.exceptions import InvalidAudioInputError, InvalidModelRequestError
 from ...core.realtime.protocol import RealtimeError
+from ...core.replica_load import EngineLoad
 from ..realtime import RealtimeSession
+from ..utils import has_cuda_device
+from ..vllm_load import VLLMSchedulerLoad
+from .engine_family import AudioEngineModel
 from .native_async import NativeAsyncAudioModel, settle_request
+
+if TYPE_CHECKING:
+    from .core import AudioModelFamilyV2
 
 PCM_FORMAT = {"encoding": "pcm_s16le", "sample_rate": 16000, "channels": 1}
 # Qwen3-ASR's language contract differs from Whisper's language table.
@@ -162,6 +171,9 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
             )
         self._options = defaults
         super().__init__(*args, **kwargs)
+        self._scheduler_load: Optional[Dict[int, VLLMSchedulerLoad]] = None
+        self._waiting_decodes: Dict[object, float] = {}
+        self._first_native_request_at = 0.0
         self.realtime_max_sessions = self._kwargs.setdefault("max_num_seqs", 16)
         if (
             type(self.realtime_max_sessions) is not int
@@ -179,9 +191,55 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
 
         self._vad_factory = lambda: load_silero_vad(onnx=True)
         self._asr_class = Qwen3ASRForConditionalGeneration
+        options = {}
+        if self._scheduler_load is not None:
+            options["stat_loggers"] = [self._scheduler_load_logger]
         self._engine = AsyncLLM.from_engine_args(
-            AsyncEngineArgs(model=self._model_path, **self._kwargs)
+            AsyncEngineArgs(model=self._model_path, **self._kwargs), **options
         )
+
+    def enable_engine_load_reporting(self):
+        self._scheduler_load = {}
+        self._kwargs["disable_log_stats"] = False
+
+    def _scheduler_load_logger(self, vllm_config, engine_index: int = 0):
+        assert self._scheduler_load is not None
+        load = VLLMSchedulerLoad()
+        self._scheduler_load[engine_index] = load
+        return load
+
+    def get_engine_load(self) -> Optional[EngineLoad]:
+        if (
+            not self._scheduler_load
+            or self._engine is None
+            or self._stopping
+            or self._engine.errored
+        ):
+            return None
+        local_waiting = len(self._waiting_decodes)
+        now = time.monotonic()
+        local_age = now - min(self._waiting_decodes.values()) if local_waiting else 0.0
+        if not self._requests:
+            return EngineLoad(local_waiting, local_age)
+        # Ignore samples from the previous wave of requests. Retain ownership
+        # while the new jobs are being submitted or their abort is settling.
+        samples = [
+            load
+            for load in self._scheduler_load.values()
+            if load.updated_at >= self._first_native_request_at
+        ]
+        waiting = min(len(self._requests), sum(load.waiting for load in samples))
+        age = max(load.backlog_age(now) for load in samples) if waiting else 0.0
+        return EngineLoad(
+            local_waiting + waiting, max(local_age, age), len(self._requests) - waiting
+        )
+
+    async def _generate(self, prompt, **kwargs):
+        if not self._requests:
+            self._first_native_request_at = time.monotonic()
+        async with aclosing(super()._generate(prompt, **kwargs)) as outputs:
+            async for output in outputs:
+                yield output
 
     def get_realtime_capabilities(self):
         if self._engine is None or self._stopping:
@@ -259,11 +317,11 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
         **kwargs,
     ):
         if timestamp_granularities is not None or kwargs:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "Realtime vLLM ASR does not support timestamp or extra options"
             )
         if response_format not in {"json", "verbose_json"}:
-            raise ValueError(
+            raise InvalidModelRequestError(
                 "Supported transcription formats are json and verbose_json"
             )
 
@@ -313,6 +371,14 @@ class VLLMQwen3ASRModel(NativeAsyncAudioModel):
         return result
 
 
+class _DecodeJob(NamedTuple):
+    audio: np.ndarray
+    start: int
+    end: int
+    final: bool
+    load_key: Optional[object] = None
+
+
 class VLLMASRSession(RealtimeSession):
     def __init__(self, owner, config, runtime):
         super().__init__(runtime.limits.output_queue_size)
@@ -351,7 +417,8 @@ class VLLMASRSession(RealtimeSession):
         ) = 0
         self._partial = ""
         self._sentences: list = []
-        self._jobs: asyncio.Queue = asyncio.Queue(maxsize=2)
+        self._jobs: asyncio.Queue[Optional[_DecodeJob]] = asyncio.Queue(maxsize=2)
+        self._waiting_jobs: set[object] = set()
         self._worker = None
         self._ended = False
 
@@ -386,7 +453,10 @@ class VLLMASRSession(RealtimeSession):
             job = await self._jobs.get()
             if job is None:
                 return
-            audio, start, end, final = job
+            audio, start, end, final, key = job
+            if key is not None:
+                self.owner._waiting_decodes.pop(key, None)
+                self._waiting_jobs.discard(key)
             text = await self.owner.transcribe_audio(audio, self.language, self.prompt)
             if self._closed:
                 return
@@ -409,7 +479,12 @@ class VLLMASRSession(RealtimeSession):
                 self._worker.result()
             return
         audio = np.concatenate(self._frames)
-        job = (audio, self._start, self._total, final)
+        key = None
+        if self.owner._scheduler_load is not None:
+            key = object()
+            self._waiting_jobs.add(key)
+            self.owner._waiting_decodes[key] = time.monotonic()
+        job = _DecodeJob(audio, self._start, self._total, final, key)
         put = asyncio.create_task(self._jobs.put(job))
         try:
             done, _ = await asyncio.wait(
@@ -424,6 +499,9 @@ class VLLMASRSession(RealtimeSession):
                 put.cancel()
                 with suppress(asyncio.CancelledError):
                     await settle_request(put)
+            if key is not None and put.cancelled():
+                self.owner._waiting_decodes.pop(key, None)
+                self._waiting_jobs.discard(key)
 
     async def _frame(self, frame, valid_samples=None):
         import torch
@@ -522,6 +600,29 @@ class VLLMASRSession(RealtimeSession):
                 await settle_request(self._worker)
             except (Exception, asyncio.CancelledError):
                 pass
+        for key in self._waiting_jobs:
+            self.owner._waiting_decodes.pop(key, None)
+        self._waiting_jobs.clear()
         self._pending.clear()
         self._frames.clear()
         self._padding.clear()
+
+
+class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
+    required_libs = ("vllm", "silero_vad", "onnxruntime")
+    replica_autoscaling = "native"
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        if platform.system() != "Linux":
+            return False
+        if not has_cuda_device():
+            return False
+        return cls.is_model_family_supported(model_family)
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_family == "qwen3_asr"
+            and model_family.model_format == "pytorch"
+        )

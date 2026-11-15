@@ -99,60 +99,13 @@ msgid ""
 "is not specified (default is -1)."
 msgstr "自 v1.6.1 起，當未指定 n-gpu-layers（預設為 -1）時，將自動啟用 GPU 層數估算功能。"
 
-#: ../../source/user_guide/backends.rst:53
-msgid ""
-"This feature automatically detects the number of GPU layers (NGL) for the"
-" llama.cpp backend. Please be aware that this is not an accurate "
-"calculation. Therefore, the ``-ngl`` result might not be the most "
-"optimized, and there is still a chance of encountering an out-of-memory "
-"error."
-msgstr ""
-"此功能可為 llama.cpp 後端自動設定 GPU 層數（NGL）。請注意，這並非精確計算，因此 ``-ngl``"
-" 結果可能非最佳，且仍可能遇到視訊記憶體不足的錯誤。"
-
-#: ../../source/user_guide/backends.rst:57
-msgid ""
-"Currently, there is no official implementation for auto ngl. Please refer"
-" to the following issues for more information:"
-msgstr "目前自動 NGL 沒有官方支援。請參考下面 issue 來了解更多詳細資訊："
-
-#: ../../source/user_guide/backends.rst:59
-msgid "https://github.com/ggml-org/llama.cpp/issues/13860"
-msgstr "https://github.com/ggml-org/llama.cpp/issues/13860"
-
-#: ../../source/user_guide/backends.rst:60
-msgid "https://github.com/ggml-org/llama.cpp/pull/6502"
-msgstr "https://github.com/ggml-org/llama.cpp/pull/6502"
-
 #: ../../source/user_guide/backends.rst:62
-msgid ""
-"Our implementation is based on the Ollama auto ngl, but there are some "
-"differences:"
-msgstr "我們的實作是基於 Ollama 的自動 NGL，但有一些不同之處："
+msgid "With ``xllamacpp`` v2026.11.12361 and later, Xinference uses native llama.cpp GPU memory fitting. Leave ``n_gpu_layers=-1``, ``fit_params=True`` and ``tensor_split`` at its default to enable automatic placement and startup retries after recoverable GPU allocation failures. Explicit layer counts and fitting settings are preserved. Use ``n_gpu_layers=0`` for CPU inference."
+msgstr "使用 ``xllamacpp`` v2026.11.12361 及更新版本時，Xinference 會使用 llama.cpp 原生 GPU 記憶體適配功能。保留 ``n_gpu_layers=-1``、``fit_params=True`` 和預設的 ``tensor_split``，即可啟用自動配置，並在可恢復的 GPU 記憶體配置失敗後重試啟動。明確指定的層數和適配設定會被保留。使用 ``n_gpu_layers=0`` 可在 CPU 上推論。"
 
 #: ../../source/user_guide/backends.rst:64
-msgid ""
-"We utilize device information detected by `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_."
-msgstr "我們使用 `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 提供的設備資訊。"
-
-#: ../../source/user_guide/backends.rst:65
-msgid ""
-"We have removed support for less popular architectures, these "
-"architectures will use the default calculation."
-msgstr "我們移除了某些不常見的架構支援，這些架構會使用預設的運算邏輯。"
-
-#: ../../source/user_guide/backends.rst:66
-msgid ""
-"We fall back to offloading all the layers to the GPU if the auto ngl "
-"fails."
-msgstr "如果自動 NGL 失敗，我們會嘗試全部載入到 GPU。"
-
-#: ../../source/user_guide/backends.rst:67
-msgid ""
-"We do not support multimodal projectors embedded into the model GGUF, as "
-"this is a very experimental feature."
-msgstr "我們不支援多模態投影器內嵌到模型的 GGUF，這種格式的模型目前仍處於實驗階段。"
+msgid "Legacy ``xllamacpp`` versions continue to use the Python GPU layer estimator, based on Ollama. If estimation fails, Xinference attempts to offload all layers to the GPU. Memory estimates can still result in out-of-memory errors."
+msgstr "舊版 ``xllamacpp`` 繼續使用基於 Ollama 的 Python GPU 層數估算器。如果估算失敗，Xinference 會嘗試將所有層卸載到 GPU。記憶體估算仍可能導致記憶體不足錯誤。"
 
 #: ../../source/user_guide/backends.rst:71
 msgid "Common Issues"

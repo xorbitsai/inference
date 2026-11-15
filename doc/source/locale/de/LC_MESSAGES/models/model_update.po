@@ -35,12 +35,8 @@ msgstr ""
 "schnellen Aktualisieren eines bestimmten Modelltyps dient."
 
 #: ../../source/models/model_update.rst:10
-msgid ""
-"Model update rely on the online model list service provided by "
-":ref:`xinference_models_hub` ."
-msgstr ""
-"Modellaktualisierungen basieren auf dem Onlinemodelllistendienst, der von "
-":ref:`xinference_models_hub` bereitgestellt wird."
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference liest Modelldefinitionen direkt aus dem `öffentlichen GitHub-Repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Mit **Update** aktualisieren Sie eine Kategorie und mit **Update one model** ein einzelnes Modell. Diese Aktionen aktualisieren die Modelldefinitionen. Modellgewichte werden bei Bedarf aus der jeweils angegebenen Quelle geladen."
 
 #: ../../source/models/model_update.rst:17
 msgid "Update Models"

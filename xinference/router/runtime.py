@@ -157,6 +157,7 @@ class RouterRuntime:
             await replacement.tokenization.start()
             async with self._lock:
                 old = self._current
+                self._share_gates(old, replacement)
                 old.draining = True
                 self._current = replacement
                 replacement_owned = False
@@ -174,6 +175,35 @@ class RouterRuntime:
         task.add_done_callback(self._drain_tasks.discard)
         if old.active_requests == 0:
             await asyncio.shield(task)
+
+    @staticmethod
+    def _share_gates(old: RuntimeSnapshot, new: RuntimeSnapshot) -> None:
+        """Keep an unchanged backend's gate so in-flight requests of the draining
+        snapshot still count against its capacity after a reload."""
+        if not new.gates:
+            return
+        old_models = {b.id: b.model_uid for b in old.config.backends}
+        new_models = {b.id: b.model_uid for b in new.config.backends}
+        for backend_id, gate in new.gates.items():
+            previous = old.gates.get(backend_id)
+            if (
+                previous is not None
+                and old.config.backend_url == new.config.backend_url
+                and old_models[backend_id] == new_models[backend_id]
+                and (
+                    previous.max_active,
+                    previous.max_queue,
+                    previous.queue_timeout_seconds,
+                    previous.retry_after_seconds,
+                )
+                == (
+                    gate.max_active,
+                    gate.max_queue,
+                    gate.queue_timeout_seconds,
+                    gate.retry_after_seconds,
+                )
+            ):
+                new.gates[backend_id] = previous
 
     async def _drain(self, snapshot: RuntimeSnapshot) -> None:
         while snapshot.active_requests:

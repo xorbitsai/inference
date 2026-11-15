@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import collections.abc
 import logging
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .docanalyze.mineru25 import Mineru2_5Model
-from .engine_family import ImageEngineModel
-from .ocr.ocr_family import OCRModel
+
+if TYPE_CHECKING:
+    from .docanalyze.mineru25 import Mineru2_5Model
+    from .engine_family import ImageEngineModel
+    from .ocr.ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +299,7 @@ def create_document_parse_model_instance(
     **kwargs,
 ) -> Mineru2_5Model:
     from .cache_manager import ImageCacheManager
+    from .docanalyze.mineru25 import Mineru2_5Model
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)

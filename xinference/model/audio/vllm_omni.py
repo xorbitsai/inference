@@ -14,15 +14,33 @@ import asyncio
 import copy
 import io
 import json
+import platform
+import time
 from contextlib import aclosing
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from ...core.exceptions import InvalidModelRequestError
+from ...core.replica_load import EngineLoad
+from ..utils import has_cuda_device
+from .engine_family import AudioEngineModel
 from .native_async import NativeAsyncAudioModel
+
+if TYPE_CHECKING:
+    from .core import AudioModelFamilyV2
 
 
 class VLLMOmniTTSModel(NativeAsyncAudioModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._report_load = False
+        self._backlog_since: Optional[float] = None
+
+    def enable_engine_load_reporting(self):
+        self._report_load = True
+
     async def _load(self):
         from transformers import AutoTokenizer
         from vllm_omni import AsyncOmni
@@ -38,6 +56,9 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
             raise ValueError("Streaming Qwen3-TTS requires async_chunk=True")
         options.setdefault("async_chunk", True)
         options.setdefault("max_num_seqs", 16)
+        if self._report_load:
+            options["log_stats"] = True
+            options["collect_stage_metrics"] = True
         self._tokenizer = AutoTokenizer.from_pretrained(self._model_path)
         self._config = Qwen3TTSConfig.from_pretrained(self._model_path).talker_config
         codec = json.loads(
@@ -50,6 +71,47 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
             Qwen3TTSPromptEmbedsBuilder.estimate_prompt_len_from_additional_information
         )
         self._engine = AsyncOmni(model=self._model_path, **options)
+
+    async def get_engine_load(self) -> Optional[EngineLoad]:
+        if not self._report_load or self._engine is None or self._stopping:
+            return None
+        runner = self._engine
+        await runner.check_health()
+        if self._engine is not runner or self._stopping:
+            return None
+        engine = runner.engine
+        # AsyncOmni's per-instance counters include stage scheduler waiting.
+        # Its dispatched counter also includes jobs waiting inside a stage.
+        dispatched = engine._running_counter.value
+        stage_waiting = engine._engines_waiting_counter.value
+        if (
+            type(dispatched) is not int
+            or type(stage_waiting) is not int
+            or dispatched < 0
+            or stage_waiting < 0
+        ):
+            return None
+        unfinished = len(self._requests)
+        # Include submissions still waiting for the orchestrator, including
+        # when the engine is below ModelActor's request limit.
+        in_stage = min(unfinished, dispatched)
+        waiting = unfinished - in_stage + min(stage_waiting, in_stage)
+        if not waiting:
+            self._backlog_since = None
+            return EngineLoad(running=max(unfinished, dispatched))
+        now = time.monotonic()
+        if self._backlog_since is None:
+            self._backlog_since = now
+        return EngineLoad(
+            waiting, now - self._backlog_since, max(unfinished, dispatched) - waiting
+        )
+
+    async def _generate(self, prompt, **kwargs):
+        if not self._requests:
+            self._backlog_since = None
+        async with aclosing(super()._generate(prompt, **kwargs)) as outputs:
+            async for output in outputs:
+                yield output
 
     def get_speech_capabilities(self):
         if self._engine is None or self._stopping:
@@ -71,16 +133,16 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         if (voice is not None and not isinstance(voice, str)) or (
             language is not None and not isinstance(language, str)
         ):
-            raise ValueError("voice and language must be strings")
+            raise InvalidModelRequestError("voice and language must be strings")
         speaker = voice or "ryan"
         speakers = self._config.spk_id
         if speaker.lower() not in {name.lower() for name in speakers}:
-            raise ValueError(f"Unknown speaker: {speaker}")
+            raise InvalidModelRequestError(f"Unknown speaker: {speaker}")
         language = language or "English"
         if language.lower() != "auto" and language.lower() not in {
             name.lower() for name in self._config.codec_language_id
         }:
-            raise ValueError(f"Unsupported language: {language}")
+            raise InvalidModelRequestError(f"Unsupported language: {language}")
         info = {
             "task_type": ["CustomVoice"],
             "text": [text],
@@ -111,25 +173,35 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
         **kwargs,
     ):
         if not isinstance(input, str) or not input.strip() or len(input) > 5000:
-            raise ValueError("Speech input must contain 1..5000 characters")
+            raise InvalidModelRequestError(
+                "Speech input must contain 1..5000 characters"
+            )
         if speed != 1.0:
-            raise ValueError("Native Qwen3-TTS currently requires speed=1")
+            raise InvalidModelRequestError(
+                "Native Qwen3-TTS currently requires speed=1"
+            )
         if response_format not in {"pcm", "wav", "mp3", "flac", "ogg"}:
-            raise ValueError("Unsupported speech format")
+            raise InvalidModelRequestError("Unsupported speech format")
         if stream and response_format != "pcm":
-            raise ValueError("Streamed Qwen3-TTS requires response_format=pcm")
+            raise InvalidModelRequestError(
+                "Streamed Qwen3-TTS requires response_format=pcm"
+            )
         language = kwargs.pop("language", None)
         instruct = kwargs.pop("instruct", "")
         seed = kwargs.pop("seed", None)
         if seed is not None and (type(seed) is not int or not 0 <= seed < 2**32):
-            raise ValueError("seed must be an integer in [0, 2**32)")
+            raise InvalidModelRequestError("seed must be an integer in [0, 2**32)")
         max_tokens = kwargs.pop("max_new_tokens", 2048)
         if kwargs:
-            raise ValueError(f"Unsupported speech options: {sorted(kwargs)}")
+            raise InvalidModelRequestError(
+                f"Unsupported speech options: {sorted(kwargs)}"
+            )
         if not isinstance(instruct, str) or len(instruct) > 500:
-            raise ValueError("instruct must be a string of at most 500 characters")
+            raise InvalidModelRequestError(
+                "instruct must be a string of at most 500 characters"
+            )
         if type(max_tokens) is not int or not 1 <= max_tokens <= 4096:
-            raise ValueError("max_new_tokens must be 1..4096")
+            raise InvalidModelRequestError("max_new_tokens must be 1..4096")
         prompt = await asyncio.to_thread(
             self._prompt, input, voice, language, instruct, max_tokens
         )
@@ -223,3 +295,25 @@ class VLLMOmniTTSModel(NativeAsyncAudioModel):
                         yield (np.clip(chunk, -1, 1) * 32767).astype("<i2").tobytes()
         if not any_audio:
             raise RuntimeError("Qwen3-TTS returned no audio")
+
+
+class VLLMQwen3TTSAudioModel(VLLMOmniTTSModel, AudioEngineModel):
+    required_libs = ("vllm", "vllm_omni")
+    replica_autoscaling = "native"
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            platform.system() == "Linux"
+            and has_cuda_device()
+            and cls.is_model_family_supported(model_family)
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_family == "qwen3_tts"
+            and model_family.model_format == "pytorch"
+            and model_family.model_name
+            in {"Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen3-TTS-12Hz-1.7B-CustomVoice"}
+        )

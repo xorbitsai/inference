@@ -20,7 +20,7 @@ import sys
 import warnings
 from typing import Dict, List
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
@@ -36,7 +36,6 @@ from .custom import (
     register_audio,
     unregister_audio,
 )
-from .engine import register_builtin_audio_engines
 from .engine_family import AUDIO_ENGINES, generate_engine_config_by_model_name
 
 BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV2"]] = {}
@@ -108,6 +107,7 @@ def _normalize_legacy_audio_model(
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_audio_engines
 
     # Startup and tests may call the installer more than once in one process.
     # Rebuild these derived registries so model sources and engine variants do
@@ -181,14 +181,8 @@ def load_downloaded_models():
 
 
 def load_model_family_from_json(json_filename, target_families):
-    # Handle both relative (module directory) and absolute paths
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(os.path.dirname(__file__), json_filename)
-
     flattened_model_specs = []
-    for spec in load_model_catalog(json_path):
+    for spec in read_model_records(json_filename, __file__):
         flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:
@@ -205,5 +199,3 @@ def load_model_family_from_json(json_filename, target_families):
                 target_families[spec["model_name"]] = [AudioModelFamilyV2(**spec)]
             else:
                 target_families[spec["model_name"]].append(AudioModelFamilyV2(**spec))
-
-    del json_path

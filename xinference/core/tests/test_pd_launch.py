@@ -1050,7 +1050,9 @@ async def test_gpu_pool_options_reach_actual_subpool(monkeypatch):
     )
     assert address == "nixl://10.0.0.1:2345"
     append.assert_awaited_once_with(
-        env=env, start_python=None, external_address="nixl://10.0.0.1:0"
+        env={**env, "XINFERENCE_MODEL_UID": "pd"},
+        start_python=None,
+        external_address="nixl://10.0.0.1:0",
     )
     assert env["UCX_MEMTYPE_CACHE"] == "n"
     worker._ensure_subpool_monitor.assert_awaited_once_with()

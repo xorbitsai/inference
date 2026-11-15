@@ -1,0 +1,19 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../source/development/xinference_internals.rst:293
+msgid "Both catalog refresh endpoints require the ``models:register`` permission. The Supervisor reads the public GitHub catalog at one commit and sends the same definitions to each Worker. Workers validate the definitions before replacing their local catalogs. A failed local reload restores the previous catalog. If some Workers succeed and others fail, retry the refresh after resolving the failure."
+msgstr "どちらのカタログ更新エンドポイントにも ``models:register`` 権限が必要です。Supervisor は公開 GitHub カタログを一つのコミットから取得し、同じ定義を各 Worker に送信します。Worker は定義を検証してからローカルカタログを置き換えます。ローカルでの再読み込みに失敗すると前のカタログが復元されます。一部の Worker が失敗した場合は、原因を解消して更新を再試行してください。"
+
+#: ../../source/development/xinference_internals.rst:295
+msgid "Send ``POST /v1/models/update_type`` with ``model_type`` to replace a category or ``POST /v1/models/update_spec`` with ``model_type`` and ``model_name`` to update a model. A World model variant refreshes the family that defines it. Single-model updates replace only the requested model or family. A category refresh replaces the packaged and legacy downloaded definitions for that category."
+msgstr "カテゴリを置き換えるには ``model_type`` を指定して ``POST /v1/models/update_type`` を呼び出します。モデルを更新するには ``model_type`` と ``model_name`` を指定して ``POST /v1/models/update_spec`` を呼び出します。World モデルのバリアントを指定すると、そのモデルファミリーが更新されます。単一モデルの更新は指定されたモデルまたはファミリーだけを置き換えます。カテゴリの更新では、そのカテゴリに同梱された定義と以前に取得した定義が置き換わります。"
+
+#: ../../source/development/xinference_internals.rst:297
+msgid "Malformed request bodies return HTTP 400. GitHub download or Worker refresh failures return HTTP 502. No available Workers or an unreachable Supervisor return HTTP 503. Upgrade the API, Supervisor, and all Workers together before refreshing. The retired ``model_catalog_credentials`` extension hook is no longer called."
+msgstr "不正なリクエストは HTTP 400 を返します。GitHub からの取得や Worker の更新に失敗した場合は HTTP 502 を返します。利用可能な Worker が存在しない場合や Supervisor に接続できない場合は HTTP 503 を返します。API、Supervisor、すべての Worker をまとめてアップグレードしてください。廃止された拡張フック ``model_catalog_credentials`` は呼び出されません。"

@@ -5,7 +5,7 @@ import { RadioGroup } from '@/components/ui/radio-group';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { ModelType, XINFERENCE_IO, CUSTOM_MODEL_OPTIONS } from '@/constants';
+import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import { ALL_FORM_KEYS, LAUNCH_MODEL_ROUTE_TABS } from '@/constants/launch';
 import type { FormInstance, FormValues } from '@/types/form';
 import { transformFormListToObj, transformObjToFormList, transformValueType } from '@/lib/utils';
@@ -229,7 +229,6 @@ export function normalizeModels(response: unknown): CatalogModel[] {
       model_description: model?.model_description || '',
       abilities: toStringArray(model.model_ability),
       languages: toStringArray(model.model_lang ?? model.language),
-      detailUrl: `${XINFERENCE_IO}/models/detail/${encodeURIComponent(model.model_name)}`,
       modelSpecs,
       featured: model.featured === true,
       cached: modelSpecs.some((spec) => isCachedSpec(spec)),

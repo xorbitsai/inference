@@ -58,21 +58,9 @@ Auto NGL
 .. versionadded:: v1.6.1
     Auto GPU layers estimation is enabled since v1.6.1 when ``n-gpu-layers`` is not specified (default is -1).
 
-This feature automatically detects the number of GPU layers (NGL) for the llama.cpp backend. Please be aware that this
-is not an accurate calculation. Therefore, the ``-ngl`` result might not be the most optimized, and there is still a
-chance of encountering an out-of-memory error.
+With ``xllamacpp`` v2026.11.12361 and later, Xinference uses native llama.cpp GPU memory fitting. Leave ``n_gpu_layers=-1``, ``fit_params=True`` and ``tensor_split`` at its default to enable automatic placement and startup retries after recoverable GPU allocation failures. Explicit layer counts and fitting settings are preserved. Use ``n_gpu_layers=0`` for CPU inference.
 
-Currently, there is no official implementation for auto ngl. Please refer to the following issues for more information:
-
-- https://github.com/ggml-org/llama.cpp/issues/13860
-- https://github.com/ggml-org/llama.cpp/pull/6502
-
-Our implementation is based on the Ollama auto ngl, but there are some differences:
-
-- We utilize device information detected by `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_.
-- We have removed support for less popular architectures, these architectures will use the default calculation.
-- We fall back to offloading all the layers to the GPU if the auto ngl fails.
-- We do not support multimodal projectors embedded into the model GGUF, as this is a very experimental feature.
+Legacy ``xllamacpp`` versions continue to use the Python GPU layer estimator, based on Ollama. If estimation fails, Xinference attempts to offload all layers to the GPU. Memory estimates can still result in out-of-memory errors.
 
 
 Common Issues

@@ -24,7 +24,8 @@ from fastapi import HTTPException
 from PIL import Image
 from starlette.datastructures import UploadFile
 
-from ...core.exceptions import InvalidModelRequestError
+from ...core.exceptions import InvalidModelRequestError, ModelNotReadyError
+from ...core.supervisor import SupervisorActor
 from ..restful_api import RESTfulAPI
 
 
@@ -45,22 +46,38 @@ def _upload_image():
         "Ming-Image-0.1-Design-Layer",
     ],
 )
-def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
-    model_ref = SimpleNamespace(image_to_image=AsyncMock(return_value=b'{"data": []}'))
-    supervisor = SimpleNamespace(
-        describe_model=AsyncMock(return_value={"model_name": model_name})
+def test_image_edits_alpha_depends_on_model_name(model_name):
+    model_ref = SimpleNamespace(
+        uid=b"custom-model-uid-rep1",
+        image_to_image=AsyncMock(return_value=b'{"data": []}'),
     )
+    recovering = SimpleNamespace(
+        describe_model=AsyncMock(
+            side_effect=ModelNotReadyError("replica 0 is recovering")
+        )
+    )
+    healthy = SimpleNamespace(
+        get_model=AsyncMock(return_value=model_ref),
+        describe_model=AsyncMock(return_value={"model_name": model_name}),
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    info = supervisor._build_replica_info(2)
+    supervisor._model_uid_to_replica_info = {"custom-model-uid": info}
+    supervisor._replica_model_uid_to_worker = {
+        "custom-model-uid-rep0": recovering,
+        "custom-model-uid-rep1": healthy,
+    }
+    assert next(info.scheduler) == 0
     api = SimpleNamespace(
         _get_supervisor_ref=AsyncMock(return_value=supervisor),
         _report_error_event=AsyncMock(),
+        _get_model_last_error=AsyncMock(side_effect=lambda uid, error: error),
+        handle_request_limit_error=Mock(),
         _set_trace_model=Mock(),
         _set_trace_model_type=Mock(),
         _check_model_access=Mock(),
         _add_running_task=Mock(),
-    )
-    monkeypatch.setattr(
-        "xinference.api.restful_api.require_model",
-        AsyncMock(return_value=model_ref),
     )
     response = asyncio.run(
         RESTfulAPI.create_image_edits(
@@ -79,7 +96,9 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
         )
     )
     assert response.status_code == 200
-    supervisor.describe_model.assert_awaited_once_with("custom-model-uid")
+    healthy.get_model.assert_awaited_once_with(model_uid="custom-model-uid-rep1")
+    healthy.describe_model.assert_awaited_once_with(model_uid="custom-model-uid-rep1")
+    recovering.describe_model.assert_not_awaited()
     kwargs = model_ref.image_to_image.call_args.kwargs
     if model_name == "Qwen-Image-Edit-2511":
         assert kwargs["use_lightning"] is False
@@ -131,7 +150,9 @@ async def test_invalid_lightning_request_returns_http_400(
     )
     monkeypatch.setattr(
         "xinference.api.restful_api.require_model",
-        AsyncMock(return_value=SimpleNamespace(**{method: generate})),
+        AsyncMock(
+            return_value=SimpleNamespace(uid=b"image-model-rep0", **{method: generate})
+        ),
     )
     model, prompt = "image-model", "test"
     kwargs = '{"use_lightning": true}'
@@ -177,6 +198,7 @@ async def test_invalid_lightning_request_returns_http_400(
 
 def _run_image_edits_with_extra_options(monkeypatch, with_mask, extra_options):
     model_ref = SimpleNamespace(
+        uid=b"custom-model-uid-rep0",
         image_to_image=AsyncMock(return_value=b'{"data": []}'),
         inpainting=AsyncMock(return_value=b'{"data": []}'),
     )

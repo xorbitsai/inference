@@ -15,7 +15,7 @@
 import os
 import warnings
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
@@ -26,7 +26,6 @@ from .core import (
     generate_video_description,
     get_video_model_descriptions,
 )
-from .engine import register_builtin_video_engines
 from .engine_family import VIDEO_ENGINES, generate_engine_config_by_model_name
 
 
@@ -63,6 +62,7 @@ def register_builtin_model():
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_video_engines
 
     # Build a complete replacement away from the live registries. A reload can
     # overlap model discovery/launch, and readers must never observe an empty or
@@ -141,14 +141,8 @@ def load_downloaded_models():
 
 
 def load_model_family_from_json(json_filename, target_families):
-    # Handle both relative (module directory) and absolute paths
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(os.path.dirname(__file__), json_filename)
-
     flattened_model_specs = []
-    for spec in load_model_catalog(json_path):
+    for spec in read_model_records(json_filename, __file__):
         flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:
@@ -156,5 +150,3 @@ def load_model_family_from_json(json_filename, target_families):
             target_families[spec["model_name"]] = [VideoModelFamilyV2(**spec)]
         else:
             target_families[spec["model_name"]].append(VideoModelFamilyV2(**spec))
-
-    del json_path

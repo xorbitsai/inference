@@ -18,15 +18,10 @@ import os
 import warnings
 from typing import Any, Dict, List, Optional
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ...constants import XINFERENCE_MODEL_DIR
 from ...engine_hooks import MODEL_TYPE_RERANK, _run_engine_registration_hooks
-from ..utils import (
-    extend_classes_once,
-    family_identity_key,
-    flatten_quantizations,
-    prune_stale_derived_registries,
-)
+from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -145,13 +140,7 @@ def load_downloaded_models():
 
 
 def load_model_family_from_json(json_filename, target_families):
-    # Handle both relative (module directory) and absolute paths
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(os.path.dirname(__file__), json_filename)
-
-    for json_obj in load_model_catalog(json_path):
+    for json_obj in read_model_records(json_filename, __file__):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
@@ -165,8 +154,6 @@ def load_model_family_from_json(json_filename, target_families):
             key = family_identity_key(model_spec)
             if not any(family_identity_key(existing) == key for existing in bucket):
                 bucket.append(model_spec)
-
-    del json_path
 
 
 def _install():
@@ -182,7 +169,8 @@ def _install():
         load_model_family_from_json,
     )
 
-    for model_name, model_spec_list in BUILTIN_RERANK_MODELS.items():
+    RERANK_MODEL_DESCRIPTIONS.clear()
+    for model_spec_list in BUILTIN_RERANK_MODELS.values():
         # model_spec_list is a list of RerankModelFamilyV2 objects
         model_spec = model_spec_list[0]  # Take the first model family
         if model_spec.model_name not in RERANK_MODEL_DESCRIPTIONS:
@@ -218,10 +206,3 @@ def _install():
 
     RERANK_ENGINES.clear()
     RERANK_ENGINES.update(new_rerank_engines)
-
-    # A model present on a prior refresh but absent from this one must not keep
-    # advertising a launch config or description from the stale entry.
-    live_names = {name for name in BUILTIN_RERANK_MODELS} | {
-        ud.model_name for ud in user_defined_reranks
-    }
-    prune_stale_derived_registries(live_names, RERANK_MODEL_DESCRIPTIONS)

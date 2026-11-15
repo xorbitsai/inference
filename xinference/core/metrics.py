@@ -743,8 +743,11 @@ def update_cluster_metrics(
     _prev_gpu_binding_labels = cur_gpu_binding_labels
 
     # --- Models loaded total (by type) ---
-    for mt, count in type_counts.items():
-        models_loaded_total.set({"model_type": mt}, count)
+    # Drop a type whose last model is gone instead of keeping its old count.
+    _sync_gauge_series(
+        models_loaded_total,
+        [({"model_type": mt}, count) for mt, count in type_counts.items()],
+    )
 
     # --- Model lifecycle status ---
     cur_status_labels: Set[Tuple[str, ...]] = set()

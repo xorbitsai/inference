@@ -74,3 +74,50 @@ def test_qwen3_coder_renders_lists_as_json():
     assert '<required>["paths"]</required>' in prompt
     assert '<parameter=paths>\n["src", "tests"]\n</parameter>' in prompt
     assert "['src', 'tests']" not in prompt
+
+
+def test_qwen3_coder_renders_history_of_a_tool_called_without_arguments():
+    # Clients that accumulate streamed deltas send "" for a no-argument call.
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "Qwen3-Coder")
+    mixin = ChatModelMixin()
+    mixin.tool_parser = None
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_family=None,
+        model_ability=family.model_ability,
+    )
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "now",
+                "description": "Current time.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    def render(arguments):
+        return mixin.get_full_context(
+            [
+                {"role": "user", "content": "time?"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call",
+                            "type": "function",
+                            "function": {"name": "now", "arguments": arguments},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call", "content": "12:00"},
+            ],
+            family.chat_template,
+            tools=tools,
+        )
+
+    assert "<function=now>\n</function>" in render("{}")
+    assert render("") == render("{}")
+    assert render("  ") == render("{}")

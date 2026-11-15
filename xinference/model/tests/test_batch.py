@@ -20,6 +20,7 @@ from contextlib import suppress
 import pytest
 from xoscar import extensible
 
+from ...core.exceptions import BatchRequestRedirect, RequestQueueFullError
 from ..batch import BatchMixin
 
 
@@ -257,4 +258,76 @@ async def test_batch_processor_fails_inflight_request_after_unexpected_exit():
         assert model._process_batch_task is not None
         assert not model._process_batch_task.done()
     finally:
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+async def test_redistribute_only_queued_requests():
+    model = _BatchModel()
+    model.batch_size = 2
+    model.enable_batch_redistribution(2, 1)
+    target = "another-replica"
+    active = [asyncio.create_task(model.infer(i)) for i in (1, 2)]
+    try:
+        await asyncio.wait_for(model.batch_started.wait(), 1)
+        waiting = asyncio.create_task(model.infer(3))
+        await asyncio.sleep(0.06)
+        assert model.batch_queue_load()[0] == 1
+        assert model.redirect_batch_waiters(target, 2) == 1
+        with pytest.raises(BatchRequestRedirect) as redirect:
+            await waiting
+        assert redirect.value.args[0] == target
+        assert model.batch_queue_load()[0] == 0
+        assert model.batch_values == [1, 2]
+        model.release_batch.set()
+        assert await asyncio.gather(*active) == [2, 4]
+    finally:
+        model.release_batch.set()
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+async def test_replica_batch_queue_releases_cancelled_and_expired_requests():
+    model = _QueuedBatchModel()
+    model.enable_batch_redistribution(1, 0.05)
+    try:
+        waiting = asyncio.create_task(model.infer(1))
+        await asyncio.sleep(0)
+        with pytest.raises(RequestQueueFullError, match="full"):
+            await model.infer(2)
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+        assert model.batch_queue_load()[0] == 0
+        with pytest.raises(RequestQueueFullError, match="Timed out"):
+            await model.infer(3)
+        assert model.batch_queue_load()[0] == 0
+    finally:
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batch_interval", [0, 0.02])
+async def test_request_that_does_not_fit_stays_in_batch_queue(batch_interval):
+    model = _BatchModel()
+    model.batch_size = 4
+    model.batch_interval = batch_interval
+    model._get_batch_size = lambda value: 2 if value else 1
+    model.enable_batch_redistribution(4, 1)
+    # Give the processor a full executable batch followed by a request that
+    # cannot fit in that same batch.
+    active = [asyncio.create_task(model.infer(i)) for i in (0, 1)]
+    waiting = asyncio.create_task(model.infer(2))
+    try:
+        await asyncio.wait_for(model.batch_started.wait(), 1)
+        await asyncio.sleep(0.03)
+        assert model.batch_values == [0, 1]
+        assert model.batch_queue_load()[0] == 1
+        assert model.redirect_batch_waiters("idle-replica", 1) == 1
+        with pytest.raises(BatchRequestRedirect):
+            await waiting
+        model.release_batch.set()
+        assert await asyncio.gather(*active) == [0, 2]
+    finally:
+        model.release_batch.set()
         await _stop_batch_processor(model)

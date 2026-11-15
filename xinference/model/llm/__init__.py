@@ -13,12 +13,20 @@
 # limitations under the License.
 import codecs
 import os
+import threading
 import warnings
 from typing import Any, Dict, List, Optional
 
-from ..._model_catalog import load_model_catalog
+from ..._model_catalog import read_model_records
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
-from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
+from ..utils import (
+    apply_github_catalog,
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    load_github_models,
+    model_catalog_priority,
+)
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -58,6 +66,9 @@ from .utils import (
     MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
+
+_metadata_lock = threading.Lock()
+_metadata_loaded = False
 
 
 def register_builtin_model():
@@ -240,19 +251,11 @@ def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
 def load_model_family_from_json(
     json_filename, target_families, *, register_metadata: bool = True
 ):
-    # Handle both relative (module directory) and absolute paths
-    if os.path.isabs(json_filename):
-        json_path = json_filename
-    else:
-        json_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), json_filename
-        )
-
     # Dedup by value against a precomputed key set, O(1) per candidate instead
     # of an O(n) scan of target_families for each of the ~300 catalog entries.
     seen = {family_identity_key(family) for family in target_families}
 
-    for json_obj in load_model_catalog(json_path):
+    for json_obj in read_model_records(json_filename, __file__):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
@@ -264,6 +267,106 @@ def load_model_family_from_json(
             seen.add(key)
         if register_metadata:
             _register_model_family_metadata(model_spec)
+
+
+def _load_model_metadata():
+    # Install models with intelligent merging based on timestamps
+    # LLM models use a different structure (list instead of dict), so we need special handling
+
+    # Build the packaged state away from the live list. Reusing the live list
+    # here would mark a downloaded family retained from the prior refresh as
+    # built-in before the new downloaded catalog is merged.
+    freshly_loaded_builtins: List[LLMFamilyV2] = []
+    load_model_family_from_json("models", freshly_loaded_builtins)
+
+    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
+    # for built-ins without an operator opt-in; user-supplied / downloaded models
+    # (merged below) keep is_builtin=False and stay gated (CWE-94).
+    for family in freshly_loaded_builtins:
+        family.is_builtin = True
+
+    merged_models = freshly_loaded_builtins
+    complete, github_models = load_github_models("llm", load_model_family_from_json)
+    if not complete and has_downloaded_models():
+        downloaded_models: List[LLMFamilyV2] = []
+        from ..utils import load_downloaded_models_to_dict
+
+        load_downloaded_models_to_dict(
+            {"temp": downloaded_models},
+            "llm",
+            "llm_models.json",
+            lambda path, target: load_model_family_from_json(path, target["temp"]),
+        )
+
+        # Stable sorting keeps the vetted built-in on an exact timestamp tie.
+        all_models = [
+            (model_catalog_priority(model, bundled=True), model)
+            for model in freshly_loaded_builtins
+        ]
+        all_models.extend(
+            (model_catalog_priority(model, bundled=False), model)
+            for model in downloaded_models
+        )
+        all_models.sort(key=lambda candidate: candidate[0], reverse=True)
+        seen_models = set()
+        merged_models = []
+        for _, model in all_models:
+            if model.model_name not in seen_models:
+                seen_models.add(model.model_name)
+                merged_models.append(model)
+
+    if complete or github_models:
+        current_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in merged_models:
+            current_by_name.setdefault(family.model_name, []).append(family)
+        github_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in github_models:
+            github_by_name.setdefault(family.model_name, []).append(family)
+        bundled_by_name: Dict[str, List[LLMFamilyV2]] = {}
+        for family in freshly_loaded_builtins:
+            bundled_by_name.setdefault(family.model_name, []).append(family)
+        active = apply_github_catalog(
+            current_by_name, github_by_name, bundled_by_name, complete=complete
+        )
+        merged_models = [family for families in active.values() for family in families]
+
+    # Publish a complete replacement even when the downloaded catalog is empty,
+    # so models removed from a later refresh cannot survive in the live list.
+    BUILTIN_LLM_FAMILIES.clear()
+    BUILTIN_LLM_FAMILIES.extend(merged_models)
+
+    # Loading candidates updates these compatibility tables as a side effect.
+    # Rebuild them from only the families that won the merge so removed or
+    # superseded downloaded entries cannot remain advertised.
+    BUILTIN_LLM_PROMPT_STYLE.clear()
+    BUILTIN_LLM_MODEL_CHAT_FAMILIES.clear()
+    BUILTIN_LLM_MODEL_GENERATE_FAMILIES.clear()
+    BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.clear()
+    for family_set in (
+        QWEN_TOOL_CALL_FAMILY,
+        GEMMA_TOOL_CALL_FAMILY,
+        GLM4_TOOL_CALL_FAMILY,
+        GLM5_TOOL_CALL_FAMILY,
+        LLAMA3_TOOL_CALL_FAMILY,
+        DEEPSEEK_TOOL_CALL_FAMILY,
+        KIMI_K3_TOOL_CALL_FAMILY,
+        MINICPM5_TOOL_CALL_FAMILY,
+    ):
+        family_set.clear()
+    for family in BUILTIN_LLM_FAMILIES:
+        _register_model_family_metadata(family)
+
+    register_custom_model()
+
+
+def _ensure_model_metadata(*, refresh: bool = False):
+    # Replicas still need model-family metadata for chat templates, tool calls,
+    # inherited capabilities and auxiliary files such as GGUF tokenizers.
+    global _metadata_loaded
+    with _metadata_lock:
+        if refresh or not _metadata_loaded:
+            _load_model_metadata()
+            _metadata_loaded = True
 
 
 def _install():
@@ -294,70 +397,7 @@ def _install():
 
     # Distribution-specific engines are appended after the built-ins.
     _run_engine_registration_hooks(MODEL_TYPE_LLM, SUPPORTED_ENGINES)
-
-    # Install models with intelligent merging based on timestamps
-    # LLM models use a different structure (list instead of dict), so we need special handling
-
-    # Build the packaged state away from the live list. Reusing the live list
-    # here would mark a downloaded family retained from the prior refresh as
-    # built-in before the new downloaded catalog is merged.
-    freshly_loaded_builtins: List[LLMFamilyV2] = []
-    load_model_family_from_json("models", freshly_loaded_builtins)
-
-    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
-    # for built-ins without an operator opt-in; user-supplied / downloaded models
-    # (merged below) keep is_builtin=False and stay gated (CWE-94).
-    for family in freshly_loaded_builtins:
-        family.is_builtin = True
-
-    merged_models = freshly_loaded_builtins
-    if has_downloaded_models():
-        downloaded_models: List[LLMFamilyV2] = []
-        from ..utils import load_downloaded_models_to_dict
-
-        load_downloaded_models_to_dict(
-            {"temp": downloaded_models},
-            "llm",
-            "llm_models.json",
-            lambda path, target: load_model_family_from_json(path, target["temp"]),
-        )
-
-        # Stable sorting keeps the vetted built-in on an exact timestamp tie.
-        all_models = freshly_loaded_builtins + downloaded_models
-        all_models.sort(key=lambda x: x.updated_at, reverse=True)
-        seen_models = set()
-        merged_models = []
-        for model in all_models:
-            if model.model_name not in seen_models:
-                seen_models.add(model.model_name)
-                merged_models.append(model)
-
-    # Publish a complete replacement even when the downloaded catalog is empty,
-    # so models removed from a later refresh cannot survive in the live list.
-    BUILTIN_LLM_FAMILIES.clear()
-    BUILTIN_LLM_FAMILIES.extend(merged_models)
-
-    # Loading candidates updates these compatibility tables as a side effect.
-    # Rebuild them from only the families that won the merge so removed or
-    # superseded downloaded entries cannot remain advertised.
-    BUILTIN_LLM_PROMPT_STYLE.clear()
-    BUILTIN_LLM_MODEL_CHAT_FAMILIES.clear()
-    BUILTIN_LLM_MODEL_GENERATE_FAMILIES.clear()
-    BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.clear()
-    for family_set in (
-        QWEN_TOOL_CALL_FAMILY,
-        GEMMA_TOOL_CALL_FAMILY,
-        GLM4_TOOL_CALL_FAMILY,
-        GLM5_TOOL_CALL_FAMILY,
-        LLAMA3_TOOL_CALL_FAMILY,
-        DEEPSEEK_TOOL_CALL_FAMILY,
-        KIMI_K3_TOOL_CALL_FAMILY,
-    ):
-        family_set.clear()
-    for family in BUILTIN_LLM_FAMILIES:
-        _register_model_family_metadata(family)
-
-    register_custom_model()
+    _ensure_model_metadata(refresh=True)
 
     # Rebuild the engine and version registries from all currently live families.
     # Custom registration may have populated the old engine table as a side

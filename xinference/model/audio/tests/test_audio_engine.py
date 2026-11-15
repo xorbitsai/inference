@@ -39,6 +39,8 @@ from .. import engine_family as audio_engine_family
 from .. import load_model_family_from_json
 from .. import platform as audio_platform
 from .. import sys as audio_sys
+from .. import vllm as asr_vllm
+from .. import vllm_omni as tts_vllm
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
 from ..engine import (
     MLXAudioSTTEngineModel,
@@ -177,13 +179,11 @@ def _register_all_engines():
 
 @pytest.fixture
 def linux_cuda_engines():
-    engine_mod = __import__(
-        VLLMQwen3ASRAudioModel.__module__, fromlist=["has_cuda_device"]
-    )
     old_engines = {k: dict(v) for k, v in AUDIO_ENGINES.items()}
     with (
         patch.object(engine_platform, "system", return_value="Linux"),
-        patch.object(engine_mod, "has_cuda_device", return_value=True),
+        patch.object(asr_vllm, "has_cuda_device", return_value=True),
+        patch.object(tts_vllm, "has_cuda_device", return_value=True),
     ):
         AUDIO_ENGINES.clear()
         _register_all_engines()

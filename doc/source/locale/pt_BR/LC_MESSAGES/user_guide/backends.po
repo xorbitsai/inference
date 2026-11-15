@@ -112,72 +112,13 @@ msgstr ""
 "Desde v1.6.1, quando n-gpu-layers não é especificado (padrão -1), a "
 "estimativa do número de camadas da GPU é ativada automaticamente."
 
-#: ../../source/user_guide/backends.rst:53
-msgid ""
-"This feature automatically detects the number of GPU layers (NGL) for the"
-" llama.cpp backend. Please be aware that this is not an accurate "
-"calculation. Therefore, the ``-ngl`` result might not be the most "
-"optimized, and there is still a chance of encountering an out-of-memory "
-"error."
-msgstr ""
-"Este recurso pode definir automaticamente o número de camadas de GPU "
-"(NGL) para o backend llama.cpp. Observe que não é um cálculo preciso, "
-"portanto, o resultado de ``-ngl`` pode não ser ideal e ainda é possível "
-"encontrar erros de falta de memória de vídeo."
-
-#: ../../source/user_guide/backends.rst:57
-msgid ""
-"Currently, there is no official implementation for auto ngl. Please refer"
-" to the following issues for more information:"
-msgstr ""
-"Atualmente, o NGL automático não tem suporte oficial. Consulte a issue "
-"abaixo para mais detalhes:"
-
-#: ../../source/user_guide/backends.rst:59
-msgid "https://github.com/ggml-org/llama.cpp/issues/13860"
-msgstr "https://github.com/ggml-org/llama.cpp/issues/13860"
-
-#: ../../source/user_guide/backends.rst:60
-msgid "https://github.com/ggml-org/llama.cpp/pull/6502"
-msgstr "https://github.com/ggml-org/llama.cpp/pull/6502"
-
 #: ../../source/user_guide/backends.rst:62
-msgid ""
-"Our implementation is based on the Ollama auto ngl, but there are some "
-"differences:"
-msgstr ""
-"Nossa implementação é baseada no NGL automático do Ollama, mas com "
-"algumas diferenças:"
+msgid "With ``xllamacpp`` v2026.11.12361 and later, Xinference uses native llama.cpp GPU memory fitting. Leave ``n_gpu_layers=-1``, ``fit_params=True`` and ``tensor_split`` at its default to enable automatic placement and startup retries after recoverable GPU allocation failures. Explicit layer counts and fitting settings are preserved. Use ``n_gpu_layers=0`` for CPU inference."
+msgstr "Com ``xllamacpp`` v2026.11.12361 e versões posteriores, o Xinference usa o ajuste nativo de memória GPU do llama.cpp. Mantenha ``n_gpu_layers=-1``, ``fit_params=True`` e o valor padrão de ``tensor_split`` para habilitar o posicionamento automático e novas tentativas de inicialização após falhas recuperáveis de alocação de memória GPU. Os números de camadas e as configurações de ajuste explícitos são preservados. Use ``n_gpu_layers=0`` para inferência na CPU."
 
 #: ../../source/user_guide/backends.rst:64
-msgid ""
-"We utilize device information detected by `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_."
-msgstr ""
-"Usamos as informações de dispositivo fornecidas pelo `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_."
-
-#: ../../source/user_guide/backends.rst:65
-msgid ""
-"We have removed support for less popular architectures, these "
-"architectures will use the default calculation."
-msgstr ""
-"Removemos o suporte a algumas arquiteturas incomuns, nas quais a lógica "
-"de cálculo padrão era utilizada."
-
-#: ../../source/user_guide/backends.rst:66
-msgid ""
-"We fall back to offloading all the layers to the GPU if the auto ngl "
-"fails."
-msgstr "Se a NGL automática falhar, tentaremos carregar tudo na GPU."
-
-#: ../../source/user_guide/backends.rst:67
-msgid ""
-"We do not support multimodal projectors embedded into the model GGUF, as "
-"this is a very experimental feature."
-msgstr ""
-"Não oferecemos suporte para projetores multimodais incorporados ao GGUF "
-"do modelo. Esse formato de modelo ainda está em fase experimental."
+msgid "Legacy ``xllamacpp`` versions continue to use the Python GPU layer estimator, based on Ollama. If estimation fails, Xinference attempts to offload all layers to the GPU. Memory estimates can still result in out-of-memory errors."
+msgstr "As versões anteriores do ``xllamacpp`` continuam usando o estimador Python de camadas GPU baseado no Ollama. Se a estimativa falhar, o Xinference tenta transferir todas as camadas para a GPU. As estimativas de memória ainda podem resultar em erros de memória insuficiente."
 
 #: ../../source/user_guide/backends.rst:71
 msgid "Common Issues"

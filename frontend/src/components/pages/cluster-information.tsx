@@ -159,6 +159,7 @@ export default function ClusterInfoPage() {
       gpuMemoryUsage += Math.max(0, gpuTotal - gpuAvailable);
       gpuMemoryTotal += gpuTotal;
     });
+    const hasGpuMemory = gpuMemoryTotal > 0 || gpuCount === 0;
     return [
       { label: t('clusterInfo.count'), value: workers.length },
       {
@@ -184,26 +185,30 @@ export default function ClusterInfoPage() {
       },
       {
         label: t('clusterInfo.gpuMemoryInfo'),
-        value: `${t('clusterInfo.used')}${formatFileSize(gpuMemoryUsage)}`,
-        total: `${t('clusterInfo.total')}${formatFileSize(gpuMemoryTotal)}`,
+        value: hasGpuMemory ? `${t('clusterInfo.used')}${formatFileSize(gpuMemoryUsage)}` : '-',
+        total: hasGpuMemory
+          ? `${t('clusterInfo.total')}${formatFileSize(gpuMemoryTotal)}`
+          : undefined,
       },
     ];
   }, [t, workers]);
 
   const workerDetails = useMemo(
     () =>
-      workers.map((item) => ({
-        ...item,
-        cpuUsage: formatPercentage(calculateCpuUsageRate(item)),
-        memoryUsage: formatFileSize(item.mem_used || 0),
-        memoryTotal: formatFileSize(item.mem_total || 0),
-        gpuLoad:
-          typeof item.gpu_utilization === 'number' ? `${item.gpu_utilization.toFixed(2)}%` : '-',
-        gpuMemoryUsage: formatFileSize(
-          Math.max(0, (item.gpu_vram_total || 0) - (item.gpu_vram_available || 0))
-        ),
-        gpuMemoryTotal: formatFileSize(item.gpu_vram_total || 0),
-      })),
+      workers.map((item) => {
+        const total = item.gpu_vram_total || 0;
+        const available = item.gpu_vram_available || 0;
+        const hasGpuMemory = total > 0 || item.gpu_count === 0;
+        return {
+          ...item,
+          cpuUsage: formatPercentage(calculateCpuUsageRate(item)),
+          memoryUsage: formatFileSize(item.mem_used || 0),
+          memoryTotal: formatFileSize(item.mem_total || 0),
+          gpuLoad: formatPercentage(item.gpu_utilization ?? null),
+          gpuMemoryUsage: hasGpuMemory ? formatFileSize(Math.max(0, total - available)) : '-',
+          gpuMemoryTotal: hasGpuMemory ? formatFileSize(total) : '-',
+        };
+      }),
     [workers]
   );
 

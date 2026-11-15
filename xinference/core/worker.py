@@ -171,7 +171,6 @@ except ImportError:
     VirtualEnvManager = None
 
 if TYPE_CHECKING:
-    from ..extensions import ModelCatalogCredentials
     from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
@@ -2614,6 +2613,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     "instance_created_ts": created_ts,
                 }
             )
+            policy = launch_args.get(
+                "_replica_autoscaling", launch_args.get("_embedding_autoscaling")
+            )
+            if policy is not None:
+                replica_states[-1]["replica_autoscaling"] = policy
+                replica_states[-1]["model_type"] = launch_args.get("model_type")
+                if "_embedding_autoscaling" in launch_args:
+                    replica_states[-1]["embedding_autoscaling"] = policy
         return replica_states
 
     @staticmethod
@@ -3107,6 +3114,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         pool_kwargs = (
             {} if external_address is None else {"external_address": external_address}
         )
+        if model_uid:
+            # Apply the model process identity to rank and generation subpools
+            # as well as to the primary replica.
+            env = {**(env or {}), "XINFERENCE_MODEL_UID": model_uid}
         async with self._subpool_creation_lock:
             # A failed candidate spawn must never reap pools that were already
             # serving before this call, even if their bootstrap command matches.
@@ -3210,10 +3221,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        # G: inject model_uid into the sub-pool env dict (not os.environ).
-        # os.environ mutation is thread-unsafe under concurrent launches and
-        # ineffective (the sub-pool is forked from this env dict). Passing it
-        # here lets the sub-pool and its vLLM descendants inherit the tag.
+        # Keep the launch identity with the allocated environment.
         env["XINFERENCE_MODEL_UID"] = model_uid
 
         return env, [str(dev) for dev in devices]
@@ -3425,157 +3433,45 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-    @log_async(logger=logger)
+    @log_async(logger=logger, ignore_kwargs=["catalog"])
     @management_operation
     async def update_model_type(
         self,
         model_type: str,
+        commit: str,
         *,
-        credentials: Optional["ModelCatalogCredentials"] = None,
+        catalog: List[Dict[str, Any]],
         model_name: Optional[str] = None,
     ) -> None:
-        """
-        Download a model category or one named model and reload its catalog.
+        """Validate and install the GitHub catalog resolved by the Supervisor."""
+        from importlib import import_module
 
-        Args:
-            model_type: Type of model (LLM, embedding, image, etc.)
-            model_name: Refresh only this model when provided.
-        """
-        import requests
-
-        from ..extensions import ModelCatalogCredentials
+        from .._model_catalog import MODEL_KINDS
         from .exceptions import ModelCatalogUpdateError
-        from .model_catalog import validate_catalog_model_name
+        from .model_catalog import github_catalog_path, store_model_catalog
 
-        validate_catalog_model_name(model_name)
+        model_type = model_type.lower()
+        if model_type not in MODEL_KINDS:
+            raise ValueError(f"Unsupported catalog type: {model_type}")
 
-        if credentials is not None and not isinstance(
-            credentials, ModelCatalogCredentials
-        ):
-            raise ValueError("Invalid model catalog credentials")
-
-        supported_types = list(self._custom_register_type_to_cls.keys())
-
-        normalized_for_validation = model_type
-        if model_type.lower() == "llm" and "LLM" in supported_types:
-            normalized_for_validation = "LLM"
-        elif model_type.lower() == "llm" and "llm" in supported_types:
-            normalized_for_validation = "llm"
-
-        if normalized_for_validation not in supported_types:
-            logger.error(f"Unsupported model type: {normalized_for_validation}")
-            raise ValueError(
-                f"Unsupported model type '{model_type}'. "
-                f"Supported types are: {', '.join(supported_types)}"
-            )
-
-        # Construct the URL to download JSON
-        url = (
-            "https://model.xinference.io/api/models/download"
-            f"?model_type={model_type.lower()}"
-        )
-        if model_name is not None:
-            from urllib.parse import urlencode
-
-            url += "&" + urlencode({"model_name": model_name, "include_readme": "true"})
-
-        status_code = None
-        stage = "download"
+        module = import_module(f"xinference.model.{model_type}")
         try:
-            # Download JSON from remote API. Run the blocking request in a
-            # worker thread so it does not freeze the actor's event loop.
-            request_options: Dict[str, Any] = {"timeout": 30}
-            if credentials is not None:
-                request_options["allow_redirects"] = False
-                request_options["headers"] = {"X-Models-Token": credentials.token}
-            response = await asyncio.to_thread(requests.get, url, **request_options)
-            status_code = response.status_code
-            if credentials is not None and 300 <= status_code < 400:
-                raise ValueError("Model catalog redirects are not supported")
-            response.raise_for_status()
-
-            # Parse JSON response
-            stage = "decode"
-            model_data = response.json()
-
-            # Store the JSON data using CacheManager as built-in models
-            stage = "store"
-            await self._store_complete_model_configurations(
-                model_type, model_data, model_name=model_name
-            )
-
-            # Dynamically reload built-in models to make them immediately available
-            try:
-                from importlib import import_module
-
-                if model_type.lower() in (
-                    "llm",
-                    "embedding",
-                    "audio",
-                    "image",
-                    "rerank",
-                    "video",
-                    "world",
-                ):
-                    module = import_module(f"xinference.model.{model_type.lower()}")
-                    module.register_builtin_model()
-                else:
-                    logger.warning(
-                        f"No dynamic loading available for model type: {model_type}"
-                    )
-            except Exception as e:
-                logger.error("Error reloading built-in models (%s)", type(e).__name__)
-                # Don't fail the update if reload fails, just log the error
-
-        except Exception as e:
-            # Remote errors can echo request headers. Do not put their message
-            # or chained traceback in actor/API logs or client responses.
-            logger.error(
-                "Model catalog update failed (stage=%s, error=%s, status=%s)",
-                stage,
-                type(e).__name__,
-                status_code,
-            )
-            raise ModelCatalogUpdateError(
-                "Failed to update model configurations"
-            ) from None
-
-    async def _store_complete_model_configurations(
-        self, model_type: str, model_data, *, model_name: Optional[str] = None
-    ):
-        """
-        Publish a complete catalog or merge one model into the downloaded file.
-
-        Args:
-            model_type: Type of model (as provided by user, e.g., "llm")
-            model_data: JSON data containing model configurations (complete array)
-            model_name: Limit the update to this model when provided.
-        """
-        from ..constants import XINFERENCE_MODEL_DIR
-        from .model_catalog import store_model_catalog
-
-        try:
-            model_type_lower = model_type.lower()
-
-            # Use the unified JSON file path (same as original update_model_type logic)
-            builtin_dir = os.path.join(
-                XINFERENCE_MODEL_DIR, "v2", "builtin", model_type_lower
-            )
-            json_file_path = os.path.join(
-                builtin_dir, f"{model_type_lower}_models.json"
-            )
-
-            await asyncio.to_thread(
-                store_model_catalog,
-                pathlib.Path(json_file_path),
-                model_data,
+            # Reload publishes process-global registries on the actor loop.
+            # Keeping it with the file transaction also lets us restore the
+            # previous catalog if an engine cannot register a new definition.
+            store_model_catalog(
+                github_catalog_path(model_type),
+                catalog,
                 model_name=model_name,
                 model_type=model_type,
+                reload_catalog=module.register_builtin_model,
+                github_commit=commit,
             )
-
         except Exception as e:
-            logger.error("Error storing model configurations (%s)", type(e).__name__)
-            raise ValueError("Failed to store model configurations") from None
+            logger.error(
+                "GitHub model catalog installation failed (%s)", type(e).__name__
+            )
+            raise ModelCatalogUpdateError("Failed to install model catalog") from None
 
     @log_async(logger=logger)
     async def list_model_registrations(
@@ -5473,6 +5369,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        autoscaling = kwargs.pop(
+            "_replica_autoscaling", kwargs.pop("_embedding_autoscaling", None)
+        )
+        if autoscaling is not None and n_worker != 1:
+            raise ValueError("Automatic replica changes require one worker per replica")
         from ..model.llm.context_length import validate_context_length_launch
 
         validate_context_length_launch(model_type, model_engine, kwargs)
@@ -5976,6 +5877,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             driver_info=driver_info,
                             model_engine=model_engine,
                             model_python_executable=model_python_executable,
+                            replica_admission=autoscaling,
                             **(
                                 {"worker_status_token": status_token}
                                 if status_token is not None

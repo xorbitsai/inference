@@ -63,6 +63,7 @@ async def calls(monkeypatch):
         model_family=SimpleNamespace(to_description=lambda: {}),
     )
     actor = ModelActor("supervisor", "worker", backend, "test-model-0")
+    actor.uid = b"test-model-rep0"
     actor._model_state = "ready"
     actor.record_metrics = AsyncMock()
     actor.decrease_serve_count = AsyncMock()
@@ -161,7 +162,11 @@ async def test_routes(calls, kind, audit, status):
 
 async def test_pd_router_disconnect(calls, monkeypatch):
     c = calls()
-    router = SimpleNamespace(generate=c.model.generate, abort_request=AsyncMock())
+    router = SimpleNamespace(
+        uid=b"test-model-pd-model-actor",
+        generate=c.model.generate,
+        abort_request=AsyncMock(),
+    )
     router.is_vllm_backend = PDModelActor.is_vllm_backend.__get__(router)
     monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=router))
     task = c.start()
@@ -229,16 +234,18 @@ async def test_interruption_cleanup(calls, monkeypatch, mode, error, state):
         await c.started.wait()
         raise ValueError("receive")
 
-    wait_for = asyncio.wait_for
+    controllers = []
+    controller_type = restful_api._SSERequestAbortController
 
-    async def expire(operation, timeout):
-        if timeout != 5 or mode != "timeout":
-            return await wait_for(operation, timeout)
-        task = asyncio.create_task(operation)
-        await entered.wait()
-        return await wait_for(task, 0)
+    def short_abort_timeout(*args, **kwargs):
+        assert kwargs["abort_timeout"] == 5
+        if mode == "timeout":
+            kwargs["abort_timeout"] = 0.01
+        controller = controller_type(*args, **kwargs)
+        controllers.append(controller)
+        return controller
 
-    monkeypatch.setattr(asyncio, "wait_for", expire)
+    monkeypatch.setattr(restful_api, "_SSERequestAbortController", short_abort_timeout)
     c.model.abort_request.side_effect = abort
     if mode == "receive":
         c.request._receive = receive
@@ -248,21 +255,32 @@ async def test_interruption_cleanup(calls, monkeypatch, mode, error, state):
             c.request, c.model, "operation", "generate", operation
         )
     )
-    await c.started.wait()
-    if mode == "handler":
-        task.cancel(mode)
-    else:
-        c.disconnected.set()
-    await entered.wait()
-    if mode in ("handler", "disconnect"):
-        task.cancel("again" if mode == "handler" else mode)
-    if mode != "timeout":
+    try:
+        await c.started.wait()
+        if mode == "handler":
+            task.cancel(mode)
+        else:
+            c.disconnected.set()
+        await entered.wait()
+        if mode in ("handler", "disconnect"):
+            task.cancel("again" if mode == "handler" else mode)
+        if mode != "timeout":
+            release.set()
+        with _raises(error, mode) if error else nullcontext():
+            response = await asyncio.wait_for(task, 5)
+            assert response.status_code == 499
+        c.model.abort_request.assert_awaited_once_with("operation")
+        assert get_stream_outcome_reporter(c.request).outcome.state.value == state
+        if mode == "timeout":
+            abort_task = controllers[0]._abort_task
+            assert abort_task is not None and not abort_task.done()
+            assert not release.is_set()
+    finally:
         release.set()
-    with _raises(error, mode) if error else nullcontext():
-        response = await wait_for(task, 5)
-        assert response.status_code == 499
-    c.model.abort_request.assert_awaited_once_with("operation")
-    assert get_stream_outcome_reporter(c.request).outcome.state.value == state
+        await asyncio.gather(task, return_exceptions=True)
+        for controller in controllers:
+            if controller._abort_task is not None:
+                await asyncio.gather(controller._abort_task, return_exceptions=True)
 
 
 @pytest.mark.timeout(660)

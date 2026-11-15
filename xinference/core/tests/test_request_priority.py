@@ -763,3 +763,29 @@ async def test_explicit_ids_are_unique_and_aborted_ids_remain_blocked(native):
         if block is not None:
             block.cancel()
         await asyncio.gather(task, *([block] if block else []), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("aborted", [False, True])
+async def test_completed_task_does_not_keep_request_id_reserved(aborted):
+    actor, _ = _actor()
+    request_id = "reusable-id"
+
+    if aborted:
+        actor._cancel_running_task(request_id, block_duration=0.01)
+        previous = actor._running_tasks[request_id]
+    else:
+
+        async def register():
+            actor._add_running_task(request_id)
+
+        previous = asyncio.create_task(register())
+
+    await asyncio.wait_for(previous, 2)
+    assert previous.done()
+    assert not previous.cancelled()
+
+    # Keep the completed task alive, as a rejected-call traceback can do.
+    assert actor._running_tasks[request_id] is previous
+    actor._add_running_task(request_id)
+    assert actor._running_tasks[request_id] is asyncio.current_task()

@@ -205,10 +205,17 @@ class LLMCacheManager(CacheManager):
             return True
         # The directory name does not depend on the file a spec names, so a
         # directory cached under an older spec can lack the file the loader opens.
+        from ..utils import generate_model_file_names_with_quantization_parts
         from .gguf_model_metadata import resolve_gguf_model_path
 
-        return os.path.exists(
-            resolve_gguf_model_path(cache_dir, self._llm_family.model_specs[0])
+        spec = self._llm_family.model_specs[0]
+        if not os.path.exists(resolve_gguf_model_path(cache_dir, spec)):
+            return False
+        # An interrupted split download leaves the first shard behind, which
+        # must not make the directory look complete.
+        shards, _, need_merge = generate_model_file_names_with_quantization_parts(spec)
+        return not need_merge or all(
+            os.path.exists(os.path.join(cache_dir, shard)) for shard in shards
         )
 
     def _declared_sources(self) -> Optional[List[Dict[str, Any]]]:

@@ -829,3 +829,7 @@ msgstr "在 **运行中的模型** 中，**新增副本** 弹窗提供自动调�
 #: ../../source/user_guide/launch.rst:294
 msgid "The deployment dialog shows a waiting message and elapsed time immediately after submission, including while replicas are preparing or loading. A ready replica or 100% progress does not finish the request. Waiting ends when the deployment response arrives; configuration saving may then finish before the dialog closes. If cancellation fails, waiting continues with the original start time. Download-only operations keep their separate progress display."
 msgstr "提交部署后，弹窗立即显示等待提示和已用时间，涵盖副本准备及加载阶段。某个副本就绪或进度达到 100% 不代表请求已经完成。部署响应返回后停止等待计时，弹窗关闭前可能还需完成配置保存。取消失败时继续等待，保留原开始时间。仅下载操作仍使用独立的进度展示。"
+
+#: ../../source/user_guide/launch.rst:599
+msgid "Before a replacement starts, reload waits for earlier engines to retire only if they share GPU allocations on the same Worker or an engine process. Replicas on independent Workers or disjoint known GPUs can update while earlier requests finish. If placement is unknown, this wait is limited to 300 seconds; expiry returns a partial error that can be retried, while existing requests and cleanup continue. Required retirement-wait support is checked before any replica changes; restart models without that support."
+msgstr "开始替换前，仅当先前的引擎共享同一 Worker 上的 GPU 分配或同一个引擎进程时，重载才会等待这些引擎退出。位于独立 Worker 或已知互不重叠的 GPU 上的副本可以在先前请求完成期间更新。如果无法确定部署位置，此等待最多持续 300 秒；超时后返回可重试的部分错误，现有请求和清理仍会继续。任何副本发生更改之前，都会检查所需的引擎退出等待功能；请重启不支持此功能的模型。"

@@ -32,10 +32,8 @@ msgid ""
 msgstr "本節簡要介紹「啟動模型」頁面上的一項常見操作：更新模型列表。它對應頁面頂部的「類型選擇 + 更新」按鈕，用於快速重新整理某一類型的模型。"
 
 #: ../../source/models/model_update.rst:10
-msgid ""
-"Model update rely on the online model list service provided by "
-":ref:`xinference_models_hub` ."
-msgstr "模型更新依賴 :ref:`xinference_models_hub` 提供的在線模型列表服務。"
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference 直接從 `公開的 GitHub 儲存庫 <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ 讀取模型定義。點選 **更新** 可重新整理整個類別，點選 **更新單一模型** 可更新單一模型。這些操作會更新模型定義。模型權重會在需要時從各定義指定的來源下載。"
 
 #: ../../source/models/model_update.rst:17
 msgid "Update Models"

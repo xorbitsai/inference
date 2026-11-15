@@ -26,6 +26,8 @@ from .supervisor_journal import LocalSupervisorJournal, supervisor_journal
 from .worker_relaunch import SupervisorRelaunchMixin
 from .worker_state import WorkerJournalError
 
+_UNSPECIFIED_WORKER_GENERATION = object()
+
 
 async def call_worker_route(
     owner: Any, uid: str, ref: Any, method: str, **kwargs: Any
@@ -215,20 +217,32 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
 
         return PROTOCOL_VERSION
 
-    async def _remove_dead_worker(self, address, expected_ref):
+    async def _remove_dead_worker(
+        self, address, expected_ref, expected_generation=_UNSPECIFIED_WORKER_GENERATION
+    ):
         """Health checks share the ownership gate with registration and handoff."""
+        if expected_generation is _UNSPECIFIED_WORKER_GENERATION:
+            expected_generation = getattr(self, "_worker_metadata_generation", {}).get(
+                address
+            )
         loop = getattr(self, "_actor_loop", None)
         if loop is not None and loop is not asyncio.get_running_loop():
             future = asyncio.run_coroutine_threadsafe(
-                self._remove_dead_worker(address, expected_ref), loop
+                self._remove_dead_worker(address, expected_ref, expected_generation),
+                loop,
             )
             return await asyncio.wrap_future(future)
         registry = self._ownership_registry()
         async with registry.lock(address):
             if (
-                self._worker_address_to_worker.get(address) is not None
-                and self._worker_address_to_worker[address] != expected_ref
-            ) or registry.protected(address):
+                (
+                    self._worker_address_to_worker.get(address) is not None
+                    and self._worker_address_to_worker[address] != expected_ref
+                )
+                or getattr(self, "_worker_metadata_generation", {}).get(address)
+                != expected_generation
+                or registry.protected(address)
+            ):
                 return False
             registry.discard(address)
             await self._handle_dead_worker(address)

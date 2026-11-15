@@ -2,7 +2,7 @@
 
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Info, Loader2, Rocket, Search, Sparkles, Star, Trash2 } from 'lucide-react';
+import { Info, Loader2, Rocket, Search, Sparkles, Star, Trash2 } from 'lucide-react';
 import request from '@/lib/request';
 import PageContainer from '@/components/ui/page-container';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -301,14 +301,6 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
       })
       .finally(() => setDeleteModel(undefined));
   };
-  const handleDetail = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
-    event.stopPropagation();
-
-    if (model.detailUrl) {
-      window.open(model.detailUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
-
   const renderModelCard = (model: CatalogModel) => {
     const isFavorite = favorites.includes(model.model_name);
     const hasVirtualenv = virtualenvs.some((item) => item.model_name === model.model_name);
@@ -387,22 +379,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
           </p>
         </div>
 
-        <div
-          className={cn(
-            'mt-5 flex items-center gap-3',
-            isCustomRoute ? 'justify-end' : 'justify-between'
-          )}
-        >
-          {!isCustomRoute && (
-            <button
-              type="button"
-              onClick={(event) => handleDetail(event, model)}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              <ExternalLink className="size-3.5" />
-              {t('runningModels.detail.modelDetails')}
-            </button>
-          )}
+        <div className="mt-5 flex items-center justify-end gap-3">
           <Button
             size="sm"
             onClick={(event) => {

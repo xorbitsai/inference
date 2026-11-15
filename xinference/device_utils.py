@@ -180,7 +180,7 @@ def is_gcu_available() -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
+def _get_info_by_pynvml(gpu_id: int) -> Dict[str, Union[str, int, float]]:
     import pynvml
     from pynvml import (
         nvmlDeviceGetHandleByIndex,
@@ -191,14 +191,18 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
 
     handler = nvmlDeviceGetHandleByIndex(gpu_id)
     gpu_name = nvmlDeviceGetName(handler)
-    # NVIDIA GB10 / DGX Spark uses a unified-memory layout and does not expose the
-    # legacy v1 NVML memory-info namespace, so nvmlDeviceGetMemoryInfo() returns
-    # NVML_ERROR_NOT_SUPPORTED there. Prefer the v2 call when it is available and
-    # fall back to v1 on Hopper/Ada and on older pynvml builds without the symbol.
     try:
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo_v2(handler)
-    except (pynvml.NVMLError, AttributeError):
         mem_info = nvmlDeviceGetMemoryInfo(handler)
+    except pynvml.NVMLError_NotSupported:
+        try:
+            mem_info = nvmlDeviceGetMemoryInfo(handler, pynvml.nvmlMemory_v2)
+        except (
+            AttributeError,
+            pynvml.NVMLError_FunctionNotFound,
+            pynvml.NVMLError_NotSupported,
+        ):
+            # Integrated GPUs such as GB10 have no dedicated framebuffer.
+            mem_info = None
     # nvmlDeviceGetUtilizationRates() is not supported in every environment
     # (notably NVIDIA's WSL2 NVML, which raises NVML_ERROR_UNKNOWN /
     # NVML_ERROR_NOT_SUPPORTED for utilization queries even when memory queries
@@ -209,15 +213,22 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
         util = nvmlDeviceGetUtilizationRates(handler).gpu
     except pynvml.NVMLError:
         util = 0
-    return {
+    info: Dict[str, Union[str, int, float]] = {
         "name": gpu_name,
-        "total": mem_info.total,
-        "used": mem_info.used,
-        "free": mem_info.free,
-        "free_memory_mib": mem_info.free / 1024**2,
-        "total_memory_mib": mem_info.total / 1024**2,
         "util": util,
+        "total": 0,
+        "used": 0,
+        "free": 0,
     }
+    if mem_info is not None:
+        info.update(
+            total=mem_info.total,
+            used=mem_info.used,
+            free=mem_info.free,
+            free_memory_mib=mem_info.free / 1024**2,
+            total_memory_mib=mem_info.total / 1024**2,
+        )
+    return info
 
 
 def _get_info_by_torch(index: int) -> Dict[str, Any]:

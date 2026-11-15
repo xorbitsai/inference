@@ -32,10 +32,8 @@ msgstr ""
 "本節では、「モデルを起動」ページにおける一般的な操作の一つである「モデルリストの更新」について簡単に説明します。これはページ上部の「種類選択＋更新」ボタンに対応し、特定の種類のモデルを素早くリフレッシュするために使用します。"
 
 #: ../../source/models/model_update.rst:10
-msgid ""
-"Model update rely on the online model list service provided by "
-":ref:`xinference_models_hub` ."
-msgstr "モデル更新は :ref:`xinference_models_hub` が提供するオンラインモデルリストサービスに依存しています。"
+msgid "Xinference reads model definitions directly from the `public GitHub repository <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_. Use **Update** to refresh a category or **Update one model** to update one model. These actions update model definitions. Model weights are fetched from the source specified by each definition when needed."
+msgstr "Xinference はモデル定義を `公開 GitHub リポジトリ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_ から直接読み込みます。カテゴリを更新するには **Update** を、モデルを一つ更新するには **Update one model** を使います。これらの操作はモデル定義を更新します。重みは必要になった時点で、各定義で指定された配布元から取得します。"
 
 #: ../../source/models/model_update.rst:17
 msgid "Update Models"
