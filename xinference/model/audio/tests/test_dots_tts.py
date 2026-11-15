@@ -17,11 +17,14 @@
 import ast
 import importlib.util
 import io
+import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import numpy as np
 import pytest
@@ -31,6 +34,7 @@ from xoscar.serialization import deserialize, serialize
 
 from ....core.exceptions import InvalidModelRequestError
 from ....core.utils import filter_virtualenv_packages_by_markers
+from ...cache_manager import CacheManager
 from ...utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
@@ -197,6 +201,7 @@ def model(tmp_path):
     "hub,revision", [("huggingface", "main"), ("modelscope", "master")]
 )
 def test_catalog_and_dispatch(monkeypatch, tmp_path, hub, revision):
+    monkeypatch.setattr(sys, "version_info", (3, 12, 0))
     monkeypatch.setitem(AUDIO_ENGINES, MODEL, {})
     spec = match_audio(MODEL, hub)
     generate_engine_config_by_model_name(spec)
@@ -308,7 +313,8 @@ def test_vendored_runtime_has_license_and_closed_relative_imports():
                 ), (path, target)
 
 
-def test_unloaded_model_can_cross_actor_boundary(tmp_path):
+def test_unloaded_model_can_cross_actor_boundary(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "version_info", (3, 12, 0))
     model = create_audio_model_instance(
         "dots",
         MODEL,
@@ -349,6 +355,9 @@ def test_model_dispatch_can_use_a_compatible_interpreter(
 ):
     # Discovery uses the server's Python; dispatch still needs to work in a
     # model process launched with an explicitly configured compatible Python.
+    monkeypatch.setattr(
+        subprocess, "run", Mock(return_value=SimpleNamespace(stdout="3 12"))
+    )
     monkeypatch.setattr(sys, "version_info", (3, 13, 0))
     spec = match_audio(MODEL, "modelscope")
     assert PyTorchDotsTTSEditAudioModel.match(spec)
@@ -359,6 +368,7 @@ def test_model_dispatch_can_use_a_compatible_interpreter(
         model_path=str(tmp_path),
         model_engine="PyTorch",
         enable_virtual_env=enable_virtual_env,
+        _xinference_model_python_executable="/compatible/bin/python",
     )
     monkeypatch.setattr(sys, "version_info", (3, 12, 0))
     try:
@@ -367,6 +377,137 @@ def test_model_dispatch_can_use_a_compatible_interpreter(
         assert isinstance(model._runtime, FakeRuntime)
     finally:
         model.stop()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("python_version", [(3, 9, 0), (3, 13, 0), (3, 14, 0)])
+@pytest.mark.parametrize("local_path", [False, True])
+def test_factory_checks_python_before_caching(
+    monkeypatch, tmp_path, enable_virtual_env, python_version, local_path
+):
+    monkeypatch.setattr(sys, "version_info", python_version)
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    with pytest.raises(ValueError, match="Python 3.10 through 3.12"):
+        create_audio_model_instance(
+            "dots",
+            MODEL,
+            "modelscope",
+            model_path=str(tmp_path) if local_path else None,
+            model_engine="PyTorch",
+            enable_virtual_env=enable_virtual_env,
+        )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_factory_downloads_for_selected_compatible_interpreter(
+    monkeypatch, tmp_path, enable_virtual_env
+):
+    monkeypatch.setattr(sys, "version_info", (3, 13, 0))
+    probe = Mock(return_value=SimpleNamespace(stdout="3 12"))
+    monkeypatch.setattr(subprocess, "run", probe)
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    model = create_audio_model_instance(
+        "dots",
+        MODEL,
+        "modelscope",
+        model_engine="PyTorch",
+        enable_virtual_env=enable_virtual_env,
+        _xinference_model_python_executable="/compatible/bin/python",
+    )
+    cache.assert_called_once_with()
+    assert isinstance(model, PyTorchDotsTTSEditAudioModel)
+    assert "_xinference_model_python_executable" not in model._kwargs
+    assert probe.call_args.args[0][0] == "/compatible/bin/python"
+
+
+def test_python_probe_reads_the_selected_interpreter(monkeypatch):
+    supported = (3, 10) <= sys.version_info[:2] < (3, 13)
+    monkeypatch.setattr(sys, "version_info", (3, 13, 0) if supported else (3, 12, 0))
+    assert dots_tts_module.is_dots_tts_python_supported(sys.executable) is supported
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("target_version", ["3 9", "3 13", "3 14"])
+def test_factory_checks_selected_interpreter_before_caching(
+    monkeypatch, tmp_path, enable_virtual_env, target_version
+):
+    monkeypatch.setattr(sys, "version_info", (3, 12, 0))
+    probe = Mock(return_value=SimpleNamespace(stdout=target_version))
+    monkeypatch.setattr(subprocess, "run", probe)
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    with pytest.raises(ValueError, match="Python 3.10 through 3.12"):
+        create_audio_model_instance(
+            "dots",
+            MODEL,
+            "modelscope",
+            model_engine="PyTorch",
+            enable_virtual_env=enable_virtual_env,
+            _xinference_model_python_executable="/selected/bin/python",
+        )
+    cache.assert_not_called()
+    assert probe.call_args.args[0][0] == "/selected/bin/python"
+
+
+@pytest.mark.parametrize(
+    "probe_failure", [FileNotFoundError(), subprocess.TimeoutExpired("python", 10)]
+)
+def test_factory_does_not_download_when_interpreter_probe_fails(
+    monkeypatch, tmp_path, probe_failure
+):
+    monkeypatch.setattr(subprocess, "run", Mock(side_effect=probe_failure))
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    with pytest.raises(ValueError, match="Cannot determine.*Python version"):
+        create_audio_model_instance(
+            "dots",
+            MODEL,
+            "modelscope",
+            model_engine="PyTorch",
+            _xinference_model_python_executable="/selected/bin/python",
+        )
+    cache.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+async def test_cache_only_download_preserves_unsupported_python(
+    monkeypatch, tmp_path, enable_virtual_env
+):
+    from ....core.worker import DownloadInfo, WorkerActor
+
+    monkeypatch.setattr(sys, "version_info", (3, 13, 0))
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+    worker = SimpleNamespace(
+        _upload_download_progress=Mock(), update_cache_status=AsyncMock()
+    )
+    model, downloader = await WorkerActor._download_model_files(
+        worker,
+        operation_uid="cache-dots",
+        request_id="caching-cache-dots",
+        download_info=DownloadInfo(),
+        progressor=nullcontext(),
+        model_type="audio",
+        model_name=MODEL,
+        model_engine="PyTorch",
+        model_format="pytorch",
+        model_size_in_billions=None,
+        quantization=None,
+        peft_model_config=None,
+        download_hub="modelscope",
+        model_path=None,
+        model_kwargs={"enable_virtual_env": enable_virtual_env},
+        completion_stage="completed",
+    )
+    cache.assert_called_once_with()
+    assert downloader.done
+    assert model._runtime is None
+    assert "_xinference_cache_only" not in model._kwargs
+    assert "_xinference_model_python_executable" not in model._kwargs
 
 
 @pytest.mark.parametrize(

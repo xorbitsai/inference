@@ -15,6 +15,7 @@
 import io
 import logging
 import math
+import subprocess
 import sys
 import tempfile
 import threading
@@ -31,8 +32,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def is_dots_tts_python_supported() -> bool:
-    return (3, 10) <= sys.version_info[:2] < (3, 13)
+def is_dots_tts_python_supported(
+    python_executable: Optional[str] = None,
+) -> bool:
+    version = sys.version_info[:2]
+    if python_executable is not None:
+        try:
+            result = subprocess.run(
+                [
+                    python_executable,
+                    "-I",
+                    "-S",
+                    "-c",
+                    "import sys; print(sys.version_info[0], sys.version_info[1])",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            major, minor = map(int, result.stdout.split())
+            version = (major, minor)
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            raise ValueError(
+                "Cannot determine dots.tts.edit model Python version from "
+                f"{python_executable!r}."
+            ) from exc
+    return (3, 10) <= version < (3, 13)
 
 
 def _load_dots_tts_runtime():

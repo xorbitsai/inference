@@ -5113,6 +5113,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_path: Optional[str],
         model_kwargs: Dict[str, Any],
         completion_stage: str,
+        model_python_executable: Optional[str] = None,
     ) -> Tuple[Any, CancellableDownloader]:
         """Download/cache model artifacts for launch and cache-only operations.
 
@@ -5121,6 +5122,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         GGUF, and lightning artifacts).  This helper deliberately stops before
         virtualenv preparation, sub-pool creation, actor creation, and ``load``.
         """
+        if model_type.lower() == "audio":
+            # Derive startup context here, overriding any client-supplied
+            # kwargs. Only the trusted selected interpreter may be probed.
+            model_kwargs = {
+                **model_kwargs,
+                "_xinference_cache_only": completion_stage == "completed",
+                "_xinference_model_python_executable": model_python_executable,
+            }
         upload_progress_task: Optional[asyncio.Task] = None
         succeeded_event = threading.Event()
         downloader = CancellableDownloader(cancelled_event=download_info.cancel_event)
@@ -5698,6 +5707,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             model_path=model_path,
                             model_kwargs=model_kwargs,
                             completion_stage="loading",
+                            model_python_executable=subpool_python_path,
                         )
 
                         context_env = getattr(model, "_auto_yarn_env", None)
