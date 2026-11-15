@@ -381,13 +381,23 @@ class XllamaCppModel(LLM, ChatModelMixin):
         with dependency_import_guard("xllamacpp"):
             from xllamacpp import CommonParams, Server, __version__
 
+            # MiniCPM-V-4.7 needs llama.cpp's canvas M-RoPE implementation.
+            minicpmv47 = "MiniCPMV4_7ForConditionalGeneration" in (
+                getattr(self.model_family, "architectures", None) or []
+            )
+            minimum_version = "2026.10.11870" if minicpmv47 else "0.2.0"
             try:
-                if version.parse(__version__) < version.parse("0.2.0"):
+                if version.parse(__version__) < version.parse(minimum_version):
                     raise RuntimeError(
-                        "Please update xllamacpp to >= 0.2.0 by `pip install -U xllamacpp`"
+                        f"Please update xllamacpp to >= {minimum_version} "
+                        "by `pip install -U xllamacpp`"
                     )
-            except version.InvalidVersion:
-                pass  # If the version parse failed, we just skip the version check.
+            except version.InvalidVersion as e:
+                if minicpmv47:
+                    raise RuntimeError(
+                        f"Cannot verify xllamacpp version {__version__!r}; "
+                        f"MiniCPM-V-4.7 requires xllamacpp>={minimum_version}"
+                    ) from e
 
         reasoning_content = self._llamacpp_model_config.pop("reasoning_content")
         enable_thinking = self._llamacpp_model_config.pop("enable_thinking", True)

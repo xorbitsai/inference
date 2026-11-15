@@ -129,9 +129,11 @@ def test_official_checkpoints_and_engine_selection(
 
 @pytest.mark.parametrize("size", [1, 35])
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
-def test_gguf_is_not_registered(size, hub):
-    for quantization in ("F16", "Q4_K_M", "mix_q3gud_im"):
+def test_unsupported_quantizations(size, hub):
+    for quantization in ("Q2_K", "Q3_K_M"):
         assert match_llm("MiniCPM-V-4.7", "ggufv2", size, quantization, hub) is None
+    if size == 1:
+        assert match_llm("MiniCPM-V-4.7", "ggufv2", size, "mix_q3gud_im", hub) is None
     assert match_llm("MiniCPM-V-4.7", "fp8", 1, "FP8", hub) is None
 
 
@@ -149,7 +151,10 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
             for size, fmt, quant, _ in VARIANTS
             if engine != "SGLang" or fmt != "bnb"
         }
-    assert not isinstance(params.get("llama.cpp"), list)
+    assert {
+        (int(entry["model_size_in_billions"]), entry["model_format"])
+        for entry in params["llama.cpp"]
+    } == {(1, "ggufv2"), (35, "ggufv2")}
     assert "MiniCPM-V-4.7" not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 
 
@@ -159,7 +164,7 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
         ("Transformers", "transformers>=5.18.0"),
         ("vllm", "vllm==0.31.1rc1.dev281+gc85616efc"),
         ("sglang", "sglang>=0.5.23"),
-        ("llama.cpp", None),
+        ("llama.cpp", "xllamacpp>=2026.10.11870"),
     ],
 )
 def test_virtualenv_requirements(engine, expected):
