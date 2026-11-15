@@ -14,13 +14,16 @@
 
 # CI: linux
 
+import asyncio
 import base64
 import importlib.metadata
+import inspect
+import json
 import sys
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import torch
@@ -45,7 +48,7 @@ def spec(request):
     )
 
 
-def test_catalog_and_dispatch(spec, tmp_path):
+def test_catalog_and_dispatch(monkeypatch, spec, tmp_path):
     from xoscar.virtualenv.uv import UVVirtualEnvManager
 
     from ..engine_family import IMAGE_ENGINES
@@ -77,6 +80,9 @@ def test_catalog_and_dispatch(spec, tmp_path):
         "processor/*",
         "vae_diffusers/*",
     }
+    monkeypatch.setattr(
+        MiniMaxH3DiffusersImageModel, "preflight", Mock(), raising=False
+    )
     model = create_image_model_instance(
         "minimax-image",
         spec.model_name,
@@ -87,6 +93,318 @@ def test_catalog_and_dispatch(spec, tmp_path):
     assert isinstance(model, MiniMaxH3DiffusersImageModel)
     assert model.model_family.model_hub == spec.model_hub
     assert model.model_family.model_engine == "diffusers"
+
+
+@pytest.fixture
+def launch_runtime(monkeypatch, tmp_path):
+    from ...cache_manager import CacheManager
+    from ..cache_manager import ImageCacheManager
+    from ..engine_family import ImageEngineModel
+
+    calls = SimpleNamespace(cache=Mock(return_value=str(tmp_path)), backend=Mock())
+    monkeypatch.setattr(ImageCacheManager, "cache", calls.cache)
+    monkeypatch.setattr(CacheManager, "cache", calls.cache)
+    monkeypatch.setattr(ImageEngineModel, "check_lib", classmethod(lambda cls: True))
+    installed_version = importlib.metadata.version
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda name: "0.43.0" if name == "diffusers" else installed_version(name),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers",
+        SimpleNamespace(ComponentsManager=Mock(), MiniMaxH3ImageModularPipeline=Mock()),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers.utils.torch_utils",
+        SimpleNamespace(TorchDeviceBackend=calls.backend),
+    )
+    return calls
+
+
+@pytest.mark.parametrize("device", ["cpu", "mps"])
+@pytest.mark.parametrize("automatic_device", [False, True])
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_factory_rejects_unsupported_offload_before_cache(
+    monkeypatch, spec, launch_runtime, device, automatic_device, enable_virtual_env
+):
+    from .... import device_utils
+
+    calls = launch_runtime
+    calls.backend.return_value.mem_get_info.side_effect = NotImplementedError(device)
+    monkeypatch.setattr(device_utils, "get_available_device", lambda: device)
+    with pytest.raises(ValueError, match="cpu_offload=False"):
+        create_image_model_instance(
+            "minimax-image",
+            spec.model_name,
+            download_hub=spec.model_hub,
+            enable_virtual_env=enable_virtual_env,
+            device=None if automatic_device else device,
+        )
+    calls.cache.assert_not_called()
+
+
+def test_factory_rejects_old_diffusers_before_cache(monkeypatch, spec, launch_runtime):
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.33.1")
+    monkeypatch.setitem(sys.modules, "diffusers", SimpleNamespace())
+    with pytest.raises(ImportError, match="diffusers>=0.43.0"):
+        create_image_model_instance(
+            "minimax-image",
+            spec.model_name,
+            download_hub=spec.model_hub,
+            enable_virtual_env=False,
+            cpu_offload=False,
+        )
+    launch_runtime.cache.assert_not_called()
+
+
+@pytest.mark.parametrize("cpu_offload", [False, True])
+def test_factory_caches_after_successful_preflight(spec, launch_runtime, cpu_offload):
+    create_image_model_instance(
+        "minimax-image",
+        spec.model_name,
+        download_hub=spec.model_hub,
+        enable_virtual_env=False,
+        device="cuda:1",
+        cpu_offload=cpu_offload,
+    )
+    launch_runtime.cache.assert_called_once_with()
+    if cpu_offload:
+        launch_runtime.backend.assert_called_once_with("cuda:1")
+    else:
+        launch_runtime.backend.assert_not_called()
+
+
+@pytest.fixture
+def launch_worker(monkeypatch):
+    from ....core import worker as worker_module
+
+    manager = SimpleNamespace(env_path="/model-env")
+    worker = SimpleNamespace(
+        address="127.0.0.1:0",
+        _supervisor_address="127.0.0.1:1",
+        _event_collector_ref=None,
+        _model_uid_to_model={},
+        _model_uid_launching_guard={},
+        _launch_semaphore=asyncio.Semaphore(1),
+        _launch_waiting=0,
+        _launch_active=0,
+        get_supervisor_ref=AsyncMock(),
+        _check_model_is_valid=Mock(),
+        get_model_launch_status=Mock(return_value=None),
+        _create_virtual_env_manager=Mock(return_value=manager),
+        _allocate_subpool_devices=AsyncMock(
+            return_value=({"CUDA_VISIBLE_DEVICES": "3"}, ["3"])
+        ),
+        _prepare_virtual_env=Mock(return_value="fingerprint"),
+        _reserve_virtual_env_usage=Mock(),
+        _release_virtual_env_usage=Mock(),
+        _activate_virtual_env_usage=Mock(),
+        release_devices=Mock(),
+        _get_progressor=AsyncMock(return_value=Mock()),
+        _download_model_files=AsyncMock(),
+        _update_model_state=AsyncMock(),
+    )
+    monkeypatch.setattr(
+        worker_module, "build_subpool_envs_for_virtual_env", lambda *args: {}
+    )
+    monkeypatch.setattr(
+        worker_module,
+        "resolve_virtualenv_python_path",
+        lambda env: "/model-env/bin/python",
+    )
+    monkeypatch.setattr(
+        worker_module.WorkerActor, "_finish_launch_progress", AsyncMock()
+    )
+    return worker
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("engine", ["diffusers", "Diffusers"])
+async def test_worker_checks_target_environment_before_cache(
+    monkeypatch, spec, launch_worker, launch_runtime, enable_virtual_env, engine
+):
+    import subprocess
+
+    from ....core.worker import WorkerActor
+
+    worker = launch_worker
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", spec.model_hub)
+    if not enable_virtual_env:
+        worker._create_virtual_env_manager.return_value = None
+        monkeypatch.setattr(
+            "xinference.core.worker.resolve_virtualenv_python_path", lambda env: None
+        )
+    probe = Mock(
+        return_value=SimpleNamespace(returncode=1, stderr="unsupported target runtime")
+    )
+    monkeypatch.setattr(subprocess, "run", probe)
+    with pytest.raises(ValueError, match="unsupported target runtime"):
+        await inspect.unwrap(WorkerActor.launch_builtin_model)(
+            worker,
+            model_uid="minimax-image-0",
+            model_name=spec.model_name,
+            model_size_in_billions=None,
+            model_format="diffusers",
+            quantization="none",
+            model_engine=engine,
+            model_type="image",
+            n_gpu=None,
+            download_hub="auto",
+            enable_virtual_env=enable_virtual_env,
+            virtual_env_packages=["diffusers==0.43.0"],
+        )
+    command = probe.call_args.args[0]
+    assert command[0] == (
+        "/model-env/bin/python" if enable_virtual_env else sys.executable
+    )
+    assert probe.call_args.kwargs["env"]["CUDA_VISIBLE_DEVICES"] == "3"
+    assert json.loads(probe.call_args.kwargs["input"]) == {
+        "device": None,
+        "cpu_offload": True,
+    }
+    if enable_virtual_env:
+        worker._prepare_virtual_env.assert_called_once()
+        assert worker._prepare_virtual_env.call_args.args[2] == ["diffusers==0.43.0"]
+    else:
+        worker._prepare_virtual_env.assert_not_called()
+    worker._download_model_files.assert_not_called()
+    launch_runtime.cache.assert_not_called()
+    worker.release_devices.assert_called_once_with(model_uid="minimax-image-0")
+    worker._release_virtual_env_usage.assert_called_once_with("minimax-image-0")
+
+
+@pytest.mark.asyncio
+async def test_worker_uses_model_runtime_when_worker_runtime_is_missing(
+    monkeypatch, spec, launch_worker, launch_runtime
+):
+    import subprocess
+
+    from ....core.worker import WorkerActor
+
+    worker = launch_worker
+
+    class ReachedSubpool(Exception):
+        pass
+
+    worker._spawn_subpool = AsyncMock(side_effect=ReachedSubpool)
+    monkeypatch.setattr(
+        MiniMaxH3DiffusersImageModel,
+        "check_lib",
+        classmethod(lambda cls: pytest.fail("Worker dependencies must not be checked")),
+    )
+    monkeypatch.setattr(
+        subprocess, "run", Mock(return_value=SimpleNamespace(returncode=0))
+    )
+
+    async def download(**kwargs):
+        model = create_image_model_instance(
+            kwargs["operation_uid"],
+            kwargs["model_name"],
+            download_hub=kwargs["download_hub"],
+            **kwargs["model_kwargs"],
+        )
+        return model, SimpleNamespace(cancelled=False)
+
+    worker._download_model_files = download
+    with pytest.raises(ReachedSubpool):
+        await inspect.unwrap(WorkerActor.launch_builtin_model)(
+            worker,
+            model_uid="minimax-image-0",
+            model_name=spec.model_name,
+            model_size_in_billions=None,
+            model_format="diffusers",
+            quantization="none",
+            model_engine="diffusers",
+            model_type="image",
+            n_gpu=None,
+            download_hub=spec.model_hub,
+            enable_virtual_env=True,
+        )
+    launch_runtime.cache.assert_called_once_with()
+    worker._prepare_virtual_env.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cancelling_dependency_setup_does_not_cache_weights(
+    monkeypatch, spec, launch_worker, launch_runtime
+):
+    import subprocess
+
+    from ....core.worker import WorkerActor
+
+    worker = launch_worker
+
+    def cancel_setup(*args, **kwargs):
+        worker._model_uid_launching_guard["minimax-image-0"].cancel_event.set()
+        return "fingerprint"
+
+    worker._prepare_virtual_env.side_effect = cancel_setup
+    probe = Mock(side_effect=AssertionError("Launch was cancelled"))
+    monkeypatch.setattr(subprocess, "run", probe)
+    with pytest.raises(RuntimeError, match="cancelled before runtime preflight"):
+        await inspect.unwrap(WorkerActor.launch_builtin_model)(
+            worker,
+            model_uid="minimax-image-0",
+            model_name=spec.model_name,
+            model_size_in_billions=None,
+            model_format="diffusers",
+            quantization="none",
+            model_engine="diffusers",
+            model_type="image",
+            n_gpu=None,
+            download_hub=spec.model_hub,
+            enable_virtual_env=True,
+        )
+    probe.assert_not_called()
+    worker._download_model_files.assert_not_called()
+    launch_runtime.cache.assert_not_called()
+    worker._release_virtual_env_usage.assert_called_once_with("minimax-image-0")
+
+
+@pytest.mark.asyncio
+async def test_cache_only_does_not_require_image_runtime(
+    monkeypatch, spec, launch_runtime
+):
+    from ....core.worker import WorkerActor
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.33.1")
+    worker = SimpleNamespace(
+        address="127.0.0.1:0",
+        _check_model_is_valid=Mock(),
+        _download_artifact_cleanup_lock=asyncio.Lock(),
+        _cache_uid_to_download_info={},
+        _launch_semaphore=asyncio.Semaphore(1),
+        _get_progressor=AsyncMock(),
+    )
+
+    async def download(**kwargs):
+        model = create_image_model_instance(
+            kwargs["operation_uid"],
+            kwargs["model_name"],
+            download_hub=kwargs["download_hub"],
+            **kwargs["model_kwargs"],
+        )
+        return model, SimpleNamespace(cancelled=False)
+
+    worker._download_model_files = download
+    await inspect.unwrap(WorkerActor.cache_builtin_model)(
+        worker,
+        cache_uid="minimax-cache",
+        model_name=spec.model_name,
+        model_size_in_billions=None,
+        model_format="diffusers",
+        quantization="none",
+        model_engine="diffusers",
+        model_type="image",
+        download_hub=spec.model_hub,
+        enable_virtual_env=False,
+    )
+    launch_runtime.cache.assert_called_once_with()
+    launch_runtime.backend.assert_not_called()
 
 
 @pytest.mark.parametrize("virtualenv_aware", [False, True])

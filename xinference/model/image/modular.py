@@ -59,54 +59,64 @@ class ModularDiffusionModel(SDAPIDiffusionModelMixin):
     def model_ability(self) -> List[str]:
         return self._model_spec.model_ability or []
 
-    def load(self) -> None:
-        import torch
-
+    @classmethod
+    def _get_runtime(
+        cls, device: Optional[str], cpu_offload: bool
+    ) -> Tuple[Any, Any, str]:
         from ...device_utils import get_available_device
-        from ..cache_manager import CacheManager
-        from ..core import CacheableModelSpec
 
         try:
             import diffusers
             from diffusers import ComponentsManager
 
-            pipeline_class = getattr(diffusers, self._pipeline_class_name, None)
+            pipeline_class = getattr(diffusers, cls._pipeline_class_name, None)
             if pipeline_class is None:
-                raise ImportError(f"Missing {self._pipeline_class_name}")
+                raise ImportError(f"Missing {cls._pipeline_class_name}")
         except ImportError as exc:
             detail = dependency_import_message(
                 "diffusers",
                 exc,
-                install_hint=f'Install with `pip install "{self._diffusers_requirement}"`.',
+                install_hint=f'Install with `pip install "{cls._diffusers_requirement}"`.',
             )
             raise ImportError(
-                f"{self._display_name} requires {self._diffusers_requirement}. {detail}"
+                f"{cls._display_name} requires {cls._diffusers_requirement}. {detail}"
             ) from exc
 
-        for option in ("lora_model", "gguf_model_path", "lightning_model_path"):
-            if self._kwargs.get(option):
-                raise ValueError(f"{self._display_name} does not support {option}")
-
-        self._device = self._device or get_available_device()
-        cpu_offload = self._kwargs.get("cpu_offload", False)
+        device = device or get_available_device()
         if cpu_offload:
             from diffusers.utils.torch_utils import TorchDeviceBackend
 
             # Auto offload needs a free-memory query for the selected device.
             # Check before downloading or allocating any component weights.
             try:
-                TorchDeviceBackend(self._device).mem_get_info()
+                TorchDeviceBackend(device).mem_get_info()
             except (AttributeError, NotImplementedError, RuntimeError) as exc:
                 raise ValueError(
-                    f"{self._display_name} CPU offload is unavailable on device "
-                    f"{self._device!r}: {exc} Select a device with a supported "
+                    f"{cls._display_name} CPU offload is unavailable on device "
+                    f"{device!r}: {exc} Select a device with a supported "
                     "free-memory query, or set cpu_offload=False if the model "
                     "fits in the selected device's memory."
                 ) from exc
+        return ComponentsManager, pipeline_class, device
+
+    def load(self) -> None:
+        import torch
+
+        from ..cache_manager import CacheManager
+        from ..core import CacheableModelSpec
+
+        for option in ("lora_model", "gguf_model_path", "lightning_model_path"):
+            if self._kwargs.get(option):
+                raise ValueError(f"{self._display_name} does not support {option}")
+
+        cpu_offload = self._kwargs.get("cpu_offload", False)
+        manager_class, pipeline_class, self._device = self._get_runtime(
+            self._device, cpu_offload
+        )
         dtype = self._kwargs.get("torch_dtype", "bfloat16")
         if isinstance(dtype, str):
             dtype = getattr(torch, dtype)
-        manager = ComponentsManager()
+        manager = manager_class()
         pipeline = pipeline_class.from_pretrained(
             self._model_path, components_manager=manager
         )

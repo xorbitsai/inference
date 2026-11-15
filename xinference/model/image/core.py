@@ -345,6 +345,7 @@ def create_image_model_instance(
     from .cache_manager import ImageCacheManager
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    skip_preflight = kwargs.pop("_xinference_skip_runtime_preflight", False)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         ocr_gguf = _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path)
@@ -407,6 +408,9 @@ def create_image_model_instance(
             model_format,
             quantization,
         )
+    preflight = getattr(model_cls, "preflight", None)
+    if callable(preflight) and not skip_preflight:
+        preflight(**kwargs)
     cache_manager = ImageCacheManager(model_spec)
     if not lightning_model_path and lightning_version:
         cache_manager.check_lightning(lightning_version)

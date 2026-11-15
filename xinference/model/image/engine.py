@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import platform
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 from ..utils import has_cuda_device
 from .docanalyze.mineru25 import Mineru2_5Model
@@ -111,6 +111,57 @@ class MiniMaxH3DiffusersImageModel(MiniMaxH3ImageModel, ImageEngineModel):
                 f"found diffusers=={installed}.",
             )
         return True
+
+    @classmethod
+    def preflight(
+        cls,
+        *,
+        python_executable: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> None:
+        if python_executable is not None:
+            import json
+            import os
+            import subprocess
+
+            # Match the model subprocess's interpreter and allocated devices;
+            # importing the worker's Diffusers/Torch can give a different result.
+            process = subprocess.run(
+                [
+                    python_executable,
+                    "-c",
+                    "import json, sys; "
+                    "from xinference.model.image.engine import MiniMaxH3DiffusersImageModel; "
+                    "MiniMaxH3DiffusersImageModel.preflight(**json.load(sys.stdin))",
+                ],
+                input=json.dumps(
+                    {
+                        "device": kwargs.get("device"),
+                        "cpu_offload": kwargs.get("cpu_offload", True),
+                    }
+                ),
+                env={**os.environ, **(env or {})},
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if process.returncode:
+                raise ValueError(
+                    f"{cls._display_name} runtime preflight failed: {process.stderr.strip()}"
+                )
+            return
+        result = cls.check_lib()
+        if result is not True:
+            reason = (
+                result[1]
+                if isinstance(result, tuple)
+                else "Missing runtime dependencies"
+            )
+            raise ImportError(
+                f"{cls._display_name} requires {cls._diffusers_requirement}. {reason}"
+            )
+        cls._get_runtime(kwargs.get("device"), kwargs.get("cpu_offload", True))
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
