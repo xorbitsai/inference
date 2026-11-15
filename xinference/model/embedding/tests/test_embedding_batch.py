@@ -557,9 +557,8 @@ def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
 class _VocabTokenizer:
     _vocab = {7: "hello", 8: "world"}
 
+    # Takes a list only, like vLLM's tokenizer protocol.
     def convert_ids_to_tokens(self, ids):
-        if isinstance(ids, int):
-            return self._vocab[ids]
         return [self._vocab[i] for i in ids]
 
     def decode(self, ids):
