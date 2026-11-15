@@ -14,19 +14,19 @@
 
 import asyncio
 import concurrent.futures
+import dataclasses
 import logging
 import random
 import re
 import threading
 import time
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from ....core.replica_load import EngineLoad
 from ....types import LoRA
 from ....utils import dependency_import_guard
 from ...lightning import resolve_request_lightning
-from ...vllm_load import VLLMSchedulerLoad, read_omni_request_counts
 from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
@@ -56,8 +56,6 @@ VLLM_SUPPORTED_ABILITIES = ("text2image",)
 def _filter_kwargs_by_dataclass_fields(
     kwargs: Dict[str, Any], dataclass_type: Any, purpose: str
 ) -> Dict[str, Any]:
-    import dataclasses
-
     valid_keys = {f.name for f in dataclasses.fields(dataclass_type)}
     dropped = sorted(set(kwargs) - valid_keys)
     if dropped:
@@ -68,11 +66,12 @@ def _filter_kwargs_by_dataclass_fields(
 class _RequestWaiter:
     """Bookkeeping for one in-flight engine request routed by the dispatcher."""
 
-    __slots__ = ("future", "outputs")
+    __slots__ = ("future", "outputs", "queued_since")
 
-    def __init__(self):
+    def __init__(self, queued_since: Optional[float] = None):
         self.future: concurrent.futures.Future = concurrent.futures.Future()
         self.outputs: List[Any] = []
+        self.queued_since = queued_since
 
 
 class VLLMDiffusionModel:
@@ -150,7 +149,7 @@ class VLLMDiffusionModel:
         # set on fatal engine errors; subsequent requests fail immediately
         # with this as the cause instead of hanging on a dead backend
         self._fatal_error: Optional[BaseException] = None
-        self._scheduler_load: Optional[VLLMSchedulerLoad] = None
+        self._is_request_started: Optional[Callable[[Any], bool]] = None
 
     def __getstate__(self):
         # the instance is pickled when handed to the model actor subprocess
@@ -171,25 +170,38 @@ class VLLMDiffusionModel:
         return self._abilities
 
     def enable_engine_load_reporting(self) -> None:
-        self._scheduler_load = VLLMSchedulerLoad()
-        self._kwargs["collect_stage_metrics"] = True
+        requirement = (
+            "vLLM-Omni diffusion replica autoscaling requires request lifecycle "
+            "events (vllm-omni>=0.32.0)"
+        )
+        try:
+            from vllm_omni.diffusion.data import is_diffusion_request_started_output
+            from vllm_omni.inputs.data import OmniDiffusionSamplingParams
+        except ImportError as exc:
+            raise ImportError(requirement) from exc
+        if not hasattr(OmniDiffusionSamplingParams, "emit_request_lifecycle"):
+            raise ImportError(requirement)
+        self._is_request_started = is_diffusion_request_started_output
 
     def get_engine_load(self) -> Optional[EngineLoad]:
-        tracker = self._scheduler_load
         runner = self._model
-        if tracker is None or runner is None or not self._concurrency_available():
+        if (
+            self._is_request_started is None
+            or runner is None
+            or not self._concurrency_available()
+        ):
             return None
         runner.check_health()
         with self._submit_lock:
             if self._closed or self._model is not runner:
                 return None
-            counts = read_omni_request_counts(runner.engine, len(self._waiters))
-        if counts is None:
-            return None
-        tracker.update(*counts)
-        return EngineLoad(
-            tracker.waiting, tracker.backlog_age(time.monotonic()), tracker.running
-        )
+            pending = [
+                waiter.queued_since
+                for waiter in self._waiters.values()
+                if waiter.queued_since is not None
+            ]
+            age = time.monotonic() - min(pending) if pending else 0.0
+            return EngineLoad(len(pending), age, len(self._waiters) - len(pending))
 
     def load(self):
         with dependency_import_guard(
@@ -221,6 +233,16 @@ class VLLMDiffusionModel:
             model=self._model_path,
             **options,
         )
+        if self._is_request_started is not None:
+            engine = self._model.engine
+            if (
+                engine.num_stages != 1
+                or engine.get_stage_metadata(0).stage_type != "diffusion"
+            ):
+                self.stop()
+                raise ValueError(
+                    "vLLM-Omni replica autoscaling requires a single diffusion stage"
+                )
 
     def stop(self):
         self._closed = True
@@ -335,9 +357,11 @@ class VLLMDiffusionModel:
         if isinstance(msg, ErrorMessage):
             error = RuntimeError(f"vLLM-Omni engine error: {msg.error}")
             request_id = getattr(msg, "request_id", None)
-            if getattr(msg, "fatal", False):
-                # the backend is unusable; fail in-flight requests and refuse
-                # subsequent ones instead of letting them hang
+            if getattr(msg, "fatal", False) or (
+                request_id is None and self._is_request_started is not None
+            ):
+                # A replica reporting load must retain ownership or stop the
+                # engine if an error cannot be attributed to a request.
                 self._fail_and_close(error)
                 return
             if request_id is None:
@@ -355,11 +379,16 @@ class VLLMDiffusionModel:
             # e.g. StageMetricsMessage — nothing to route
             return
 
+        engine_outputs = msg.engine_outputs
         with self._submit_lock:
             waiter = self._waiters.get(msg.request_id)
-        if waiter is None:
-            return
-        engine_outputs = msg.engine_outputs
+            if waiter is None:
+                return
+            if self._is_request_started is not None and self._is_request_started(
+                engine_outputs
+            ):
+                waiter.queued_since = None
+                return
         error_text = getattr(engine_outputs, "error", None)
         if error_text is not None:
             with self._submit_lock:
@@ -412,12 +441,14 @@ class VLLMDiffusionModel:
             final_stage_id,
             final_output_stage_ids,
         ) = self._resolve_stage_args(prompt_payload, sampling_params)
+        report_load = self._is_request_started is not None
+        if report_load:
+            # Enable the event after resolving pipeline sampling constraints.
+            sp_list = [dataclasses.replace(sp_list[0], emit_request_lifecycle=True)]
         request_id = f"xinf-{uuid.uuid4()}"
-        waiter = _RequestWaiter()
+        waiter = _RequestWaiter(time.monotonic() if report_load else None)
         with self._submit_lock:
             self._raise_if_unavailable()
-            if not self._waiters and self._scheduler_load is not None:
-                self._scheduler_load.update(0, 0)
             self._waiters[request_id] = waiter
             self._ensure_dispatcher()
         try:

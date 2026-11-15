@@ -241,6 +241,7 @@ def test_extract_images():
 class _FakeEngineOutputs:
     images: Any = None
     error: Any = None
+    custom_output: Any = None
 
 
 @dataclasses.dataclass
@@ -321,26 +322,81 @@ def _make_concurrent_model():
     return model, model._model.engine
 
 
-def test_reports_both_transport_and_native_diffusion_queue():
+@dataclasses.dataclass
+class _LifecycleSamplingParams:
+    emit_request_lifecycle: bool = False
+
+
+@pytest.fixture
+def fake_diffusion_request_lifecycle(monkeypatch):
+    data = types.ModuleType("vllm_omni.diffusion.data")
+    data.is_diffusion_request_started_output = lambda output: (
+        (output.custom_output or {}).get("_diffusion_request_lifecycle") == "started"
+    )
+    params = types.ModuleType("vllm_omni.inputs.data")
+    params.OmniDiffusionSamplingParams = _LifecycleSamplingParams
+    monkeypatch.setitem(sys.modules, "vllm_omni.diffusion.data", data)
+    monkeypatch.setitem(sys.modules, "vllm_omni.inputs.data", params)
+
+
+def test_requires_request_lifecycle_for_load_reporting(fake_vllm_omni_messages):
+    model, _ = _make_concurrent_model()
+    with pytest.raises(ImportError, match="vllm-omni>=0.32.0"):
+        model.enable_engine_load_reporting()
+
+
+@pytest.mark.asyncio
+async def test_reports_natively_queued_work_before_completion(
+    fake_vllm_omni_messages, fake_diffusion_request_lifecycle
+):
     model, engine = _make_concurrent_model()
     model.enable_engine_load_reporting()
     model._model.check_health = lambda: None
-    assert model.get_engine_load() is None
+    model._model.resolve_sampling_params_list = lambda params: [
+        dataclasses.replace(params[0], emit_request_lifecycle=False)
+    ]
     engine._running_counter = types.SimpleNamespace(value=0)
     engine._engines_waiting_counter = types.SimpleNamespace(value=0)
     assert model.get_engine_load() == EngineLoad()
 
-    model._waiters.update({str(i): object() for i in range(5)})
-    engine._running_counter.value = 4
-    engine._engines_waiting_counter.value = 2
-    load = model.get_engine_load()
-    assert load.waiting == 3
-    assert load.running == 2
+    params = _LifecycleSamplingParams()
+    tasks = [asyncio.create_task(model._submit_and_wait("running", params))]
+    try:
+        await _wait_for_requests(engine, 1)
+        running_id = engine.requests[0]["request_id"]
+        engine._running_counter.value = 1
+        started = _FakeEngineOutputs(
+            custom_output={"_diffusion_request_lifecycle": "started"}
+        )
+        model._route_message(_FakeOutputMessage(running_id, started, finished=False))
+        assert model.get_engine_load() == EngineLoad(running=1)
 
-    model._waiters.clear()
-    engine._running_counter.value = 0
-    engine._engines_waiting_counter.value = 0
-    assert model.get_engine_load() == EngineLoad()
+        tasks.append(asyncio.create_task(model._submit_and_wait("queued", params)))
+        await _wait_for_requests(engine, 2)
+        queued_id = engine.requests[1]["request_id"]
+        engine._running_counter.value = 2
+        load = model.get_engine_load()
+        assert (load.waiting, load.running) == (1, 1)
+        assert load.backlog_seconds > 0
+        assert not any(task.done() for task in tasks)
+        assert all(
+            request["sampling_params_list"][0].emit_request_lifecycle
+            for request in engine.requests
+        )
+        assert not params.emit_request_lifecycle
+
+        output = _FakeEngineOutputs(images=["image"])
+        model._route_message(_FakeOutputMessage(running_id, output, finished=True))
+        assert await tasks[0] == [output]
+        model._route_message(_FakeOutputMessage(queued_id, started, finished=False))
+        assert model.get_engine_load() == EngineLoad(running=1)
+        model._route_message(_FakeErrorMessage(error="failed", request_id=queued_id))
+        with pytest.raises(RuntimeError, match="failed"):
+            await tasks[1]
+        assert model.get_engine_load() == EngineLoad()
+    finally:
+        model._fail_all_waiters(RuntimeError("test cleanup"))
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _wait_for_requests(engine, count, timeout=5.0):
@@ -461,7 +517,10 @@ async def test_fatal_engine_error_fails_all_requests(fake_vllm_omni_messages):
 
 
 @pytest.mark.asyncio
-async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
+@pytest.mark.parametrize("fatal", [True, False])
+async def test_unattributed_engine_error_closes_autoscaled_model(
+    fake_vllm_omni_messages, fake_diffusion_request_lifecycle, fatal
+):
     class _ClosableOmni(_FakeOmni):
         def __init__(self):
             super().__init__()
@@ -473,12 +532,14 @@ async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
             self.close_complete.set()
 
     model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
+    model.enable_engine_load_reporting()
     omni = model._model = _ClosableOmni()
     engine = omni.engine
 
-    task = asyncio.create_task(model._submit_and_wait("p", object()))
+    params = _LifecycleSamplingParams()
+    task = asyncio.create_task(model._submit_and_wait("p", params))
     await _wait_for_requests(engine, 1)
-    engine.output_queue.put(_FakeErrorMessage(error="engine died", fatal=True))
+    engine.output_queue.put(_FakeErrorMessage(error="engine died", fatal=fatal))
     with pytest.raises(RuntimeError, match="engine died"):
         await asyncio.wait_for(task, timeout=5.0)
 
@@ -488,8 +549,9 @@ async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
     # and subsequent requests fail immediately instead of hanging
     assert omni.closed is True
     assert model._model is None
+    assert model.get_engine_load() is None
     with pytest.raises(RuntimeError, match="fatal error"):
-        await asyncio.wait_for(model._submit_and_wait("p2", object()), timeout=5.0)
+        await asyncio.wait_for(model._submit_and_wait("p2", params), timeout=5.0)
     with pytest.raises(RuntimeError, match="fatal error"):
         await model.text_to_image("prompt")
     assert not engine.requests[1:]
