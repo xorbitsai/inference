@@ -113,28 +113,38 @@ for faster inference:
 * Krea-2-Raw (SGLang only)
 * Krea-2-Turbo (SGLang only)
 * Qwen-Image
+* Qwen-Image-2.1
+* Qwen-Image-2.1-Turbo
 * Qwen-Image-2512
 * Z-Image
 * Z-Image-Turbo
 * sd3.5-medium (vLLM only)
+
+The SGLang and vLLM engines support text-to-image only. Use ``diffusers`` for
+image-to-image generation.
 
 On the vLLM engine, models whose vllm-omni pipeline supports request-level
 batching (e.g. sd3.5-medium, Qwen-Image, FLUX.1-dev) can additionally batch
 concurrent requests on the GPU; pass ``max_num_seqs`` at launch to set the
 maximum batch size.
 
-SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request.
+SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic
+batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch.
+Supported vLLM-Omni pipelines can use ``step_execution=true`` for experimental
+continuous batching. Batching is opt-in, requires compatible requests and model
+support, and increases GPU memory usage. Send independent API requests
+concurrently. The ``n`` parameter controls the number of outputs within one request.
 
-To use them, install SGLang with diffusion support via
-``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the
-same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``,
-then launch the model with ``--model-engine SGLang`` or
-``--model-engine vLLM``, for example:
+By default, Xinference installs the engine dependencies in a per-model virtual
+environment. For manual installs of Qwen-Image-2.1 or Qwen-Image-2.1-Turbo, use
+``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` for SGLang or
+``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` for vLLM. Select the engine
+at launch with ``--model-engine``.
 
 .. code-block:: bash
 
-    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine SGLang
-    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine vLLM
+    xinference launch --model-name Qwen-Image-2.1 --model-type image --model-engine SGLang
+    xinference launch --model-name Qwen-Image-2.1 --model-type image --model-engine vLLM
 
 Note that GGUF quantization, Lightning acceleration, LoRA and controlnet are
 only available on the ``diffusers`` engine.

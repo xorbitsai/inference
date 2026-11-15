@@ -29,6 +29,7 @@ import xoscar as xo
 from fastapi import FastAPI
 from PIL import Image
 
+from ...core.exceptions import RequestQueueFullError
 from ...core.model import ModelActor
 from ...model.audio.ace_step import AceStepModel
 from ...model.audio.melotts import MeloTTSModel
@@ -205,6 +206,24 @@ async def test_speech_forwards_uploaded_reference_audio(api_client, task):
         task=task,
     )
     api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path, method",
+    [
+        ("/v1/images/generations", "text_to_image"),
+        ("/v1/video/generations", "text_to_video"),
+    ],
+)
+async def test_media_queue_timeout_returns_retryable_error(api_client, path, method):
+    getattr(api_client.model, method).side_effect = RequestQueueFullError(
+        "Timed out waiting for a generation"
+    )
+    async with api_client.client as client:
+        response = await client.post(path, json={"model": "test", "prompt": "hello"})
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "1"
 
 
 @pytest.mark.asyncio

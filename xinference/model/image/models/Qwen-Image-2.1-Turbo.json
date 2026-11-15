@@ -26,6 +26,9 @@
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers ; #engine# == \"diffusers\"",
+        "vllm-omni==0.32.* ; #engine# == \"vLLM\"",
+        "vllm==0.32.* ; #engine# == \"vLLM\"",
+        "sglang[diffusion]>=0.5.21,<0.6 ; #engine# == \"SGLang\"",
         "transformers>=5.17.0,<6",
         "accelerate>=1.0.0",
         "peft>=0.17.0",
