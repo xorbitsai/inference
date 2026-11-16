@@ -18,6 +18,7 @@
 import json
 import logging
 from types import MethodType, SimpleNamespace
+from typing import Dict, List, TypedDict
 from unittest.mock import AsyncMock
 
 import httpx
@@ -26,7 +27,7 @@ from fastapi import HTTPException, Request
 from starlette.responses import JSONResponse, Response
 
 from .. import model_request_logging, restful_api
-from ..model_request_logging import schema_error_fields, schema_field_names
+from ..model_request_logging import schema_error_fields
 from .test_llm_request_abort import _new_api
 from .test_model_request_logging import _app
 
@@ -313,6 +314,17 @@ async def test_untrusted_identifiers_are_quoted(caplog):
     assert message.endswith("exception=HTTPException")
 
 
+class _Message(TypedDict):
+    content: str
+
+
+class _Body(TypedDict):
+    metadata: Dict[str, List[str]]
+    messages: List[_Message]
+    max_tokens: int
+    tools: List[str]
+
+
 def test_schema_error_fields_drop_content_and_mask_untrusted_keys():
     errors = [
         {
@@ -322,31 +334,63 @@ def test_schema_error_fields_drop_content_and_mask_untrusted_keys():
             "input": SENTINEL,
             "ctx": {"error": SENTINEL},
         },
+        # A map key that is also a field name elsewhere in the schema.
+        {"loc": ("metadata", "max_tokens", 0), "type": "string_type"},
         {"loc": ("messages", 0, "content"), "type": SENTINEL},
+        {"loc": ("messages", 0, "max_tokens"), "type": "extra_forbidden"},
         {"loc": ["max_tokens"], "type": "type_error.integer"},
         {"loc": ("tools\n", 1), "type": "missing\n"},
         {"loc": None},
         "not a dict",
     ]
 
-    fields = schema_error_fields(
-        errors, frozenset({"metadata", "messages", "content", "max_tokens", "tools"})
-    )
+    fields = schema_error_fields(errors, _Body)
 
     assert fields == [
         "metadata.*.0:string_type",
+        "metadata.*.0:string_type",
         "messages.0.content:*",
+        "messages.0.*:extra_forbidden",
         "max_tokens:type_error.integer",
         "*.1:*",
         "*:*",
     ]
 
 
-def test_schema_field_names_cover_nested_schema_names_only():
-    names = schema_field_names(restful_api.CreateChatCompletion)
+def test_schema_locations_are_read_at_their_own_position():
+    errors = [
+        {"loc": loc, "type": "t"}
+        for loc in [
+            ("logit_bias", "user"),
+            ("logit_bias", "model"),
+            ("model",),
+            ("tools", 1, "function", "name"),
+            ("tools", 1, "function", "parameters", "user"),
+            ("tool_choice", "function", "name"),
+            ("tool_choice", "function", "user"),
+        ]
+    ]
 
-    assert {"messages", "logit_bias", "tools", "function", "parameters"} <= names
-    assert "SamplePrivateLabel" not in names
+    assert schema_error_fields(errors, restful_api.CreateChatCompletion) == [
+        "logit_bias.*:t",
+        "logit_bias.*:t",
+        "model:t",
+        "tools.1.function.name:t",
+        "tools.1.function.parameters.*:t",
+        "tool_choice.function.name:t",
+        "tool_choice.function.*:t",
+    ]
+
+
+def test_unwalkable_schema_masks_the_whole_location(monkeypatch):
+    def broken(*args):
+        raise RuntimeError("unexpected annotation")
+
+    monkeypatch.setattr(model_request_logging, "_flatten_annotation", broken)
+
+    assert schema_error_fields(
+        [{"loc": ("max_tokens",), "type": "int_type"}], _Body
+    ) == ["*:int_type"]
 
 
 @pytest.mark.asyncio
@@ -361,23 +405,27 @@ def test_schema_field_names_cover_nested_schema_names_only():
         ),
     ],
 )
+@pytest.mark.parametrize(
+    "key",
+    # An identifier-shaped key, and keys that collide with top-level fields.
+    ["SamplePrivateLabel", "user", "model"],
+)
 async def test_identifier_shaped_dict_keys_are_masked(
-    monkeypatch, caplog, path, handler, body
+    monkeypatch, caplog, path, handler, body, key
 ):
     api = _api(monkeypatch)
     caplog.set_level(logging.DEBUG)
-    body = dict(body, logit_bias={"SamplePrivateLabel": "not-an-int"})
+    body = dict(body, logit_bias={key: "not-an-int"})
 
     response = await _post(_app(path, getattr(api, handler)), path, body)
 
     # The response keeps pydantic's original location.
     assert response.status_code == 422
-    assert ["logit_bias", "SamplePrivateLabel"] in [
-        error["loc"] for error in response.json()["detail"]
-    ]
+    assert ["logit_bias", key] in [error["loc"] for error in response.json()["detail"]]
     record = _rejections(caplog)[0]
     errors = _fields(record)["schema_errors"].split(",")
     assert any(error.startswith("logit_bias.*:") for error in errors)
+    assert f"logit_bias.{key}" not in caplog.text
     assert "SamplePrivateLabel" not in caplog.text
 
 
