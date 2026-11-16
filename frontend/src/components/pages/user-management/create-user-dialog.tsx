@@ -19,14 +19,20 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { PermissionSelector } from './permissions';
+import type { UserCreationOptions } from './authorization';
 
-interface CreateUserDialogProps {
+type CreateUserDialogProps = UserCreationOptions & {
   trigger?: ReactNode;
   children?: ReactNode;
   onSuccess: () => void | Promise<void>;
-}
+};
 
-export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDialogProps) {
+export function CreateUserDialog({
+  trigger,
+  children,
+  onSuccess,
+  ...options
+}: CreateUserDialogProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,6 +40,7 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
   const [form] = useForm();
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (loading) return;
     setOpen(nextOpen);
     if (nextOpen) {
       form.resetFields();
@@ -42,13 +49,18 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
   };
 
   const handleCreate = async (values: Record<string, unknown>) => {
+    if (loading) return;
     setLoading(true);
     try {
-      await request.post('/v1/admin/users', {
-        username: values.username,
-        password: values.password,
-        permissions,
-      });
+      if (options.authorizationMode === 'roles') {
+        await options.authorizationConfig.onCreateUser(values);
+      } else {
+        await request.post('/v1/admin/users', {
+          username: values.username,
+          password: values.password,
+          permissions,
+        });
+      }
       toast.success(t('userManagement.createSuccess'));
       setOpen(false);
       await onSuccess();
@@ -101,14 +113,29 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
           </FormField>
 
           <div className="mt-4">
-            <PermissionSelector selected={permissions} onChange={setPermissions} />
+            {options.authorizationMode === 'roles' ? (
+              options.authorizationConfig.createFields
+            ) : (
+              <PermissionSelector selected={permissions} onChange={setPermissions} />
+            )}
           </div>
 
           <DialogFooter className="mt-4">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={loading}
+              onClick={() => handleOpenChange(false)}
+            >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={loading}>
+            <Button
+              type="submit"
+              loading={loading}
+              disabled={
+                options.authorizationMode === 'roles' && options.authorizationConfig.createDisabled
+              }
+            >
               {t('userManagement.create')}
             </Button>
           </DialogFooter>

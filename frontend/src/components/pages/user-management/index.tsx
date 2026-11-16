@@ -27,8 +27,9 @@ import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateUserDialog } from './create-user-dialog';
 import { EditPermissionsDialog } from './edit-permissions-dialog';
 import { PermissionBadges } from './permissions';
+import type { UserManagementProps } from './authorization';
 
-export default function UserManagement() {
+export default function UserManagement(props: UserManagementProps) {
   const { t } = useI18n();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,7 +109,10 @@ export default function UserManagement() {
   return (
     <PageContainer
       title={t('menu.userManagement')}
-      subTitle={t('userManagement.pageDescription')}
+      subTitle={
+        (props.authorizationMode === 'roles' ? props.authorizationConfig.description : undefined) ??
+        t('userManagement.pageDescription')
+      }
       extraContent={
         <CreateUserDialog
           trigger={
@@ -118,6 +122,7 @@ export default function UserManagement() {
             </Button>
           }
           onSuccess={fetchUsers}
+          {...props}
         />
       }
     >
@@ -127,7 +132,11 @@ export default function UserManagement() {
             <TableRow>
               <TableHead>{t('userManagement.username')}</TableHead>
               <TableHead>{t('userManagement.source')}</TableHead>
-              <TableHead>{t('userManagement.permissions')}</TableHead>
+              <TableHead>
+                {props.authorizationMode === 'roles'
+                  ? props.authorizationConfig.columnTitle
+                  : t('userManagement.permissions')}
+              </TableHead>
               <TableHead>{t('userManagement.createdAt')}</TableHead>
               <TableHead>{t('userManagement.enabled')}</TableHead>
               <TableHead className="text-right">{t('common.operation')}</TableHead>
@@ -176,11 +185,15 @@ export default function UserManagement() {
                       <Badge variant="secondary">{user.source}</Badge>
                     </TableCell>
                     <TableCell>
-                      <PermissionBadges
-                        permissions={user.permissions}
-                        expanded={expandedPermissionIds.includes(user.id)}
-                        onToggleExpanded={() => togglePermissionExpanded(user.id)}
-                      />
+                      {props.authorizationMode === 'roles' ? (
+                        props.authorizationConfig.renderUser(user)
+                      ) : (
+                        <PermissionBadges
+                          permissions={user.permissions}
+                          expanded={expandedPermissionIds.includes(user.id)}
+                          onToggleExpanded={() => togglePermissionExpanded(user.id)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {user.created_at || '-'}
@@ -226,15 +239,20 @@ export default function UserManagement() {
                             onSuccess={fetchUsers}
                           />
                         )}
-                        <EditPermissionsDialog
-                          trigger={
-                            <Button variant="ghost" size="sm" title={t('common.edit')}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          }
-                          userDetail={user}
-                          onSuccess={fetchUsers}
-                        />
+                        {props.authorizationMode === 'roles' ? (
+                          !isCurrentUser &&
+                          props.authorizationConfig.renderActions(user, fetchUsers)
+                        ) : (
+                          <EditPermissionsDialog
+                            trigger={
+                              <Button variant="ghost" size="sm" title={t('common.edit')}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            }
+                            userDetail={user}
+                            onSuccess={fetchUsers}
+                          />
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
