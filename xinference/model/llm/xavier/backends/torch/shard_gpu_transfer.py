@@ -51,6 +51,20 @@ class ShardGPUUnavailable(RuntimeError):
     """The GPU path cannot serve this request; the caller reads from CPU."""
 
 
+async def _all(awaitables):
+    """Await every per-shard step, then raise the first failure.
+
+    A plain ``gather`` raises as soon as one shard fails while the other
+    shards still read or write device buffers. Callers release locks and
+    hand rows to the CPU path on failure, so nothing may still be in flight.
+    """
+    results = await asyncio.gather(*awaitables, return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+    return results
+
+
 def _layout_key(layout: Layout):
     return [
         (name, tuple(shape), str(dtype), start, n)
@@ -107,10 +121,13 @@ class _Shard:
     def _call(self, function, *args):
         if self.stream is None:
             return function(*args)
-        with torch.cuda.device(self.device), torch.cuda.stream(self.stream):
-            result = function(*args)
-        self.stream.synchronize()
-        return result
+        try:
+            with torch.cuda.device(self.device), torch.cuda.stream(self.stream):
+                return function(*args)
+        finally:
+            # Work enqueued before a failure still runs; finish it before
+            # the caller reuses the buffers or the destination slots.
+            self.stream.synchronize()
 
     async def run(self, function, *args):
         """Run device work on this shard's stream; return once it completed."""
@@ -338,11 +355,9 @@ class ShardGPUTransfer:
         async with self.send_lock:
             shards = [self.shards[i] for i in range(self.num_shards)]
             started = time.monotonic()
-            hits = await asyncio.gather(
-                *(
-                    self._gather(shard, shard_keys, shard.send[slab_class])
-                    for shard, shard_keys in zip(shards, keys)
-                )
+            hits = await _all(
+                self._gather(shard, shard_keys, shard.send[slab_class])
+                for shard, shard_keys in zip(shards, keys)
             )
             gathered = time.monotonic()
             self.metrics["gather_ms"] += (gathered - started) * 1000
@@ -487,22 +502,19 @@ class ShardGPUTransfer:
                         not set(h) <= set(c) for h, c in zip(hits, chunk)
                     ):
                         raise RuntimeError("Xavier TP GPU peer returned other rows")
-                    await asyncio.gather(
-                        *(
-                            self._scatter(
-                                self.shards[s], hits[s], parts[s][1], slab_class
-                            )
-                            for s in range(self.num_shards)
-                            if hits[s]
-                        )
+                    await _all(
+                        self._scatter(self.shards[s], hits[s], parts[s][1], slab_class)
+                        for s in range(self.num_shards)
+                        if hits[s]
                     )
                     scatter_ms += (time.monotonic() - scattered) * 1000
                     for s in range(self.num_shards):
                         loaded[s].extend(hits[s])
                     self.metrics["load_rounds"] += 1
         except Exception as error:
-            # Rows written before the failure are complete: each round's
-            # scatter finished before the next started. Report only those.
+            # Every scatter of the failed round has finished or failed, so no
+            # write into the caches is pending. Rows of earlier rounds are
+            # complete; report only those and let the CPU path write the rest.
             self.metrics["failed_loads"] += 1
             self.metrics["last_failure"] = repr(error)[:300]
             logger.warning(

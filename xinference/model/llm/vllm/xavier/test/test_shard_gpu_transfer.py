@@ -275,6 +275,66 @@ async def test_a_failed_round_reports_only_completed_rows(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_a_failed_scatter_waits_for_the_other_ranks_writes(monkeypatch):
+    network = Network(monkeypatch)
+    source, consumer = network.replica(1), network.replica(2)
+    for shard in range(2):
+        await _admit(source, shard, [1])
+    scatter, resume = consumer._scatter, asyncio.Event()
+
+    async def failing_scatter(shard, keys, mappings, slab_class):
+        if shard is consumer.shards[0]:
+            raise RuntimeError("scatter failed")
+        await resume.wait()
+        return await scatter(shard, keys, mappings, slab_class)
+
+    consumer._scatter = failing_scatter
+    tasks = [
+        asyncio.create_task(consumer.load(s, "lease", 1, [1], _mapping({1: 4})))
+        for s in range(2)
+    ]
+    await asyncio.sleep(0.01)
+    # Rank 1 still writes into its caches: neither rank may fall back yet.
+    assert not any(task.done() for task in tasks)
+    assert consumer.recv_lock.locked()
+    resume.set()
+    assert await asyncio.gather(*tasks) == [[], []]
+    # The late write landed before the load returned, so the CPU fallback
+    # that follows writes over it rather than the other way around.
+    _assert_rows(consumer, 1, {1: 4})
+    assert "scatter failed" in consumer.metrics["last_failure"]
+
+
+def test_device_work_is_synchronized_when_it_fails(monkeypatch):
+    synchronized = []
+    shard = module._Shard(_caches(), LAYOUT, ROW_BYTES, 0)
+    try:
+        monkeypatch.setattr(module.torch.cuda, "device", lambda device: _Noop())
+        monkeypatch.setattr(module.torch.cuda, "stream", lambda stream: _Noop())
+        shard.stream = SimpleNamespace(synchronize=lambda: synchronized.append(1))
+
+        def enqueue_then_fail():
+            raise RuntimeError("index out of range")
+
+        with pytest.raises(RuntimeError, match="index out of range"):
+            shard._call(enqueue_then_fail)
+        assert synchronized == [1]
+        assert shard._call(lambda: 7) == 7
+        assert synchronized == [1, 1]
+    finally:
+        shard.stream = None
+        shard.close()
+
+
+class _Noop:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+@pytest.mark.asyncio
 async def test_cancelled_rank_waits_until_its_caches_are_written(monkeypatch):
     network = Network(monkeypatch)
     source, consumer = network.replica(1), network.replica(2)
