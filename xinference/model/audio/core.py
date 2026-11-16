@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from .chattts import ChatTTSModel
     from .confucius4_tts import Confucius4TTSModel
     from .cosyvoice import CosyVoiceModel
+    from .dots_tts import DotsTTSEditModel
     from .engine_family import AudioEngineModel
     from .f5tts import F5TTSModel
     from .f5tts_mlx import F5TTSMLXModel
@@ -268,6 +269,7 @@ def create_audio_model_instance(
     ChatTTSModel,
     CosyVoiceModel,
     Confucius4TTSModel,
+    DotsTTSEditModel,
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
@@ -298,6 +300,7 @@ def create_audio_model_instance(
     from .chattts import ChatTTSModel
     from .confucius4_tts import Confucius4TTSModel
     from .cosyvoice import CosyVoiceModel
+    from .dots_tts import DotsTTSEditModel, is_dots_tts_python_supported
     from .engine_family import AUDIO_ENGINES
     from .f5tts import F5TTSModel
     from .f5tts_mlx import F5TTSMLXModel
@@ -321,6 +324,8 @@ def create_audio_model_instance(
     from .whisper_mlx import WhisperMLXModel
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    cache_only = kwargs.pop("_xinference_cache_only", False)
+    model_python_executable = kwargs.pop("_xinference_model_python_executable", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(
         model_name, model_engine, use_default_engine=True
     )
@@ -331,6 +336,10 @@ def create_audio_model_instance(
         quantization=quantization,
     )
     audio_cls = None
+
+    if model_spec.model_family == "dots_tts_edit" and not cache_only:
+        if not is_dots_tts_python_supported(model_python_executable):
+            raise ValueError("dots.tts.edit requires Python 3.10 through 3.12.")
 
     if model_spec.model_family == "ace_step_1_5":
         if not is_ace_step_python_supported():
@@ -415,6 +424,7 @@ def create_audio_model_instance(
         ChatTTSModel,
         CosyVoiceModel,
         Confucius4TTSModel,
+        DotsTTSEditModel,
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
@@ -456,6 +466,8 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Confucius4-TTS":
         model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "dots_tts_edit":
+        model = DotsTTSEditModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Ming-3.0-tts":
         model = MingTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":

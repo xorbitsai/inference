@@ -21,6 +21,7 @@ from .ace_step import AceStepModel, is_ace_step_python_supported
 from .audio8_tts import Audio8TTSModel
 from .audio8_tts_sglang import SGLangOmniAudio8TTSModel
 from .breeze_tts import BreezeTTS2Model
+from .dots_tts import DotsTTSEditModel, is_dots_tts_python_supported
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -181,6 +182,42 @@ class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
             model_family.model_name == "Breeze-TTS-2"
             and model_family.model_family == "Breeze-TTS-2"
         )
+
+
+class PyTorchDotsTTSEditAudioModel(DotsTTSEditModel, AudioEngineModel):
+    required_libs = (
+        "torch",
+        "transformers",
+        "torchaudio",
+        "soundfile",
+        "numpy",
+        "huggingface_hub",
+        "loguru",
+        "langcodes",
+        "einops",
+        "librosa",
+        "pydantic",
+        "safetensors",
+        "torchdiffeq",
+        "lingua",
+        "tn",
+    )
+
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if not is_dots_tts_python_supported():
+            return False, "dots.tts.edit requires Python 3.10 through 3.12."
+        return True
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "PyTorch")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "dots_tts_edit"
 
 
 class TransformersAudio8TTSAudioModel(Audio8TTSModel, AudioEngineModel):
@@ -495,6 +532,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchKokoroAudioModel,
         PyTorchFishAudioModel,
         PyTorchBreezeAudioModel,
+        PyTorchDotsTTSEditAudioModel,
         PyTorchMingTTSAudioModel,
         PyTorchIrodoriAudioModel,
         PyTorchFunASRAudioModel,

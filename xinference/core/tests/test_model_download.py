@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import os
 import threading
@@ -171,6 +173,51 @@ async def test_cache_only_operation_skips_runtime_allocation():
     assert (
         worker._download_model_files.await_args.kwargs["completion_stage"]
         == "completed"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("completion_stage", ["loading", "completed"])
+@pytest.mark.parametrize("selected_python", [None, "/trusted/bin/python"])
+async def test_audio_download_uses_trusted_startup_context(
+    monkeypatch, completion_stage, selected_python
+):
+    from xinference.core.worker import DownloadInfo, WorkerActor
+
+    worker = _ActorStub()
+    worker._upload_download_progress = MagicMock()
+    worker.update_cache_status = AsyncMock()
+    factory = MagicMock(return_value=_ModelStub())
+    monkeypatch.setattr("xinference.core.worker.create_model_instance", factory)
+    await WorkerActor._download_model_files(
+        worker,
+        operation_uid="audio-1",
+        request_id="audio-request",
+        download_info=DownloadInfo(),
+        progressor=_ProgressorStub(),
+        model_type="audio",
+        model_name="dots.tts.edit-v1.1",
+        model_engine="PyTorch",
+        model_format="pytorch",
+        model_size_in_billions=None,
+        quantization=None,
+        peft_model_config=None,
+        download_hub="modelscope",
+        model_path=None,
+        model_kwargs={
+            "_xinference_cache_only": completion_stage != "completed",
+            "_xinference_model_python_executable": "/untrusted/bin/python",
+        },
+        completion_stage=completion_stage,
+        model_python_executable=selected_python,
+    )
+    factory.assert_called_once()
+    assert factory.call_args.kwargs["_xinference_cache_only"] is (
+        completion_stage == "completed"
+    )
+    assert (
+        factory.call_args.kwargs["_xinference_model_python_executable"]
+        == selected_python
     )
 
 
