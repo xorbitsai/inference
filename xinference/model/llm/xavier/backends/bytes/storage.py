@@ -115,6 +115,10 @@ class XavierBytesCacheActor(xo.Actor):
             raise ValueError("Xavier page geometry differs from its contract")
         if len(keys) > self._capacity:
             return [False] * len(keys)
+        # Reject a continuation before changing residency or recency if any of
+        # its preceding pages have left the cache.
+        if any(key not in self._pages for key in keys[:start]):
+            return [False] * len(keys)
         pinned = self._pinned()
         self._order_waiting_prefixes()
         # Refresh an aged prefix before inserting any suffix pages. Otherwise

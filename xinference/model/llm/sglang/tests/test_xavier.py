@@ -254,6 +254,46 @@ async def test_shared_prefix_across_sglang_backup_callbacks(
             assert torch.equal(host.data, expected)
 
 
+@pytest.mark.parametrize("evict_prefix", [False, True])
+def test_bytes_continuation_requires_resident_prefix(
+    contract, shared_storage, monkeypatch, evict_prefix
+):
+    storage, _ = shared_storage
+    page_bytes = contract.num_layers * contract.layer_nbytes
+    actor = XavierBytesCacheActor(140 * page_bytes)
+    monkeypatch.setattr(
+        storage,
+        "_rpc",
+        lambda method, *args, **kwargs: getattr(actor, method)(*args, **kwargs),
+    )
+    storage.register_mem_pool_host(HostPool(140))
+    namespace = storage._namespace
+    keys = prefix_keys(list(range(560)), contract.block_size)
+    other = prefix_keys(list(range(560, 1120)), contract.block_size)
+    assert storage.batch_set_v1(keys[:128], torch.arange(512)) == [True] * 128
+    if evict_prefix:
+        assert storage.batch_set_v1(other, torch.arange(560)) == [True] * 140
+        assert actor.contains(namespace, keys[:128]) == [False] * 128
+        assert actor.exists(namespace, other) == 140
+    before = list(actor._pages.items())
+    stats = actor.get_stats()
+    stored = storage.batch_set_v1(
+        keys[128:], torch.arange(512, 560), SimpleNamespace(prefix_keys=keys[:128])
+    )
+    assert stored == [not evict_prefix] * 12
+    if evict_prefix:
+        assert actor.contains(namespace, keys[128:]) == [False] * 12
+        # Rejection must preserve payloads, sizes and the complete eviction order.
+        assert list(actor._pages.items()) == before
+        assert actor.get_stats() == stats
+        assert actor.contains(namespace, other) == [True] * 140
+        assert actor.exists(namespace, other) == 140
+    else:
+        assert actor.contains(namespace, keys) == [True] * 140
+        assert actor.exists(namespace, keys) == 140
+        assert list(actor._pages) == list(reversed(keys))
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stop_at_miss", [False, True])
 async def test_shared_prefix_split_reads_preserve_eviction_order(
