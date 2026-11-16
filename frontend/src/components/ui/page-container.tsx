@@ -10,7 +10,6 @@ interface PageHeaderProps {
   loading?: boolean;
   className?: string;
   headerClassName?: string;
-  contentClassName?: string;
 }
 const PageContainer: FC<PropsWithChildren<PageHeaderProps>> = ({
   showPageHeader = true,
@@ -21,7 +20,6 @@ const PageContainer: FC<PropsWithChildren<PageHeaderProps>> = ({
   loading = false,
   className,
   headerClassName,
-  contentClassName,
 }) => {
   return (
     <div className={cn('w-full flex flex-col gap-6', className)}>
@@ -39,7 +37,7 @@ const PageContainer: FC<PropsWithChildren<PageHeaderProps>> = ({
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className={contentClassName}>{children}</div>
+        <div>{children}</div>
       )}
     </div>
   );

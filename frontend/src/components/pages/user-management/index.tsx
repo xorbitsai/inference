@@ -29,7 +29,7 @@ import { EditPermissionsDialog } from './edit-permissions-dialog';
 import { PermissionBadges } from './permissions';
 import type { UserManagementProps } from './authorization';
 
-export default function UserManagement(props: UserManagementProps) {
+export default function UserManagement({ authorization }: UserManagementProps) {
   const { t } = useI18n();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,9 +52,14 @@ export default function UserManagement(props: UserManagementProps) {
   }, []);
 
   useEffect(() => {
-    const payload = decodeJwtPayload(getAccessToken()) || decodeJwtPayload(getRefreshToken());
-    const userId = Number(payload?.user_id);
-    setCurrentUserId(Number.isFinite(userId) ? userId : null);
+    const updateCurrentUser = () => {
+      const payload = decodeJwtPayload(getAccessToken()) || decodeJwtPayload(getRefreshToken());
+      const userId = Number(payload?.user_id);
+      setCurrentUserId(Number.isSafeInteger(userId) && userId > 0 ? userId : null);
+    };
+    updateCurrentUser();
+    window.addEventListener('xinference-auth-change', updateCurrentUser);
+    return () => window.removeEventListener('xinference-auth-change', updateCurrentUser);
   }, []);
 
   useEffect(() => {
@@ -109,10 +114,7 @@ export default function UserManagement(props: UserManagementProps) {
   return (
     <PageContainer
       title={t('menu.userManagement')}
-      subTitle={
-        (props.authorizationMode === 'roles' ? props.authorizationConfig.description : undefined) ??
-        t('userManagement.pageDescription')
-      }
+      subTitle={authorization?.description ?? t('userManagement.pageDescription')}
       extraContent={
         <CreateUserDialog
           trigger={
@@ -122,7 +124,7 @@ export default function UserManagement(props: UserManagementProps) {
             </Button>
           }
           onSuccess={fetchUsers}
-          {...props}
+          authorization={authorization}
         />
       }
     >
@@ -133,9 +135,7 @@ export default function UserManagement(props: UserManagementProps) {
               <TableHead>{t('userManagement.username')}</TableHead>
               <TableHead>{t('userManagement.source')}</TableHead>
               <TableHead>
-                {props.authorizationMode === 'roles'
-                  ? props.authorizationConfig.columnTitle
-                  : t('userManagement.permissions')}
+                {authorization ? authorization.columnTitle : t('userManagement.permissions')}
               </TableHead>
               <TableHead>{t('userManagement.createdAt')}</TableHead>
               <TableHead>{t('userManagement.enabled')}</TableHead>
@@ -161,6 +161,10 @@ export default function UserManagement(props: UserManagementProps) {
             ) : (
               users.map((user) => {
                 const isCurrentUser = user.id === currentUserId;
+                const authorizationContext = {
+                  isCurrentUser: currentUserId === null ? null : isCurrentUser,
+                  onSuccess: fetchUsers,
+                };
 
                 return (
                   <TableRow key={user.id}>
@@ -185,8 +189,8 @@ export default function UserManagement(props: UserManagementProps) {
                       <Badge variant="secondary">{user.source}</Badge>
                     </TableCell>
                     <TableCell>
-                      {props.authorizationMode === 'roles' ? (
-                        props.authorizationConfig.renderUser(user)
+                      {authorization ? (
+                        authorization.renderUser(user, authorizationContext)
                       ) : (
                         <PermissionBadges
                           permissions={user.permissions}
@@ -239,9 +243,8 @@ export default function UserManagement(props: UserManagementProps) {
                             onSuccess={fetchUsers}
                           />
                         )}
-                        {props.authorizationMode === 'roles' ? (
-                          !isCurrentUser &&
-                          props.authorizationConfig.renderActions(user, fetchUsers)
+                        {authorization ? (
+                          authorization.renderActions(user, authorizationContext)
                         ) : (
                           <EditPermissionsDialog
                             trigger={

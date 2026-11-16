@@ -19,9 +19,10 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { PermissionSelector } from './permissions';
-import type { UserCreationOptions } from './authorization';
+import type { UserCreationAuthorization } from './authorization';
 
-type CreateUserDialogProps = UserCreationOptions & {
+type CreateUserDialogProps = {
+  authorization?: UserCreationAuthorization;
   trigger?: ReactNode;
   children?: ReactNode;
   onSuccess: () => void | Promise<void>;
@@ -31,7 +32,7 @@ export function CreateUserDialog({
   trigger,
   children,
   onSuccess,
-  ...options
+  authorization,
 }: CreateUserDialogProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -40,7 +41,7 @@ export function CreateUserDialog({
   const [form] = useForm();
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (loading) return;
+    if (loading && !nextOpen) return;
     setOpen(nextOpen);
     if (nextOpen) {
       form.resetFields();
@@ -49,11 +50,10 @@ export function CreateUserDialog({
   };
 
   const handleCreate = async (values: Record<string, unknown>) => {
-    if (loading) return;
     setLoading(true);
     try {
-      if (options.authorizationMode === 'roles') {
-        await options.authorizationConfig.onCreateUser(values);
+      if (authorization) {
+        await authorization.onCreateUser(values);
       } else {
         await request.post('/v1/admin/users', {
           username: values.username,
@@ -61,13 +61,18 @@ export function CreateUserDialog({
           permissions,
         });
       }
-      toast.success(t('userManagement.createSuccess'));
-      setOpen(false);
-      await onSuccess();
     } catch {
-      // handled by interceptor
+      // The request interceptor or custom handler reports creation errors.
+      return;
     } finally {
       setLoading(false);
+    }
+    toast.success(t('userManagement.createSuccess'));
+    setOpen(false);
+    try {
+      await onSuccess();
+    } catch {
+      // Refresh errors are reported by the caller; creation already succeeded.
     }
   };
 
@@ -113,8 +118,8 @@ export function CreateUserDialog({
           </FormField>
 
           <div className="mt-4">
-            {options.authorizationMode === 'roles' ? (
-              options.authorizationConfig.createFields
+            {authorization ? (
+              authorization.createFields
             ) : (
               <PermissionSelector selected={permissions} onChange={setPermissions} />
             )}
@@ -129,13 +134,7 @@ export function CreateUserDialog({
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              type="submit"
-              loading={loading}
-              disabled={
-                options.authorizationMode === 'roles' && options.authorizationConfig.createDisabled
-              }
-            >
+            <Button type="submit" loading={loading} disabled={authorization?.createDisabled}>
               {t('userManagement.create')}
             </Button>
           </DialogFooter>
