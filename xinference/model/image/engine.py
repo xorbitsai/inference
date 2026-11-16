@@ -85,6 +85,7 @@ class Flux3ImageModel(Flux3Model, ImageEngineModel):
 
 
 class MiniMaxH3DiffusersImageModel(MiniMaxH3ImageModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
     required_libs = ("torch", "transformers", "diffusers")
