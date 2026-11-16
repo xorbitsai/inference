@@ -119,7 +119,7 @@ export default function UserManagement({ authorization }: UserManagementProps) {
         <CreateUserDialog
           trigger={
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               {t('userManagement.createUser')}
             </Button>
           }
