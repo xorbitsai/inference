@@ -1816,8 +1816,8 @@ def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, An
     if support_draft_model is not None:
         cleaned["support_draft_model"] = bool(support_draft_model)
     model_class = param.get(class_field)
-    if class_field == "audio_class" and model_class is not None:
-        if vars(model_class).get("replica_autoscaling") == "native":
+    if class_field in ("audio_class", "image_class", "video_class") and model_class:
+        if vars(model_class).get("replica_autoscaling") in ("native", "serialized"):
             cleaned["replica_autoscaling"] = True
     return cleaned
 
@@ -2649,6 +2649,11 @@ def _get_engine_params_by_name_with_virtual_env(
                                 enable_virtual_env
                                 and engine_name.lower() in engine_markers
                             ):
+                                # Other classes for this engine may have weaker
+                                # requirements. Keep the matched model's reason.
+                                for param in engine_data:
+                                    param["virtualenv_required"] = True
+                                    param["virtualenv_reason"] = lib_reason
                                 break
                             _append_unavailable_engine(
                                 engine_name, lib_reason, lib_type, lib_details

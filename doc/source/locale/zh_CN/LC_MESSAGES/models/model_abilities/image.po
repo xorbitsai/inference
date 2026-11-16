@@ -529,12 +529,24 @@ msgstr "可以通过 cURL 或 Xinference 的 Python 客户端来尝试 OCR API�
 
 
 #: ../../source/models/model_abilities/image.rst
-msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
-msgstr "SGLang 0.5.20 及更新版本支持并发图片请求的原生动态批处理。启动时设置 ``batching_max_size``，并可选设置 ``batching_delay_ms``。vLLM-Omni 0.28 使用 ``max_num_seqs``；支持的管线还可通过 ``step_execution=true`` 启用实验性连续批处理。批处理需显式启用，要求模型支持且请求参数兼容，并会增加 GPU 显存占用。请并发发送独立 API 请求；``n`` 仅控制单个请求的输出数量。"
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. Supported vLLM-Omni pipelines can use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently. The ``n`` parameter controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 及更新版本支持并发图片请求的原生动态批处理。启动时设置 ``batching_max_size``，并可选设置 ``batching_delay_ms``。支持的 vLLM-Omni 管线可使用 ``step_execution=true`` 启用实验性连续批处理。批处理需显式启用，要求模型支持且请求参数兼容，并会增加 GPU 显存占用。请并发发送彼此独立的 API 请求。``n`` 参数控制单个请求的输出数量。"
 
 #: ../../source/models/model_abilities/image.rst:116
 msgid "Qwen-Image-2512"
 msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1"
+msgstr "Qwen-Image-2.1"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1-Turbo"
+msgstr "Qwen-Image-2.1-Turbo"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "The SGLang and vLLM engines support text-to-image only. Use ``diffusers`` for image-to-image generation."
+msgstr "SGLang 和 vLLM 引擎仅支持文生图。图生图请使用 ``diffusers``。"
 
 #: ../../source/models/model_abilities/image.rst:425
 msgid "Qwen-Image-Edit-2511"
@@ -559,5 +571,5 @@ msgstr ""
 "``\"use_lightning\": false``，即可使用基础调度器并跳过适配器。OpenAI 兼容的图片编辑接口接受表单字段 "
 "``use_lightning=false``。省略该选项时使用启动时选定的适配器。"
 
-msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
-msgstr "安装带 diffusion 支持的 SGLang：``pip install 'sglang[diffusion]>=0.5.20,<0.6'``，或安装主次版本匹配的 vLLM-Omni 和 vLLM：``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``，然后使用 ``--model-engine SGLang`` 或 ``--model-engine vLLM`` 启动模型，例如："
+msgid "By default, Xinference installs the engine dependencies in a per-model virtual environment. For manual installs of Qwen-Image-2.1 or Qwen-Image-2.1-Turbo, use ``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` for SGLang or ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` for vLLM. Select the engine at launch with ``--model-engine``."
+msgstr "Xinference 默认在每个模型的虚拟环境中安装引擎依赖。为 Qwen-Image-2.1 或 Qwen-Image-2.1-Turbo 手动安装引擎时，SGLang 使用 ``pip install 'sglang[diffusion]>=0.5.21,<0.6'``，vLLM 使用 ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'``。启动时用 ``--model-engine`` 选择引擎。"

@@ -35,6 +35,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
 )
+from .exceptions import RequestIdConflictError
 from .rpc_context import (
     _reset_rpc_metadata,
     get_current_rpc_metadata,
@@ -972,8 +973,10 @@ class CancelMixin:
         running_task = self._running_tasks.get(request_id)
         if running_task is not None and not running_task.done():
             if running_task.get_name() == self._CANCEL_TASK_NAME:
-                raise Exception(f"The request has been aborted: {request_id}")
-            raise Exception(f"Duplicate request id: {request_id}")
+                raise RequestIdConflictError(
+                    f"The request has been aborted: {request_id}"
+                )
+            raise RequestIdConflictError(f"Duplicate request id: {request_id}")
         current_task = asyncio.current_task()
         assert current_task is not None
         self._running_tasks[request_id] = current_task

@@ -174,11 +174,20 @@ def test_load_keeps_auxiliary_components_on_selected_hub(loaded_model):
     assert not calls.offloads
 
 
-def test_cpu_offload(loaded_model):
+def test_cpu_offload(monkeypatch, loaded_model):
     model, calls = loaded_model
+    backend = Mock()
+    monkeypatch.setitem(
+        sys.modules,
+        "diffusers.utils.torch_utils",
+        SimpleNamespace(TorchDeviceBackend=backend),
+    )
+    model._device = "cuda:1"
     model._kwargs["cpu_offload"] = True
     model.load()
-    assert calls.offloads == [{"device": "cpu"}]
+    backend.assert_called_once_with("cuda:1")
+    backend.return_value.mem_get_info.assert_called_once_with()
+    assert calls.offloads == [{"device": "cuda:1"}]
     assert calls.devices == ["cpu"]
 
 

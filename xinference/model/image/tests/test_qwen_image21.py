@@ -17,16 +17,20 @@
 import asyncio
 import base64
 import io
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 import torch
 from PIL import Image
 
+from ....core.model import ModelActor
+from ....core.progress_tracker import Progressor
 from .. import load_model_family_from_json
-from ..stable_diffusion.core import DiffusionModel
+from ..engine import DiffusersImageModel
 
 
 @pytest.fixture(params=["Qwen-Image-2.1", "Qwen-Image-2.1-Turbo"])
@@ -110,7 +114,7 @@ def loaded_model(monkeypatch, families):
             ),
         ),
     )
-    model = DiffusionModel(
+    model = DiffusersImageModel(
         "qwen21",
         model_path,
         model_spec=families[0],
@@ -119,6 +123,44 @@ def loaded_model(monkeypatch, families):
     )
     model.load()
     return model, calls
+
+
+@pytest.mark.asyncio
+async def test_qwen_image21_runs_generation_and_edit_on_autoscaled_replica(
+    loaded_model,
+):
+    model, calls = loaded_model
+    actor = ModelActor(
+        "supervisor",
+        "worker",
+        model,
+        "qwen21-0",
+        model_engine="diffusers",
+        replica_admission={
+            "concurrency_per_replica": 8,
+            "queue_capacity": 4,
+            "queue_timeout_ms": 1000,
+        },
+    )
+    actor.record_metrics = AsyncMock()
+    actor._get_progressor = AsyncMock(
+        side_effect=lambda _: Progressor(None, AsyncMock(), asyncio.get_running_loop())
+    )
+    await actor.wait_for_load()
+
+    reference = Image.new("RGBA", (64, 48), (1, 2, 3, 42))
+    for result in await asyncio.gather(
+        actor.text_to_image(
+            "A transparent sticker", size="64*64", response_format="b64_json"
+        ),
+        actor.image_to_image(reference, "Make it blue", response_format="b64_json"),
+    ):
+        image = Image.open(
+            io.BytesIO(base64.b64decode(json.loads(result)["data"][0]["b64_json"]))
+        )
+        assert image.mode == "RGBA"
+    assert calls[0]["image"] is None
+    assert calls[1]["image"] is reference
 
 
 def test_text_to_image(loaded_model):

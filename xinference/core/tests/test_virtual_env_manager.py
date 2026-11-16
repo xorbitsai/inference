@@ -144,7 +144,7 @@ def test_pinned_diffusers_model_packages(kind, model_name):
 
 
 @pytest.mark.parametrize("kind,model_name", PINNED_DIFFUSERS_MODELS)
-def test_pinned_diffusers_other_engine_packages_unchanged(kind, model_name):
+def test_pinned_diffusers_models_keep_engine_specific_packages(kind, model_name):
     packages = [
         package
         for record in _load_diffusers_model_records(kind, model_name)
@@ -154,8 +154,8 @@ def test_pinned_diffusers_other_engine_packages_unchanged(kind, model_name):
     expected_sglang = []
     if model_name in ("Qwen-Image", "Qwen-Image-2512", "Wan2.2-A14B"):
         expected_vllm = [
-            'vllm-omni==0.28.* ; #engine# == "vLLM"',
-            'vllm==0.28.* ; #engine# == "vLLM"',
+            'vllm-omni==0.32.* ; #engine# == "vLLM"',
+            'vllm==0.32.* ; #engine# == "vLLM"',
         ]
         expected_sglang = ['sglang[diffusion]>=0.5.20,<0.6 ; #engine# == "SGLang"']
         if kind == "image":

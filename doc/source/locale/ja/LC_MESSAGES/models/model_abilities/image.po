@@ -516,12 +516,24 @@ msgstr "cURL または Xinference の Python クライアントを使用して O
 #~ msgstr "Stable Diffusion ControlNetの例を学習する"
 
 #: ../../source/models/model_abilities/image.rst
-msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
-msgstr "SGLang 0.5.20 以降では、同時画像リクエストをネイティブ動的バッチ処理に送信できます。起動時に ``batching_max_size`` と、必要に応じて ``batching_delay_ms`` を設定します。vLLM-Omni 0.28 では ``max_num_seqs`` を使用し、対応するパイプラインでは ``step_execution=true`` で実験的な連続バッチ処理も有効にできます。バッチ処理は明示的な有効化、互換性のあるリクエスト、モデルの対応が必要で、GPU メモリ使用量が増えます。独立した API リクエストを同時送信してください。``n`` は単一リクエスト内の出力数のみを制御します。"
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. Supported vLLM-Omni pipelines can use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently. The ``n`` parameter controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 以降では、複数の画像リクエストを同時に受け付け、ネイティブの動的バッチ処理を行えます。起動時に ``batching_max_size`` と、必要に応じて ``batching_delay_ms`` を設定します。対応する vLLM-Omni パイプラインでは、``step_execution=true`` で実験的な連続バッチ処理を利用できます。バッチ処理は明示的に有効にする必要があり、対応モデルと互換性のあるリクエストが必要です。また、GPU メモリ使用量が増えます。独立した API リクエストは並行して送信してください。``n`` パラメーターは 1 リクエストあたりの出力数を指定します。"
 
 #: ../../source/models/model_abilities/image.rst:116
 msgid "Qwen-Image-2512"
 msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1"
+msgstr "Qwen-Image-2.1"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1-Turbo"
+msgstr "Qwen-Image-2.1-Turbo"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "The SGLang and vLLM engines support text-to-image only. Use ``diffusers`` for image-to-image generation."
+msgstr "SGLang と vLLM のエンジンはテキストからの画像生成のみをサポートします。画像から画像を生成する場合は ``diffusers`` を使用してください。"
 
 #: ../../source/models/model_abilities/image.rst:425
 msgid "Qwen-Image-Edit-2511"
@@ -547,5 +559,5 @@ msgstr ""
 "false`` を指定します。OpenAI 互換の画像編集エンドポイントでは、フォームフィールドの ``use_lightning=false`` "
 "を使用できます。このオプションを省略すると起動時に選択したアダプターが使われます。"
 
-msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
-msgstr "``pip install 'sglang[diffusion]>=0.5.20,<0.6'`` で diffusion 対応の SGLang をインストールするか、``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'`` でメジャー・マイナーバージョンが一致する vLLM-Omni と vLLM をインストールし、``--model-engine SGLang`` または ``--model-engine vLLM`` で起動します。例："
+msgid "By default, Xinference installs the engine dependencies in a per-model virtual environment. For manual installs of Qwen-Image-2.1 or Qwen-Image-2.1-Turbo, use ``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` for SGLang or ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` for vLLM. Select the engine at launch with ``--model-engine``."
+msgstr "Xinference はデフォルトで、モデルごとの仮想環境にエンジンの依存パッケージをインストールします。Qwen-Image-2.1 または Qwen-Image-2.1-Turbo を手動で設定する場合は、SGLang には ``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` を、vLLM には ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` を実行します。起動時に ``--model-engine`` でエンジンを指定してください。"

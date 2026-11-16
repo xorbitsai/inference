@@ -34,6 +34,7 @@ import xoscar as xo
 
 from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
+from .exceptions import RequestIdConflictError
 from .rpc_context import (
     actor_call,
     get_current_rpc_metadata,
@@ -612,7 +613,7 @@ class PDModelActor(xo.StatelessActor):
         request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
         kwargs["request_id"] = request_id
         if request_id in self._request_set:
-            raise ValueError(f"Request {request_id} is already running")
+            raise RequestIdConflictError(f"Request {request_id} is already running")
         if "generate_config" in kwargs:
             if args:
                 raise TypeError("Generation config supplied twice")

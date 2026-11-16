@@ -95,6 +95,7 @@ from ..core.exceptions import (
     InvalidModelRequestError,
     ModelNotReadyError,
     ModelReloadInProgress,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from ..core.http_protocol import create_hardened_http_protocol
@@ -1437,6 +1438,18 @@ class RESTfulAPI(CancelMixin):
         )
 
     @staticmethod
+    def _unsupported_cache_salt_error_detail(e: Exception) -> Optional[str]:
+        if isinstance(e, ValueError) and str(e).endswith(
+            (
+                "This vLLM V1 version does not support cache_salt",
+                "cache_salt on legacy vLLM requires Xavier",
+                "cache_salt is not supported by this model engine",
+            )
+        ):
+            return "The model backend does not support cache_salt for this request."
+        return None
+
+    @staticmethod
     def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
         from ..model.llm.context_length import (
             CONTEXT_LENGTH_EXCEEDED_DETAIL,
@@ -1444,6 +1457,9 @@ class RESTfulAPI(CancelMixin):
         )
         from ..request_priority import PRIORITY_ERROR_MESSAGES
 
+        salt_error = RESTfulAPI._unsupported_cache_salt_error_detail(e)
+        if salt_error is not None:
+            raise HTTPException(status_code=400, detail=salt_error)
         message = str(e)
         if isinstance(e, ValueError):
             for detail in PRIORITY_ERROR_MESSAGES:
@@ -1467,21 +1483,16 @@ class RESTfulAPI(CancelMixin):
                 message,
             ):
                 raise HTTPException(status_code=400, detail="Invalid media data URI.")
-            if message.endswith(
-                (
-                    "This vLLM V1 version does not support cache_salt",
-                    "cache_salt on legacy vLLM requires Xavier",
-                    "cache_salt is not supported by this model engine",
-                )
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="The model backend does not support cache_salt for this request.",
-                )
         if context_error:
             raise HTTPException(
                 status_code=400,
                 detail=CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
+            )
+        if isinstance(e, RequestQueueFullError):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit reached" if sanitize else message,
+                headers={"Retry-After": "1"},
             )
         if "Rate limit reached" in message or (
             sanitize and isinstance(e, HTTPException) and e.status_code == 429
@@ -2927,6 +2938,12 @@ class RESTfulAPI(CancelMixin):
                         yield item
                     completed = True
                     abort_controller.mark_completed()
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
@@ -2943,7 +2960,8 @@ class RESTfulAPI(CancelMixin):
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
+                    detail = self._unsupported_cache_salt_error_detail(ex) or str(ex)
+                    yield dict(data=json.dumps({"error": detail}))
                     return
                 finally:
                     await _cleanup_model_stream(
@@ -2979,6 +2997,8 @@ class RESTfulAPI(CancelMixin):
                     **model_call_kwargs,
                 )
                 return Response(data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -3045,6 +3065,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             413: "request_too_large",
             429: "rate_limit_error",
             504: "timeout_error",
@@ -3064,7 +3085,14 @@ class RESTfulAPI(CancelMixin):
     ) -> JSONResponse:
         from ..model.llm.context_length import CONTEXT_LENGTH_EXCEEDED_DETAIL
 
-        if exc is not None and cls._is_context_length_error(exc):
+        salt_error = (
+            cls._unsupported_cache_salt_error_detail(exc) if exc is not None else None
+        )
+        if salt_error is not None:
+            status_code = 400
+            message = salt_error
+            error_type = "invalid_request_error"
+        elif exc is not None and cls._is_context_length_error(exc):
             status_code = 400
             message = CONTEXT_LENGTH_EXCEEDED_DETAIL
             error_type = "invalid_request_error"
@@ -3576,10 +3604,13 @@ class RESTfulAPI(CancelMixin):
                     exc = await self._get_model_last_error(model.uid, exc)
                     logger.exception("Anthropic physical model stream failed")
                     await self._report_error_event(model_uid, str(exc))
+                    salt_error = self._unsupported_cache_salt_error_detail(exc)
                     yield {
                         "error": {
-                            "type": self._anthropic_error_type(500, exc),
-                            "message": str(exc),
+                            "type": self._anthropic_error_type(
+                                400 if salt_error is not None else 500, exc
+                            ),
+                            "message": salt_error or str(exc),
                         }
                     }
                 finally:
@@ -3653,6 +3684,8 @@ class RESTfulAPI(CancelMixin):
                 return await start_streaming_response()
             except NotImplementedError as exc:
                 return self._anthropic_error(501, str(exc), request_id)
+            except RequestIdConflictError as exc:
+                return self._anthropic_error(409, exc.client_message, request_id)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -3697,6 +3730,8 @@ class RESTfulAPI(CancelMixin):
             )
         except NotImplementedError as exc:
             return self._anthropic_error(501, str(exc), request_id)
+        except RequestIdConflictError as exc:
+            return self._anthropic_error(409, exc.client_message, request_id)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
@@ -3718,6 +3753,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             429: "rate_limit_error",
         }.get(status_code, "server_error")
         return JSONResponse(
@@ -3728,6 +3764,11 @@ class RESTfulAPI(CancelMixin):
 
     @classmethod
     def _responses_model_error(cls, exc: Exception) -> JSONResponse:
+        if isinstance(exc, RequestIdConflictError):
+            return cls._responses_error(409, exc.client_message)
+        salt_error = cls._unsupported_cache_salt_error_detail(exc)
+        if salt_error is not None:
+            return cls._responses_error(400, salt_error)
         message = str(exc)
         code = responses_error_code(message, exc)
         # A 400 keeps clients from retrying a request that can never fit.
@@ -3801,6 +3842,8 @@ class RESTfulAPI(CancelMixin):
                     data = data.decode("utf-8")
                 chat = json.loads(data) if isinstance(data, str) else data
                 return JSONResponse(content=chat_to_response(chat, req))
+            except RequestIdConflictError as exc:
+                return self._responses_model_error(exc)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -3812,6 +3855,8 @@ class RESTfulAPI(CancelMixin):
             iterator = await model.chat(
                 messages, kwargs, raw_params=raw_kwargs, request_id=model_request_id
             )
+        except RequestIdConflictError as exc:
+            return self._responses_model_error(exc)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
@@ -3882,7 +3927,7 @@ class RESTfulAPI(CancelMixin):
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.exception("Responses physical model stream failed")
                 await self._report_error_event(model_uid, str(exc))
-                yield {"error": exc}
+                yield {"error": self._unsupported_cache_salt_error_detail(exc) or exc}
             finally:
                 await release_resources()
 
@@ -5841,6 +5886,12 @@ class RESTfulAPI(CancelMixin):
                     completed = True
                     abort_controller.mark_completed()
                     yield "[DONE]"
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
                 # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
@@ -5917,6 +5968,8 @@ class RESTfulAPI(CancelMixin):
                     )
                 data = await run_chat()
                 return Response(content=data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)

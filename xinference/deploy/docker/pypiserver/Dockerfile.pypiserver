@@ -52,6 +52,7 @@ WORKDIR /build
 COPY xinference/constants.py xinference/_compat.py \
      xinference/cache_isolation.py /build/src/xinference/
 COPY xinference/core/utils.py \
+     xinference/core/exceptions.py \
      xinference/core/rpc_context.py \
      xinference/core/virtual_env_manager.py /build/src/xinference/core/
 COPY xinference/model/ /build/src/xinference/model/

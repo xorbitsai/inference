@@ -69,6 +69,7 @@ from .exceptions import (
     BatchRequestRedirect,
     InvalidModelRequestError,
     ModelNotReadyError,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from .model_generation import ModelGenerationMixin
@@ -76,6 +77,8 @@ from .replica_load import (
     EngineLoad,
     EngineLoadReporter,
     ReplicaLoad,
+    SerializedReplicaAdmission,
+    batch_queue_budget,
     validate_engine_load,
 )
 from .rpc_context import actor_call, get_current_rpc_metadata, rpc_context
@@ -290,6 +293,7 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
         redirected = False
         released = False
         stream_transferred = False
+        serial = self.__dict__.get("_serialized_replica_admission")
 
         def release_slot():
             if preflight_reservation_id is not None:
@@ -305,7 +309,21 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
                     "set",
                     {"labels": self._metrics_labels, "value": self._serve_count},
                 )
-                ret = await fn(self, *args, **kwargs)
+                if serial is None:
+                    ret = await fn(self, *args, **kwargs)
+                else:
+                    request_id = kwargs.get("request_id")
+                    self._add_running_task(request_id)
+                    try:
+                        async with serial:
+                            ret = await fn(self, *args, **kwargs)
+                    finally:
+                        if (
+                            request_id is not None
+                            and self._running_tasks.get(request_id)
+                            is asyncio.current_task()
+                        ):
+                            self._running_tasks.pop(request_id, None)
                 if isinstance(ret, IteratorWrapper):
                     for state in tuple(
                         self.__dict__.get("_request_streams", {}).values()
@@ -392,10 +410,8 @@ def request_limit(fn=None, *, keep_chat_reservation=False):
         if self.__dict__.get("_replica_concurrency") is None:
             return await serve_request(self, *args, **kwargs)
 
-        from ..model.batch import batch_queue_budget
-
         if remaining is not None and remaining <= 0:
-            raise RequestQueueFullError("Timed out waiting for a batch")
+            raise RequestQueueFullError("Timed out waiting for a replica")
         token = batch_queue_budget.set(remaining)
         try:
             return await serve_request(self, *args, **kwargs)
@@ -595,6 +611,16 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     )
                 self._engine_load_reporter = cast(EngineLoadReporter, model)
                 self._engine_load_reporter.enable_engine_load_reporting()
+            elif mode == "serialized" and not isinstance(model, BatchMixin):
+                validate = getattr(model, "validate_serialized_replica_admission", None)
+                if validate is not None:
+                    validate()
+                elif self._lock is None:
+                    raise ValueError(self._replica_autoscaling_error)
+                self._serialized_replica_admission = SerializedReplicaAdmission(
+                    replica_admission["queue_capacity"],
+                    replica_admission["queue_timeout_ms"] / 1000,
+                )
             elif mode != "batch" or not isinstance(model, BatchMixin):
                 raise ValueError(self._replica_autoscaling_error)
             self._replica_concurrency = min(
@@ -993,7 +1019,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     raise ValueError(
                         f"{self._replica_autoscaling_error}: engine load is unavailable or invalid"
                     )
-            if not self._has_redistributable_batch():
+            if (
+                "_serialized_replica_admission" not in self.__dict__
+                and not self._has_redistributable_batch()
+            ):
                 if "_engine_load_reporter" not in self.__dict__:
                     raise ValueError(
                         f"{self._replica_autoscaling_error}: shared batch queue is inactive"
@@ -1646,8 +1675,12 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 )
             )
         ):
-            raise Exception(f"Duplicate request id: {request_id}")
-        self._add_running_task(request_id)
+            raise RequestIdConflictError(f"Duplicate request id: {request_id}")
+        if (
+            "_serialized_replica_admission" not in self.__dict__
+            or task is not asyncio.current_task()
+        ):
+            self._add_running_task(request_id)
         if priority is None:
             result = await self._call_wrapper_inner(output_type, fn, *args, **kwargs)
             return await self._track_stream(result, request_id)
@@ -2865,6 +2898,17 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def get_replica_load(self) -> Optional[ReplicaLoad]:
         if not self._can_report_replica_load():
             return None
+        serial = self.__dict__.get("_serialized_replica_admission")
+        if serial is not None:
+            return ReplicaLoad(
+                serial.queue.qsize(),
+                serial.queue.oldest_wait(),
+                int(
+                    not serial.running
+                    and _count_replica_work(self) < self._request_limits
+                ),
+                engine_running=int(serial.running),
+            )
         engine = await self._read_engine_load()
         if not self._can_report_replica_load():
             return None
@@ -2898,9 +2942,15 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         return tuple(load) if load is not None else None
 
     def redistribute_replica_requests(self, target, limit: int) -> int:
-        if not self._can_report_replica_load() or not self._has_redistributable_batch():
+        if not self._can_report_replica_load():
             return 0
-        moved = self._replica_batch.redirect_batch_waiters(target, limit)
+        serial = self.__dict__.get("_serialized_replica_admission")
+        if serial is not None:
+            moved = serial.queue.redirect(target, limit, 0.01)
+        elif self._has_redistributable_batch():
+            moved = self._replica_batch.redirect_batch_waiters(target, limit)
+        else:
+            return 0
         if moved:
             logger.debug(
                 "Redistributed %d queued requests from %s to %s",

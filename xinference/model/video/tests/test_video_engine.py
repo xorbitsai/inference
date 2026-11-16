@@ -392,6 +392,7 @@ def test_video_engine_api_returns_diffusers_format():
             "quantization": "none",
             "runtime_precisions": ["bf16", "fp8", "int8", "int4"],
             "default_runtime_precision": "int4",
+            "replica_autoscaling": True,
             "default_model_config": {
                 "quantization": "int4",
                 "group_offload": True,
@@ -412,6 +413,7 @@ def test_video_engine_uses_virtualenv_when_dependency_is_missing():
         )
 
     assert params["diffusers"][0]["virtualenv_required"] is True
+    assert params["diffusers"][0]["replica_autoscaling"] is True
     assert params["diffusers"][0]["runtime_precisions"] == [
         "bf16",
         "fp8",
