@@ -6,12 +6,18 @@ on:
       - main
   pull_request:
     types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
+  # A maintainer's approval starts the remaining Python versions; see the
+  # "Detect maintainer approval" step.
+  pull_request_review:
+    types: ['submitted']
   # Run this full cross-platform suite manually before releases.
   workflow_dispatch:
 
 concurrency:
   # Main pushes must not cancel manual full-suite checks.
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # The review state keeps a later comment-only review, whose run does
+  # nothing, from cancelling the run an approval started.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.review.state }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -19,7 +25,8 @@ jobs:
     needs: [changes]
     # A push event cannot tell whether its branch belongs to a draft PR, so
     # branch CI is driven by pull_request events and push is limited to main.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # An approval adds Python versions to a commit this job already checked.
+    if: ${{ github.event_name != 'pull_request_review' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -143,9 +150,20 @@ jobs:
 
 
   changes:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # A review starts this workflow only when a maintainer approves.
+    if: >-
+      ${{
+        (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+        (github.event_name != 'pull_request_review' ||
+          (github.event.review.state == 'approved' &&
+            contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)))
+      }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
+      full_matrix: ${{ steps.approval.outputs.full_matrix }}
       gpu: ${{ steps.gpu.outputs.gpu }}
       groups: ${{ steps.gpu.outputs.groups }}
       platform: ${{ steps.platform.outputs.platform }}
@@ -166,7 +184,8 @@ jobs:
         run: |
           set -uo pipefail
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ] \
+              || [ "${{ github.event_name }}" = "pull_request_review" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
             # Match GitHub's PR diff: exclude commits added to the base branch
@@ -369,6 +388,43 @@ jobs:
           echo "install=$install" >> "$GITHUB_OUTPUT"
           echo "Installer CI required: $install"
 
+      # The whole organization shares one pool of standard runners, and a
+      # Linux test job holds one for about 50 minutes. Until a maintainer
+      # approves, a pull request tests only the newest Python on each
+      # platform; after that, and on main and manual runs, every version.
+      - name: Detect maintainer approval
+        id: approval
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          # Anything that is not an unapproved pull request runs everything,
+          # and so does a pull request whose reviews cannot be read.
+          full_matrix=true
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Reviews arrive oldest first; each maintainer's latest verdict counts.
+            if gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
+                --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED") | [.user.login, .state] | @tsv' \
+                > reviews.tsv; then
+              full_matrix=$(awk -F '\t' '
+                { verdict[$1] = $2 }
+                END {
+                  approved = 0; blocked = 0
+                  for (login in verdict) {
+                    if (verdict[login] == "APPROVED") approved = 1
+                    if (verdict[login] == "CHANGES_REQUESTED") blocked = 1
+                  }
+                  print (approved && !blocked) ? "true" : "false"
+                }' reviews.tsv)
+            fi
+          fi
+          echo "full_matrix=$full_matrix" >> "$GITHUB_OUTPUT"
+          echo "Every Python version: $full_matrix"
+
   install_script:
     name: Install Script CI
     needs: [lint, changes]
@@ -392,10 +448,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ "ubuntu-latest" ]
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        # Every run tests the newest Python. The older versions are in
+        # full_matrix_linux_test_job below.
+        python-version: [ "3.14" ]
         module: [ "xinference" ]
 
-    # Share installation and test commands with the platform jobs below.
+    # Share installation and test commands with the jobs below.
     steps: &python-test-steps
       - name: Check out code
         uses: actions/checkout@v7
@@ -759,7 +817,57 @@ jobs:
       # Both Python endpoints always use the same trigger and test suite.
       matrix:
         os: [ "macos-latest", "windows-latest" ]
-        python-version: [ "3.10", "3.14" ]
+        python-version: [ "3.14" ]
+        module: [ "xinference" ]
+    steps: *python-test-steps
+
+  # The versions an unapproved pull request skips. An approval run has no
+  # lint job, so these accept a skipped lint but never a failed one.
+  full_matrix_linux_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.module }})
+    runs-on: ${{ matrix.os }}
+    needs: [lint, changes]
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.changes.result == 'success' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+        needs.changes.outputs.full_matrix == 'true' &&
+        needs.changes.outputs.docs_only != 'true'
+      }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: full
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        module: [ "xinference" ]
+    steps: *python-test-steps
+
+  full_matrix_platform_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, xinference)
+    needs: [lint, changes]
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.changes.result == 'success' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+        needs.changes.outputs.full_matrix == 'true' &&
+        needs.changes.outputs.platform == 'true'
+      }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: ${{ needs.changes.outputs.platform_suite }}
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "macos-latest", "windows-latest" ]
+        python-version: [ "3.10" ]
         module: [ "xinference" ]
     steps: *python-test-steps
 

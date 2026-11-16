@@ -3,6 +3,7 @@
 import ast
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,10 @@ DOCS_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == 
 INSTALL_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "install"
 )
+APPROVAL_STEP = next(
+    step for step in JOBS["changes"]["steps"] if step.get("id") == "approval"
+)
+MAINTAINERS = ("OWNER", "MEMBER", "COLLABORATOR")
 TEST_STEP = next(
     step
     for step in JOBS["build_test_job"]["steps"]
@@ -114,7 +119,13 @@ class TestPythonWorkflow(unittest.TestCase):
             return dict(line.split("=", 1) for line in output.read_text().splitlines())
 
     def test_matrices_are_static_and_preserve_python_endpoints(self):
-        for name in ("build_test_job", "platform_test_job", "metal_test_job"):
+        for name in (
+            "build_test_job",
+            "platform_test_job",
+            "full_matrix_linux_test_job",
+            "full_matrix_platform_test_job",
+            "metal_test_job",
+        ):
             matrix = JOBS[name]["strategy"]["matrix"]
             self.assertIsInstance(matrix, dict)
             for values in matrix.values():
@@ -122,12 +133,181 @@ class TestPythonWorkflow(unittest.TestCase):
                 self.assertTrue(all("${{" not in value for value in values))
         linux = JOBS["build_test_job"]["strategy"]["matrix"]
         self.assertEqual(linux["os"], ["ubuntu-latest"])
-        self.assertEqual(
-            linux["python-version"], ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        )
+        self.assertEqual(linux["python-version"], ["3.14"])
         platform = JOBS["platform_test_job"]["strategy"]["matrix"]
         self.assertEqual(platform["os"], ["macos-latest", "windows-latest"])
-        self.assertEqual(platform["python-version"], ["3.10", "3.14"])
+        self.assertEqual(platform["python-version"], ["3.14"])
+
+    def approval(self, event, reviews=(), *, api_fails=False):
+        """Run the approval step against reviews listed oldest first."""
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / "bin").mkdir()
+            listed = [
+                {"user": {"login": login}, "state": state, "author_association": role}
+                for login, state, role in reviews
+            ]
+            (work / "reviews.json").write_text(json.dumps(listed))
+            # Stands in for `gh api --jq`: applies the step's own filter.
+            fake_gh = work / "bin/gh"
+            fake_gh.write_text(
+                "#!/bin/bash\n"
+                f"[ {int(api_fails)} = 1 ] && exit 1\n"
+                'while [ "$1" != "--jq" ]; do shift; done\n'
+                f'exec jq -r "$2" "{work}/reviews.json"\n'
+            )
+            fake_gh.chmod(0o755)
+            output = work / "outputs"
+            subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", APPROVAL_STEP["run"]],
+                cwd=work,
+                env={
+                    **os.environ,
+                    "PATH": str(work / "bin") + os.pathsep + os.environ["PATH"],
+                    "GITHUB_OUTPUT": str(output),
+                    "EVENT_NAME": event,
+                    "REPO": "xorbitsai/inference",
+                    "PR_NUMBER": "1",
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return output.read_text().strip()
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_unapproved_pull_requests_test_only_the_newest_python(self):
+        cases = {
+            "no reviews": [],
+            "comment only": [("alice", "COMMENTED", "MEMBER")],
+            "outside approval": [("mallory", "APPROVED", "CONTRIBUTOR")],
+            "first-time approval": [("mallory", "APPROVED", "FIRST_TIME_CONTRIBUTOR")],
+            "approval dismissed": [
+                ("alice", "APPROVED", "MEMBER"),
+                ("alice", "DISMISSED", "MEMBER"),
+            ],
+            "approval withdrawn": [
+                ("alice", "APPROVED", "OWNER"),
+                ("alice", "CHANGES_REQUESTED", "OWNER"),
+            ],
+            "another maintainer objects": [
+                ("alice", "APPROVED", "MEMBER"),
+                ("bob", "CHANGES_REQUESTED", "COLLABORATOR"),
+            ],
+        }
+        for name, reviews in cases.items():
+            with self.subTest(name):
+                self.assertEqual(
+                    self.approval("pull_request", reviews), "full_matrix=false"
+                )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_approved_pull_requests_test_every_python(self):
+        cases = {role: [("alice", "APPROVED", role)] for role in MAINTAINERS}
+        cases["objection resolved"] = [
+            ("alice", "CHANGES_REQUESTED", "MEMBER"),
+            ("alice", "APPROVED", "MEMBER"),
+        ]
+        cases["later comment keeps the approval"] = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("alice", "COMMENTED", "MEMBER"),
+        ]
+        cases["outside objection is not a veto"] = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("mallory", "CHANGES_REQUESTED", "CONTRIBUTOR"),
+        ]
+        for name, reviews in cases.items():
+            with self.subTest(name):
+                self.assertEqual(
+                    self.approval("pull_request", reviews), "full_matrix=true"
+                )
+
+    def test_main_manual_approval_and_unreadable_reviews_test_every_python(self):
+        for event in ("push", "workflow_dispatch", "pull_request_review"):
+            with self.subTest(event):
+                # These never ask for the reviews.
+                self.assertEqual(
+                    self.approval(event, api_fails=True), "full_matrix=true"
+                )
+        self.assertEqual(
+            self.approval("pull_request", api_fails=True), "full_matrix=true"
+        )
+
+    def test_only_a_maintainer_approval_starts_a_review_run(self):
+        self.assertEqual(
+            WORKFLOW[True]["pull_request_review"], {"types": ["submitted"]}
+        )
+        condition = " ".join(JOBS["changes"]["if"].split())
+        self.assertIn(
+            "(github.event_name != 'pull_request_review' ||"
+            " (github.event.review.state == 'approved' &&"
+            ' contains(fromJSON(\'["OWNER", "MEMBER", "COLLABORATOR"]\'),'
+            " github.event.review.author_association)))",
+            condition,
+        )
+        # A comment-only review must not cancel the run an approval started.
+        self.assertIn(
+            "${{ github.event.review.state }}", WORKFLOW["concurrency"]["group"]
+        )
+        self.assertEqual(
+            JOBS["changes"]["outputs"]["full_matrix"],
+            "${{ steps.approval.outputs.full_matrix }}",
+        )
+        # The approval run diffs the pull request, not an unknown range.
+        self.assertIn(
+            '|| [ "${{ github.event_name }}" = "pull_request_review" ]; then',
+            GPU_STEP["run"],
+        )
+        # It repeats nothing the commit's own run already did: every job that
+        # still requires lint is skipped along with it.
+        self.assertTrue(
+            JOBS["lint"]["if"].startswith(
+                "${{ github.event_name != 'pull_request_review' && "
+            )
+        )
+        full_matrix_jobs = {
+            "full_matrix_linux_test_job",
+            "full_matrix_platform_test_job",
+        }
+        for name, job in JOBS.items():
+            if name in ("lint", "changes"):
+                continue
+            with self.subTest(name):
+                self.assertIn("lint", job["needs"])
+                self.assertEqual("!cancelled()" in job["if"], name in full_matrix_jobs)
+
+    def test_full_matrix_jobs_add_the_older_pythons_to_the_same_jobs(self):
+        pairs = {
+            "full_matrix_linux_test_job": (
+                "build_test_job",
+                ["3.10", "3.11", "3.12", "3.13"],
+                "needs.changes.outputs.docs_only != 'true'",
+            ),
+            "full_matrix_platform_test_job": (
+                "platform_test_job",
+                ["3.10"],
+                "needs.changes.outputs.platform == 'true'",
+            ),
+        }
+        for name, (base_name, versions, scope) in pairs.items():
+            with self.subTest(name):
+                job, base = JOBS[name], JOBS[base_name]
+                matrix = job["strategy"]["matrix"]
+                self.assertEqual(matrix["python-version"], versions)
+                for key in ("name", "runs-on", "needs", "env", "defaults", "steps"):
+                    self.assertEqual(job[key], base[key], key)
+                for key in ("os", "module"):
+                    self.assertEqual(matrix[key], base["strategy"]["matrix"][key])
+                self.assertIs(job["strategy"]["fail-fast"], False)
+                self.assertEqual(
+                    " ".join(job["if"].split()),
+                    "${{ !cancelled() && needs.changes.result == 'success' &&"
+                    " (needs.lint.result == 'success' ||"
+                    " needs.lint.result == 'skipped') &&"
+                    " needs.changes.outputs.full_matrix == 'true' && " + scope + " }}",
+                )
+                # The base job's own scope is unchanged.
+                self.assertEqual(base["if"], "${{ " + scope + " }}")
 
     def test_documentation_content_uses_lightweight_ci(self):
         paths = [
