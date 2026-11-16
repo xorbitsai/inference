@@ -259,6 +259,8 @@ def _size_host_pools(model_config: dict, replicas: int, self_paged: bool) -> Non
 
 
 def _enable_hicache(model_config: dict, storage_config: dict) -> None:
+    if storage_config.get("shared_prefix"):
+        storage_config["hicache_storage_pass_prefix_keys"] = True
     model_config["enable_hierarchical_cache"] = True
     model_config["hicache_mem_layout"] = "layer_first"
     model_config.setdefault("hicache_write_policy", "write_through")
