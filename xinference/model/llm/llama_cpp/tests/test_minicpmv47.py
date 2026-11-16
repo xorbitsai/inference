@@ -112,12 +112,14 @@ def native_runtime(monkeypatch):
     monkeypatch.setattr(core, "configure_gpu_layers", Mock())
     # Keep cached engine entries from a compatible runtime to test revalidation.
     engines = {}
-    for name, size in [
-        ("MiniCPM-V-4.7", 1),
-        ("MiniCPM-V-4.7", 35),
-        ("MiniCPM-V-4.6", 1),
+    for name, size, quantization in [
+        ("MiniCPM-V-4.7", 1, "F16"),
+        ("MiniCPM-V-4.7", 35, "F16"),
+        ("MiniCPM-V-4.6", 1, "F16"),
+        ("MiniMax-M2.5", 230, "UD-TQ1_0"),
+        ("glm-5", 744, "UD-TQ1_0"),
     ]:
-        family = match_llm(name, "ggufv2", size, "F16", "huggingface")
+        family = match_llm(name, "ggufv2", size, quantization, "huggingface")
         generate_engine_config_by_model_family(family, target_engines=engines)
     for name, params in engines.items():
         monkeypatch.setitem(LLM_ENGINES, name, params)
@@ -216,18 +218,27 @@ def test_factory_checks_runtime_before_caching(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("size", [1, 35])
+@pytest.mark.parametrize(
+    "model_name,size,quantization,cached_engine",
+    [
+        ("MiniCPM-V-4.7", 1, "F16", False),
+        ("MiniCPM-V-4.7", 1, "F16", True),
+        ("MiniCPM-V-4.7", 35, "F16", False),
+        ("MiniCPM-V-4.7", 35, "F16", True),
+        ("MiniMax-M2.5", 230, "UD-TQ1_0", True),
+        ("glm-5", 744, "UD-TQ1_0", True),
+    ],
+)
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
-@pytest.mark.parametrize("cached_engine", [False, True])
 async def test_worker_cache_only_allows_older_runtime(
-    native_runtime, monkeypatch, size, hub, cached_engine
+    native_runtime, monkeypatch, model_name, size, quantization, hub, cached_engine
 ):
     from .....core.worker import WorkerActor
 
     native_runtime.__version__ = "2026.7.10068"
     monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", False)
     if not cached_engine:
-        monkeypatch.setitem(LLM_ENGINES, "MiniCPM-V-4.7", {})
+        monkeypatch.setitem(LLM_ENGINES, model_name, {})
     cache = Mock(return_value="/models/test")
     monkeypatch.setattr(LLMCacheManager, "cache", cache)
     worker = SimpleNamespace(
@@ -247,14 +258,14 @@ async def test_worker_cache_only_allows_older_runtime(
 
     result = await worker.cache_builtin_model(
         cache_uid="minicpm-cache-only",
-        model_name="MiniCPM-V-4.7",
+        model_name=model_name,
         model_size_in_billions=size,
         model_format="ggufv2",
-        quantization="F16",
+        quantization=quantization,
         model_engine="llama.cpp",
         download_hub=hub,
         enable_virtual_env=False,
-        multimodal_projector=PROJECTORS[0],
+        multimodal_projector=PROJECTORS[0] if model_name == "MiniCPM-V-4.7" else None,
     )
 
     assert result["cache_uid"] == "minicpm-cache-only"
