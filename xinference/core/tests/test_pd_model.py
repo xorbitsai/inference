@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import xoscar as xo
 
+from ..exceptions import InvalidModelRequestError
 from ..pd_model import PDModelActor, RoundRobinSchedulingPolicy
 from ..replica_config import ReplicaConfig, validate_pd_replica_configs
 from ..rpc_context import actor_call, get_current_rpc_metadata, rpc_context
@@ -1241,3 +1242,30 @@ async def test_priority_capability_is_unavailable_if_pd_replicas_change(router):
     decode.supports_chat_priority = AsyncMock(side_effect=supports_chat_priority)
     assert not await actor.supports_chat_priority()
     decode.supports_chat_priority.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "config,detail",
+    [
+        ({"n": 2}, "PD KV handoff currently requires n=1"),
+        (
+            {"min_p": 0},
+            "MLX cross-engine prefill does not support min_p, presence_penalty, frequency_penalty or seed",
+        ),
+        (
+            {"logprobs": True},
+            "Cross-engine PD does not yet transfer structured sampling or logprobs",
+        ),
+    ],
+)
+async def test_pd_request_validators_raise_client_errors(router, config, detail):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    actor._mlx_prefill = True
+    with pytest.raises(InvalidModelRequestError) as exc:
+        await actor._infer("generate", "prompt", config)
+    assert exc.value.client_message == detail
+    prefill.generate.assert_not_awaited()
+    decode.generate.assert_not_awaited()
+    assert not actor._request_set
