@@ -34,7 +34,7 @@ import xoscar as xo
 
 from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
-from .exceptions import RequestIdConflictError
+from .exceptions import InvalidModelRequestError, RequestIdConflictError
 from .rpc_context import (
     actor_call,
     get_current_rpc_metadata,
@@ -622,7 +622,7 @@ class PDModelActor(xo.StatelessActor):
             raise TypeError("Generation config must be a dict or None")
         if args and args[0] and args[0].get("n", 1) != 1:
             # Handoff leases cover one decoder, not parallel sampling children.
-            raise ValueError("PD KV handoff currently requires n=1")
+            raise InvalidModelRequestError("PD KV handoff currently requires n=1")
         if self._model_engine == "heterogeneous":
             config = (args[0] if args else {}) or {}
             if self._mlx_prefill and any(
@@ -630,7 +630,7 @@ class PDModelActor(xo.StatelessActor):
                 for parameters in (config, kwargs.get("raw_params") or {})
                 for key in ("min_p", "presence_penalty", "frequency_penalty", "seed")
             ):
-                raise ValueError(
+                raise InvalidModelRequestError(
                     "MLX cross-engine prefill does not support min_p, presence_penalty, frequency_penalty or seed"
                 )
             if (
@@ -661,7 +661,7 @@ class PDModelActor(xo.StatelessActor):
                     in ("json_object", "json_schema")
                 )
             ):
-                raise ValueError(
+                raise InvalidModelRequestError(
                     "Cross-engine PD does not yet transfer structured sampling or logprobs"
                 )
         if self._model_engine in ("sglang", "heterogeneous"):

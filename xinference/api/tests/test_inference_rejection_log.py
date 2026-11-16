@@ -408,3 +408,27 @@ async def test_model_access_denial_bounds_the_logged_model_id(monkeypatch, caplo
     assert fields["model_uid"] == '""'
     assert fields["request_id"] == json.dumps(REQUEST_ID)
     assert "TAIL" not in records[0].getMessage()
+
+
+@pytest.mark.parametrize(
+    "error, reason, detail",
+    [
+        (
+            ValueError("x: This vLLM V1 version does not support cache_salt"),
+            "cache_salt_unsupported",
+            "The model backend does not support cache_salt for this request.",
+        ),
+        (
+            restful_api.InvalidModelRequestError("bad sampling value"),
+            "invalid_model_request",
+            "bad sampling value",
+        ),
+    ],
+)
+def test_model_request_errors_carry_their_own_reason(error, reason, detail):
+    with pytest.raises(model_request_logging.InferenceRequestRejected) as raised:
+        restful_api.RESTfulAPI.handle_request_limit_error(error)
+
+    assert raised.value.status_code == 400
+    assert raised.value.detail == detail
+    assert raised.value.reason == reason
