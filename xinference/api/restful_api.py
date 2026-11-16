@@ -1438,6 +1438,18 @@ class RESTfulAPI(CancelMixin):
         )
 
     @staticmethod
+    def _unsupported_cache_salt_error_detail(e: Exception) -> Optional[str]:
+        if isinstance(e, ValueError) and str(e).endswith(
+            (
+                "This vLLM V1 version does not support cache_salt",
+                "cache_salt on legacy vLLM requires Xavier",
+                "cache_salt is not supported by this model engine",
+            )
+        ):
+            return "The model backend does not support cache_salt for this request."
+        return None
+
+    @staticmethod
     def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
         from ..model.llm.context_length import (
             CONTEXT_LENGTH_EXCEEDED_DETAIL,
@@ -1445,6 +1457,9 @@ class RESTfulAPI(CancelMixin):
         )
         from ..request_priority import PRIORITY_ERROR_MESSAGES
 
+        salt_error = RESTfulAPI._unsupported_cache_salt_error_detail(e)
+        if salt_error is not None:
+            raise HTTPException(status_code=400, detail=salt_error)
         message = str(e)
         if isinstance(e, ValueError):
             for detail in PRIORITY_ERROR_MESSAGES:
@@ -1468,17 +1483,6 @@ class RESTfulAPI(CancelMixin):
                 message,
             ):
                 raise HTTPException(status_code=400, detail="Invalid media data URI.")
-            if message.endswith(
-                (
-                    "This vLLM V1 version does not support cache_salt",
-                    "cache_salt on legacy vLLM requires Xavier",
-                    "cache_salt is not supported by this model engine",
-                )
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="The model backend does not support cache_salt for this request.",
-                )
         if context_error:
             raise HTTPException(
                 status_code=400,
@@ -2956,7 +2960,8 @@ class RESTfulAPI(CancelMixin):
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
+                    detail = self._unsupported_cache_salt_error_detail(ex) or str(ex)
+                    yield dict(data=json.dumps({"error": detail}))
                     return
                 finally:
                     await _cleanup_model_stream(
@@ -3080,7 +3085,14 @@ class RESTfulAPI(CancelMixin):
     ) -> JSONResponse:
         from ..model.llm.context_length import CONTEXT_LENGTH_EXCEEDED_DETAIL
 
-        if exc is not None and cls._is_context_length_error(exc):
+        salt_error = (
+            cls._unsupported_cache_salt_error_detail(exc) if exc is not None else None
+        )
+        if salt_error is not None:
+            status_code = 400
+            message = salt_error
+            error_type = "invalid_request_error"
+        elif exc is not None and cls._is_context_length_error(exc):
             status_code = 400
             message = CONTEXT_LENGTH_EXCEEDED_DETAIL
             error_type = "invalid_request_error"
@@ -3592,10 +3604,13 @@ class RESTfulAPI(CancelMixin):
                     exc = await self._get_model_last_error(model.uid, exc)
                     logger.exception("Anthropic physical model stream failed")
                     await self._report_error_event(model_uid, str(exc))
+                    salt_error = self._unsupported_cache_salt_error_detail(exc)
                     yield {
                         "error": {
-                            "type": self._anthropic_error_type(500, exc),
-                            "message": str(exc),
+                            "type": self._anthropic_error_type(
+                                400 if salt_error is not None else 500, exc
+                            ),
+                            "message": salt_error or str(exc),
                         }
                     }
                 finally:
@@ -3751,6 +3766,9 @@ class RESTfulAPI(CancelMixin):
     def _responses_model_error(cls, exc: Exception) -> JSONResponse:
         if isinstance(exc, RequestIdConflictError):
             return cls._responses_error(409, exc.client_message)
+        salt_error = cls._unsupported_cache_salt_error_detail(exc)
+        if salt_error is not None:
+            return cls._responses_error(400, salt_error)
         message = str(exc)
         code = responses_error_code(message, exc)
         # A 400 keeps clients from retrying a request that can never fit.
@@ -3909,7 +3927,7 @@ class RESTfulAPI(CancelMixin):
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.exception("Responses physical model stream failed")
                 await self._report_error_event(model_uid, str(exc))
-                yield {"error": exc}
+                yield {"error": self._unsupported_cache_salt_error_detail(exc) or exc}
             finally:
                 await release_resources()
 
