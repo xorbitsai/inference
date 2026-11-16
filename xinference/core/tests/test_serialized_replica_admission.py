@@ -6,7 +6,7 @@ import asyncio
 import json
 from contextlib import nullcontext
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -201,13 +201,19 @@ def test_discovery_advertises_only_opted_in_media_adapters(
 
 
 @pytest.mark.parametrize("enable_virtual_env", [False, True])
-def test_rerank_engine_discovery_advertises_batch_admission(enable_virtual_env):
+def test_rerank_engine_discovery_advertises_supported_adapters(
+    enable_virtual_env, monkeypatch
+):
     from ...model.rerank import register_builtin_model
+    from ...model.rerank.llama_cpp.core import XllamaCppRerankModel
+    from ...model.rerank.vllm.core import VLLMRerankModel
     from ...model.utils import (
         get_engine_params_by_name,
         get_engine_params_by_name_with_virtual_env,
     )
 
+    for adapter in (XllamaCppRerankModel, VLLMRerankModel):
+        monkeypatch.setattr(adapter, "check_lib", classmethod(lambda cls: True))
     register_builtin_model()
     discover = (
         get_engine_params_by_name_with_virtual_env
@@ -216,15 +222,17 @@ def test_rerank_engine_discovery_advertises_batch_admission(enable_virtual_env):
     )
     engines = discover("rerank", "bge-reranker-v2-m3", enable_virtual_env)
     assert engines is not None
-    specs = engines["sentence_transformers"]
-    assert specs
-    assert all(spec["replica_autoscaling"] is True for spec in specs)
-    assert all(
-        "replica_autoscaling" not in spec
-        for name, entries in engines.items()
-        if name != "sentence_transformers" and isinstance(entries, list)
-        for spec in entries
-    )
+    for engine, model_format in (
+        ("sentence_transformers", "pytorch"),
+        ("vllm", "pytorch"),
+        ("llama.cpp", "ggufv2"),
+    ):
+        assert isinstance(engines[engine], list)
+        assert any(
+            spec.get("replica_autoscaling") is True
+            and spec["model_format"] == model_format
+            for spec in engines[engine]
+        )
 
 
 @pytest.mark.asyncio
@@ -298,6 +306,109 @@ async def test_rerank_transfers_waiting_request_with_its_arguments(monkeypatch):
             if model._process_batch_task is not None:
                 model._process_batch_task.cancel()
                 await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_llama_cpp_rerank_reports_native_and_transferable_backlogs():
+    from threading import Event
+
+    from ...model.rerank.llama_cpp.core import XllamaCppRerankModel
+
+    started, finish = asyncio.Event(), Event()
+    loop = asyncio.get_running_loop()
+
+    def handle_rerank(payload):
+        loop.call_soon_threadsafe(started.set)
+        assert finish.wait(timeout=5)
+        return {
+            "usage": {"total_tokens": 1},
+            "results": [{"index": 0, "relevance_score": 0.5}],
+        }
+
+    def handle_metrics():
+        waiting = 3 if started.is_set() and not finish.is_set() else 0
+        running = 2 if waiting else 0
+        return (
+            f"llamacpp:requests_deferred {waiting}\n"
+            f"llamacpp:requests_processing {running}\n"
+        )
+
+    model = XllamaCppRerankModel.__new__(XllamaCppRerankModel)
+    model.model_family = SimpleNamespace(
+        to_description=lambda: {"model_type": "rerank", "model_name": "reranker"}
+    )
+    server = model._llm = SimpleNamespace(
+        handle_rerank=Mock(side_effect=handle_rerank), handle_metrics=handle_metrics
+    )
+    actor = await new_replica("rerank", model=model)
+    running = asyncio.create_task(
+        actor.rerank(["running"], "query", 1, None, False, False)
+    )
+    waiting = None
+    try:
+        await asyncio.wait_for(started.wait(), 1)
+        waiting = asyncio.create_task(
+            actor.rerank(["waiting"], "query", 1, None, False, False)
+        )
+        await wait_for_queue(actor)
+        load = await actor.get_replica_load()
+        assert (load.queued, load.engine_waiting, load.engine_running) == (1, 3, 2)
+        assert load.spare == 0
+        assert server.handle_rerank.call_count == 1
+        assert not await actor.begin_replica_drain(0)
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+        assert server.handle_rerank.call_count == 1
+        finish.set()
+        await running
+        assert await actor.get_replica_load() == ReplicaLoad(0, 0, 1)
+    finally:
+        finish.set()
+        await asyncio.gather(
+            *(task for task in (running, waiting) if task is not None),
+            return_exceptions=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "model_name,backlog",
+    [("bge-reranker-v2-m3", 3), ("Qwen3-VL-Reranker-2B", 4)],
+)
+def test_vllm_offline_rerank_reports_unfinished_pairs(model_name, backlog, monkeypatch):
+    from ...model.rerank.vllm.core import VLLMRerankModel
+    from ..replica_load import EngineLoad
+
+    model = VLLMRerankModel.__new__(VLLMRerankModel)
+    model.model_family = SimpleNamespace(model_name=model_name)
+    model._qwen3_vl_reranker_template = "template"
+    monkeypatch.setattr(model, "_clean_cache_if_needed", Mock())
+    samples = []
+
+    def score(query, documents, use_tqdm, **kwargs):
+        samples.append(model.get_engine_load().waiting)
+        count = len(documents) if isinstance(documents, list) else 1
+        use_tqdm.update(count)
+        return [object() for _ in range(count)]
+
+    model._model = SimpleNamespace(
+        score=score,
+        llm_engine=SimpleNamespace(
+            vllm_config=SimpleNamespace(
+                scheduler_config=SimpleNamespace(max_num_seqs=2)
+            )
+        ),
+        get_metrics=lambda: [
+            SimpleNamespace(name="vllm:num_requests_waiting", value=0),
+            SimpleNamespace(name="vllm:num_requests_running", value=0),
+        ],
+    )
+    model.enable_engine_load_reporting()
+    model._pooling_load.configure_sync(model._model)
+    assert model.get_engine_load() == EngineLoad()
+    assert len(model._rerank(["passage"] * 5, "query")) == 5
+    assert samples[0] == backlog
+    assert model.get_engine_load() == EngineLoad()
 
 
 @pytest.mark.parametrize(
