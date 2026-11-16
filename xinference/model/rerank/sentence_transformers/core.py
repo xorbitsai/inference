@@ -90,6 +90,8 @@ def _count_forward_tokens(model: Any):
 
 
 class SentenceTransformerRerankModel(RerankModel, BatchMixin):
+    replica_autoscaling = "batch"
+
     def __init__(self, *args, **kwargs) -> None:
         RerankModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore

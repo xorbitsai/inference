@@ -5,15 +5,18 @@ import logging
 import os
 import uuid
 from collections import defaultdict
+from contextlib import nullcontext
 from typing import Any, List, Optional, Tuple, Union
 
 from xoscar import extensible
 
+from ....core.replica_load import EngineLoad
 from ....device_utils import empty_cache, is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import dependency_import_guard, make_hashable
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
+from ...vllm_load import VLLMPoolingLoad
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
@@ -25,6 +28,9 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
+    replica_autoscaling = "native"
+    _pooling_load: Optional[VLLMPoolingLoad] = None
+
     # The backend can be either a synchronous LLM or an asynchronous engine.
     _model: Any
 
@@ -41,6 +47,16 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             from vllm import LLM
             from vllm import __version__ as vllm_version
 
+        engine_version = Version(vllm_version)
+        on_vacc = is_vacc_available()
+        load = self._pooling_load
+        if load is not None:
+            if engine_version < Version("0.12.0") or on_vacc:
+                raise ValueError(
+                    "Rerank scheduler load reporting requires vLLM V1 "
+                    "(vLLM >= 0.12, excluding VACC)"
+                )
+            self._kwargs["disable_log_stats"] = False
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)
 
@@ -66,7 +82,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
         self._qwen3_vl_reranker_template = None
         if is_qwen3_vl_reranker:
-            if Version(vllm_version) < Version("0.14.0"):
+            if engine_version < Version("0.14.0"):
                 raise ValueError("Qwen3-VL reranker requires vLLM>=0.14.0")
             hf_overrides = self._kwargs.get("hf_overrides", {})
             if not isinstance(hf_overrides, dict):
@@ -81,8 +97,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             with open(QWEN3_VL_RERANK_TEMPLATE_PATH, encoding="utf-8") as template:
                 self._qwen3_vl_reranker_template = template.read()
         if (
-            Version(vllm_version) >= Version("0.19.0")
-            and not is_vacc_available()
+            engine_version >= Version("0.19.0")
+            and not on_vacc
             and not is_qwen3_vl_reranker
         ):
             from vllm.engine.arg_utils import AsyncEngineArgs
@@ -94,16 +110,30 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 model_config.score_type == "cross-encoder"
                 and not model_config.is_multimodal_model
             ):
-                self._model = AsyncLLM.from_engine_args(engine_args)
+                if load is None:
+                    self._model = AsyncLLM.from_engine_args(engine_args)
+                else:
+                    self._model = AsyncLLM.from_engine_args(
+                        engine_args, stat_loggers=[load.stat_logger]
+                    )
                 self._tokenizer = self._model.get_tokenizer()
                 self._native_pooling = True
                 self.rerank = self._async_rerank
                 return
-        if Version(vllm_version) >= Version("0.13.0"):
+        if engine_version >= Version("0.13.0"):
             self._model = LLM(model=self._model_path, **self._kwargs)
         else:
             self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
+        if load is not None:
+            load.configure_sync(self._model)
+
+    def enable_engine_load_reporting(self) -> None:
+        self._pooling_load = VLLMPoolingLoad()
+
+    def get_engine_load(self) -> Optional[EngineLoad]:
+        load = self._pooling_load
+        return load.get_engine_load(self._model) if load is not None else None
 
     def _rerank(
         self,
@@ -130,8 +160,22 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             Rerank: The reranked results.
         """
         query_list, documents = self._prepare_pairs(documents, query, **kwargs)
-        score_kwargs = {"use_tqdm": False}
-        if self.model_family.model_name.startswith("Qwen3-VL-Reranker"):
+        load = getattr(self, "_pooling_load", None)
+        is_multimodal = self.model_family.model_name.startswith("Qwen3-VL-Reranker")
+        with (
+            load.sync_request(
+                len(documents), sequence_limit=1 if is_multimodal else None
+            )
+            if load is not None
+            else nullcontext(False)
+        ) as progress:
+            outputs = self._score_pairs(query_list, documents, is_multimodal, progress)
+        self._clean_cache_if_needed()
+        return outputs
+
+    def _score_pairs(self, query_list, documents, is_multimodal, progress):
+        score_kwargs = {"use_tqdm": progress}
+        if is_multimodal:
             query_list = [
                 self._to_score_multimodal_param(query) for query in query_list
             ]
@@ -157,7 +201,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 outputs.extend(pair_outputs)
         else:
             outputs = self._model.score(query_list, documents, **score_kwargs)
-        self._clean_cache_if_needed()
         return outputs
 
     def _prepare_pairs(
@@ -297,17 +340,19 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 raise RuntimeError("vLLM returned no scoring output")
             return ScoringRequestOutput.from_base(output)
 
-        tasks = [
-            asyncio.create_task(score(i, prompt, params))
-            for i, (prompt, params) in enumerate(inputs)
-        ]
-        try:
-            outputs = await asyncio.gather(*tasks)
-        finally:
-            for task in tasks:
-                if not task.done():
-                    task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+        load = getattr(self, "_pooling_load", None)
+        with load.native_request() if load is not None else nullcontext():
+            tasks = [
+                asyncio.create_task(score(i, prompt, params))
+                for i, (prompt, params) in enumerate(inputs)
+            ]
+            try:
+                outputs = await asyncio.gather(*tasks)
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
         return self._format_rerank_outputs(
             documents, outputs, top_n, return_documents, return_len
         )

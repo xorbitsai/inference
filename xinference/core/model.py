@@ -617,12 +617,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     validate()
                 elif self._lock is None:
                     raise ValueError(self._replica_autoscaling_error)
+            elif mode != "batch" or not isinstance(model, BatchMixin):
+                raise ValueError(self._replica_autoscaling_error)
+            if mode == "serialized" or (
+                mode == "native"
+                and self._lock is not None
+                and self._model_description.get("model_type") == "rerank"
+            ):
+                # Rerank calls finish under the lock. Keep their waiters movable.
                 self._serialized_replica_admission = SerializedReplicaAdmission(
                     replica_admission["queue_capacity"],
                     replica_admission["queue_timeout_ms"] / 1000,
                 )
-            elif mode != "batch" or not isinstance(model, BatchMixin):
-                raise ValueError(self._replica_autoscaling_error)
             self._replica_concurrency = min(
                 self._request_limits, replica_admission["concurrency_per_replica"]
             )
@@ -2898,20 +2904,31 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def get_replica_load(self) -> Optional[ReplicaLoad]:
         if not self._can_report_replica_load():
             return None
-        serial = self.__dict__.get("_serialized_replica_admission")
-        if serial is not None:
-            return ReplicaLoad(
-                serial.queue.qsize(),
-                serial.queue.oldest_wait(),
-                int(
-                    not serial.running
-                    and _count_replica_work(self) < self._request_limits
-                ),
-                engine_running=int(serial.running),
-            )
         engine = await self._read_engine_load()
         if not self._can_report_replica_load():
             return None
+        serial = self.__dict__.get("_serialized_replica_admission")
+        if serial is not None:
+            queued = serial.queue.qsize()
+            oldest_wait = serial.queue.oldest_wait()
+            if engine is None:
+                if not queued:
+                    return None
+                return ReplicaLoad(
+                    queued, oldest_wait, 0, engine_running=int(serial.running)
+                )
+            return ReplicaLoad(
+                queued,
+                oldest_wait,
+                int(
+                    not serial.running
+                    and not engine.running
+                    and _count_replica_work(self) < self._request_limits
+                ),
+                engine.waiting,
+                engine.backlog_seconds,
+                max(int(serial.running), engine.running),
+            )
         queued, oldest_wait = (
             self._replica_batch.batch_queue_load()
             if self._has_redistributable_batch()
