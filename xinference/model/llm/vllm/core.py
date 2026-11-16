@@ -231,6 +231,69 @@ MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
 
 
+def continuous_usage_requested(generate_config: Optional[Dict]) -> bool:
+    """Whether a stream asked for cumulative usage on every chunk.
+
+    Mirrors vLLM's OpenAI server: ``stream_options.continuous_usage_stats``
+    takes effect together with ``include_usage``.
+    """
+    options = (generate_config or {}).get("stream_options")
+    return (
+        isinstance(options, dict)
+        and options.get("include_usage") is True
+        and options.get("continuous_usage_stats") is True
+    )
+
+
+def _maybe_stamp_usage(
+    chunks: AsyncGenerator[ChatCompletionChunk, None], tap: Optional["_UsageTap"]
+) -> AsyncGenerator[ChatCompletionChunk, None]:
+    return chunks if tap is None else _stamp_usage(chunks, tap)
+
+
+class _UsageTap:
+    """The latest cumulative usage seen on an engine completion stream."""
+
+    __slots__ = ("usage",)
+
+    def __init__(self) -> None:
+        self.usage: Optional[CompletionUsage] = None
+
+
+async def _tap_usage(
+    chunks: AsyncGenerator[Any, None], tap: _UsageTap
+) -> AsyncGenerator[Any, None]:
+    try:
+        async for chunk in chunks:
+            usage = chunk.get("usage") if isinstance(chunk, dict) else None
+            if usage:
+                tap.usage = usage
+            yield chunk
+    finally:
+        # ``async for`` does not close its iterator when this generator is
+        # closed early; close it so the engine aborts the request promptly.
+        await chunks.aclose()
+
+
+async def _stamp_usage(
+    chunks: AsyncGenerator[ChatCompletionChunk, None], tap: _UsageTap
+) -> AsyncGenerator[ChatCompletionChunk, None]:
+    """Attach the latest cumulative usage to every chat chunk with choices.
+
+    Chunks that already carry usage (the final chunks) keep their own. The
+    stamped value counts tokens generated so far, so it never decreases.
+    """
+    try:
+        async for chunk in chunks:
+            if chunk.get("choices") and not chunk.get("usage") and tap.usage:
+                chunk = cast(
+                    ChatCompletionChunk, {**chunk, "usage": copy.deepcopy(tap.usage)}
+                )
+            yield chunk
+    finally:
+        await chunks.aclose()
+
+
 def _is_gpt_oss_model(model_family: Optional["LLMFamilyV2"]) -> bool:
     if model_family is None:
         return False
@@ -3387,6 +3450,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -3430,16 +3494,22 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 full_prompt, generate_config, tools, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
+            tap = _UsageTap() if continuous_usage else None
+            if tap is not None:
+                agen = _tap_usage(agen, tap)
             if parse_harmony:
                 from ..harmony import async_stream_harmony_chat_completion_chunks
 
                 raw_stream = self._async_to_chat_completion_chunks(
                     agen, None, chat_template_kwargs
                 )
-                return async_stream_harmony_chat_completion_chunks(
-                    raw_stream,
-                    expose_reasoning=expose_reasoning,
-                    structured_output=structured_output,
+                return _maybe_stamp_usage(
+                    async_stream_harmony_chat_completion_chunks(
+                        raw_stream,
+                        expose_reasoning=expose_reasoning,
+                        structured_output=structured_output,
+                    ),
+                    tap,
                 )
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
@@ -3450,11 +3520,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     agen, parser, chat_template_kwargs
                 )
             if parallel_tool_calls is False:
-                return cast(
-                    AsyncGenerator[ChatCompletionChunk, None],
-                    single_tool_stream(result_stream),
+                return _maybe_stamp_usage(
+                    cast(
+                        AsyncGenerator[ChatCompletionChunk, None],
+                        single_tool_stream(result_stream),
+                    ),
+                    tap,
                 )
-            return result_stream
+            return _maybe_stamp_usage(result_stream, tap)
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, tools, request_id=request_id
@@ -4001,6 +4074,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -4034,6 +4108,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 request_id=request_id,
             )
             assert isinstance(agen, AsyncGenerator)
+            tap = _UsageTap() if continuous_usage else None
+            if tap is not None:
+                agen = _tap_usage(agen, tap)
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
                     agen, chat_template_kwargs, tools
@@ -4043,11 +4120,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     agen, parser, chat_template_kwargs
                 )
             if parallel_tool_calls is False:
-                return cast(
-                    AsyncGenerator[ChatCompletionChunk, None],
-                    single_tool_stream(result_stream),
+                return _maybe_stamp_usage(
+                    cast(
+                        AsyncGenerator[ChatCompletionChunk, None],
+                        single_tool_stream(result_stream),
+                    ),
+                    tap,
                 )
-            return result_stream
+            return _maybe_stamp_usage(result_stream, tap)
         else:
             c = await self.async_generate(
                 inputs,
