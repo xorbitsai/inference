@@ -5,23 +5,22 @@
 
 # CI: linux
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import httpx
+import pytest
 from fastapi import APIRouter, FastAPI, HTTPException, Response
 
+from ...core.exceptions import ModelNotReadyError
+from ...core.supervisor import SupervisorActor
+from ...core.tests.test_realtime_runtime import FakeModel, RealtimeRuntime
+from ...core.utils import build_replica_model_uid
 from ..routers.audio import register_routes
 
 
-async def test_capabilities_preserve_model_access_before_actor_call():
-    actor = SimpleNamespace(
-        get_audio_capabilities=AsyncMock(
-            return_value={"asr": {"streaming": True, "server_vad": True}}
-        )
-    )
-    supervisor = SimpleNamespace(get_model=AsyncMock(return_value=actor))
-
+def audio_api(supervisor):
     async def unused() -> Response:
         return Response()
 
@@ -30,6 +29,7 @@ async def test_capabilities_preserve_model_access_before_actor_call():
         _auth_service=None,
         is_authenticated=lambda: False,
         _check_model_access=Mock(),
+        _is_ip_allowed=lambda ip: True,
         _get_supervisor_ref=AsyncMock(return_value=supervisor),
         _report_error_event=AsyncMock(),
         create_audio_embedding=unused,
@@ -40,13 +40,106 @@ async def test_capabilities_preserve_model_access_before_actor_call():
     register_routes(api)
     app = FastAPI()
     app.include_router(api._router)
+    return api, app
+
+
+@asynccontextmanager
+async def replicated_audio():
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._pd_model_mapping = {}
+    supervisor._replica_autoscalers = {}
+    supervisor._model_uid_to_replica_info = {
+        "custom": supervisor._build_replica_info(2)
+    }
+    supervisor._replica_model_uid_to_worker = {}
+    runtimes = []
+    capabilities = {"asr": {"streaming": True, "server_vad": True}}
+    try:
+        for replica in range(2):
+            uid = build_replica_model_uid("custom", replica)
+            model = FakeModel()
+            model.load()
+            runtime = RealtimeRuntime(model, "custom", uid)
+            runtimes.append(runtime)
+            await runtime.start("127.0.0.1")
+            actor = SimpleNamespace(
+                uid=uid.encode(),
+                get_audio_capabilities=AsyncMock(return_value=capabilities),
+                get_realtime_endpoint=AsyncMock(side_effect=runtime.issue_ticket),
+            )
+            supervisor._replica_model_uid_to_worker[uid] = SimpleNamespace(
+                get_model=AsyncMock(return_value=actor),
+                describe_model=AsyncMock(return_value={"model_type": "audio"}),
+            )
+        api, app = audio_api(supervisor)
+        yield SimpleNamespace(
+            api=api,
+            app=app,
+            supervisor=supervisor,
+            runtimes=runtimes,
+            capabilities=capabilities,
+        )
+    finally:
+        for runtime in runtimes:
+            await runtime.stop()
+
+
+async def test_capabilities_preserve_model_access_before_actor_call():
+    capabilities = {"asr": {"streaming": True, "server_vad": True}}
+    actor = SimpleNamespace(
+        uid=b"custom-rep0",
+        get_audio_capabilities=AsyncMock(return_value=capabilities),
+    )
+    supervisor = SimpleNamespace(get_model=AsyncMock(return_value=actor))
+    api, app = audio_api(supervisor)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app), base_url="http://test"
     ) as client:
         response = await client.get("/v1/models/custom/audio/capabilities")
-        assert response.status_code == 200 and response.json()["asr"]["server_vad"]
+        assert response.status_code == 200 and response.json() == capabilities
         assert api._check_model_access.call_args.args[1:] == ("custom", "audio")
         api._check_model_access.side_effect = HTTPException(403, "Model access denied")
         response = await client.get("/v1/models/custom/audio/capabilities")
         assert response.status_code == 403
         actor.get_audio_capabilities.assert_awaited_once()
+
+
+@pytest.mark.parametrize("preflight", [False, True])
+async def test_capabilities_preserve_realtime_routing(preflight):
+    async with replicated_audio() as service:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            selected = []
+            for _ in range(4):
+                if preflight:
+                    response = await client.get("/v1/models/custom/audio/capabilities")
+                    assert response.status_code == 200
+                    assert response.json() == service.capabilities
+                descriptor = await service.supervisor.get_realtime_endpoint(
+                    "custom", "anonymous", "binary.echo"
+                )
+                selected.append(descriptor["replica_model_uid"])
+            assert selected == ["custom-rep0", "custom-rep1"] * 2
+
+
+@pytest.mark.parametrize("draining", [False, True])
+async def test_capabilities_keep_existing_replica_selection(draining):
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        if draining:
+            supervisor._replica_autoscalers["custom"] = SimpleNamespace(
+                draining={0}, should_avoid=lambda replica: False
+            )
+        else:
+            await supervisor.get_model("custom")
+        worker = supervisor._replica_model_uid_to_worker["custom-rep0"]
+        worker.get_model.side_effect = ModelNotReadyError("Loading")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            response = await client.get("/v1/models/custom/audio/capabilities")
+        assert response.status_code == 200
+        assert response.json() == service.capabilities
+        info = supervisor._model_uid_to_replica_info["custom"]
+        assert next(info.scheduler) == (0 if draining else 1)

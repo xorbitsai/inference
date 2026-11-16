@@ -100,6 +100,8 @@ async def require_model(
     get_supervisor_ref: Callable,
     model_uid: str,
     report_error_event: Optional[Callable] = None,
+    *,
+    for_inference: bool = True,
 ) -> Any:
     """
     Get a model with standardized error handling.
@@ -129,6 +131,7 @@ async def require_model(
         get_supervisor_ref: Async function to get supervisor reference
         model_uid: Model unique identifier
         report_error_event: Optional async function to report error events
+        for_inference: Whether to consume an inference routing turn
 
     Returns:
         The model instance
@@ -140,13 +143,15 @@ async def require_model(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
+        options = {} if for_inference else {"for_inference": False}
         if request_id is None:
-            return await supervisor.get_model(model_uid)
+            return await supervisor.get_model(model_uid, **options)
         model_ref = await actor_call(
             supervisor,
             "get_model",
             model_uid,
             _rpc_correlation_id=request_id,
+            **options,
         )
         return correlate_model_ref(model_ref, request_id)
 

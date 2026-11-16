@@ -6821,9 +6821,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def get_model(
-        self, model_uid: str, routing_key: Optional[str] = None
+        self,
+        model_uid: str,
+        routing_key: Optional[str] = None,
+        *,
+        for_inference: bool = True,
     ) -> xo.ActorRefType["ModelActor"]:
-        model, _ = await self._select_model(model_uid, routing_key)
+        model, _ = await self._select_model(
+            model_uid, routing_key, for_inference=for_inference
+        )
         return model
 
     @log_async(logger=logger, ignore_kwargs=["routing_request"])
@@ -6877,6 +6883,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         routing_key: Optional[str],
         reservation_id: Optional[str] = None,
         routing_request: Optional[dict] = None,
+        *,
+        for_inference: bool = True,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
@@ -6893,14 +6901,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        if routing_key is not None or (
-            routing_request is not None and len(replica_info.active_replica_ids) > 1
+        if for_inference and (
+            routing_key is not None
+            or (
+                routing_request is not None and len(replica_info.active_replica_ids) > 1
+            )
         ):
             return await self._get_affinity_model(
                 model_uid, replica_info, routing_key, reservation_id, routing_request
             )
         state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
-        first = next(replica_info.scheduler)
+        if for_inference:
+            first = next(replica_info.scheduler)
+        else:
+            # Keep the next route available to the shared scheduler.
+            replica_info.scheduler, inspection = itertools.tee(replica_info.scheduler)
+            first = next(inspection)
+            del inspection
         if state is None:
             return await self._get_replica_model(model_uid, first), False
         if first not in state.draining and not state.should_avoid(first):
