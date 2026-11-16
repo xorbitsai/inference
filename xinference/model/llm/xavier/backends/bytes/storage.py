@@ -40,6 +40,7 @@ class XavierBytesCacheActor(xo.Actor):
             contract.fingerprint, contract.layer_nbytes * contract.num_layers
         )
         self._contract = contract
+        result["deferred_read_refresh"] = True
         return result
 
     def configure_pages(self, namespace: str, page_bytes: int) -> dict:
@@ -139,7 +140,7 @@ class XavierBytesCacheActor(xo.Actor):
         self._order_waiting_prefixes()
         return [key in self._pages for key in keys]
 
-    def get(self, namespace, keys):
+    def get(self, namespace, keys, *, refresh=True):
         self._validate(namespace, keys)
         pages = []
         for key in keys:
@@ -148,10 +149,17 @@ class XavierBytesCacheActor(xo.Actor):
                 break
             pages.append(self._pages[key])
         # Keep chain heads newer than tails so eviction preserves usable prefixes.
-        for key in reversed(keys[: len(pages)]):
-            self._pages.move_to_end(key)
+        if refresh:
+            for key in reversed(keys[: len(pages)]):
+                self._pages.move_to_end(key)
         self._counts["read_pages"] += len(pages)
         return pages
+
+    def touch(self, namespace, keys):
+        self._validate(namespace, keys)
+        for key in reversed(keys):
+            if key in self._pages:
+                self._pages.move_to_end(key)
 
     def exists(self, namespace, keys):
         self._validate(namespace, keys)

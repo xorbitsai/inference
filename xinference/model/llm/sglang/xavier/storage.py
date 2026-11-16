@@ -61,13 +61,14 @@ class XavierHiCacheStorage(HiCacheStorage):
         self._layouts = {}
         self._namespace = None
         self._batch_size = 128
+        self._deferred_read_refresh = False
         self._closed = False
         self._rpc_loop = None
         self._rpc_thread = None
         self._rpc_ref = None
         self._rpc_lock = threading.Lock()
 
-    def _rpc(self, method, *args):
+    def _rpc(self, method, *args, **kwargs):
         if self._closed:
             raise RuntimeError("Xavier storage is closed")
         with self._rpc_lock:
@@ -94,7 +95,7 @@ class XavierHiCacheStorage(HiCacheStorage):
                 self._rpc_ref = await xo.actor_ref(
                     address=self._config["address"], uid=self._config["uid"]
                 )
-            return await getattr(self._rpc_ref, method)(*args)
+            return await getattr(self._rpc_ref, method)(*args, **kwargs)
 
         with self._rpc_lock:
             if self._closed:
@@ -146,6 +147,7 @@ class XavierHiCacheStorage(HiCacheStorage):
             metadata = self._rpc("configure", contract.to_dict())
             self._namespace = metadata["namespace"]
             self._batch_size = min(self._batch_size, metadata["capacity_pages"])
+            self._deferred_read_refresh = metadata.get("deferred_read_refresh", False)
             return
         self._namespace = self._rpc(
             "configure",
@@ -158,8 +160,10 @@ class XavierHiCacheStorage(HiCacheStorage):
             },
         )
 
-    def _request(self, method, keys, fallback, *args):
+    def _request(self, method, keys, fallback, *args, prefix_keys=None):
         shared = self._config.get("shared_prefix")
+        prefix = list(prefix_keys or []) if shared and method == "put" else []
+        defer_refresh = shared and method == "get" and self._deferred_read_refresh
         result = 0 if method == "exists" else []
         for offset in range(0, len(keys), self._batch_size):
             end = offset + self._batch_size
@@ -167,15 +171,21 @@ class XavierHiCacheStorage(HiCacheStorage):
             batch_args = [arg[offset:end] for arg in args]
             try:
                 if shared and method == "put":
+                    chain = prefix + keys[:end]
+                    start = len(prefix) + offset
                     batch_args[0] = [self._to_canonical(page) for page in batch_args[0]]
                     # Canonical stores need the whole chain to protect its head;
                     # only the suffix carries new page bytes.
                     value = self._rpc(
-                        method, self._namespace, keys[:end], *batch_args, offset
+                        method, self._namespace, chain, *batch_args, start
                     )
                     # Rejections can cover the full key list even when an
                     # earlier batch succeeded. Report only this suffix's flags.
-                    value = value[offset:end] if all(value[:offset]) else []
+                    value = value[start:] if all(value[:start]) else []
+                elif defer_refresh:
+                    # Only the Bytes actor advertises deferred read refresh.
+                    # History keeps its existing per-batch read behaviour.
+                    value = self._rpc(method, self._namespace, batch, refresh=False)
                 else:
                     value = self._rpc(method, self._namespace, batch, *batch_args)
             except Exception:
@@ -208,6 +218,18 @@ class XavierHiCacheStorage(HiCacheStorage):
                     # failure. Native Torch pages remain independently addressable.
                     result.extend(fallback[len(result) :])
                     break
+        if defer_refresh:
+            returned = next(
+                (index for index, page in enumerate(result) if page is None),
+                len(result),
+            )
+            if returned:
+                try:
+                    # One tail-to-head touch keeps the head newest, including
+                    # when the last batch stopped at a miss or RPC failure.
+                    self._rpc("touch", self._namespace, keys[:returned])
+                except Exception:
+                    logger.warning("Xavier storage touch failed", exc_info=True)
         return result
 
     def _to_canonical(self, page):
@@ -310,7 +332,13 @@ class XavierHiCacheStorage(HiCacheStorage):
             self.mem_pool_host.get_data_page(index, flat=True).clone().view(torch.uint8)
             for index in offsets
         ]
-        return self._request("put", keys, [False] * len(keys), pages)
+        return self._request(
+            "put",
+            keys,
+            [False] * len(keys),
+            pages,
+            prefix_keys=getattr(extra_info, "prefix_keys", None),
+        )
 
     def batch_get_v1(self, keys, host_indices, extra_info=None):
         if self._pools:
