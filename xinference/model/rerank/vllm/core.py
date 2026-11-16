@@ -24,6 +24,12 @@ QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
     os.path.dirname(__file__), "qwen3_vl_reranker.jinja"
 )
 logger = logging.getLogger(__name__)
+from ..nemotron import (
+    NEMOTRON_RERANK_MODEL_NAME,
+    check_nemotron_dependencies,
+    nemotron_messages,
+)
+
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 
@@ -61,6 +67,17 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self._kwargs.pop("batch_interval", None)
 
         model_name = self.model_family.model_name
+        is_nemotron = model_name == NEMOTRON_RERANK_MODEL_NAME
+        if is_nemotron:
+            if Version(vllm_version) < Version("0.32.0"):
+                raise ValueError("Nemotron reranker requires vllm>=0.32.0")
+            self._kwargs["runner"] = "pooling"
+            self._kwargs.setdefault("dtype", "bfloat16")
+            self._kwargs.setdefault("max_model_len", self.model_family.max_tokens)
+            self._kwargs.setdefault("limit_mm_per_prompt", {"image": 1})
+            pooler_config = dict(self._kwargs.get("pooler_config") or {})
+            pooler_config.update(seq_pooling_type="MEAN", use_activation=False)
+            self._kwargs["pooler_config"] = pooler_config
         is_qwen3_vl_reranker = model_name.startswith("Qwen3-VL-Reranker")
         if model_name in {
             "Qwen3-Reranker-0.6B",
@@ -100,6 +117,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             engine_version >= Version("0.19.0")
             and not on_vacc
             and not is_qwen3_vl_reranker
+            and not is_nemotron
         ):
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.v1.engine.async_llm import AsyncLLM
@@ -160,6 +178,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             Rerank: The reranked results.
         """
         query_list, documents = self._prepare_pairs(documents, query, **kwargs)
+        is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
+        if is_nemotron and max_chunks_per_doc is not None:
+            raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
         load = getattr(self, "_pooling_load", None)
         is_multimodal = self.model_family.model_name.startswith("Qwen3-VL-Reranker")
         with (
@@ -169,7 +190,14 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             if load is not None
             else nullcontext(False)
         ) as progress:
-            outputs = self._score_pairs(query_list, documents, is_multimodal, progress)
+            if is_nemotron:
+                outputs = self._rerank_nemotron(
+                    documents, query_list, progress=progress
+                )
+            else:
+                outputs = self._score_pairs(
+                    query_list, documents, is_multimodal, progress
+                )
         self._clean_cache_if_needed()
         return outputs
 
@@ -202,6 +230,41 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             outputs = self._model.score(query_list, documents, **score_kwargs)
         return outputs
+
+    def _rerank_nemotron(
+        self, documents: List[Any], queries: List[Any], *, progress: Any = False
+    ) -> List[Any]:
+        from transformers.image_utils import load_image
+        from vllm.outputs import ScoringRequestOutput
+
+        if len(queries) != len(documents):
+            raise ValueError(
+                "Nemotron reranker query and documents must have equal length"
+            )
+        inputs = []
+        for query, document in zip(queries, documents):
+            messages = nemotron_messages(query, document)
+            images = []
+            for block in messages[1]["content"]:
+                if block["type"] == "image":
+                    images.append(load_image(block.pop("image")).convert("RGB"))
+            prompt = self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+            request = {"prompt": prompt}
+            if images:
+                request["multi_modal_data"] = {"image": images[0]}
+            inputs.append(request)
+        if not inputs:
+            return []
+        # score()/rerank() can misrender this checkpoint's image placeholders.
+        # Use the model card's raw classification path for every modality.
+        outputs = self._model.encode(inputs, pooling_task="classify", use_tqdm=progress)
+        if len(outputs) != len(inputs):
+            raise RuntimeError("Nemotron reranker must return one score per document")
+        return [ScoringRequestOutput.from_base(output) for output in outputs]
 
     def _prepare_pairs(
         self, documents: List[Any], query: Union[Any, List[Any]], **kwargs
@@ -649,6 +712,10 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
+            if model_spec.model_format != "pytorch":
+                return False, "vLLM rerank engine only supports pytorch format"
+            return check_nemotron_dependencies("vllm")
         if model_family.model_name.startswith("Qwen3-VL-Reranker"):
             # In virtualenv mode vLLM (and a compatible version) can be
             # installed on demand, so only the missing-library / old-version

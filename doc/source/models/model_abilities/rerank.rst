@@ -101,3 +101,54 @@ above. To rerank image URLs or local image paths, pass ``doc_type="image"``::
     )
 
 For an image query, also pass ``query_type="image"``.
+
+
+Multimodal reranking with Nemotron-3.5-Rerank-8B
+================================================
+
+``Nemotron-3.5-Rerank-8B`` scores text queries against text documents, single
+images, or combined image-text documents. Its context limit is 32,768 tokens,
+including image tokens. Scores are raw relevance logits; higher is better.
+Image queries, video, and multiple images in one document are unsupported.
+
+Launch with one of ``sentence_transformers``, ``transformers``, or ``vllm``::
+
+    xinference launch --model-type rerank --model-name Nemotron-3.5-Rerank-8B \
+        --model-engine sentence_transformers --model-format pytorch
+
+The Sentence Transformers backend requires ``sentence-transformers[image]>=6.1.0``
+and ``transformers>=5.20.0``. The native Transformers backend requires
+``transformers>=5.20.0``. The vLLM backend requires ``vllm>=0.32.0`` with its
+compatible Transformers dependency (``>=5.19.0,<5.20.0``). Use separate virtual
+environments for these backends. Model virtualenv settings install their
+respective dependencies automatically.
+
+Hugging Face uses ``nvidia/Nemotron-3.5-Rerank-8B-BF16`` at revision ``main``;
+ModelScope uses ``nv-community/Nemotron-3.5-Rerank-8B-BF16`` at revision ``master``.
+Select the download hub with ``--download_hub huggingface`` or
+``--download_hub modelscope`` when launching.
+
+Use the returned model UID in the standard rerank endpoint::
+
+    curl http://localhost:9997/v1/rerank \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "model": "<MODEL_UID>",
+          "query": "Which document describes NVIDIA NeMo?",
+          "documents": [
+            "NeMo is a framework for developing AI models.",
+            {"image": "https://example.com/page.png"},
+            {"text": "NeMo architecture", "image": "https://example.com/page.png"}
+          ],
+          "top_n": 2,
+          "return_documents": true
+        }'
+
+Images can be HTTP(S) URLs or base64 data URLs. OpenAI-style content dictionaries
+with ``text`` and ``image_url`` blocks are also accepted. Returned documents
+retain their original input structure. The vLLM adapter renders the checkpoint's
+query/document template and uses classification pooling, preserving its image
+placeholders and raw logits.
+
+See the `official model card
+<https://huggingface.co/nvidia/Nemotron-3.5-Rerank-8B-BF16>`_ for runtime examples.

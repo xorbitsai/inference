@@ -35,6 +35,11 @@ from ...utils import (
     is_flash_attn_available,
 )
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
+from ..nemotron import (
+    NEMOTRON_RERANK_MODEL_NAME,
+    check_nemotron_dependencies,
+    nemotron_messages,
+)
 from ..utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
@@ -107,11 +112,48 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         self._kwargs.pop("batch_size", None)
         self._kwargs.pop("batch_interval", None)
 
-        if enable_flash_attn:
+        if (
+            enable_flash_attn
+            and self.model_family.model_name != NEMOTRON_RERANK_MODEL_NAME
+        ):
             logger.warning(
                 "flash_attn can only support fp16 and bf16, will force set `use_fp16` to True"
             )
             self._use_fp16 = True
+
+        if self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
+            from packaging.version import Version
+
+            from ...utils import neutralize_broken_torchcodec
+
+            neutralize_broken_torchcodec()
+            with dependency_import_guard("sentence_transformers"):
+                import sentence_transformers
+                import transformers
+                from sentence_transformers import CrossEncoder
+            if Version(transformers.__version__) < Version("5.20.0"):
+                raise ValueError("Nemotron reranker requires transformers>=5.20.0")
+            if Version(sentence_transformers.__version__) < Version("6.1.0"):
+                raise ValueError(
+                    "Nemotron reranker requires sentence-transformers>=6.1.0"
+                )
+            model_kwargs = self._kwargs.pop("model_kwargs", {})
+            model_kwargs.setdefault(
+                "dtype", "float16" if self._use_fp16 else "bfloat16"
+            )
+            if enable_flash_attn:
+                model_kwargs.setdefault("attn_implementation", "flash_attention_2")
+            self._model = CrossEncoder(
+                self._model_path,
+                device=self._device,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+                model_kwargs=model_kwargs,
+                activation_fn=torch.nn.Identity(),
+                max_length=self.model_family.max_tokens,
+                **self._kwargs,
+            )
+            self._tokenizer = self._model.tokenizer
+            return
 
         if self.model_family.model_name.startswith("Qwen3-VL-Reranker"):
             module_path = os.path.join(
@@ -426,6 +468,12 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             return self._rerank_vl(
                 documents, query, batch_offsets=batch_offsets, **kwargs
             )
+        if self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
+            if max_chunks_per_doc is not None:
+                raise ValueError(
+                    "rerank hasn't support `max_chunks_per_doc` parameter."
+                )
+            return self._rerank_nemotron(documents, query, return_len, **kwargs)
         assert self._model is not None
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
@@ -880,6 +928,64 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         extra_kwargs = {**extra_args, **bound.arguments.get("kwargs", {})}
         return documents, query, extra_kwargs
 
+    def _rerank_nemotron(
+        self,
+        documents: List[Any],
+        queries: List[Any],
+        return_len: Optional[bool],
+        **kwargs,
+    ) -> List[float]:
+        if len(documents) != len(queries):
+            raise ValueError(
+                "Nemotron reranker query and documents must have equal length"
+            )
+        self._reset_token_tracking()
+        instruction = kwargs.pop("instruction", None)
+        pairs = []
+        for query, document in zip(queries, documents):
+            messages = nemotron_messages(query, document)
+            text_query = "\n\n".join(b["text"] for b in messages[0]["content"])
+            if instruction:
+                text_query = preprocess_sentence(
+                    text_query, instruction, self.model_family.model_name
+                )
+            doc = {}
+            texts = [b["text"] for b in messages[1]["content"] if b["type"] == "text"]
+            if texts:
+                doc["text"] = "\n\n".join(texts)
+            for block in messages[1]["content"]:
+                if block["type"] == "image":
+                    doc["image"] = block["image"]
+            pairs.append([text_query, doc])
+        if not pairs:
+            return []
+        if return_len:
+            # Use the same multimodal processor/template, including image tokens.
+            from transformers import AutoProcessor
+
+            processor = getattr(self, "_nemotron_processor", None)
+            if processor is None:
+                processor = self._nemotron_processor = AutoProcessor.from_pretrained(
+                    self._model_path
+                )
+            counts = []
+            for query, document in pairs:
+                inputs = processor.apply_chat_template(
+                    nemotron_messages(query, document),
+                    tokenize=True,
+                    add_generation_prompt=False,
+                    return_dict=True,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=self.model_family.max_tokens,
+                )
+                counts.append(int(inputs["attention_mask"].sum()))
+            self._token_tracking_data.input_tokens = counts
+            self._token_tracking_data.n_tokens = sum(counts)
+        kwargs.setdefault("batch_size", 1)
+        scores = self._predict_sentence_pairs(pairs, **kwargs)
+        return scores.reshape(-1).float().cpu().tolist()
+
     def _get_batch_size(self, *args, **kwargs) -> int:
         reranks = self._extract_rerank_kwargs(args, kwargs)[0]
         if isinstance(reranks, list):
@@ -933,6 +1039,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        if model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
+            if model_spec.model_format != "pytorch":
+                return False, "Nemotron reranker supports pytorch format only"
+            return check_nemotron_dependencies("sentence_transformers")
 
         if model_family.model_name.lower() == "jina-reranker-m0":
             if not XINFERENCE_ENABLE_VIRTUAL_ENV:
