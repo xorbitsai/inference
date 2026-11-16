@@ -2210,7 +2210,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             # would fail every request queued with it.
             validate_input = getattr(self._model, "validate_input", None)
             if validate_input is not None:
-                validate_input(input)
+                validate_input(
+                    input,
+                    truncate_prompt_tokens=kwargs.get("truncate_prompt_tokens"),
+                )
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
             )

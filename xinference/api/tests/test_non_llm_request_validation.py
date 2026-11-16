@@ -361,9 +361,23 @@ class _TiktokenDecodingEngine(EmbeddingModel, BatchMixin):
         )
 
 
-@pytest.mark.asyncio
-async def test_undecodable_token_ids_only_fail_their_own_request(api_client):
-    engine = _TiktokenDecodingEngine()
+class _TextOnlyEngine(_TiktokenDecodingEngine):
+    """Batching engine like flag: its tokenizer only accepts text."""
+
+    _decodes_token_arrays = False
+    _rejects_token_arrays = True
+
+    def _create_embedding(self, sentences, **kwargs):
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        if not all(isinstance(s, str) for s in sentences):
+            raise TypeError("TextInputSequence must be str")
+        return super()._create_embedding(sentences, **kwargs)
+
+
+async def _post_concurrently(api_client, engine, inputs, **options):
+    """Send ``inputs`` as concurrent /v1/embeddings requests through the real
+    route, ``ModelActor`` and batcher of ``engine``."""
     actor = ModelActor("test:123", "test:345", engine, "test-rep0")  # type: ignore
     actor._model_state = "ready"
     actor.record_metrics = AsyncMock()
@@ -371,24 +385,80 @@ async def test_undecodable_token_ids_only_fail_their_own_request(api_client):
 
     async def post(client, value):
         return await client.post(
-            "/v1/embeddings", json={"model": "test", "input": value}
+            "/v1/embeddings", json={"model": "test", "input": value, **options}
         )
 
     try:
         async with api_client.client as client:
-            # 151000 is a Qwen id that cl100k_base cannot decode.
-            bad, good = await asyncio.gather(
-                post(client, [9906, 151000]), post(client, "hello world")
-            )
+            return await asyncio.gather(*(post(client, v) for v in inputs))
     finally:
         task = engine._process_batch_task
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_undecodable_token_ids_only_fail_their_own_request(api_client):
+    engine = _TiktokenDecodingEngine()
+    # 151000 is a Qwen id that cl100k_base cannot decode.
+    bad, good = await _post_concurrently(
+        api_client, engine, [[9906, 151000], "hello world"]
+    )
     assert bad.status_code == 400, bad.text
     assert "151000" in bad.json()["detail"]
     assert good.status_code == 200, good.text
     assert json.loads(good.content)["data"][0]["embedding"] == [11.0]
+    assert engine.batches == [["hello world"]]
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tokens,truncate,status",
+    [
+        ([9468, 19044], 1, 400),  # cuts the emoji in the middle of its bytes
+        ([9468, 19044], 2, 200),  # whole emoji
+        ([9468, 19044], 0, 200),  # nothing is decoded
+        ([9906, 1917, 151000], 2, 200),  # the undecodable id is cut off
+        ([9906, 151000], 2, 400),
+    ],
+)
+async def test_token_ids_are_validated_after_truncation(
+    api_client, tokens, truncate, status
+):
+    engine = _TiktokenDecodingEngine()
+    arr, text = await _post_concurrently(
+        api_client, engine, [tokens, "hello world"], truncate_prompt_tokens=truncate
+    )
+    assert arr.status_code == status, arr.text
+    assert text.status_code == 200, text.text
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text_input", ["hello world", ["hello", "world"]])
+async def test_text_input_does_not_need_tiktoken(api_client, monkeypatch, text_input):
+    # xinference[embedding] does not declare tiktoken; only token arrays need it.
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+    (response,) = await _post_concurrently(
+        api_client, _TiktokenDecodingEngine(), [text_input]
+    )
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.asyncio
+async def test_token_array_for_text_only_engine_does_not_fail_text_request(
+    api_client,
+):
+    engine = _TextOnlyEngine()
+    flat, nested, text = await _post_concurrently(
+        api_client, engine, [[9906, 1917], [[9906, 1917]], "hello world"]
+    )
+    assert flat.status_code == 400, flat.text
+    assert nested.status_code == 400, nested.text
+    assert "Token arrays are not supported" in flat.json()["detail"]
+    assert text.status_code == 200, text.text
     assert engine.batches == [["hello world"]]
     api_client.api._report_error_event.assert_not_awaited()
 

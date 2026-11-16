@@ -163,6 +163,50 @@ def test_validate_input_accepts_decodable_input(value):
     model.validate_input(value)
 
 
+@pytest.mark.parametrize(
+    "value,truncate,ok",
+    [
+        ([[9468, 19044]], None, True),
+        ([[9468, 19044]], 1, False),  # prefix cuts the emoji mid-character
+        ([[9906, 151000]], 1, True),  # bad id is truncated away
+        ([[9906, 151000]], 2, False),
+        ([[9468, 19044]], 0, True),
+    ],
+)
+def test_validate_input_checks_the_truncated_prefix(value, truncate, ok):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    if ok:
+        model.validate_input(value, truncate_prompt_tokens=truncate)
+    else:
+        with pytest.raises(InvalidModelRequestError):
+            model.validate_input(value, truncate_prompt_tokens=truncate)
+
+
+@pytest.mark.parametrize("value", ["text", ["a", "b"], [{"text": "a"}], []])
+def test_validate_input_without_token_arrays_does_not_import_tiktoken(
+    value, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    model.validate_input(value)
+    model.validate_input(value, truncate_prompt_tokens=1)
+
+
+def test_flag_engine_rejects_token_arrays_per_request():
+    from ..flag.core import FlagEmbeddingModel
+
+    assert FlagEmbeddingModel._rejects_token_arrays is True
+    model = _make_stub_model()
+    model._rejects_token_arrays = True
+    for value in ([[1, 2]], ["text", [1, 2]]):
+        with pytest.raises(InvalidModelRequestError, match="Token arrays"):
+            model.validate_input(value)
+    model.validate_input(["text"])
+    model.validate_input("text")
+
+
 def test_validate_input_skips_engines_that_do_not_decode():
     # llama.cpp and flag read the ids as the model's own vocabulary ids.
     model = _make_stub_model()

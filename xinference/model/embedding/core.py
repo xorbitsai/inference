@@ -258,25 +258,46 @@ class EmbeddingModel(abc.ABC):
     # ``_fix_langchain_openai_inputs``) set this so that ``validate_input`` can
     # reject undecodable ids for one request before it joins a shared batch.
     _decodes_token_arrays = False
+    # Engines whose tokenizer only accepts text (flag) set this so token arrays
+    # are rejected for that request instead of failing the shared batch.
+    _rejects_token_arrays = False
 
-    def validate_input(self, sentences) -> None:
-        """Reject token arrays the engine could not decode, for ONE request.
+    def validate_input(self, sentences, truncate_prompt_tokens=None) -> None:
+        """Reject token arrays the engine could not handle, for ONE request.
 
-        The decoding engines run ``_fix_langchain_openai_inputs`` over a batch
-        shared with other requests, where one bad id would fail every caller.
-        Raises ``InvalidModelRequestError`` (an HTTP 400) instead.
+        The engines run over a batch shared with other requests, where one bad
+        input would fail every caller. Raises ``InvalidModelRequestError`` (an
+        HTTP 400) instead. Decoding engines are checked on the ids that will
+        actually be decoded, i.e. after ``truncate_prompt_tokens`` is applied.
         """
-        if not self._decodes_token_arrays or not isinstance(sentences, list):
+        if not isinstance(sentences, list):
+            return
+        from ...core.exceptions import InvalidModelRequestError
+
+        if self._rejects_token_arrays:
+            if any(_is_token_array(line) for line in sentences):
+                raise InvalidModelRequestError(
+                    "Token arrays are not supported by this embedding engine; "
+                    "send the input as text."
+                )
+            return
+        if not self._decodes_token_arrays:
+            return
+        n_tokens = self._effective_token_limit(truncate_prompt_tokens)
+        arrays = [
+            line[:n_tokens] if n_tokens is not None else line
+            for line in sentences
+            if _is_token_array(line)
+        ]
+        arrays = [line for line in arrays if line]
+        if not arrays:
+            # tiktoken is optional: only token arrays need it.
             return
         import tiktoken
 
-        from ...core.exceptions import InvalidModelRequestError
-
         enc = tiktoken.get_encoding("cl100k_base")
         unknown: List[int] = []
-        for line in sentences:
-            if not _is_token_array(line):
-                continue
+        for line in arrays:
             for token in line:
                 try:
                     enc.decode_single_token_bytes(token)
@@ -540,29 +561,30 @@ class EmbeddingModel(abc.ABC):
         must not stringify structured inputs (that would corrupt them -- e.g.
         ``[[1, 2, 3]]`` embedded as the literal text ``"[[1,"``).
         """
-        if truncate_prompt_tokens is None:
+        n_tokens = self._effective_token_limit(truncate_prompt_tokens)
+        if n_tokens is None:
             return sentences
 
-        # Resolve the effective token limit, matching vLLM LLM ``_tokenize``:
-        #   None  -> no truncation (handled above)
-        #   >0    -> cap at N tokens
-        #   ==0   -> explicit max_length=0 (empty input)
-        #   <0    -> cap at the model's own max_tokens
-        n_tokens: Optional[int]
-        if truncate_prompt_tokens > 0:
-            n_tokens = truncate_prompt_tokens
-        elif truncate_prompt_tokens == 0:
-            n_tokens = 0
-        else:  # <0: cap at the model's own max_tokens
-            n_tokens = getattr(self.model_family, "max_tokens", None)
-            if not n_tokens:  # None / 0 -> unknown, give up truncation safely
-                logger.debug(
-                    "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
-                    self._model_uid,
-                )
-                return sentences
-
         return self._truncate_value(sentences, n_tokens)
+
+    def _effective_token_limit(
+        self, truncate_prompt_tokens: Optional[int]
+    ) -> Optional[int]:
+        """Resolve ``truncate_prompt_tokens`` to a token count, matching vLLM LLM
+        ``_tokenize``: ``None`` -> no truncation, ``>0`` -> cap at N tokens,
+        ``==0`` -> empty input, ``<0`` -> cap at the model's own max_tokens."""
+        if truncate_prompt_tokens is None:
+            return None
+        if truncate_prompt_tokens >= 0:
+            return truncate_prompt_tokens
+        n_tokens = getattr(self.model_family, "max_tokens", None)
+        if not n_tokens:  # None / 0 -> unknown, give up truncation safely
+            logger.debug(
+                "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
+                self._model_uid,
+            )
+            return None
+        return n_tokens
 
     def _truncate_value(self, value: Any, n_tokens: int) -> Any:
         """Recursively truncate ``value`` to ``n_tokens`` while preserving its
