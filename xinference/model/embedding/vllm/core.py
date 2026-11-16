@@ -49,6 +49,7 @@ SUPPORTED_MODELS_PREFIXES = [
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "native"
+    _pooling_load: Optional[VLLMPoolingLoad] = None
 
     # The backend can be either a synchronous LLM or an asynchronous engine.
     _model: Any
@@ -60,7 +61,6 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._context_length = None
         self._chat_template = None
         self._native_pooling = False
-        self._pooling_load: Optional[VLLMPoolingLoad] = None
         self._prompts: Dict[str, str] = {}
         self._dimensions = None
 

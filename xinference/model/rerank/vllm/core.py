@@ -29,6 +29,7 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 class VLLMRerankModel(RerankModel, BatchMixin):
     replica_autoscaling = "native"
+    _pooling_load: Optional[VLLMPoolingLoad] = None
 
     # The backend can be either a synchronous LLM or an asynchronous engine.
     _model: Any
@@ -37,7 +38,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         RerankModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore
         self._native_pooling = False
-        self._pooling_load: Optional[VLLMPoolingLoad] = None
 
     def load(self):
         with dependency_import_guard("vllm"):
