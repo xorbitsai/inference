@@ -143,7 +143,7 @@ async def require_model(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
-        options = {} if for_inference else {"for_inference": False}
+        options: dict[str, Any] = {} if for_inference else {"for_inference": False}
         if request_id is None:
             return await supervisor.get_model(model_uid, **options)
         model_ref = await actor_call(
