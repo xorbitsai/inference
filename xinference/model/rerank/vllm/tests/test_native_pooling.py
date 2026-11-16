@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
@@ -186,6 +188,28 @@ def test_qwen_template_and_native_load_and_stop(model):
     model.stop()
     engine.shutdown.assert_called_once()
     assert model._model is None
+
+
+@pytest.mark.parametrize("size", ["0.6B", "4B", "8B"])
+def test_yuanbao_native_load_and_instruction(model, size):
+    model.model_family.model_name = f"Yuanbao-Reranker-{size}"
+    yuanbao = VLLMRerankModel("yuanbao", "/model", model.model_family, "none")
+    yuanbao.load()
+    assert yuanbao._native_pooling
+    args = sys.modules[
+        "vllm.v1.engine.async_llm"
+    ].AsyncLLM.from_engine_args.call_args.args[0]
+    assert args.hf_overrides == {
+        "architectures": ["Qwen3ForSequenceClassification"],
+        "classifier_from_token": ["no", "yes"],
+        "is_original_qwen3_reranker": True,
+    }
+    yuanbao._prepare_native_inputs(["document"], "query", instruction="Find code.")
+    call = sys.modules[
+        "vllm.entrypoints.pooling.score.utils"
+    ].get_score_prompt.call_args.kwargs
+    assert "<Instruct>: Find code.\n\n<Query>: query\n\n" in call["data_1"]
+    assert call["data_2"].startswith("<Document>: document<|im_end|>")
 
 
 @pytest.mark.parametrize("fallback", ["old", "vacc", "vl", "bi-encoder", "multimodal"])

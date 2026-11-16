@@ -10,38 +10,43 @@ The following is a list of built-in rerank models in Xinference:
 .. toctree::
    :maxdepth: 1
 
-  
+
    bce-reranker-base_v1
-  
+
    bge-reranker-base
-  
+
    bge-reranker-large
-  
+
    bge-reranker-v2-gemma
-  
+
    bge-reranker-v2-m3
-  
+
    bge-reranker-v2-minicpm-layerwise
-  
+
    jina-reranker-m0
-  
+
    jina-reranker-v2
-  
+
    jina-reranker-v3
-  
+
    jina-reranker-v3.5
-  
+
    minicpm-reranker
-  
+
    qwen3-reranker-0.6b
-  
+
    qwen3-reranker-4b
-  
+
    qwen3-reranker-8b
-  
+
    qwen3-vl-reranker-2b
-  
+
    qwen3-vl-reranker-8b
-  
+
    r3-rerank-0.6b
-  
+
+   yuanbao-reranker-0.6b
+
+   yuanbao-reranker-4b
+
+   yuanbao-reranker-8b
