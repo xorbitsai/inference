@@ -67,6 +67,7 @@ class _Shard:
         layout: Layout,
         row_bytes: int,
         budget: int,
+        groups: Optional[Dict[str, Any]] = None,
     ):
         devices = {cache.device for cache in caches.values()}
         if len(devices) != 1:
@@ -76,6 +77,8 @@ class _Shard:
         self.device = next(iter(devices))
         self.caches = caches
         self.layout = list(layout)
+        # Caches of one group share a block mapping: loads send one per group.
+        self.groups = dict(groups or {})
         self.row_bytes = row_bytes
         self.capacity = max(0, budget) // row_bytes
         self.arena = (
@@ -190,7 +193,7 @@ class ShardGPUTransfer:
             and bool(self.class_rows)
         )
 
-    def register(self, shard, caches, layout, row_bytes, budget) -> bool:
+    def register(self, shard, caches, layout, row_bytes, budget, groups=None) -> bool:
         if self.closing:
             raise RuntimeError("Xavier shard GPU transfer is shutting down")
         if not 0 <= shard < self.num_shards:
@@ -202,7 +205,7 @@ class ShardGPUTransfer:
             ) != _layout_key(layout):
                 raise ValueError("Xavier TP shard registration changed")
             return self.ready  # A worker retried after a lost reply.
-        self.shards[shard] = _Shard(caches, layout, row_bytes, budget)
+        self.shards[shard] = _Shard(caches, layout, row_bytes, budget, groups)
         if len(self.shards) == self.num_shards:
             self._allocate_slabs()
             logger.info(
@@ -377,8 +380,9 @@ class ShardGPUTransfer:
     ) -> List[int]:
         """Load this shard's rows of one lease; return the keys now in place.
 
-        The ranks of a replica call this for the same lease in the same engine
-        step. The first call waits for the others, then one copy per round
+        ``mappings`` maps each cache group registered for the shard, or each
+        cache name, to the destination block of every key. The ranks of a
+        replica call this for the same lease in the same engine step. The first call waits for the others, then one copy per round
         carries every shard's rows. Keys that are not returned were not
         written and must be read from the CPU snapshot store.
         """
@@ -538,32 +542,41 @@ class ShardGPUTransfer:
         payload = shard.recv[slab_class][: len(keys) * shard.row_bytes].view(
             len(keys), shard.row_bytes
         )
+        # A prompt can span many thousands of blocks and a rank many caches.
+        # Resolve each group's rows and destinations once, not once per cache.
+        indices: Dict[int, Optional[Tuple[torch.Tensor, torch.Tensor]]] = {}
         writes = []
         for name, shape, dtype, start, nbytes in shard.layout:
-            mapping = mappings.get(name, {})
-            selected = [i for i, key in enumerate(keys) if key in mapping]
-            if not selected:
-                continue
-            writes.append(
-                (
-                    shard.caches[name],
-                    torch.tensor(selected, dtype=torch.long),
-                    torch.tensor(
-                        [mapping[keys[i]] for i in selected], dtype=torch.long
-                    ),
-                    shape,
-                    dtype,
-                    start,
-                    nbytes,
+            mapping = mappings.get(shard.groups.get(name, name), {})
+            if id(mapping) not in indices:
+                selected = [i for i, key in enumerate(keys) if key in mapping]
+                indices[id(mapping)] = (
+                    (
+                        torch.tensor(selected, dtype=torch.long),
+                        torch.tensor(
+                            [mapping[keys[i]] for i in selected], dtype=torch.long
+                        ),
+                    )
+                    if selected
+                    else None
                 )
-            )
+            index = indices[id(mapping)]
+            if index is not None:
+                writes.append((shard.caches[name], index, shape, dtype, start, nbytes))
 
         def scatter():
-            for cache, rows, destinations, shape, dtype, start, nbytes in writes:
+            on_device: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
+            for cache, index, shape, dtype, start, nbytes in writes:
+                if id(index) not in on_device:
+                    on_device[id(index)] = (
+                        index[0].to(shard.device),
+                        index[1].to(shard.device),
+                    )
+                rows, destinations = on_device[id(index)]
                 blocks = payload[:, start : start + nbytes]
                 if len(rows) != payload.shape[0]:
-                    blocks = blocks[rows.to(shard.device)]
-                cache[destinations.to(shard.device)] = (
+                    blocks = blocks[rows]
+                cache[destinations] = (
                     blocks.contiguous().view(dtype).view(len(rows), *shape)
                 )
 
@@ -651,7 +664,7 @@ class ShardGPUTransferMixin:
     """TransferActor endpoints; the runtime exists once a TP rank registers."""
 
     def register_gpu_shard_v1(
-        self, shard, num_shards, descriptors, layout, row_bytes, budget
+        self, shard, num_shards, descriptors, layout, row_bytes, budget, groups=None
     ):
         from torch.multiprocessing.reductions import rebuild_cuda_tensor
 
@@ -662,13 +675,13 @@ class ShardGPUTransferMixin:
             raise ValueError("Xavier TP GPU transfer shard count changed")
         if shard in runtime.shards:
             return runtime.register(
-                shard, runtime.shards[shard].caches, layout, row_bytes, budget
+                shard, runtime.shards[shard].caches, layout, row_bytes, budget, groups
             )
         caches = {
             name: rebuild_cuda_tensor(*descriptor)
             for name, descriptor in descriptors.items()
         }
-        return runtime.register(shard, caches, layout, row_bytes, budget)
+        return runtime.register(shard, caches, layout, row_bytes, budget, groups)
 
     def _ready_shard_gpu_transfer(self) -> ShardGPUTransfer:
         runtime = getattr(self, "_shard_gpu_transfer", None)

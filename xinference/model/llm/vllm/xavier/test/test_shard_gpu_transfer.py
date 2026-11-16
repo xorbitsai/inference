@@ -153,6 +153,25 @@ async def test_each_rank_scatters_only_its_own_cache_groups(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_registered_groups_share_one_mapping_per_load(monkeypatch):
+    network = Network(monkeypatch)
+    source = network.replica(1)
+    consumer = network.replica(2, register=False)
+    for shard in range(2):
+        consumer.register(
+            shard, _caches(), LAYOUT, ROW_BYTES, 4 * ROW_BYTES, {"a": 0, "b": 0}
+        )
+        await _admit(source, shard, [11, 22])
+    destinations = {11: 6, 22: 1}
+    loaded = await asyncio.gather(
+        *(consumer.load(s, "lease", 1, [11, 22], {0: destinations}) for s in range(2))
+    )
+    assert loaded == [[11, 22], [11, 22]]
+    for shard in range(2):
+        _assert_rows(consumer, shard, destinations)
+
+
+@pytest.mark.asyncio
 async def test_large_loads_take_several_rounds(monkeypatch):
     monkeypatch.setattr(module, "MAX_SLAB_ROWS", 2)
     network = Network(monkeypatch)

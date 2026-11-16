@@ -1649,15 +1649,20 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         for rank in request.transfers:
             # Caches of different cache groups may map a block to different
             # destinations, or skip it; one read still fetches each row once.
-            mappings = {
-                name: self._get_local_transfer_map(request, name, rank)
-                for name in rows.caches
-            }
-            keys = list(dict.fromkeys(key for m in mappings.values() for key in m))
+            # Caches of one group share a mapping; long prompts have many
+            # blocks, so build it once per group rather than once per cache.
+            groups: Dict[int, Dict[int, int]] = {}
+            mappings = {}
+            for name in rows.caches:
+                group = self._get_layer_group_id(name)
+                if group not in groups:
+                    groups[group] = self._get_local_transfer_map(request, name, rank)
+                mappings[name] = groups[group]
+            keys = list(dict.fromkeys(key for m in groups.values() for key in m))
             if not keys:
                 continue
             loaded = await self._load_shard_rows_gpu(
-                transfer, request, rank, keys, mappings
+                transfer, request, rank, keys, groups
             )
             if loaded:
                 keys = [key for key in keys if key not in loaded]
@@ -1686,10 +1691,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 ):
                     payload = await self._read_shard_rows(transfer, rank, batch, device)
                 payload = payload.view(count, rows.row_bytes)
+                resolved: Dict[int, List[int]] = {}
                 for name, shape, dtype, start, nbytes in rows.layout:
                     cache = rows.caches[name]
                     mapping = mappings[name]
-                    selected = [i for i, key in enumerate(batch_keys) if key in mapping]
+                    if id(mapping) not in resolved:
+                        resolved[id(mapping)] = [
+                            i for i, key in enumerate(batch_keys) if key in mapping
+                        ]
+                    selected = resolved[id(mapping)]
                     if not selected:
                         continue
                     blocks = payload[:, start : start + nbytes].to(cache.device)
@@ -1728,6 +1738,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     rows.layout,
                     rows.row_bytes,
                     self._shard_gpu_budget,
+                    {name: self._get_layer_group_id(name) for name in rows.caches},
                 )
                 state = True
             except Exception:

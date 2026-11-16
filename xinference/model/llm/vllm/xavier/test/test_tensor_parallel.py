@@ -669,7 +669,8 @@ def test_rank_reads_from_cpu_only_rows_the_gpu_did_not_load(
                 local_transfers_by_group={0: {2: {66: 1, 44: 3}}},
             )
         )
-        assert gpu_calls == [(1, "lease-1", 2, [66, 44], {"a@tp1": {66: 1, 44: 3}})]
+        # One mapping per cache group, not per cache.
+        assert gpu_calls == [(1, "lease-1", 2, [66, 44], {0: {66: 1, 44: 3}})]
         expected = [44] if gpu_result == [66] else [66, 44]
         assert reads == [expected]
         loaded = consumer._registered_kv_caches["a@tp1"]
