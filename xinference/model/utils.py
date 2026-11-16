@@ -309,13 +309,14 @@ def _build_engine_params_from_specs_by_quantization(
     return engine_param_list
 
 
-def _annotate_draft_support(
+def _annotate_engine_capabilities(
     params: List[Dict[str, Any]],
     engine_classes: List[Type[Any]],
     family: Optional[Any] = None,
     specs: Optional[List[Any]] = None,
+    class_field: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Publish whether an engine can run a drafter, for rebuilt param lists.
+    """Publish adapter capabilities for rebuilt engine parameter lists.
 
     The virtualenv-aware discovery path rebuilds entries from specs rather than
     from the engine registry, so the model class is not attached to them the way
@@ -338,6 +339,11 @@ def _annotate_draft_support(
             if getattr(spec, "model_format", None) == param.get("model_format")
             and getattr(spec, "model_size_in_billions", None)
             == param.get("model_size_in_billions")
+            and (
+                class_field != "rerank_class"
+                or (getattr(spec, "quantization", None) or "none")
+                == param.get("quantization")
+            )
         ]
         claimed: List[Type[Any]] = []
         for spec in matching_specs:
@@ -358,6 +364,12 @@ def _annotate_draft_support(
         param["support_draft_model"] = any(
             bool(getattr(cls, "support_draft_model", False)) for cls in considered
         )
+        if (
+            class_field == "rerank_class"
+            and claimed
+            and _adapter_supports_replica_autoscaling(claimed[0])
+        ):
+            param["replica_autoscaling"] = True
     return params
 
 
@@ -369,6 +381,7 @@ def _force_virtualenv_engine_params(
     available_params: Dict[str, List[Dict[str, Any]]],
     enable_virtual_env: bool,
     param_builder: Optional[Callable[[Any, List[Any]], List[Dict[str, Any]]]] = None,
+    class_field: Optional[str] = None,
 ) -> Dict[str, bool]:
     """
     Populate engine params for models with virtualenv markers.
@@ -465,11 +478,12 @@ def _force_virtualenv_engine_params(
                 continue
 
             selected_specs = matched_specs
-            engine_param_list = _annotate_draft_support(
+            engine_param_list = _annotate_engine_capabilities(
                 param_builder(family, selected_specs),
                 engine_classes,
                 family,
                 selected_specs,
+                class_field,
             )
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
@@ -506,11 +520,12 @@ def _force_virtualenv_engine_params(
         ):
             continue
         selected_specs = matched_specs or specs
-        engine_param_list = _annotate_draft_support(
+        engine_param_list = _annotate_engine_capabilities(
             param_builder(family, selected_specs),
             engine_classes,
             family,
             selected_specs,
+            class_field,
         )
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
@@ -1796,6 +1811,14 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
+def _adapter_supports_replica_autoscaling(model_class: Type[Any]) -> bool:
+    return vars(model_class).get("replica_autoscaling") in (
+        "batch",
+        "native",
+        "serialized",
+    )
+
+
 def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, Any]:
     """Drop the model class from an engine entry, keeping what callers need.
 
@@ -1809,9 +1832,12 @@ def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, An
     if support_draft_model is not None:
         cleaned["support_draft_model"] = bool(support_draft_model)
     model_class = param.get(class_field)
-    if class_field in ("audio_class", "image_class", "video_class") and model_class:
-        if vars(model_class).get("replica_autoscaling") in ("native", "serialized"):
-            cleaned["replica_autoscaling"] = True
+    if (
+        class_field in ("audio_class", "image_class", "video_class", "rerank_class")
+        and model_class
+        and _adapter_supports_replica_autoscaling(model_class)
+    ):
+        cleaned["replica_autoscaling"] = True
     return cleaned
 
 
@@ -2772,6 +2798,7 @@ def _get_engine_params_by_name_with_virtual_env(
             available_params,
             enable_virtual_env,
             param_builder=_build_engine_params_from_specs_by_quantization,
+            class_field="rerank_class",
         )
         _apply_virtualenv_engine_overrides(
             engine_params,

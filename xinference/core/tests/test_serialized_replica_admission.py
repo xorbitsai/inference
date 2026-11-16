@@ -200,6 +200,106 @@ def test_discovery_advertises_only_opted_in_media_adapters(
     assert (entry.get("replica_autoscaling") is True) == supported
 
 
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_rerank_engine_discovery_advertises_batch_admission(enable_virtual_env):
+    from ...model.rerank import register_builtin_model
+    from ...model.utils import (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    )
+
+    register_builtin_model()
+    discover = (
+        get_engine_params_by_name_with_virtual_env
+        if enable_virtual_env
+        else get_engine_params_by_name
+    )
+    engines = discover("rerank", "bge-reranker-v2-m3", enable_virtual_env)
+    assert engines is not None
+    specs = engines["sentence_transformers"]
+    assert specs
+    assert all(spec["replica_autoscaling"] is True for spec in specs)
+    assert all(
+        "replica_autoscaling" not in spec
+        for name, entries in engines.items()
+        if name != "sentence_transformers" and isinstance(entries, list)
+        for spec in entries
+    )
+
+
+@pytest.mark.asyncio
+async def test_rerank_transfers_waiting_request_with_its_arguments(monkeypatch):
+    from functools import wraps
+    from threading import Event
+
+    from ...model.rerank import register_builtin_model
+    from ...model.rerank.rerank_family import BUILTIN_RERANK_MODELS
+    from ...model.rerank.sentence_transformers.core import (
+        SentenceTransformerRerankModel,
+    )
+
+    async def local_actor_call(target, method, *args, **kwargs):
+        kwargs.pop("_rpc_parent_metadata")
+        return await getattr(target, method)(*args, **kwargs)
+
+    monkeypatch.setattr("xinference.core.model.actor_call", local_actor_call)
+    register_builtin_model()
+    family = BUILTIN_RERANK_MODELS["bge-reranker-v2-m3"][0]
+    donor_model, receiver_model = (
+        SentenceTransformerRerankModel(uid, "/unused", family, "none", batch_size=1)
+        for uid in ("donor", "receiver")
+    )
+    started, finish = asyncio.Event(), Event()
+    loop = asyncio.get_running_loop()
+
+    @wraps(donor_model._rerank)
+    def score_running(documents, queries, **kwargs):
+        loop.call_soon_threadsafe(started.set)
+        assert finish.wait(timeout=5)
+        assert documents == ["running"]
+        return [0.5]
+
+    @wraps(receiver_model._rerank)
+    def score_waiting(documents, queries, **kwargs):
+        assert documents == ["first", "second"]
+        assert queries == ["waiting query", "waiting query"]
+        return [0.2, 0.9]
+
+    monkeypatch.setattr(donor_model, "_rerank", score_running)
+    monkeypatch.setattr(receiver_model, "_rerank", score_waiting)
+    donor = await new_replica("rerank", model=donor_model)
+    receiver = await new_replica("rerank", model=receiver_model)
+    running = asyncio.create_task(
+        donor.rerank(["running"], "query", 1, None, False, False)
+    )
+    waiting = None
+    try:
+        await asyncio.wait_for(started.wait(), 1)
+        waiting = asyncio.create_task(
+            donor.rerank(["first", "second"], "waiting query", 1, None, True, False)
+        )
+        await wait_for_queue(donor)
+        await asyncio.sleep(0.02)
+        assert donor.redistribute_replica_requests(receiver, 1) == 1
+        result = json.loads(await asyncio.wait_for(waiting, 1))
+        assert result["results"] == [
+            {"index": 1, "relevance_score": 0.9, "document": {"text": "second"}}
+        ]
+        assert not running.done()
+        finish.set()
+        await running
+    finally:
+        finish.set()
+        await asyncio.gather(
+            *(task for task in (running, waiting) if task is not None),
+            return_exceptions=True,
+        )
+        for model in (donor_model, receiver_model):
+            if model._process_batch_task is not None:
+                model._process_batch_task.cancel()
+                await asyncio.gather(model._process_batch_task, return_exceptions=True)
+
+
 @pytest.mark.parametrize(
     "register, registry",
     [
