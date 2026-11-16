@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -25,10 +26,21 @@ import uuid
 from contextvars import ContextVar, Token
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, Tuple
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 import anyio
 from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import FormData, UploadFile
@@ -459,6 +471,164 @@ def _error_text(status_code: int) -> str:
         return "Request failed"
 
 
+# Always-on, content-free record of inference requests answered with a 4xx.
+# Callers (for example a billing gateway) only see FastAPI's ``{"detail": ...}``
+# body, so the runtime log is the only place that can say which check rejected a
+# request.  The line must never carry request content: no body, message text,
+# ``detail`` string, exception message, or pydantic ``input``/``msg``/``ctx``.
+_REJECTION_REASON_RE = re.compile(r"[a-z][a-z0-9_]{0,63}")
+_SAFE_TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
+# pydantic v1 error types are dotted, for example ``type_error.integer``.
+_SAFE_ERROR_TYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,63}")
+_MAX_LOGGED_SCHEMA_ERRORS = 10
+_UNTAGGED_REJECTION = "untagged"
+_REQUEST_VALIDATION_REJECTION = "request_validation"
+_REJECTION_STATE_ATTR = "_inference_rejection_reason"
+_BODY_MODEL_STATE_ATTR = "_inference_body_model"
+_BODY_REQUEST_ID_STATE_ATTR = "_inference_body_request_id"
+
+
+def _safe_token(value: Any, pattern: "re.Pattern[str]" = _SAFE_TOKEN_RE) -> str:
+    """Return ``value`` if it is a short identifier, otherwise a placeholder."""
+
+    if isinstance(value, bool):
+        return "*"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str) and pattern.fullmatch(value):
+        return value
+    # Dictionary keys and union tags may echo client-chosen strings.
+    return "*"
+
+
+def schema_error_fields(errors: Iterable[Any]) -> List[str]:
+    """Reduce pydantic/FastAPI validation errors to ``loc:type`` strings.
+
+    Only the location and the error type survive.  ``input``, ``msg`` and
+    ``ctx`` can echo request content and are dropped.
+    """
+
+    fields: List[str] = []
+    for error in errors:
+        if not isinstance(error, dict):
+            continue
+        loc = error.get("loc")
+        loc_items = loc if isinstance(loc, (list, tuple)) else ()
+        location = ".".join(_safe_token(item) for item in loc_items) or "*"
+        error_type = _safe_token(error.get("type"), _SAFE_ERROR_TYPE_RE)
+        fields.append(f"{location}:{error_type}")
+    return fields
+
+
+class InferenceRequestRejected(HTTPException):
+    """An inference ``HTTPException`` that names the rejecting check.
+
+    The response is identical to ``HTTPException``; ``reason`` is a stable,
+    content-free tag written to the rejection log instead of ``detail``.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        detail: Any = None,
+        *,
+        reason: str,
+        headers: Optional[Dict[str, str]] = None,
+        schema_errors: Optional[List[str]] = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=detail, headers=headers)
+        self.reason = reason
+        self.schema_errors = schema_errors
+
+
+def mark_inference_rejection(request: Request, reason: str) -> None:
+    """Tag a 4xx response that a handler returns instead of raising."""
+
+    state = getattr(request, "state", None)
+    if state is not None:
+        setattr(state, _REJECTION_STATE_ATTR, reason)
+
+
+def note_inference_request_identity(request: Request, body: Any) -> None:
+    """Remember the body's model and request ID for the rejection log.
+
+    A gateway can put its own correlation ID in the JSON ``request_id`` field;
+    model replicas log that ID, so the rejection line must use it too.
+    """
+
+    state = getattr(request, "state", None)
+    if state is None or not isinstance(body, dict):
+        return
+    for key, attr in (
+        ("model", _BODY_MODEL_STATE_ATTR),
+        ("request_id", _BODY_REQUEST_ID_STATE_ATTR),
+    ):
+        value = body.get(key)
+        if _valid_request_id(value):
+            setattr(state, attr, value)
+
+
+def _rejection_cause(exc: BaseException) -> Optional[BaseException]:
+    if exc.__cause__ is not None:
+        return exc.__cause__
+    return None if exc.__suppress_context__ else exc.__context__
+
+
+def _log_inference_rejection(
+    request: Request,
+    header_request_id: str,
+    endpoint: str,
+    status_code: int,
+    exc: Optional[BaseException] = None,
+) -> None:
+    try:
+        state = request.state
+        reason = getattr(exc, "reason", None) or getattr(
+            state, _REJECTION_STATE_ATTR, None
+        )
+        schema_errors = getattr(exc, "schema_errors", None)
+        if isinstance(exc, RequestValidationError):
+            reason = _REQUEST_VALIDATION_REJECTION
+            schema_errors = schema_error_fields(exc.errors())
+        if not isinstance(reason, str) or not _REJECTION_REASON_RE.fullmatch(reason):
+            reason = _UNTAGGED_REJECTION
+        request_id = (
+            getattr(state, _BODY_REQUEST_ID_STATE_ATTR, None) or header_request_id
+        )
+        model_uid = getattr(state, "_audit_model_uid", None) or getattr(
+            state, _BODY_MODEL_STATE_ATTR, None
+        )
+        fields = [
+            f"request_id={json.dumps(request_id)}",
+            f"model_uid={json.dumps(model_uid if isinstance(model_uid, str) else '')}",
+            f"endpoint={json.dumps(endpoint)}",
+            f"status={status_code}",
+            f"reason={reason}",
+        ]
+        if exc is not None:
+            fields.append(f"exception={type(exc).__name__}")
+            cause = _rejection_cause(exc)
+            if cause is not None:
+                fields.append(f"cause={type(cause).__name__}")
+        if schema_errors:
+            shown = schema_errors[:_MAX_LOGGED_SCHEMA_ERRORS]
+            fields.append(f"schema_errors={','.join(shown)}")
+            if len(schema_errors) > len(shown):
+                fields.append(f"schema_errors_total={len(schema_errors)}")
+        logger.warning("Inference request rejected: %s", " ".join(fields))
+    except Exception as log_error:
+        # Logging must never change the response.  Do not echo request data.
+        logger.warning(
+            "Failed to log an inference request rejection: %s",
+            type(log_error).__name__,
+        )
+
+
+def _is_logged_rejection(status_code: int) -> bool:
+    # 499 is the server's own record of a client disconnect, not a rejection.
+    return 400 <= status_code < 500 and status_code != 499
+
+
 class ModelRequestLoggingRoute(APIRoute):
     """APIRoute that logs inference requests after authentication succeeds."""
 
@@ -484,8 +654,14 @@ class ModelRequestLoggingRoute(APIRoute):
                 status_code = getattr(exc, "status_code", 500)
                 if isinstance(exc, asyncio.CancelledError):
                     status_code = 499
+                elif isinstance(exc, RequestValidationError):
+                    status_code = 422
                 elif not isinstance(status_code, int):
                     status_code = 500
+                if _is_logged_rejection(status_code):
+                    _log_inference_rejection(
+                        request, request_id, endpoint, status_code, exc
+                    )
 
                 # Authentication/authorization failures and rejected oversized
                 # payloads must never persist the body.
@@ -516,6 +692,10 @@ class ModelRequestLoggingRoute(APIRoute):
 
             _reset_current_model_request_id(context_token)
             response.headers.setdefault("X-Request-ID", request_id)
+            if _is_logged_rejection(response.status_code):
+                _log_inference_rejection(
+                    request, request_id, endpoint, response.status_code
+                )
             if (
                 XINFERENCE_MODEL_REQUEST_LOG_ENABLED
                 and response.status_code not in _BODY_LOG_EXCLUDED_STATUS_CODES
