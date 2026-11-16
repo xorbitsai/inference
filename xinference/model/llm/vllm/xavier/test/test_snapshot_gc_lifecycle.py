@@ -82,10 +82,13 @@ async def test_actor_starts_gc_guard_and_closes_it_after_cleanup_error():
     guard.close.assert_called_once()
 
 
-@pytest.mark.parametrize("v1,gpu_budget", [(True, None), (True, 64), (False, None)])
+@pytest.mark.parametrize(
+    "v1,gpu_budget,tp",
+    [(True, None, 1), (True, 64, 1), (False, None, 1), (True, 64, 4), (False, 64, 4)],
+)
 @pytest.mark.asyncio
 async def test_model_only_freezes_ordinary_v1_snapshot_runtime(
-    monkeypatch, v1, gpu_budget
+    monkeypatch, v1, gpu_budget, tp
 ):
     import xoscar as xo
 
@@ -95,6 +98,7 @@ async def test_model_only_freezes_ordinary_v1_snapshot_runtime(
     class Model:
         _is_vllm_v1 = Mock(return_value=v1)
         init_xavier = AsyncMock()
+        _model_config = {"tensor_parallel_size": tp}
 
     monkeypatch.setattr(core, "VLLMModel", Model)
     create = AsyncMock(return_value=SimpleNamespace(address="local"))
@@ -105,6 +109,7 @@ async def test_model_only_freezes_ordinary_v1_snapshot_runtime(
         _xavier_config={"rank": 1, "gpu_cache_bytes": gpu_budget},
     )
     await ModelActor.start_transfer_for_vllm(actor, ["local"])
+    # TP replicas keep CPU snapshots; their GPU budget only adds GPU copies.
     assert create.await_args.kwargs["freeze_initialization_gc"] == (
-        v1 and gpu_budget is None
+        v1 and (gpu_budget is None or tp > 1)
     )

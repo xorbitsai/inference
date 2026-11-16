@@ -1,0 +1,56 @@
+[
+  {
+    "version": 2,
+    "model_name": "dots.tts.edit-v1.1",
+    "model_family": "dots_tts_edit",
+    "model_description": "dots.tts.edit V1.1 supports English and Mandarin 48 kHz speech synthesis, zero-shot voice cloning, streaming TTS and instruction-controlled speech editing. Use prompt_speech with optional prompt_text for cloning; use task='edit', prompt_speech and tagged input for editing. Editing is non-streaming. PyTorch supports CUDA with optional torch.compile acceleration and float32 CPU inference. Requires Python 3.10-3.12; named voices and speed control are unavailable.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_format": "pytorch",
+    "engine": "PyTorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "dots-studio/dots.tts.edit",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "dots-studio/dots.tts.edit",
+        "model_revision": "master"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0,<5",
+        "torch>=2.8,<2.12",
+        "torchaudio>=2.8,<2.12",
+        "numpy>=2.2.6",
+        "soundfile>=0.13.1 ; #engine# == \"PyTorch\"",
+        "huggingface-hub>=0.36,<1.0",
+        "loguru",
+        "langcodes[data]",
+        "einops",
+        "librosa>=0.11.0",
+        "pydantic>=2.12.5,<3",
+        "safetensors>=0.8.0rc0",
+        "torchdiffeq",
+        "lingua-language-detector",
+        "WeTextProcessing",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ]
+    },
+    "updated_at": 1794499200,
+    "featured": false
+  }
+]

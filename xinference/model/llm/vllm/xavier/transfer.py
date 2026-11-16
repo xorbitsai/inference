@@ -123,6 +123,7 @@ class BufferTransferMixin:
 
 
 from ...xavier.backends.torch.gpu_transfer import GPUTransferMixin, finish_before_cancel
+from ...xavier.backends.torch.shard_gpu_transfer import ShardGPUTransferMixin
 
 
 async def _copy_snapshot_to_cpu(
@@ -157,7 +158,11 @@ def _local_read_owners(actor) -> list:
 
 
 class TransferActor(
-    xo.StatelessActor, BufferTransferMixin, CollectiveRank, GPUTransferMixin
+    xo.StatelessActor,
+    BufferTransferMixin,
+    CollectiveRank,
+    GPUTransferMixin,
+    ShardGPUTransferMixin,
 ):
     @classmethod
     def default_uid(cls):
@@ -426,6 +431,11 @@ class TransferActor(
             else:
                 store.stage(layer, staged, torch.stack(rows), torch.uint8)
             keys.extend(staged)
+            shard_gpu = getattr(self, "_shard_gpu_transfer", None)
+            if shard_gpu is not None:
+                # Peers read recent rows from the GPU; the CPU copy stays
+                # authoritative and serves whatever the GPU copy lacks.
+                shard_gpu.admit_in_background(shard, staged, rows)
         # Published blocks count as present even if a backend moved them out
         # of the resident set; asking also refreshes their recency.
         ready = set(store.ready_keys(keys))

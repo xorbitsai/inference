@@ -98,6 +98,7 @@ class DummySupervisor(ModelReloadMixin):
         from xinference.core.supervisor import SupervisorActor
 
         self._worker_address_to_worker = workers
+        self._worker_metadata_generation = {}
         self._model_uid_to_replica_info = {}
         self._model_reload_tasks = {}
         self._replica_model_uid_to_worker = {}
@@ -127,6 +128,12 @@ class DummySupervisor(ModelReloadMixin):
         self._launch_builtin_model = SupervisorActor._launch_builtin_model.__get__(self)
         self._run_initial_model_launch = (
             SupervisorActor._run_initial_model_launch.__get__(self)
+        )
+        self._recover_failed_initial_model_launch = (
+            SupervisorActor._recover_failed_initial_model_launch.__get__(self)
+        )
+        self._fail_initial_model_launch = (
+            SupervisorActor._fail_initial_model_launch.__get__(self)
         )
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
@@ -169,8 +176,9 @@ class ShardLifecycleWorker(DummyWorkerRef):
         return await super().launch_builtin_model(model_uid=model_uid, **kwargs)
 
     async def terminate_model(self, model_uid):
-        self.models.remove(model_uid)
-        self.terminated.append(model_uid)
+        if model_uid in self.models:
+            self.models.remove(model_uid)
+            self.terminated.append(model_uid)
 
 
 def _shard_lifecycle_supervisor(n_worker):
@@ -186,6 +194,7 @@ def _shard_lifecycle_supervisor(n_worker):
     for name in (
         "terminate_model",
         "_terminate_model",
+        "_cleanup_failed_initial_model_launch",
         "_clear_model_routing",
         "_get_model_replica_lock",
         "_iter_active_replica_model_uids",

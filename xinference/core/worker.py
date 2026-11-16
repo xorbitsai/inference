@@ -48,6 +48,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
     no_type_check,
 )
 
@@ -3114,6 +3115,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         pool_kwargs = (
             {} if external_address is None else {"external_address": external_address}
         )
+        if model_uid:
+            # Apply the model process identity to rank and generation subpools
+            # as well as to the primary replica.
+            env = {**(env or {}), "XINFERENCE_MODEL_UID": model_uid}
         async with self._subpool_creation_lock:
             # A failed candidate spawn must never reap pools that were already
             # serving before this call, even if their bootstrap command matches.
@@ -3217,10 +3222,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        # G: inject model_uid into the sub-pool env dict (not os.environ).
-        # os.environ mutation is thread-unsafe under concurrent launches and
-        # ineffective (the sub-pool is forked from this env dict). Passing it
-        # here lets the sub-pool and its vLLM descendants inherit the tag.
+        # Keep the launch identity with the allocated environment.
         env["XINFERENCE_MODEL_UID"] = model_uid
 
         return env, [str(dev) for dev in devices]
@@ -5112,6 +5114,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         model_path: Optional[str],
         model_kwargs: Dict[str, Any],
         completion_stage: str,
+        model_python_executable: Optional[str] = None,
     ) -> Tuple[Any, CancellableDownloader]:
         """Download/cache model artifacts for launch and cache-only operations.
 
@@ -5120,6 +5123,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         GGUF, and lightning artifacts).  This helper deliberately stops before
         virtualenv preparation, sub-pool creation, actor creation, and ``load``.
         """
+        if model_type.lower() == "audio":
+            # Derive startup context here, overriding any client-supplied
+            # kwargs. Only the trusted selected interpreter may be probed.
+            model_kwargs = {
+                **model_kwargs,
+                "_xinference_cache_only": completion_stage == "completed",
+                "_xinference_model_python_executable": model_python_executable,
+            }
         upload_progress_task: Optional[asyncio.Task] = None
         succeeded_event = threading.Event()
         downloader = CancellableDownloader(cancelled_event=download_info.cancel_event)
@@ -5286,6 +5297,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
                 model_kwargs = kwargs.copy()
                 model_kwargs["enable_virtual_env"] = enable_virtual_env
+                if model_type == "LLM":
+                    model_kwargs["_xinference_cache_only"] = True
+                if model_type.lower() == "image":
+                    # Cache-only operations intentionally require no runnable
+                    # image runtime or allocated accelerator.
+                    model_kwargs["_xinference_skip_runtime_preflight"] = True
                 if (
                     model_type.lower() == "video"
                     and model_engine
@@ -5676,11 +5693,184 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 )
                             )
 
+                        dependency_install_details: Dict[str, Any] = {}
+                        virtual_env_fingerprint = None
+
+                        async def prepare_model_environment(
+                            family, resolved_model_format
+                        ):
+                            nonlocal virtual_env_fingerprint
+                            if virtual_env_manager:
+                                progressor.set_progress(
+                                    0.0,
+                                    "Waiting to prepare model dependencies",
+                                    {
+                                        "stage": "waiting_for_dependencies",
+                                        "updated_at": time.time(),
+                                    },
+                                )
+
+                                def report_install_stage(stage: str) -> None:
+                                    dependency_install_details[
+                                        "dependency_install_status"
+                                    ] = "performed"
+                                    progressor.set_progress(
+                                        0.0,
+                                        "Installing model dependencies",
+                                        {"stage": stage, "updated_at": time.time()},
+                                    )
+
+                                def report_install_progress(
+                                    completed: int, total: int, plan: List[str]
+                                ) -> None:
+                                    dependency_install_details.update(
+                                        dependency_install_completed=completed,
+                                        dependency_install_total=total,
+                                        dependency_install_plan=plan,
+                                    )
+                                    progressor.set_progress(
+                                        0.0,
+                                        "Installing model dependencies",
+                                        {
+                                            "stage": "installing_dependencies",
+                                            "dependency_install_completed": completed,
+                                            "dependency_install_total": total,
+                                            "dependency_install_plan": plan,
+                                            "updated_at": time.time(),
+                                        },
+                                    )
+
+                                prepare_task = asyncio.create_task(
+                                    asyncio.to_thread(
+                                        self._prepare_virtual_env,
+                                        virtual_env_manager,
+                                        family.virtualenv,
+                                        virtual_env_packages,
+                                        model_engine,
+                                        model_name=model_name,
+                                        architectures=getattr(
+                                            family,
+                                            "_resolve_architectures",
+                                            lambda: None,
+                                        )(),
+                                        model_format=resolved_model_format,
+                                        virtual_env_find_links=virtual_env_find_links,
+                                        virtual_env_index_url=virtual_env_index_url,
+                                        virtual_env_extra_index_urls=virtual_env_extra_index_urls,
+                                        model_uid=model_uid,
+                                        reserve_usage=self._reserve_virtual_env_usage,
+                                        release_usage=self._release_virtual_env_usage,
+                                        report_install_stage=report_install_stage,
+                                        report_install_progress=report_install_progress,
+                                    )
+                                )
+                                try:
+                                    virtual_env_fingerprint = await asyncio.shield(
+                                        prepare_task
+                                    )
+                                except asyncio.CancelledError:
+                                    # asyncio.to_thread cannot stop the underlying
+                                    # installer. Wait for it to leave the path lock
+                                    # before releasing the usage reservation.
+                                    try:
+                                        await prepare_task
+                                    except Exception:
+                                        pass
+                                    raise
+                                assert virtual_env_fingerprint is not None
+                                if (
+                                    "dependency_install_status"
+                                    not in dependency_install_details
+                                ):
+                                    dependency_install_details[
+                                        "dependency_install_status"
+                                    ] = "skipped"
+                                self._activate_virtual_env_usage(
+                                    virtual_env_path,
+                                    virtual_env_fingerprint,
+                                    model_uid,
+                                )
+                                launch_info.virtual_env_manager = virtual_env_manager
+
                         progressor = await self._get_progressor(
                             "launching-" + model_uid, launch=True
                         )
                         # split into download and launch
                         progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
+                        if model_type.lower() == "image":
+                            from ..model.image.core import (
+                                match_diffusion as match_image_diffusion,
+                            )
+                            from ..model.image.engine_family import IMAGE_ENGINES
+
+                            image_params: List[Dict[str, Any]] = next(
+                                (
+                                    params
+                                    for engine, params in IMAGE_ENGINES.get(
+                                        model_name, {}
+                                    ).items()
+                                    if engine.lower()
+                                    == (model_engine or "diffusers").lower()
+                                ),
+                                [],
+                            )
+                            preflight_class = next(
+                                (
+                                    param["image_class"]
+                                    for param in image_params
+                                    if callable(
+                                        getattr(param["image_class"], "preflight", None)
+                                    )
+                                ),
+                                None,
+                            )
+                            if preflight_class is not None:
+                                image_hub = cast(
+                                    Optional[
+                                        Literal[
+                                            "huggingface",
+                                            "modelscope",
+                                            "openmind_hub",
+                                            "csghub",
+                                        ]
+                                    ],
+                                    resolve_model_download_hub(
+                                        download_hub, model_path
+                                    ),
+                                )
+                                family = match_image_diffusion(model_name, image_hub)
+                                await prepare_model_environment(
+                                    family, preflight_class.engine_model_format
+                                )
+                                if launch_info.cancel_event.is_set():
+                                    raise RuntimeError(
+                                        f"Launch cancelled before runtime preflight: {model_uid}"
+                                    )
+                                preflight_config = (
+                                    family.default_model_config or {}
+                                ).copy()
+                                preflight_config.update(kwargs)
+                                await asyncio.to_thread(
+                                    preflight_class.preflight,
+                                    python_executable=subpool_python_path
+                                    or sys.executable,
+                                    env=subpool_alloc_env,
+                                    device=preflight_config.get("device"),
+                                    cpu_offload=preflight_config.get(
+                                        "cpu_offload", True
+                                    ),
+                                )
+                                # The target environment was checked above. The
+                                # factory runs on the worker and must not repeat
+                                # this check against its unrelated dependencies.
+                                model_kwargs["_xinference_skip_runtime_preflight"] = (
+                                    True
+                                )
+
+                        if launch_info.cancel_event.is_set():
+                            raise RuntimeError(
+                                f"Launch cancelled before model download: {model_uid}"
+                            )
                         model, downloader = await self._download_model_files(
                             operation_uid=model_uid,
                             request_id="launching-" + model_uid,
@@ -5697,6 +5887,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             model_path=model_path,
                             model_kwargs=model_kwargs,
                             completion_stage="loading",
+                            model_python_executable=subpool_python_path,
                         )
 
                         context_env = getattr(model, "_auto_yarn_env", None)
@@ -5718,101 +5909,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         check_cancel()
 
                         progressor.activate_stage()
-                        # install packages in virtual env
-                        dependency_install_details: Dict[str, Any] = {}
-                        if virtual_env_manager:
-                            progressor.set_progress(
-                                0.0,
-                                "Waiting to prepare model dependencies",
-                                {
-                                    "stage": "waiting_for_dependencies",
-                                    "updated_at": time.time(),
-                                },
+                        if virtual_env_fingerprint is None:
+                            await prepare_model_environment(
+                                model.model_family,
+                                self._resolve_virtualenv_model_format(
+                                    model, model_format
+                                ),
                             )
-
-                            def report_install_stage(stage: str) -> None:
-                                dependency_install_details[
-                                    "dependency_install_status"
-                                ] = "performed"
-                                progressor.set_progress(
-                                    0.0,
-                                    "Installing model dependencies",
-                                    {"stage": stage, "updated_at": time.time()},
-                                )
-
-                            def report_install_progress(
-                                completed: int, total: int, plan: List[str]
-                            ) -> None:
-                                dependency_install_details.update(
-                                    dependency_install_completed=completed,
-                                    dependency_install_total=total,
-                                    dependency_install_plan=plan,
-                                )
-                                progressor.set_progress(
-                                    0.0,
-                                    "Installing model dependencies",
-                                    {
-                                        "stage": "installing_dependencies",
-                                        "dependency_install_completed": completed,
-                                        "dependency_install_total": total,
-                                        "dependency_install_plan": plan,
-                                        "updated_at": time.time(),
-                                    },
-                                )
-
-                            prepare_task = asyncio.create_task(
-                                asyncio.to_thread(
-                                    self._prepare_virtual_env,
-                                    virtual_env_manager,
-                                    model.model_family.virtualenv,
-                                    virtual_env_packages,
-                                    model_engine,
-                                    model_name=model_name,
-                                    architectures=getattr(
-                                        model.model_family,
-                                        "_resolve_architectures",
-                                        lambda: None,
-                                    )(),
-                                    model_format=self._resolve_virtualenv_model_format(
-                                        model, model_format
-                                    ),
-                                    virtual_env_find_links=virtual_env_find_links,
-                                    virtual_env_index_url=virtual_env_index_url,
-                                    virtual_env_extra_index_urls=virtual_env_extra_index_urls,
-                                    model_uid=model_uid,
-                                    reserve_usage=self._reserve_virtual_env_usage,
-                                    release_usage=self._release_virtual_env_usage,
-                                    report_install_stage=report_install_stage,
-                                    report_install_progress=report_install_progress,
-                                )
-                            )
-                            try:
-                                virtual_env_fingerprint = await asyncio.shield(
-                                    prepare_task
-                                )
-                            except asyncio.CancelledError:
-                                # asyncio.to_thread cannot stop the underlying
-                                # installer. Wait for it to leave the path lock
-                                # before releasing the usage reservation.
-                                try:
-                                    await prepare_task
-                                except Exception:
-                                    pass
-                                raise
-                            assert virtual_env_fingerprint is not None
-                            if (
-                                "dependency_install_status"
-                                not in dependency_install_details
-                            ):
-                                dependency_install_details[
-                                    "dependency_install_status"
-                                ] = "skipped"
-                            self._activate_virtual_env_usage(
-                                virtual_env_path,
-                                virtual_env_fingerprint,
-                                model_uid,
-                            )
-                            launch_info.virtual_env_manager = virtual_env_manager
 
                         progressor.set_progress(
                             0.1,

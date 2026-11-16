@@ -687,3 +687,24 @@ def test_fix_langchain_openai_inputs_decodes_per_element():
     assert fix(None, "foo") == "foo"
     assert fix(None, ["a", "b"]) == ["a", "b"]
     assert fix(None, [{"text": "b"}]) == [{"text": "b"}]
+
+
+class _VocabTokenizer:
+    _vocab = {7: "hello", 8: "world"}
+
+    # Takes a list only, like vLLM's tokenizer protocol.
+    def convert_ids_to_tokens(self, ids):
+        return [self._vocab[i] for i in ids]
+
+    def decode(self, ids):
+        return " ".join(self._vocab[i] for i in ids)
+
+
+@pytest.mark.parametrize("token_id", [7, "7"])
+def test_convert_ids_to_tokens_returns_the_whole_token_for_one_id(token_id):
+    model = _make_stub_model()
+    model._model = object()
+    model._tokenizer = _VocabTokenizer()
+
+    assert model.convert_ids_to_tokens(token_id) == "hello"
+    assert model.convert_ids_to_tokens([7, 8]) == ["hello", "world"]

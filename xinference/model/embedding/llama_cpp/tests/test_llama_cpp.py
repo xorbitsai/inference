@@ -220,13 +220,12 @@ async def test_reports_native_deferred_work_with_single_embedding_call(monkeypat
         b"llamacpp:requests_processing 1\n"
         b"llamacpp:requests_deferred 7\n"
     )
-    model._engine_active = True
     monotonic = 200.0
     monkeypatch.setattr(
-        "xinference.model.embedding.llama_cpp.core.time.monotonic", lambda: monotonic
+        "xinference.model.llama_cpp_load.time.monotonic", lambda: monotonic
     )
-    assert await model.get_engine_load() == (7, 0.0, 1)
-    monotonic += 0.5
-    assert await model.get_engine_load() == (7, 0.5, 1)
-    model._engine_active = False
+    with model._scheduler_load.request():
+        assert await model.get_engine_load() == (7, 0.0, 1)
+        monotonic += 0.5
+        assert await model.get_engine_load() == (7, 0.5, 1)
     assert await model.get_engine_load() == (0, 0.0, 0)

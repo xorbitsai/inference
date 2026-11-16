@@ -32,6 +32,10 @@ Covers:
 
 import asyncio
 import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -572,5 +576,64 @@ async def test_nixl_external_address_reaches_subpool(patched_subpool_deps):
     )
     assert result == "nixl://test:1234"
     worker._main_pool.append_sub_pool.assert_awaited_once_with(
-        env={}, start_python=None, external_address="nixl://test:0"
+        env={"XINFERENCE_MODEL_UID": "gpu-model"},
+        start_python=None,
+        external_address="nixl://test:0",
     )
+
+
+def test_model_subpool_only_imports_selected_audio_engine(tmp_path):
+    script = textwrap.dedent(
+        """
+        import os
+        import pickle
+        import sys
+        from pathlib import Path
+
+        from xinference.core.model import ModelActor
+        from xinference.model.audio.core import AudioModelFamilyV2
+        from xinference.model.audio.vllm import VLLMQwen3ASRAudioModel
+
+        spec = AudioModelFamilyV2(
+            version=2, model_family="qwen3_asr", model_name="asr",
+            model_id="Qwen/Qwen3-ASR-0.6B", multilingual=True,
+        )
+        adapter = VLLMQwen3ASRAudioModel("asr-rep0", "/unused", spec)
+        actor = ModelActor("supervisor", "worker", pickle.loads(pickle.dumps(adapter)),
+                           "asr-rep0", model_engine="vLLM")
+        assert not actor.is_vllm_backend()  # The check is specific to LLM vLLM.
+        assert "xinference.model.audio.engine" not in sys.modules
+        assert "xinference.model.audio.whisper" not in sys.modules
+        assert "xinference.model.audio.vllm_omni" not in sys.modules
+        assert "xinference.model.llm.vllm.core" not in sys.modules
+        assert "xinference.model.image" not in sys.modules
+
+        from xinference.model.llm import (
+            BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES,
+            _ensure_model_metadata,
+        )
+        from xinference.model.llm.utils import QWEN_TOOL_CALL_FAMILY
+
+        assert not BUILTIN_LLM_FAMILIES
+        _ensure_model_metadata()
+        assert BUILTIN_LLM_FAMILIES
+        assert QWEN_TOOL_CALL_FAMILY
+        assert not LLM_ENGINES
+        assert not SUPPORTED_ENGINES
+        assert "xinference.model.llm.vllm.core" not in sys.modules
+        assert "xinference.model.llm.transformers.core" not in sys.modules
+        assert "xinference.model.image" not in sys.modules
+        """
+    )
+    env = dict(
+        os.environ, XINFERENCE_HOME=str(tmp_path), XINFERENCE_MODEL_UID="asr-rep0"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[3],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr

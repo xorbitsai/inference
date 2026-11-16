@@ -565,12 +565,24 @@ msgstr ""
 #~ msgstr ""
 
 #: ../../source/models/model_abilities/image.rst
-msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
-msgstr "SGLang 0.5.20 o posterior también acepta solicitudes de imágenes simultáneas para el procesamiento dinámico por lotes nativo. Configure ``batching_max_size`` y, opcionalmente, ``batching_delay_ms`` al iniciar. Para vLLM-Omni 0.28, use ``max_num_seqs``; los pipelines compatibles también pueden usar ``step_execution=true`` para el procesamiento continuo por lotes experimental. Los lotes deben activarse explícitamente, requieren solicitudes compatibles y soporte del modelo, y aumentan el uso de memoria GPU. Envíe solicitudes API independientes simultáneamente; ``n`` solo controla la cantidad de salidas de una solicitud."
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. Supported vLLM-Omni pipelines can use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently. The ``n`` parameter controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 o posterior también acepta solicitudes de imágenes simultáneas para el procesamiento dinámico por lotes nativo. Configure ``batching_max_size`` y, opcionalmente, ``batching_delay_ms`` al iniciar el modelo. Las canalizaciones compatibles de vLLM-Omni pueden usar ``step_execution=true`` para el procesamiento continuo por lotes experimental. El procesamiento por lotes requiere activación explícita, solicitudes compatibles y un modelo que lo admita, y aumenta el uso de memoria de GPU. Envíe solicitudes de API independientes en paralelo. El parámetro ``n`` controla el número de resultados de cada solicitud."
 
 #: ../../source/models/model_abilities/image.rst:116
 msgid "Qwen-Image-2512"
 msgstr "Qwen-Image-2512"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1"
+msgstr "Qwen-Image-2.1"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "Qwen-Image-2.1-Turbo"
+msgstr "Qwen-Image-2.1-Turbo"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "The SGLang and vLLM engines support text-to-image only. Use ``diffusers`` for image-to-image generation."
+msgstr "Los motores SGLang y vLLM solo admiten la generación de texto a imagen. Use ``diffusers`` para generar imágenes a partir de otras imágenes."
 
 #: ../../source/models/model_abilities/image.rst:425
 msgid "Qwen-Image-Edit-2511"
@@ -599,5 +611,5 @@ msgstr ""
 "``use_lightning=false``. Si omite la opción, se usa el adaptador "
 "seleccionado al iniciar."
 
-msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
-msgstr "Instale SGLang con soporte de difusión mediante ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, o vLLM-Omni junto con vLLM de la misma versión mayor y menor mediante ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``. Después inicie el modelo con ``--model-engine SGLang`` o ``--model-engine vLLM``, por ejemplo:"
+msgid "By default, Xinference installs the engine dependencies in a per-model virtual environment. For manual installs of Qwen-Image-2.1 or Qwen-Image-2.1-Turbo, use ``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` for SGLang or ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` for vLLM. Select the engine at launch with ``--model-engine``."
+msgstr "De forma predeterminada, Xinference instala las dependencias del motor en un entorno virtual por modelo. Para instalar manualmente Qwen-Image-2.1 o Qwen-Image-2.1-Turbo, use ``pip install 'sglang[diffusion]>=0.5.21,<0.6'`` para SGLang o ``pip install 'vllm-omni==0.32.*' 'vllm==0.32.*'`` para vLLM. Seleccione el motor al iniciar con ``--model-engine``."

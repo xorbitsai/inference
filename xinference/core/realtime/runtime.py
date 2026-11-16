@@ -76,6 +76,7 @@ class RealtimeRuntime:
         self.generation = uuid.uuid4().hex
         self._secret = secrets.token_bytes(32)
         self._tickets: Dict[str, float] = {}
+        self._reserved_tickets: Dict[str, float] = {}
         self._handlers: Dict[asyncio.Task, web.WebSocketResponse] = {}
         self._inference_lock = inference_lock or asyncio.Lock()
         self._admission = admission or (lambda: True)
@@ -130,13 +131,32 @@ class RealtimeRuntime:
             "input_bytes_peak": self.input_bytes_peak,
         }
 
-    def issue_ticket(self, subject: str, task: str) -> Dict[str, Any]:
+    @property
+    def pending_admissions(self) -> int:
+        now = time.time()
+        return sum(expires > now for expires in self._reserved_tickets.values())
+
+    def issue_ticket(
+        self, subject: str, task: str, *, reserve: bool = False
+    ) -> Dict[str, Any]:
         if self.draining or not self.endpoint:
             raise RealtimeError("endpoint_unavailable", "Realtime endpoint is draining")
         if task not in self.capabilities.get("tasks", {}):
             raise RealtimeError("unsupported_task", "Model does not support this task")
         now = time.time()
         self._tickets = {k: v for k, v in self._tickets.items() if v > now}
+        if reserve:
+            self._reserved_tickets = {
+                k: v for k, v in self._reserved_tickets.items() if v > now
+            }
+            if (
+                self.active_count + len(self._reserved_tickets)
+                >= self.limits.max_sessions
+                or not self._admission()
+            ):
+                raise RealtimeError(
+                    "capacity_exceeded", "Realtime capacity unavailable", 1013
+                )
         if len(self._tickets) >= 4096:
             raise RealtimeError("capacity_exceeded", "Too many outstanding handshakes")
         claims: Dict[str, Any] = {
@@ -154,6 +174,8 @@ class RealtimeRuntime:
         token = payload.hex() + "." + signature
         # A ticket can be consumed exactly once, including failed admission.
         self._tickets[claims["session_id"]] = claims["expires"]
+        if reserve:
+            self._reserved_tickets[claims["session_id"]] = claims["expires"]
         return {**self.describe(), "ticket": token}
 
     def _consume_ticket(self, authorization: str) -> Dict[str, Any]:
@@ -174,6 +196,7 @@ class RealtimeRuntime:
                 or self._tickets.pop(claims["session_id"], None) is None
             ):
                 raise ValueError
+            self._reserved_tickets.pop(claims["session_id"], None)
             return claims
         except (ValueError, TypeError, KeyError) as exc:
             raise web.HTTPForbidden(
@@ -600,4 +623,5 @@ class RealtimeRuntime:
             self._runner = None
         self.endpoint = ""
         self._tickets.clear()
+        self._reserved_tickets.clear()
         self._executor.shutdown(wait=False, cancel_futures=True)

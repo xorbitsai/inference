@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import collections.abc
 import logging
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .docanalyze.mineru25 import Mineru2_5Model
-from .engine_family import ImageEngineModel
-from .ocr.ocr_family import OCRModel
+
+if TYPE_CHECKING:
+    from .docanalyze.mineru25 import Mineru2_5Model
+    from .engine_family import ImageEngineModel
+    from .ocr.ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +299,7 @@ def create_document_parse_model_instance(
     **kwargs,
 ) -> Mineru2_5Model:
     from .cache_manager import ImageCacheManager
+    from .docanalyze.mineru25 import Mineru2_5Model
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
@@ -345,6 +350,7 @@ def create_image_model_instance(
     from .cache_manager import ImageCacheManager
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    skip_preflight = kwargs.pop("_xinference_skip_runtime_preflight", False)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         ocr_gguf = _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path)
@@ -407,6 +413,9 @@ def create_image_model_instance(
             model_format,
             quantization,
         )
+    preflight = getattr(model_cls, "preflight", None)
+    if callable(preflight) and not skip_preflight:
+        preflight(**kwargs)
     cache_manager = ImageCacheManager(model_spec)
     if not lightning_model_path and lightning_version:
         cache_manager.check_lightning(lightning_version)

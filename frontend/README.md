@@ -88,3 +88,54 @@ and toast APIs, but cannot assume page-local providers exist. Each handler has a
 error boundary: rendering failures disable that handler until remount and leave
 the app running. Custom layouts must retain RequestProvider for built-in events
 and mount RequestExtensionHandlers within the desired app contexts.
+
+## Custom user authorization
+
+The `/user-management` route loads
+`src/components/pages/user-management/page-entry.tsx`. Replace that entry at build
+time to provide custom authorization fields and actions while reusing the account
+list, password changes, enabled state and deletion UI. For example, an entry can
+import a locally supplied authorization configuration:
+
+```tsx
+import UserManagement from './index';
+import { userAuthorization } from './user-authorization';
+
+export default function UserManagementPageEntry() {
+  return <UserManagement authorization={userAuthorization} />;
+}
+```
+
+`user-authorization` is supplied by the integration and exports a
+`UserAuthorizationConfig` (type exported from `./authorization`). Omitting the
+`authorization` prop keeps the built-in permission selector, badges and editing
+workflow, including the existing `/v1/admin/users` creation request. Providing it
+replaces only the authorization-specific UI and creation handler; it does not add
+a role-management API to the backend.
+
+The configuration includes:
+
+- `columnTitle` and optional `description`: authorization column heading and page
+  subtitle. Omitting `description` preserves the default subtitle.
+- `createFields`: extra fields rendered inside the shared creation `Form`. Use
+  `FormField` with unique names so validation and reset-on-reopen work. Do not
+  store these form values separately or redefine the built-in account fields.
+- `createDisabled`: optionally disable creation until required data, such as role
+  options, is available.
+- `onCreateUser(values)`: create the account and apply its authorization. Values
+  contain `username`, `password`, `confirm_password`, and custom `FormField`
+  values. The default create request is not also sent. Report errors through the
+  request interceptor or your own toast, then reject to retain the draft and allow
+  retry. Resolve only when creation succeeds.
+- `renderUser(user, context)` and `renderActions(user, context)`: render the summary
+  and authorization actions. Both receive `context.onSuccess()` to refresh the
+  user list and `context.isCurrentUser`, which is `true` for the signed-in user,
+  `false` for another user, and `null` when the token identity cannot be decoded.
+
+Renderers own their action visibility. A role editor that must not modify the
+signed-in account can return no action unless `context.isCurrentUser === false`.
+These display rules are not authorization enforcement: the backend must validate
+all account, role and permission mutations. Built-in permission and deletion
+policies are unchanged by supplying a custom authorization renderer.
+
+Run the authorization regression suite with `npm run test:user-management`.

@@ -153,18 +153,24 @@ class SessionPrefixPolicy:
         keys = list(dict.fromkeys([*previous, *keys]))[:MAX_SESSION_PREFIX_KEYS]
         self.prefixes[session["id"]] = keys
         self.key_count += len(keys)
+        self._prune_prefixes()
         while self.key_count > MAX_SESSION_PREFIX_KEYS:
             _, dropped = self.prefixes.popitem(last=False)
             self.key_count -= len(dropped)
         return True
 
-    def waiting_keys(self) -> list[str]:
+    def _prune_prefixes(self) -> Dict[str, str]:
         phases = self.registry.get(self.prefixes)
-        positions: Dict[str, int] = {}
-        for session_id, keys in list(self.prefixes.items()):
+        for session_id in list(self.prefixes):
             if session_id not in phases or phases[session_id] == "finished":
                 self.key_count -= len(self.prefixes.pop(session_id))
-            elif phases[session_id] == "waiting":
+        return phases
+
+    def waiting_keys(self) -> list[str]:
+        phases = self._prune_prefixes()
+        positions: Dict[str, int] = {}
+        for session_id, keys in self.prefixes.items():
+            if phases[session_id] == "waiting":
                 for position, key in enumerate(keys):
                     positions[key] = max(position, positions.get(key, -1))
         return sorted(positions, key=positions.__getitem__, reverse=True)

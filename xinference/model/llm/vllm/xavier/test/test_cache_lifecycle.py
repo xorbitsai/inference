@@ -103,6 +103,10 @@ def _request(session="agent", request_id="request", tokens=33):
         request_id=request_id,
         num_tokens=tokens,
         num_prompt_tokens=tokens,
+        prompt_token_ids=list(range(tokens)),
+        mm_features=[],
+        lora_request=None,
+        cache_salt="scope",
         num_computed_tokens=32,
         block_hashes=[b"first", b"last"],
         skip_reading_prefix_cache=False,
@@ -121,6 +125,8 @@ def test_publish_tags_ordered_blocks_and_replaces_same_sessions_old_offer(hybrid
     assert connector._offers[ticket].session_id == "agent"
     assert connector._offers[ticket].block_ids == [0, 1, 2]
     assert tracker.query_gpu_prefix(2, [("model", b"last")])[1] == ticket
+    assert tracker.match_routing_prefixes(request.prompt_token_ids, "scope") == {1: 32}
+    assert tracker.match_routing_prefixes(request.prompt_token_ids, "other") == {1: 0}
     request.block_hashes[-1] = b"new"
     connector._publish(request)
     transfer.revoke_shared_prefix_v1.assert_awaited_once_with(ticket)

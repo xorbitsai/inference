@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 
 def _install():
     from .audio import _install as audio_install
@@ -33,5 +35,8 @@ def _install():
     world_install()
 
 
-_install()
+# The worker resolves the engine and serializes the selected adapter into the
+# model subpool. Its existing process identity also covers the engine children.
+if not os.environ.get("XINFERENCE_MODEL_UID"):
+    _install()
 del _install

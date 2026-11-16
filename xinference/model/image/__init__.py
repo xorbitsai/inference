@@ -37,13 +37,10 @@ from .custom import (
     register_image,
     unregister_image,
 )
-from .engine import register_builtin_image_engines
 from .engine_family import IMAGE_ENGINES
 from .engine_family import (
     generate_engine_config_by_model_name as generate_image_engine_config,
 )
-from .ocr import register_builtin_ocr_engines
-from .ocr.ocr_family import OCR_ENGINES, generate_engine_config_by_model_name
 
 
 def register_custom_model():
@@ -71,6 +68,9 @@ def register_custom_model():
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .engine import register_builtin_image_engines
+    from .ocr import register_builtin_ocr_engines
+    from .ocr.ocr_family import OCR_ENGINES, generate_engine_config_by_model_name
 
     install_models_with_merge(
         BUILTIN_IMAGE_MODELS,

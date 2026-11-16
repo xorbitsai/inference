@@ -29,6 +29,7 @@ import xoscar as xo
 from fastapi import FastAPI
 from PIL import Image
 
+from ...core.exceptions import RequestQueueFullError
 from ...core.model import ModelActor
 from ...model.audio.ace_step import AceStepModel
 from ...model.audio.melotts import MeloTTSModel
@@ -150,6 +151,82 @@ def _uploads(names):
     image = io.BytesIO()
     Image.new("RGB", (1, 1)).save(image, format="PNG")
     return [(name, ("test.png", image.getvalue(), "image/png")) for name in names]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["source_audio_path", "prompt_audio_path"])
+@pytest.mark.parametrize("encoding", ["json", "multipart"])
+@pytest.mark.parametrize("location", ["top-level", "kwargs"])
+async def test_speech_rejects_worker_local_audio_paths_before_dispatch(
+    api_client, tmp_path, field, encoding, location
+):
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(b"worker-local audio")
+    body = {"model": "test", "input": "hello"}
+    option = {field: str(reference)}
+    body.update({"kwargs": json.dumps(option)} if location == "kwargs" else option)
+
+    async with api_client.client as client:
+        if encoding == "json":
+            response = await client.post("/v1/audio/speech", json=body)
+        else:
+            response = await client.post(
+                "/v1/audio/speech",
+                data=body,
+                files={"prompt_speech": ("reference.wav", b"uploaded audio")},
+            )
+
+    _assert_client_error(response, api_client)
+    assert field in response.json()["detail"]
+    assert "prompt_speech" in response.json()["detail"]
+    api_client.require_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task", ["tts", "edit"])
+async def test_speech_forwards_uploaded_reference_audio(api_client, task):
+    reference = b"uploaded reference audio"
+    async with api_client.client as client:
+        response = await client.post(
+            "/v1/audio/speech",
+            data={
+                "model": "test",
+                "input": "hello",
+                "response_format": "wav",
+                "kwargs": json.dumps({"task": task}),
+            },
+            files={"prompt_speech": ("reference.wav", reference, "audio/wav")},
+        )
+
+    assert response.status_code == 200, response.text
+    api_client.model.speech.assert_awaited_once_with(
+        input="hello",
+        voice=None,
+        response_format="wav",
+        speed=1.0,
+        stream=False,
+        prompt_speech=reference,
+        task=task,
+    )
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path, method",
+    [
+        ("/v1/images/generations", "text_to_image"),
+        ("/v1/video/generations", "text_to_video"),
+    ],
+)
+async def test_media_queue_timeout_returns_retryable_error(api_client, path, method):
+    getattr(api_client.model, method).side_effect = RequestQueueFullError(
+        "Timed out waiting for a generation"
+    )
+    async with api_client.client as client:
+        response = await client.post(path, json={"model": "test", "prompt": "hello"})
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "1"
 
 
 @pytest.mark.asyncio

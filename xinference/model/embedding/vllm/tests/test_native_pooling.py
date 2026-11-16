@@ -278,9 +278,7 @@ def test_sync_pooling_reports_scheduler_metrics_while_batch_runs(
     backend.get_metrics.return_value = metrics()
     assert model.get_engine_load() == (0, 0.0, 0)
     monotonic = 200.0
-    monkeypatch.setattr(
-        "xinference.model.embedding.vllm.core.time.monotonic", lambda: monotonic
-    )
+    monkeypatch.setattr("xinference.model.vllm_load.time.monotonic", lambda: monotonic)
 
     def embed(prompts, *, use_tqdm):
         nonlocal monotonic

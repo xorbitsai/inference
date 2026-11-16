@@ -708,12 +708,27 @@ def create_llm_model_instance(
             f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
+    cache_only = kwargs.pop("_xinference_cache_only", False)
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
         enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
-    if enable_virtual_env:
+    llm_cls = None
+    if not enable_virtual_env:
+        try:
+            llm_cls = check_engine_by_spec_parameters(
+                model_engine,
+                llm_family.model_name,
+                llm_family.model_specs[0].model_format,
+                llm_family.model_specs[0].model_size_in_billions,
+                llm_family.model_specs[0].quantization,
+            )
+        except ValueError:
+            if not cache_only:
+                raise
+    # Cache-only requests may use an installable adapter when none is registered.
+    if llm_cls is None:
         llm_cls = check_engine_by_spec_parameters_with_virtual_env(
             model_engine,
             llm_family.model_name,
@@ -722,19 +737,17 @@ def create_llm_model_instance(
             llm_family.model_specs[0].quantization,
             llm_family=llm_family,
         )
-    else:
-        llm_cls = check_engine_by_spec_parameters(
-            model_engine,
-            llm_family.model_name,
-            llm_family.model_specs[0].model_format,
-            llm_family.model_specs[0].model_size_in_billions,
-            llm_family.model_specs[0].quantization,
-        )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     validate_launch = getattr(llm_cls, "validate_launch", None)
-    if callable(validate_launch):
-        validate_launch(llm_family)
+    if callable(validate_launch) and not cache_only:
+        from ..utils import virtualenv_discovery_var
+
+        token = virtualenv_discovery_var.set(bool(enable_virtual_env))
+        try:
+            validate_launch(llm_family)
+        finally:
+            virtualenv_discovery_var.reset(token)
 
     multimodal_projector = kwargs.get("multimodal_projector")
     if not model_path:

@@ -95,6 +95,7 @@ from ..core.exceptions import (
     InvalidModelRequestError,
     ModelNotReadyError,
     ModelReloadInProgress,
+    RequestIdConflictError,
     RequestQueueFullError,
 )
 from ..core.http_protocol import create_hardened_http_protocol
@@ -246,7 +247,33 @@ async def _read_llm_request_body(request: Request) -> dict:
     return raw_body
 
 
+# Nullable in the OpenAI API but typed without ``None`` in our schema (or, for
+# the penalties, forwarded to the engine as an explicit ``None``);
+# ``null`` means "not given".
+_NULLABLE_OPENAI_PARAMS = (
+    "temperature",
+    "top_p",
+    "stream",
+    "echo",
+    "presence_penalty",
+    "frequency_penalty",
+)
+
+
+def _drop_null_openai_params(raw_body: dict) -> None:
+    """Treat ``"temperature": null`` and similar as "not given".
+
+    Many OpenAI clients send ``null`` for unset sampling parameters. The schema
+    gives these fields a default but no ``None`` type, so ``null`` was rejected
+    with a 422 instead of falling back to the default.
+    """
+    for name in _NULLABLE_OPENAI_PARAMS:
+        if name in raw_body and raw_body[name] is None:
+            del raw_body[name]
+
+
 def _parse_llm_request(schema, raw_body: dict):
+    _drop_null_openai_params(raw_body)
     # Resolve/validate the raw salt after authorization, allowing provider overrides.
     try:
         return schema.parse_obj(
@@ -273,6 +300,8 @@ class _SSERequestAbortController:
         self._kind = kind
         self._abort_timeout = abort_timeout
         self._abort_task: Optional[asyncio.Task] = None
+        self._abort_deadline: Optional[float] = None
+        self._abort_timed_out = False
         self._body_iterator: Optional[AsyncIterator[Any]] = None
         self._stream_task: Optional[asyncio.Task] = None
         self._completed = False
@@ -299,7 +328,7 @@ class _SSERequestAbortController:
         self._completed = True
 
     async def abort(self) -> None:
-        if self._completed:
+        if self._completed or self._abort_timed_out:
             return
         if self._abort_task is None:
 
@@ -318,15 +347,51 @@ class _SSERequestAbortController:
                     kwargs["stream_uid"] = iterator._uid
                 await model.abort_request(self._request_id, **kwargs)
 
-            operation = abort_model()
+            def observe_abort(task: asyncio.Task) -> None:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    logger.exception(
+                        "Failed to abort disconnected %s request %s",
+                        self._kind,
+                        self._request_id,
+                    )
+
             if self._abort_timeout is not None:
-                operation = asyncio.wait_for(operation, timeout=self._abort_timeout)
-            self._abort_task = asyncio.create_task(operation)
+                self._abort_deadline = (
+                    asyncio.get_running_loop().time() + self._abort_timeout
+                )
+            self._abort_task = asyncio.create_task(abort_model())
+            self._abort_task.add_done_callback(observe_abort)
+        waiter = asyncio.shield(self._abort_task)
+        # Keep the shield alive after timeout/cancellation and consume its copy
+        # of any exception; the task's callback owns logging the RPC outcome.
+        waiter.add_done_callback(
+            lambda future: future.exception() if not future.cancelled() else None
+        )
         try:
-            await asyncio.shield(self._abort_task)
+            # All callers share one deadline, including disconnect cleanup.
+            timeout = None
+            if self._abort_deadline is not None:
+                timeout = max(
+                    0.0, self._abort_deadline - asyncio.get_running_loop().time()
+                )
+            # Unlike wait_for, wait does not cancel the shield at the deadline.
+            done, _ = await asyncio.wait([waiter], timeout=timeout)
+            if not done:
+                if self._abort_timed_out:
+                    return
+                self._abort_timed_out = True
+                raise asyncio.TimeoutError
+            await waiter
         except asyncio.CancelledError:
             raise
         except Exception:
+            if self._abort_task.done():
+                # The done callback retrieves and logs the RPC's exception.
+                return
             logger.exception(
                 "Failed to abort disconnected %s request %s",
                 self._kind,
@@ -1373,6 +1438,20 @@ class RESTfulAPI(CancelMixin):
         )
 
     @staticmethod
+    def _model_request_error_detail(e: Exception) -> Optional[str]:
+        if isinstance(e, ValueError) and str(e).endswith(
+            (
+                "This vLLM V1 version does not support cache_salt",
+                "cache_salt on legacy vLLM requires Xavier",
+                "cache_salt is not supported by this model engine",
+            )
+        ):
+            return "The model backend does not support cache_salt for this request."
+        if isinstance(e, InvalidModelRequestError):
+            return e.client_message
+        return None
+
+    @staticmethod
     def handle_request_limit_error(e: Exception, *, sanitize: bool = False):
         from ..model.llm.context_length import (
             CONTEXT_LENGTH_EXCEEDED_DETAIL,
@@ -1380,6 +1459,9 @@ class RESTfulAPI(CancelMixin):
         )
         from ..request_priority import PRIORITY_ERROR_MESSAGES
 
+        request_error = RESTfulAPI._model_request_error_detail(e)
+        if request_error is not None:
+            raise HTTPException(status_code=400, detail=request_error)
         message = str(e)
         if isinstance(e, ValueError):
             for detail in PRIORITY_ERROR_MESSAGES:
@@ -1403,21 +1485,16 @@ class RESTfulAPI(CancelMixin):
                 message,
             ):
                 raise HTTPException(status_code=400, detail="Invalid media data URI.")
-            if message.endswith(
-                (
-                    "This vLLM V1 version does not support cache_salt",
-                    "cache_salt on legacy vLLM requires Xavier",
-                    "cache_salt is not supported by this model engine",
-                )
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="The model backend does not support cache_salt for this request.",
-                )
         if context_error:
             raise HTTPException(
                 status_code=400,
                 detail=CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
+            )
+        if isinstance(e, RequestQueueFullError):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit reached" if sanitize else message,
+                headers={"Retry-After": "1"},
             )
         if "Rate limit reached" in message or (
             sanitize and isinstance(e, HTTPException) and e.status_code == 429
@@ -2815,7 +2892,9 @@ class RESTfulAPI(CancelMixin):
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
         is_vllm_backend = await model.is_vllm_backend()
-        model_desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+        model_desc = await (await self._get_supervisor_ref()).describe_model(
+            model_uid, selected_replica_uid=model.uid.decode()
+        )
         RESTfulAPI._apply_multiple_choice_count(
             kwargs,
             getattr(body, "n", None),
@@ -2861,6 +2940,12 @@ class RESTfulAPI(CancelMixin):
                         yield item
                     completed = True
                     abort_controller.mark_completed()
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
@@ -2877,7 +2962,8 @@ class RESTfulAPI(CancelMixin):
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
+                    detail = self._model_request_error_detail(ex) or str(ex)
+                    yield dict(data=json.dumps({"error": detail}))
                     return
                 finally:
                     await _cleanup_model_stream(
@@ -2913,6 +2999,8 @@ class RESTfulAPI(CancelMixin):
                     **model_call_kwargs,
                 )
                 return Response(data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -2979,6 +3067,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             413: "request_too_large",
             429: "rate_limit_error",
             504: "timeout_error",
@@ -2998,7 +3087,14 @@ class RESTfulAPI(CancelMixin):
     ) -> JSONResponse:
         from ..model.llm.context_length import CONTEXT_LENGTH_EXCEEDED_DETAIL
 
-        if exc is not None and cls._is_context_length_error(exc):
+        request_error = (
+            cls._model_request_error_detail(exc) if exc is not None else None
+        )
+        if request_error is not None:
+            status_code = 400
+            message = request_error
+            error_type = "invalid_request_error"
+        elif exc is not None and cls._is_context_length_error(exc):
             status_code = 400
             message = CONTEXT_LENGTH_EXCEEDED_DETAIL
             error_type = "invalid_request_error"
@@ -3510,10 +3606,13 @@ class RESTfulAPI(CancelMixin):
                     exc = await self._get_model_last_error(model.uid, exc)
                     logger.exception("Anthropic physical model stream failed")
                     await self._report_error_event(model_uid, str(exc))
+                    request_error = self._model_request_error_detail(exc)
                     yield {
                         "error": {
-                            "type": self._anthropic_error_type(500, exc),
-                            "message": str(exc),
+                            "type": self._anthropic_error_type(
+                                400 if request_error is not None else 500, exc
+                            ),
+                            "message": request_error or str(exc),
                         }
                     }
                 finally:
@@ -3587,6 +3686,8 @@ class RESTfulAPI(CancelMixin):
                 return await start_streaming_response()
             except NotImplementedError as exc:
                 return self._anthropic_error(501, str(exc), request_id)
+            except RequestIdConflictError as exc:
+                return self._anthropic_error(409, exc.client_message, request_id)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -3631,6 +3732,8 @@ class RESTfulAPI(CancelMixin):
             )
         except NotImplementedError as exc:
             return self._anthropic_error(501, str(exc), request_id)
+        except RequestIdConflictError as exc:
+            return self._anthropic_error(409, exc.client_message, request_id)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
@@ -3652,6 +3755,7 @@ class RESTfulAPI(CancelMixin):
             401: "authentication_error",
             403: "permission_error",
             404: "not_found_error",
+            409: "invalid_request_error",
             429: "rate_limit_error",
         }.get(status_code, "server_error")
         return JSONResponse(
@@ -3662,6 +3766,11 @@ class RESTfulAPI(CancelMixin):
 
     @classmethod
     def _responses_model_error(cls, exc: Exception) -> JSONResponse:
+        if isinstance(exc, RequestIdConflictError):
+            return cls._responses_error(409, exc.client_message)
+        request_error = cls._model_request_error_detail(exc)
+        if request_error is not None:
+            return cls._responses_error(400, request_error)
         message = str(exc)
         code = responses_error_code(message, exc)
         # A 400 keeps clients from retrying a request that can never fit.
@@ -3735,31 +3844,33 @@ class RESTfulAPI(CancelMixin):
                     data = data.decode("utf-8")
                 chat = json.loads(data) if isinstance(data, str) else data
                 return JSONResponse(content=chat_to_response(chat, req))
+            except RequestIdConflictError as exc:
+                return self._responses_model_error(exc)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
                 await self._report_error_event(model_uid, str(exc))
                 return self._responses_model_error(exc)
 
-        iterator = None
+        model_request_id = uuid.uuid4().hex
         try:
-            iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+            iterator = await model.chat(
+                messages, kwargs, raw_params=raw_kwargs, request_id=model_request_id
+            )
+        except RequestIdConflictError as exc:
+            return self._responses_model_error(exc)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)
             await self._report_error_event(model_uid, str(exc))
             return self._responses_model_error(exc)
 
-        async def release_serve_count() -> None:
-            from xoscar.api import IteratorWrapper
-
-            if (
-                inspect.isasyncgen(iterator)
-                or inspect.isgenerator(iterator)
-                or isinstance(iterator, IteratorWrapper)
-            ):
-                await _release_model_stream(model, iterator)
-
+        abort_controller = _SSERequestAbortController(
+            model, model_request_id, request, "responses", abort_timeout=5
+        )
+        abort_controller.bind_model_iterator(iterator)
+        model_chunks: Optional[AsyncIterator[Any]] = None
+        completed = False
         cleanup_task: asyncio.Task[None] | None = None
 
         # Also run as the response's background task: a client that disconnects
@@ -3767,10 +3878,35 @@ class RESTfulAPI(CancelMixin):
         async def release_resources() -> None:
             nonlocal cleanup_task
             if cleanup_task is None:
-                cleanup_task = asyncio.create_task(release_serve_count())
-            await asyncio.shield(cleanup_task)
+                cleanup_task = asyncio.create_task(
+                    _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=(
+                            model_chunks if model_chunks is not None else iterator
+                        ),
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=model_request_id,
+                        kind="responses",
+                    )
+                )
+            cancellation = None
+            with anyio.CancelScope(shield=True):
+                while True:
+                    try:
+                        await asyncio.shield(cleanup_task)
+                        break
+                    except asyncio.CancelledError as exc:
+                        cancellation = exc
+                        if cleanup_task.cancelled():
+                            break
+            if cancellation is not None:
+                raise cancellation
 
         async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+            nonlocal model_chunks, completed
+            abort_controller.bind_stream_task()
             reporter = get_stream_outcome_reporter(request)
             model_chunks = observe_stream(
                 iterator, reporter, failure_origin=FailureOrigin.MODEL_GENERATOR
@@ -3782,10 +3918,9 @@ class RESTfulAPI(CancelMixin):
             )
             try:
                 async for chunk in protocol_chunks:
-                    if await request.is_disconnected():
-                        report_client_disconnect(request)
-                        break
                     yield chunk
+                completed = True
+                abort_controller.mark_completed()
             except asyncio.CancelledError as exc:
                 report_client_disconnect(request, exc)
                 raise
@@ -3794,19 +3929,29 @@ class RESTfulAPI(CancelMixin):
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.exception("Responses physical model stream failed")
                 await self._report_error_event(model_uid, str(exc))
-                yield {"error": exc}
+                yield {"error": self._model_request_error_detail(exc) or exc}
             finally:
                 await release_resources()
 
-        return EventSourceResponse(
-            observe_stream(
-                responses_stream_events(physical_chunks(), req),
-                get_stream_outcome_reporter(request),
-                failure_origin=FailureOrigin.PROTOCOL,
-            ),
+        async def handle_disconnect(message: Dict[str, Any]) -> None:
+            try:
+                await abort_controller.handle_disconnect(message)
+            finally:
+                await release_resources()
+
+        body_iterator = observe_stream(
+            responses_stream_events(physical_chunks(), req),
+            get_stream_outcome_reporter(request),
+            failure_origin=FailureOrigin.PROTOCOL,
+        )
+        response = EventSourceResponse(
+            body_iterator,
             ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
             background=BackgroundTask(release_resources),
         )
+        abort_controller.bind_body_iterator(body_iterator)
+        _observe_sse_disconnect(response, handle_disconnect)
+        return response
 
     async def _create_response_via_token_router(
         self,
@@ -4198,6 +4343,15 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model_type("audio")
         self._check_model_access(request, model_uid, "audio")
         parsed_kwargs = _parse_kwargs(body.kwargs)
+        for field in ("source_audio_path", "prompt_audio_path"):
+            if field in f or field in parsed_kwargs:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{field} is not allowed in speech requests. "
+                        "Upload reference audio with prompt_speech instead."
+                    ),
+                )
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -4813,7 +4967,7 @@ class RESTfulAPI(CancelMixin):
             self._add_running_task(request_id)
 
             description = await (await self._get_supervisor_ref()).describe_model(
-                model_uid
+                model_uid, selected_replica_uid=model_ref.uid.decode()
             )
             preserve_alpha = description.get("model_name", "").lower() in {
                 "qwen-image-2.1",
@@ -5402,14 +5556,27 @@ class RESTfulAPI(CancelMixin):
         for config in (kwargs, raw_kwargs):
             config.pop(CACHE_SESSION_ARG, None)
         reserved = False
-        if routing_options:
+        interactive = kwargs.get("priority") is None and is_interactive_priority_hint(
+            priority_hint
+        )
+        if routing_options or interactive:
             reservation_id = uuid.uuid4().hex
+            routing_request: Dict[str, Any] = {"interactive": interactive}
+            # Reuse normalized, tenant-scoped prompt settings. Bulk prefill
+            # requests with explicit priority keep their requested placement.
+            if routing_options and not interactive and not kwargs.get("priority"):
+                routing_request.update(messages=messages, config=kwargs)
             model, reserved = await require_chat_model(
                 self._get_supervisor_ref,
                 model_uid,
                 self._report_error_event,
-                **routing_options,
+                routing_key=routing_options.get("routing_key"),
                 reservation_id=reservation_id,
+                routing_request=(
+                    routing_request
+                    if interactive or "messages" in routing_request
+                    else None
+                ),
             )
             if reserved:
 
@@ -5458,15 +5625,12 @@ class RESTfulAPI(CancelMixin):
             raw_kwargs.pop("request_id", None)
 
         try:
-            description_options = (
-                {"selected_replica_uid": model.uid.decode()} if routing_options else {}
-            )
             try:
                 desc = await supervisor_ref.describe_model(
-                    model_uid, **description_options
+                    model_uid, selected_replica_uid=model.uid.decode()
                 )
             except ModelNotReadyError:
-                if not description_options:
+                if not (routing_options or interactive):
                     raise
                 # Scaling may remove the selected replica after lookup. Model
                 # metadata is still available from another live replica.
@@ -5745,6 +5909,12 @@ class RESTfulAPI(CancelMixin):
                     completed = True
                     abort_controller.mark_completed()
                     yield "[DONE]"
+                except RequestIdConflictError as ex:
+                    if iterator is None:
+                        abort_controller.mark_completed()
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
+                    yield dict(data=json.dumps({"error": ex.client_message}))
+                    return
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
                 # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
@@ -5821,6 +5991,8 @@ class RESTfulAPI(CancelMixin):
                     )
                 data = await run_chat()
                 return Response(content=data, media_type="application/json")
+            except RequestIdConflictError as e:
+                raise HTTPException(409, e.client_message) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)

@@ -120,6 +120,7 @@ class _NativeVideoModel:
 
 
 class SGLangVideoModel(_NativeVideoModel, SGLangDiffusionModel, VideoEngineModel):
+    replica_autoscaling = "serialized"
     engine_name = "SGLang"
     required_libs = ("sglang",)
 
@@ -139,6 +140,7 @@ class SGLangVideoModel(_NativeVideoModel, SGLangDiffusionModel, VideoEngineModel
 
 
 class VLLMVideoModel(_NativeVideoModel, VLLMDiffusionModel, VideoEngineModel):
+    replica_autoscaling = "native"
     engine_name = "vLLM"
     generation_mode = "text-to-video"
     required_libs = ("vllm_omni",)

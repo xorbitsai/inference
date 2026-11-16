@@ -11,42 +11,47 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
+
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .ace_step import AceStepModel, is_ace_step_python_supported
-from .audio8_tts import Audio8TTSModel
-from .auk import AukModel
-from .breeze_tts import BreezeTTS2Model
-from .chattts import ChatTTSModel
-from .confucius4_tts import Confucius4TTSModel
-from .cosyvoice import CosyVoiceModel
-from .engine_family import AudioEngineModel
-from .f5tts import F5TTSModel
-from .f5tts_mlx import F5TTSMLXModel
-from .fireredtts3 import FireRedTTS3Model
-from .fish_speech import FishSpeechModel
-from .funasr import FunASRModel
-from .indextts2 import Indextts2
-from .irodori_tts import IrodoriTTSModel
-from .kokoro import KokoroModel
-from .kokoro_mlx import KokoroMLXModel
-from .kokoro_zh import KokoroZHModel
-from .megatts import MegaTTSModel
-from .melotts import MeloTTSModel
-from .ming_tts import MingTTSModel
-from .minimax_music3 import MiniMaxMusic3Model
-from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
-from .qwen3_asr import Qwen3ASRModel
-from .qwen3_tts import Qwen3TTSModel
-from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
-from .voxcpm import VoxCPMModel
-from .whisper import WhisperModel
-from .whisper_mlx import WhisperMLXModel
-from .yue2 import YuE2Model
+
+if TYPE_CHECKING:
+    from .ace_step import AceStepModel
+    from .audio8_tts import Audio8TTSModel
+    from .auk import AukModel
+    from .breeze_tts import BreezeTTS2Model
+    from .chattts import ChatTTSModel
+    from .confucius4_tts import Confucius4TTSModel
+    from .cosyvoice import CosyVoiceModel
+    from .dots_tts import DotsTTSEditModel
+    from .engine_family import AudioEngineModel
+    from .f5tts import F5TTSModel
+    from .f5tts_mlx import F5TTSMLXModel
+    from .fireredtts3 import FireRedTTS3Model
+    from .fish_speech import FishSpeechModel
+    from .funasr import FunASRModel
+    from .indextts2 import Indextts2
+    from .irodori_tts import IrodoriTTSModel
+    from .kokoro import KokoroModel
+    from .kokoro_mlx import KokoroMLXModel
+    from .kokoro_zh import KokoroZHModel
+    from .megatts import MegaTTSModel
+    from .melotts import MeloTTSModel
+    from .ming_tts import MingTTSModel
+    from .minimax_music3 import MiniMaxMusic3Model
+    from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+    from .qwen3_asr import Qwen3ASRModel
+    from .qwen3_tts import Qwen3TTSModel
+    from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
+    from .voxcpm import VoxCPMModel
+    from .whisper import WhisperModel
+    from .whisper_mlx import WhisperMLXModel
+    from .yue2 import YuE2Model
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +269,7 @@ def create_audio_model_instance(
     ChatTTSModel,
     CosyVoiceModel,
     Confucius4TTSModel,
+    DotsTTSEditModel,
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
@@ -287,9 +293,39 @@ def create_audio_model_instance(
     AudioEngineModel,
 ]:
     from ..cache_manager import CacheManager
+    from .ace_step import is_ace_step_python_supported
+    from .audio8_tts import Audio8TTSModel
+    from .auk import AukModel
+    from .breeze_tts import BreezeTTS2Model
+    from .chattts import ChatTTSModel
+    from .confucius4_tts import Confucius4TTSModel
+    from .cosyvoice import CosyVoiceModel
+    from .dots_tts import DotsTTSEditModel, is_dots_tts_python_supported
     from .engine_family import AUDIO_ENGINES
+    from .f5tts import F5TTSModel
+    from .f5tts_mlx import F5TTSMLXModel
+    from .fireredtts3 import FireRedTTS3Model
+    from .fish_speech import FishSpeechModel
+    from .funasr import FunASRModel
+    from .indextts2 import Indextts2
+    from .irodori_tts import IrodoriTTSModel
+    from .kokoro import KokoroModel
+    from .kokoro_mlx import KokoroMLXModel
+    from .kokoro_zh import KokoroZHModel
+    from .megatts import MegaTTSModel
+    from .melotts import MeloTTSModel
+    from .ming_tts import MingTTSModel
+    from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+    from .qwen3_asr import Qwen3ASRModel
+    from .qwen3_tts import Qwen3TTSModel
+    from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
+    from .voxcpm import VoxCPMModel
+    from .whisper import WhisperModel
+    from .whisper_mlx import WhisperMLXModel
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    cache_only = kwargs.pop("_xinference_cache_only", False)
+    model_python_executable = kwargs.pop("_xinference_model_python_executable", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(
         model_name, model_engine, use_default_engine=True
     )
@@ -300,6 +336,10 @@ def create_audio_model_instance(
         quantization=quantization,
     )
     audio_cls = None
+
+    if model_spec.model_family == "dots_tts_edit" and not cache_only:
+        if not is_dots_tts_python_supported(model_python_executable):
+            raise ValueError("dots.tts.edit requires Python 3.10 through 3.12.")
 
     if model_spec.model_family == "ace_step_1_5":
         if not is_ace_step_python_supported():
@@ -384,6 +424,7 @@ def create_audio_model_instance(
         ChatTTSModel,
         CosyVoiceModel,
         Confucius4TTSModel,
+        DotsTTSEditModel,
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
@@ -425,6 +466,8 @@ def create_audio_model_instance(
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Confucius4-TTS":
         model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "dots_tts_edit":
+        model = DotsTTSEditModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Ming-3.0-tts":
         model = MingTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":

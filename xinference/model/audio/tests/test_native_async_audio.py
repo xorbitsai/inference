@@ -17,7 +17,7 @@ import pytest
 from ....core.exceptions import InvalidModelRequestError
 from ....core.realtime.protocol import RealtimeError, RealtimeLimits
 from ..native_async import NativeAsyncAudioModel
-from ..vllm import PCM_FORMAT, VLLMASRSession, VLLMQwen3ASRModel
+from ..vllm import PCM_FORMAT, VLLMASRSession, VLLMQwen3ASRModel, _DecodeJob
 from ..vllm_omni import VLLMOmniTTSModel
 
 
@@ -689,6 +689,63 @@ async def test_legacy_batch_options_do_not_reach_engine_load(
     assert engine_args == [{"model": ".", "max_num_seqs": expected}]
 
 
+async def test_asr_scale_load_reports_ready_waiting_and_cancelled_decodes():
+    model = asr_model()
+    model.enable_engine_load_reporting()
+    scheduler = model._scheduler_load_logger(None)
+    model._engine = NS(errored=False)
+    assert model.get_engine_load() == (0, 0, 0)
+
+    model._requests.update(("one", "two"))
+    scheduler.record(NS(num_waiting_reqs=1, num_running_reqs=1), None)
+    session = VLLMASRSession(model, config(), Runtime())
+    session._frames = [np.zeros(512)]
+    blocker = asyncio.Event()
+    session._worker = asyncio.create_task(blocker.wait())
+    try:
+        await session._enqueue(True)
+        waiting, age, running = model.get_engine_load()
+        assert (waiting, running) == (2, 1)
+        assert age > 0
+    finally:
+        await session.close("disconnect")
+    assert model.get_engine_load().waiting == 1
+    model._requests.clear()
+    assert model.get_engine_load() == (0, 0, 0)
+    model._engine.errored = True
+    assert model.get_engine_load() is None
+
+
+async def test_tts_scale_load_reports_orchestrator_queue_and_stage_queue():
+    from ....core.model import ModelActor
+
+    model = VLLMOmniTTSModel("tts", ".", NS())
+    engine = NS(_running_counter=NS(value=0), _engines_waiting_counter=NS(value=0))
+    check_health = AsyncMock()
+    model._engine = NS(engine=engine, check_health=check_health)
+    assert await model.get_engine_load() is None
+    check_health.assert_not_called()
+    model.enable_engine_load_reporting()
+    assert await model.get_engine_load() == (0, 0, 0)
+    check_health.assert_awaited_once()
+    model._requests.update(("one", "two", "three"))
+    engine._running_counter.value = 2
+    engine._engines_waiting_counter.value = 1
+    assert await model.get_engine_load() == (2, 0, 1)
+    assert (await model.get_engine_load()).backlog_seconds > 0
+    model._requests.clear()
+    # Frontend output can finish before the orchestrator releases work.
+    assert (await model.get_engine_load()).running == 2
+    engine._running_counter.value = 0
+    engine._engines_waiting_counter.value = 0
+    assert await model.get_engine_load() == (0, 0, 0)
+
+    actor = NS(_engine_load_reporter=model)
+    assert await ModelActor._read_engine_load(actor) == (0, 0, 0)
+    check_health.side_effect = RuntimeError("orchestrator stopped")
+    assert await ModelActor._read_engine_load(actor) is None
+
+
 def native_asr(outputs):
     model = VLLMQwen3ASRModel("asr", ".", NS())
     calls = []
@@ -728,7 +785,7 @@ async def test_qwen_languages_in_file_and_realtime(native_modules, language):
     )
     assert result["text"] == "hello" and result["language"] == canonical
     session = VLLMASRSession(model, config(language=language), Runtime())
-    session._jobs.put_nowait((np.zeros(1600), 0, 1600, True))
+    session._jobs.put_nowait(_DecodeJob(np.zeros(1600), 0, 1600, True))
     session._jobs.put_nowait(None)
     await session._decode_jobs()
     assert session._sentences[0]["text"] == "hello"

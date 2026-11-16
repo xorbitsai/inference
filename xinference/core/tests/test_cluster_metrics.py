@@ -507,3 +507,17 @@ async def test_token_router_feature_disabled_hides_cluster_and_virtual_models(
     assert virtual_models == {}
     assert resolution["available"] is False
     assert resolution["error_code"] == "TOKEN_ROUTER_DISABLED"
+
+
+def test_models_loaded_total_drops_a_type_with_no_loaded_models():
+    from xinference.core import metrics
+
+    labels = {"model_type": "embedding"}
+    metrics.update_cluster_metrics(
+        {}, {"emb": {"model_type": "embedding", "model_name": "bge"}}
+    )
+    assert metrics.models_loaded_total.get(labels) == 1
+
+    metrics.update_cluster_metrics({}, {})
+    with pytest.raises(KeyError):
+        metrics.models_loaded_total.get(labels)

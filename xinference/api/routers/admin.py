@@ -1674,19 +1674,27 @@ def _parse_relative_time(
         return reference_time
     m = re.fullmatch(r"now-(\d+)([mhdw])", expr)
     if m:
-        val, unit = int(m.group(1)), m.group(2)
-        delta = {
-            "m": timedelta(minutes=val),
-            "h": timedelta(hours=val),
-            "d": timedelta(days=val),
-            "w": timedelta(weeks=val),
-        }.get(unit)
-        if delta is None:
+        try:
+            val, unit = int(m.group(1)), m.group(2)
+            delta = {
+                "m": timedelta(minutes=val),
+                "h": timedelta(hours=val),
+                "d": timedelta(days=val),
+                "w": timedelta(weeks=val),
+            }.get(unit)
+            if delta is None:
+                return None
+            return reference_time - delta
+        except (ValueError, OverflowError):
+            # The offset is too large for timedelta or reaches before year 1.
             return None
-        return reference_time - delta
     # Epoch milliseconds (numeric string like "1716854400000")
     if expr.isdigit():
-        return datetime.fromtimestamp(int(expr) / 1000, tz=timezone.utc)
+        try:
+            return datetime.fromtimestamp(int(expr) / 1000, tz=timezone.utc)
+        except (ValueError, OverflowError, OSError):
+            # Not a representable timestamp, or a non-ASCII digit int() rejects.
+            return None
     # ISO 8601 timestamp (e.g. "2026-05-28T03:00:00.000Z")
     try:
         return datetime.fromisoformat(expr.replace("Z", "+00:00"))

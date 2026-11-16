@@ -106,9 +106,8 @@ def _normalize_match_result(
     return False, str(result), default_type, None
 
 
-# Effective virtualenv flag for the current engine-discovery call. The
-# discovery entry point (get_engine_params_by_name_with_virtual_env) sets this
-# to the *request-level* flag so that match_json can honor an explicit
+# Effective virtualenv flag for engine discovery and launch preflight. Entry
+# points publish the request-level flag so match_json can honor an explicit
 # enable_virtual_env=False even when the process-global default is true. When
 # unset (e.g. direct match_json calls outside discovery) it is None and callers
 # fall back to the global constant.
@@ -124,8 +123,8 @@ def virtual_env_allows_missing_engine() -> bool:
     demand, so engine listing must not depend on the library (or a specific
     already-installed version) being present locally.
 
-    Uses the effective request-level flag published by the discovery path
-    (virtualenv_discovery_var) when available, so an explicit
+    Uses the effective request-level flag published by discovery or launch
+    preflight (virtualenv_discovery_var) when available, so an explicit
     enable_virtual_env=False stays strict; otherwise falls back to the
     process-global default. Read lazily so the flag can be toggled at runtime.
     """
@@ -309,13 +308,14 @@ def _build_engine_params_from_specs_by_quantization(
     return engine_param_list
 
 
-def _annotate_draft_support(
+def _annotate_engine_capabilities(
     params: List[Dict[str, Any]],
     engine_classes: List[Type[Any]],
     family: Optional[Any] = None,
     specs: Optional[List[Any]] = None,
+    class_field: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Publish whether an engine can run a drafter, for rebuilt param lists.
+    """Publish adapter capabilities for rebuilt engine parameter lists.
 
     The virtualenv-aware discovery path rebuilds entries from specs rather than
     from the engine registry, so the model class is not attached to them the way
@@ -338,6 +338,11 @@ def _annotate_draft_support(
             if getattr(spec, "model_format", None) == param.get("model_format")
             and getattr(spec, "model_size_in_billions", None)
             == param.get("model_size_in_billions")
+            and (
+                class_field != "rerank_class"
+                or (getattr(spec, "quantization", None) or "none")
+                == param.get("quantization")
+            )
         ]
         claimed: List[Type[Any]] = []
         for spec in matching_specs:
@@ -358,6 +363,12 @@ def _annotate_draft_support(
         param["support_draft_model"] = any(
             bool(getattr(cls, "support_draft_model", False)) for cls in considered
         )
+        if (
+            class_field == "rerank_class"
+            and claimed
+            and _adapter_supports_replica_autoscaling(claimed[0])
+        ):
+            param["replica_autoscaling"] = True
     return params
 
 
@@ -369,6 +380,7 @@ def _force_virtualenv_engine_params(
     available_params: Dict[str, List[Dict[str, Any]]],
     enable_virtual_env: bool,
     param_builder: Optional[Callable[[Any, List[Any]], List[Dict[str, Any]]]] = None,
+    class_field: Optional[str] = None,
 ) -> Dict[str, bool]:
     """
     Populate engine params for models with virtualenv markers.
@@ -465,11 +477,12 @@ def _force_virtualenv_engine_params(
                 continue
 
             selected_specs = matched_specs
-            engine_param_list = _annotate_draft_support(
+            engine_param_list = _annotate_engine_capabilities(
                 param_builder(family, selected_specs),
                 engine_classes,
                 family,
                 selected_specs,
+                class_field,
             )
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
@@ -478,6 +491,7 @@ def _force_virtualenv_engine_params(
 
         has_match = False
         matched_specs = []
+        mismatch_reason: Optional[str] = None
         for spec in specs:
             quantization = getattr(spec, "quantization", None) or "none"
             for cls in engine_classes:
@@ -488,7 +502,7 @@ def _force_virtualenv_engine_params(
                     match_res = match_func(family, spec, quantization)
                 except Exception:
                     match_res = False
-                is_match, _, _, _ = _normalize_match_result(
+                is_match, reason, _, _ = _normalize_match_result(
                     match_res,
                     f"Engine {engine_name} is not compatible with current model or environment",
                     "model_compatibility",
@@ -497,20 +511,28 @@ def _force_virtualenv_engine_params(
                     has_match = True
                     matched_specs.append(spec)
                     break
+                if match_res is not False and match_res is not None:
+                    mismatch_reason = reason or mismatch_reason
             if has_match:
                 continue
 
         match_status[engine_name] = has_match
+        if not has_match and mismatch_reason:
+            # Keep explicit compatibility errors instead of a generic override.
+            engine_params[engine_name] = mismatch_reason
+            available_params.pop(engine_name, None)
+            continue
         if engine_name in available_params and isinstance(
             engine_params.get(engine_name), list
         ):
             continue
         selected_specs = matched_specs or specs
-        engine_param_list = _annotate_draft_support(
+        engine_param_list = _annotate_engine_capabilities(
             param_builder(family, selected_specs),
             engine_classes,
             family,
             selected_specs,
+            class_field,
         )
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
@@ -1796,6 +1818,14 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
+def _adapter_supports_replica_autoscaling(model_class: Type[Any]) -> bool:
+    return vars(model_class).get("replica_autoscaling") in (
+        "batch",
+        "native",
+        "serialized",
+    )
+
+
 def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, Any]:
     """Drop the model class from an engine entry, keeping what callers need.
 
@@ -1808,6 +1838,13 @@ def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, An
     support_draft_model = getattr(param.get(class_field), "support_draft_model", None)
     if support_draft_model is not None:
         cleaned["support_draft_model"] = bool(support_draft_model)
+    model_class = param.get(class_field)
+    if (
+        class_field in ("audio_class", "image_class", "video_class", "rerank_class")
+        and model_class
+        and _adapter_supports_replica_autoscaling(model_class)
+    ):
+        cleaned["replica_autoscaling"] = True
     return cleaned
 
 
@@ -2638,6 +2675,11 @@ def _get_engine_params_by_name_with_virtual_env(
                                 enable_virtual_env
                                 and engine_name.lower() in engine_markers
                             ):
+                                # Other classes for this engine may have weaker
+                                # requirements. Keep the matched model's reason.
+                                for param in engine_data:
+                                    param["virtualenv_required"] = True
+                                    param["virtualenv_reason"] = lib_reason
                                 break
                             _append_unavailable_engine(
                                 engine_name, lib_reason, lib_type, lib_details
@@ -2768,6 +2810,7 @@ def _get_engine_params_by_name_with_virtual_env(
             available_params,
             enable_virtual_env,
             param_builder=_build_engine_params_from_specs_by_quantization,
+            class_field="rerank_class",
         )
         _apply_virtualenv_engine_overrides(
             engine_params,

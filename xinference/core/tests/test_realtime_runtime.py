@@ -207,6 +207,22 @@ async def test_capacity_cancel_disconnect_and_draining(runtime):
     assert all(session._closed for session in runtime.model.sessions)
 
 
+async def test_reserved_realtime_ticket_owns_capacity_until_connected(runtime):
+    ticket = runtime.issue_ticket("u", "binary.echo", reserve=True)
+    assert runtime.pending_admissions == 1
+    with pytest.raises(RealtimeError) as error:
+        runtime.issue_ticket("u", "binary.echo", reserve=True)
+    assert error.value.code == "capacity_exceeded"
+    async with aiohttp.ClientSession() as client:
+        ws = await connect(client, runtime, descriptor=ticket)
+        assert (await ws.receive_json())["event"] == "session.started"
+        assert runtime.pending_admissions == 0
+        assert runtime.active_count == 1
+        await ws.close()
+        await wait_empty(runtime)
+    assert runtime.issue_ticket("u", "binary.echo", reserve=True)
+
+
 @pytest.mark.parametrize(
     "event",
     [
