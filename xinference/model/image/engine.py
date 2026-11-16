@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import platform
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 from ..utils import has_cuda_device
 from .docanalyze.mineru25 import Mineru2_5Model
@@ -23,6 +23,7 @@ from .flux3 import Flux3Model
 from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
 from .iris import IrisModel
 from .ming_image import MingImageModel
+from .minimax_h3 import MiniMaxH3ImageModel
 from .moss_image import MOSSImageModel
 from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
@@ -50,6 +51,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
             "moss_image",
             "fibo2",
             "flux3",
+            "minimax_h3_image",
         )
 
 
@@ -84,6 +86,91 @@ class Flux3ImageModel(Flux3Model, ImageEngineModel):
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_family == "flux3"
+
+
+class MiniMaxH3DiffusersImageModel(MiniMaxH3ImageModel, ImageEngineModel):
+    replica_autoscaling = "serialized"
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("torch", "transformers", "diffusers")
+
+    @classmethod
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        from importlib.metadata import PackageNotFoundError, version
+
+        from packaging.requirements import Requirement
+        from packaging.version import InvalidVersion
+
+        result = super().check_lib()
+        if result is not True:
+            return result
+        try:
+            installed = version("diffusers")
+            compatible = installed in Requirement(cls._diffusers_requirement).specifier
+        except (PackageNotFoundError, InvalidVersion) as exc:
+            return False, f"Cannot determine the installed Diffusers version: {exc}"
+        if not compatible:
+            return (
+                False,
+                f"{cls._display_name} requires {cls._diffusers_requirement}; "
+                f"found diffusers=={installed}.",
+            )
+        return True
+
+    @classmethod
+    def preflight(
+        cls,
+        *,
+        python_executable: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> None:
+        if python_executable is not None:
+            import json
+            import os
+            import subprocess
+
+            # Match the model subprocess's interpreter and allocated devices;
+            # importing the worker's Diffusers/Torch can give a different result.
+            process = subprocess.run(
+                [
+                    python_executable,
+                    "-c",
+                    "import json, sys; "
+                    "from xinference.model.image.engine import MiniMaxH3DiffusersImageModel; "
+                    "MiniMaxH3DiffusersImageModel.preflight(**json.load(sys.stdin))",
+                ],
+                input=json.dumps(
+                    {
+                        "device": kwargs.get("device"),
+                        "cpu_offload": kwargs.get("cpu_offload", True),
+                    }
+                ),
+                env={**os.environ, **(env or {})},
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if process.returncode:
+                raise ValueError(
+                    f"{cls._display_name} runtime preflight failed: {process.stderr.strip()}"
+                )
+            return
+        result = cls.check_lib()
+        if result is not True:
+            reason = (
+                result[1]
+                if isinstance(result, tuple)
+                else "Missing runtime dependencies"
+            )
+            raise ImportError(
+                f"{cls._display_name} requires {cls._diffusers_requirement}. {reason}"
+            )
+        cls._get_runtime(kwargs.get("device"), kwargs.get("cpu_offload", True))
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "minimax_h3_image"
 
 
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
@@ -185,6 +272,7 @@ class VLLMMinerUImageModel(Mineru2_5Model, ImageEngineModel):
 
 def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [
+        MiniMaxH3DiffusersImageModel,
         Flux3ImageModel,
         HiDreamO1ImageModel,
         MingImageEngineModel,

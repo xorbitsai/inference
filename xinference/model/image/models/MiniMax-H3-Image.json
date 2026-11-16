@@ -1,0 +1,50 @@
+[
+  {
+    "version": 2,
+    "model_name": "MiniMax-H3-Image",
+    "model_family": "minimax_h3_image",
+    "model_description": "MiniMax-H3-Image is a 33.1B image model for text-to-image generation and editing with up to 16 reference images, using a fixed six-step distilled sampler.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-H3-Image",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-H3-Image",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "cpu_offload": true
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "modular_model_index.json",
+        "scheduler/*",
+        "transformer_diffusers/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "processor/*",
+        "vae_diffusers/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.43.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.8.1,<6",
+        "accelerate>=1.13.0",
+        "#system_torch#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": true,
+    "updated_at": 1794672000
+  }
+]

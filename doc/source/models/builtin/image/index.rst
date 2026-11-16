@@ -81,6 +81,8 @@ The following is a list of built-in image models in Xinference:
 
    minicpm-ocr-1.0
 
+   minimax-h3-image
+
    monkeyocr
   
    moss-image-sft
