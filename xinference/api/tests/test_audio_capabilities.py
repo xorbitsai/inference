@@ -5,6 +5,7 @@
 
 # CI: linux
 
+import asyncio
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -123,23 +124,105 @@ async def test_capabilities_preserve_realtime_routing(preflight):
             assert selected == ["custom-rep0", "custom-rep1"] * 2
 
 
-@pytest.mark.parametrize("draining", [False, True])
-async def test_capabilities_keep_existing_replica_selection(draining):
+@pytest.mark.parametrize(
+    "draining, avoided", [(False, ()), (True, ()), (False, (0,)), (False, (1,))]
+)
+async def test_capabilities_try_ready_replica_without_advancing_scheduler(
+    draining, avoided
+):
     async with replicated_audio() as service:
         supervisor = service.supervisor
-        if draining:
+        if draining or avoided:
             supervisor._replica_autoscalers["custom"] = SimpleNamespace(
-                draining={0}, should_avoid=lambda replica: False
+                draining={0} if draining else set(),
+                should_avoid=lambda replica: replica in avoided,
             )
-        else:
-            await supervisor.get_model("custom")
         worker = supervisor._replica_model_uid_to_worker["custom-rep0"]
         worker.get_model.side_effect = ModelNotReadyError("Loading")
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(service.app), base_url="http://test"
         ) as client:
-            response = await client.get("/v1/models/custom/audio/capabilities")
-        assert response.status_code == 200
-        assert response.json() == service.capabilities
-        info = supervisor._model_uid_to_replica_info["custom"]
-        assert next(info.scheduler) == (0 if draining else 1)
+            for _ in range(4):
+                response = await client.get("/v1/models/custom/audio/capabilities")
+                assert response.status_code == 200
+                assert response.json() == service.capabilities
+        assert worker.get_model.await_count == (0 if draining or 0 in avoided else 4)
+        ready_worker = supervisor._replica_model_uid_to_worker["custom-rep1"]
+        assert ready_worker.get_model.await_count == 4
+        worker.get_model.side_effect = None
+        descriptor = await supervisor.get_realtime_endpoint(
+            "custom", "anonymous", "binary.echo"
+        )
+        expected = 1 if draining or 0 in avoided else 0
+        assert descriptor["replica_model_uid"] == f"custom-rep{expected}"
+
+
+@pytest.mark.parametrize("draining", [False, True])
+async def test_capabilities_keep_existing_error_when_no_replica_is_ready(draining):
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        if draining:
+            supervisor._replica_autoscalers["custom"] = SimpleNamespace(
+                draining={0, 1}, should_avoid=lambda replica: False
+            )
+        for worker in supervisor._replica_model_uid_to_worker.values():
+            worker.get_model.side_effect = ModelNotReadyError("Loading")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            for _ in range(4):
+                response = await client.get("/v1/models/custom/audio/capabilities")
+                assert response.status_code == 503
+                error = (
+                    "Model custom has no available replica"
+                    if draining
+                    else "Model custom is loading, please retry later"
+                )
+                assert response.json() == {
+                    "detail": f"Model is loading, please retry later: {error}"
+                }
+        for worker in supervisor._replica_model_uid_to_worker.values():
+            assert worker.get_model.await_count == (0 if draining else 4)
+            worker.get_model.side_effect = None
+        supervisor._replica_autoscalers.clear()
+        descriptor = await supervisor.get_realtime_endpoint(
+            "custom", "anonymous", "binary.echo"
+        )
+        assert descriptor["replica_model_uid"] == "custom-rep0"
+
+
+async def test_capabilities_preserve_concurrent_affinity_cursor():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        worker = supervisor._replica_model_uid_to_worker["custom-rep0"]
+        ready_worker = supervisor._replica_model_uid_to_worker["custom-rep1"]
+        ready_model = ready_worker.get_model.return_value
+        ready_model.can_accept_chat_request = AsyncMock(return_value=True)
+        probing, release = asyncio.Event(), asyncio.Event()
+
+        async def loading(**kwargs):
+            probing.set()
+            await release.wait()
+            raise ModelNotReadyError("Loading")
+
+        worker.get_model.side_effect = loading
+        lookup = asyncio.create_task(
+            supervisor.get_model("custom", routing_key="session")
+        )
+        try:
+            await asyncio.wait_for(probing.wait(), 1)
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(service.app), base_url="http://test"
+            ) as client:
+                response = await client.get("/v1/models/custom/audio/capabilities")
+                assert response.status_code == 200
+                assert response.json() == service.capabilities
+        finally:
+            release.set()
+            selected = await asyncio.wait_for(lookup, 1)
+        assert selected is ready_model
+        worker.get_model.side_effect = None
+        descriptor = await supervisor.get_realtime_endpoint(
+            "custom", "anonymous", "binary.echo"
+        )
+        assert descriptor["replica_model_uid"] == "custom-rep0"

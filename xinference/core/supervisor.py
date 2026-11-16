@@ -6914,10 +6914,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if for_inference:
             first = next(replica_info.scheduler)
         else:
-            # Keep the next route available to the shared scheduler.
-            replica_info.scheduler, inspection = itertools.tee(replica_info.scheduler)
-            first = next(inspection)
-            del inspection
+            # One full cycle preserves the next turn for every iterator holder.
+            candidates = list(
+                itertools.islice(
+                    replica_info.scheduler, len(replica_info.active_replica_ids)
+                )
+            )
+            if state is not None:
+                candidates = sorted(candidates, key=state.should_avoid)
+            last_error = ModelNotReadyError(
+                f"Model {model_uid} has no available replica"
+            )
+            for replica_id in candidates:
+                if state is not None and replica_id in state.draining:
+                    continue
+                try:
+                    return await self._get_replica_model(model_uid, replica_id), False
+                except ModelNotReadyError as exc:
+                    last_error = exc
+            raise last_error
         if state is None:
             return await self._get_replica_model(model_uid, first), False
         if first not in state.draining and not state.should_avoid(first):
