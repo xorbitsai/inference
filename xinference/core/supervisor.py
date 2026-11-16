@@ -6930,17 +6930,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         async def probe(replica):
             try:
-                model = await self._get_replica_model(model_uid, replica)
-                return model, await model.get_chat_routing_load()
+                model = await self._get_replica_model(
+                    model_uid, replica, rpc_timeout=_CHAT_ROUTING_PROBE_TIMEOUT
+                )
+                return model, await xo.wait_for(
+                    model.get_chat_routing_load(), _CHAT_ROUTING_PROBE_TIMEOUT
+                )
             except Exception:
                 # Missing signals (including rolling upgrades) keep the usual
                 # affinity and reservation path available.
                 return None, None
 
-        snapshots = await asyncio.wait_for(
-            asyncio.gather(*(probe(replica) for replica in replicas)),
-            _CHAT_ROUTING_PROBE_TIMEOUT,
-        )
+        # Worker lookup already bounds each RPC. Keep load deadlines local too:
+        # cancelling a group can wait forever for an actor's CancelMessage reply
+        # and discards useful snapshots from healthy replicas.
+        snapshots = await asyncio.gather(*(probe(replica) for replica in replicas))
         models = {
             replica: model
             for replica, (model, _) in zip(replicas, snapshots)
@@ -6960,19 +6964,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
             async def match():
                 config = request["config"]
-                tokens = await model.get_chat_routing_tokens(
-                    request["messages"], config
+                tokens = await xo.wait_for(
+                    model.get_chat_routing_tokens(request["messages"], config),
+                    _CHAT_ROUTING_PROBE_TIMEOUT,
                 )
                 if not tokens:
                     return {}, 0
-                return await tracker.match_routing_prefixes(
-                    tokens, config.get("cache_salt")
-                ), len(tokens)
+                cached = await xo.wait_for(
+                    tracker.match_routing_prefixes(tokens, config.get("cache_salt")),
+                    _CHAT_ROUTING_PROBE_TIMEOUT,
+                )
+                return cached, len(tokens)
 
             try:
-                cached, prompt_length = await asyncio.wait_for(
-                    match(), _CHAT_ROUTING_PROBE_TIMEOUT
-                )
+                cached, prompt_length = await match()
             except Exception:
                 logger.debug("Chat routing cache probe unavailable", exc_info=True)
 
@@ -7169,7 +7174,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
     async def _get_replica_model(
-        self, model_uid: str, replica_id: int
+        self,
+        model_uid: str,
+        replica_id: int,
+        *,
+        rpc_timeout: Optional[float] = None,
     ) -> xo.ActorRefType["ModelActor"]:
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
@@ -7194,6 +7203,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 replica_model_uid,
                 worker_ref,
                 "get_model",
+                rpc_timeout=rpc_timeout,
                 model_uid=replica_model_uid,
             )
         except ModelNotReadyError:

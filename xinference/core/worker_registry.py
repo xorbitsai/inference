@@ -18,7 +18,7 @@ import asyncio
 import functools
 import time
 from pathlib import Path
-from typing import Any, Dict, Set
+from typing import Any, Dict, Optional, Set
 
 import xoscar as xo
 
@@ -30,25 +30,29 @@ _UNSPECIFIED_WORKER_GENERATION = object()
 
 
 async def call_worker_route(
-    owner: Any, uid: str, ref: Any, method: str, **kwargs: Any
+    owner: Any,
+    uid: str,
+    ref: Any,
+    method: str,
+    *,
+    rpc_timeout: Optional[float] = None,
+    **kwargs: Any,
 ) -> Any:
     """Retry an idempotent read if its original owner was replaced in flight."""
     from ..constants import XINFERENCE_GET_MODEL_RPC_TIMEOUT
     from .rpc_context import actor_call
 
+    if rpc_timeout is None:
+        rpc_timeout = XINFERENCE_GET_MODEL_RPC_TIMEOUT
     try:
-        return await xo.wait_for(
-            actor_call(ref, method, **kwargs), XINFERENCE_GET_MODEL_RPC_TIMEOUT
-        )
+        return await xo.wait_for(actor_call(ref, method, **kwargs), rpc_timeout)
     except Exception:
         current = owner._replica_model_uid_to_worker.get(uid)
         if isinstance(current, (tuple, list)):
             current = current[0] if current else None
         if current is None or current == ref:
             raise
-        return await xo.wait_for(
-            actor_call(current, method, **kwargs), XINFERENCE_GET_MODEL_RPC_TIMEOUT
-        )
+        return await xo.wait_for(actor_call(current, method, **kwargs), rpc_timeout)
 
 
 class WorkerOwnership:
