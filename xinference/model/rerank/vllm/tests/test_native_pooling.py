@@ -193,8 +193,10 @@ def test_qwen_template_and_native_load_and_stop(model):
 @pytest.mark.parametrize("size", ["0.6B", "4B", "8B"])
 def test_yuanbao_native_load_and_instruction(model, size):
     model.model_family.model_name = f"Yuanbao-Reranker-{size}"
+    model.model_family.max_tokens = 8192
     yuanbao = VLLMRerankModel("yuanbao", "/model", model.model_family, "none")
     yuanbao.load()
+    yuanbao._tokenizer.encode.side_effect = lambda text, **kw: list(text.encode())
     assert yuanbao._native_pooling
     args = sys.modules[
         "vllm.v1.engine.async_llm"

@@ -221,10 +221,11 @@ async def test_yuanbao_batched_results_and_empty_input(tiny_yuanbao):
 
 @pytest.mark.parametrize("model_name", MODEL_NAMES)
 @pytest.mark.parametrize("version", ["0.12.0", "0.18.0"])
-def test_yuanbao_vllm_load_and_score(monkeypatch, model_name, version):
+def test_yuanbao_vllm_load_and_score(monkeypatch, tiny_yuanbao, model_name, version):
     from ..vllm import core
 
     llm = Mock()
+    llm.return_value.get_tokenizer.return_value = tiny_yuanbao[1]
     vllm = ModuleType("vllm")
     vllm.LLM = llm
     vllm.__version__ = version
@@ -253,3 +254,128 @@ def test_yuanbao_vllm_load_and_score(monkeypatch, model_name, version):
     assert documents == [f"<Document>: doc {letter}{SUFFIX}" for letter in ("a", "b")]
     queries, _ = model._prepare_pairs(["doc"], "query")
     assert f"<Instruct>: {DEFAULT_INSTRUCTION}\n\n<Query>: query\n\n" in queries[0]
+
+
+@pytest.mark.parametrize("route", ["sync", "0.19.0", "0.20.2"])
+@pytest.mark.parametrize("engine_limit", [4096, 8192, 16384])
+@pytest.mark.parametrize("long_input", ["document", "query"])
+def test_yuanbao_vllm_token_budget(
+    monkeypatch, tiny_yuanbao, route, engine_limit, long_input
+):
+    _, tokenizer, _ = tiny_yuanbao
+    family = match_rerank(MODEL_NAMES[0], "pytorch", "none", "huggingface")
+    model = VLLMRerankModel("yuanbao-budget", "/model", family, "none")
+    model._tokenizer = tokenizer
+    config = SimpleNamespace(
+        max_model_len=engine_limit,
+        hf_config=SimpleNamespace(num_labels=1),
+        is_multimodal_model=False,
+        architecture="Qwen3ForSequenceClassification",
+    )
+    model._model = SimpleNamespace(
+        model_config=config,
+        vllm_config=SimpleNamespace(model_config=config),
+        renderer=SimpleNamespace(
+            default_cmpl_tok_params=SimpleNamespace(
+                get_encode_kwargs=lambda: {"add_special_tokens": False}
+            )
+        ),
+    )
+    prompts = []
+
+    def prompt(query, document):
+        tokens = tokenizer.encode(query + document, add_special_tokens=False)
+        prompts.append(tokens)
+        return query + document, {"prompt_token_ids": tokens}
+
+    if route == "sync":
+
+        def score(queries, documents, **kwargs):
+            return [prompt(q, d) for q, d in zip(queries, documents)]
+
+        model._model.score = score
+    else:
+        vllm = ModuleType("vllm")
+        vllm.__version__ = route
+        vllm.PoolingParams = SimpleNamespace
+        monkeypatch.setitem(sys.modules, "vllm", vllm)
+        if route == "0.19.0":
+            utils = ModuleType("vllm.entrypoints.pooling.score.utils")
+            utils.validate_score_input = lambda queries, docs, **kw: (queries, docs)
+            utils.get_score_prompt = lambda **kw: prompt(kw["data_1"], kw["data_2"])
+            utils.compress_token_type_ids = Mock()
+            monkeypatch.setitem(sys.modules, utils.__name__, utils)
+        else:
+            chat = ModuleType("vllm.entrypoints.chat_utils")
+            chat.ChatTemplateConfig = SimpleNamespace
+            monkeypatch.setitem(sys.modules, chat.__name__, chat)
+            monkeypatch.setitem(sys.modules, "vllm.renderers.chat_utils", None)
+            processor = ModuleType("vllm.entrypoints.pooling.scoring.io_processor")
+
+            class CrossEncoderIOProcessor:
+                def __init__(self, *args):
+                    pass
+
+                def valid_inputs(self, queries, documents):
+                    return SimpleNamespace(data_1=queries, data_2=documents)
+
+                def get_score_prompt(self, **kwargs):
+                    return prompt(kwargs["data_1"], kwargs["data_2"])
+
+            processor.CrossEncoderIOProcessor = CrossEncoderIOProcessor
+            monkeypatch.setitem(sys.modules, processor.__name__, processor)
+            utils = ModuleType("vllm.entrypoints.pooling.scoring.utils")
+            utils.compress_token_type_ids = Mock()
+            monkeypatch.setitem(sys.modules, utils.__name__, utils)
+
+    query = "What is the capital of China?"
+    document = " Beijing" * 10000
+    if long_input == "query":
+        query, document = document, query
+    instruction = "Find matching passages."
+    if route == "sync":
+        model._rerank([document, "short"], query, instruction=instruction)
+    else:
+        inputs = model._prepare_native_inputs(
+            [document, "short"], query, instruction=instruction
+        )
+        assert [p["prompt_token_ids"] for p, _ in inputs] == prompts
+    limit = min(family.max_tokens, engine_limit)
+    suffix = tokenizer.encode(SUFFIX, add_special_tokens=False)
+    for tokens, doc in zip(prompts, [document, "short"]):
+        body = f"{PREFIX}<Instruct>: {instruction}\n\n<Query>: {query}\n\n<Document>: {doc}"
+        expected = (
+            tokenizer.encode(body, add_special_tokens=False)[: limit - len(suffix)]
+            + suffix
+        )
+        assert tokens == expected
+        assert len(tokens) <= limit
+        assert tokens[-len(suffix) :] == suffix
+
+
+@pytest.mark.parametrize("slow", [False, True])
+def test_yuanbao_budget_keeps_pair_counts_and_rejects_too_small_limit(
+    tiny_yuanbao, slow
+):
+    _, tokenizer, _ = tiny_yuanbao
+    family = match_rerank(MODEL_NAMES[0], "pytorch", "none", "huggingface")
+    model = VLLMRerankModel("yuanbao-pairs", "/model", family, "none")
+    model._tokenizer = (
+        SimpleNamespace(is_fast=False, encode=tokenizer.encode, decode=tokenizer.decode)
+        if slow
+        else tokenizer
+    )
+    model._model = SimpleNamespace(model_config=SimpleNamespace(max_model_len=192))
+    queries, documents = model._prepare_pairs([" Beijing" * 1000, "short"], ["query"])
+    assert len(queries) == len(documents) == 2
+    for query, document in zip(queries, documents):
+        assert len(tokenizer.encode(query + document, add_special_tokens=False)) <= 192
+        assert document.endswith(SUFFIX)
+    # Keep malformed lengths intact for vLLM's normal input validation.
+    queries, documents = model._prepare_pairs(["doc"], ["q1", "q2"])
+    assert (len(queries), len(documents)) == (2, 1)
+    model._model.model_config.max_model_len = len(
+        tokenizer.encode(SUFFIX, add_special_tokens=False)
+    )
+    with pytest.raises(ValueError, match="leave room for the scoring suffix"):
+        model._prepare_pairs(["doc"], "query")
