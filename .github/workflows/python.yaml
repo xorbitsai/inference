@@ -627,6 +627,7 @@ jobs:
             xinference/model/llm/vllm/xavier/test/test_local_directory.py
             xinference/model/llm/vllm/xavier/test/test_local_read.py
             xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py
+            xinference/model/llm/vllm/xavier/test/test_shard_gpu_transfer.py
             xinference/model/llm/vllm/xavier/test/test_kv_schema.py
             xinference/model/llm/vllm/xavier/test/test_cross_engine.py
             xinference/model/llm/vllm/xavier/test/test_cache_salt.py

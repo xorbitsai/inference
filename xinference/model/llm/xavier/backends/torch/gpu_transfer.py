@@ -506,6 +506,10 @@ class GPUTransferMixin:
         return await runtime.run(runtime.load_requests_with_leases, requests, leases)
 
     async def close_gpu_caches_v1(self):
+        shards = getattr(self, "_shard_gpu_transfer", None)
+        if shards is not None:
+            # TP replicas map their ranks' caches into the shard runtime.
+            await shards.close()
         runtime = getattr(self, "_gpu_transfer", None)
         if runtime is not None:
             # Keep the closed runtime as a tombstone: close() reuses its task,

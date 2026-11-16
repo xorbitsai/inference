@@ -810,9 +810,21 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             store_port=self._xavier_config.get("store_port"),  # type: ignore
             world_addresses=rank_addresses,
             cache_backend=self._xavier_config.get("cache_backend"),
+            # Replicas whose snapshots live in CPU memory keep many objects
+            # alive; freeze what initialization created. TP replicas use CPU
+            # snapshots even with a GPU budget, which only adds GPU copies.
             freeze_initialization_gc=(
                 self._model._is_vllm_v1()
-                and self._xavier_config.get("gpu_cache_bytes") is None
+                and (
+                    self._xavier_config.get("gpu_cache_bytes") is None
+                    or int(
+                        (getattr(self._model, "_model_config", None) or {}).get(
+                            "tensor_parallel_size"
+                        )
+                        or 1
+                    )
+                    > 1
+                )
             ),
         )
         await self._model.init_xavier()

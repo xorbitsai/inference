@@ -178,16 +178,18 @@ class XavierEngine:
         tensor_parallel = getattr(engine_args, "tensor_parallel_size", 1) != 1
         if tensor_parallel and (
             role in {"prefill", "decode"}
-            or xavier_config.get("gpu_cache_bytes") is not None
+            or xavier_config.get("gpu_cache_bytes") == 0
             or xavier_config.get("cpu_prefix_cache")
             or xavier_config.get("shared_prefix")
             or xavier_config.get("heterogeneous")
         ):
-            # Only CPU snapshots are sharded by TP rank. Handoff tickets and
-            # engine-mapped GPU caches still address a single worker's cache.
+            # Snapshots are sharded by TP rank; a positive GPU budget only adds
+            # per-rank GPU copies of them. Handoff tickets and resident GPU
+            # prefixes still address a single worker's cache.
             raise ValueError(
-                "Xavier V1 supports TP>1 only for replicas sharing CPU snapshots; "
-                "P/D roles, xavier_gpu_cache_bytes and xavier_cache_bytes require TP=1"
+                "Xavier V1 supports TP>1 only for replicas sharing snapshots; "
+                "P/D roles, xavier_gpu_cache_bytes=0 and xavier_cache_bytes "
+                "require TP=1"
             )
         if role == "prefill":
             kv_role = "kv_producer"
