@@ -22,9 +22,11 @@ import re
 import sys
 import threading
 import time
+import typing
 import uuid
 from contextvars import ContextVar, Token
 from datetime import datetime
+from functools import lru_cache
 from http import HTTPStatus
 from typing import (
     Any,
@@ -32,9 +34,11 @@ from typing import (
     Awaitable,
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
 )
 
@@ -477,7 +481,6 @@ def _error_text(status_code: int) -> str:
 # request.  The line must never carry request content: no body, message text,
 # ``detail`` string, exception message, or pydantic ``input``/``msg``/``ctx``.
 _REJECTION_REASON_RE = re.compile(r"[a-z][a-z0-9_]{0,63}")
-_SAFE_TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 # pydantic v1 error types are dotted, for example ``type_error.integer``.
 _SAFE_ERROR_TYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,63}")
 _MAX_LOGGED_SCHEMA_ERRORS = 10
@@ -488,24 +491,117 @@ _BODY_MODEL_STATE_ATTR = "_inference_body_model"
 _BODY_REQUEST_ID_STATE_ATTR = "_inference_body_request_id"
 
 
-def _safe_token(value: Any, pattern: "re.Pattern[str]" = _SAFE_TOKEN_RE) -> str:
-    """Return ``value`` if it is a short identifier, otherwise a placeholder."""
+# FastAPI prefixes request-validation locations with the parameter source.
+_REQUEST_LOCATION_SOURCES = frozenset({"body", "query", "path", "header", "cookie"})
+
+
+def _safe_error_type(value: Any) -> str:
+    if isinstance(value, str) and _SAFE_ERROR_TYPE_RE.fullmatch(value):
+        return value
+    return "*"
+
+
+def _safe_loc_item(value: Any, field_names: FrozenSet[str]) -> str:
+    """Keep array indices and schema-defined names; mask everything else.
+
+    Dictionary keys come from the client and pydantic reports them verbatim,
+    so a string survives only if the schema itself defines that name.
+    """
 
     if isinstance(value, bool):
         return "*"
     if isinstance(value, int):
         return str(value)
-    if isinstance(value, str) and pattern.fullmatch(value):
+    if isinstance(value, str) and value in field_names:
         return value
-    # Dictionary keys and union tags may echo client-chosen strings.
     return "*"
 
 
-def schema_error_fields(errors: Iterable[Any]) -> List[str]:
+def _annotation_args(annotation: Any) -> Tuple[Any, ...]:
+    if typing.get_origin(annotation) is typing.Literal:
+        return ()
+    return typing.get_args(annotation)
+
+
+def _declared_fields(cls: type) -> List[Tuple[str, Optional[str], Any]]:
+    """Return ``(name, alias, annotation)`` for a pydantic model or TypedDict."""
+
+    model_fields = getattr(cls, "model_fields", None)  # pydantic v2
+    if isinstance(model_fields, dict):
+        return [
+            (name, getattr(info, "alias", None), getattr(info, "annotation", None))
+            for name, info in model_fields.items()
+        ]
+    v1_fields = getattr(cls, "__fields__", None)  # pydantic v1
+    if isinstance(v1_fields, dict):
+        return [
+            (name, getattr(info, "alias", None), getattr(info, "outer_type_", None))
+            for name, info in v1_fields.items()
+        ]
+    if typing.is_typeddict(cls) or hasattr(cls, "__required_keys__"):
+        try:
+            hints = typing.get_type_hints(cls)
+        except Exception:
+            hints = dict(getattr(cls, "__annotations__", {}))
+        return [(name, None, annotation) for name, annotation in hints.items()]
+    return []
+
+
+def _collect_field_names(annotation: Any, names: Set[str], seen: Set[int]) -> None:
+    if id(annotation) in seen:
+        return
+    seen.add(id(annotation))
+    for arg in _annotation_args(annotation):
+        _collect_field_names(arg, names, seen)
+    if not isinstance(annotation, type):
+        return
+    for name, alias, field_annotation in _declared_fields(annotation):
+        names.add(name)
+        if isinstance(alias, str):
+            names.add(alias)
+        _collect_field_names(field_annotation, names, seen)
+
+
+@lru_cache(maxsize=64)
+def schema_field_names(schema: Any) -> FrozenSet[str]:
+    """Every field name and alias a request schema defines, at any depth."""
+
+    names: Set[str] = set()
+    try:
+        _collect_field_names(schema, names, set())
+    except Exception:
+        logger.debug("Could not collect schema field names", exc_info=True)
+    return frozenset(names)
+
+
+def _route_parameter_names(request: Request) -> FrozenSet[str]:
+    # FastAPI's attribute name; split so codespell does not "correct" it.
+    route_deps = getattr(request.scope.get("route"), "depend" "ant", None)
+    names: Set[str] = set(_REQUEST_LOCATION_SOURCES)
+    for group in (
+        "path_params",
+        "query_params",
+        "header_params",
+        "cookie_params",
+        "body_params",
+    ):
+        for param in getattr(route_deps, group, None) or ():
+            for attr in ("name", "alias"):
+                value = getattr(param, attr, None)
+                if isinstance(value, str):
+                    names.add(value)
+    return frozenset(names)
+
+
+def schema_error_fields(
+    errors: Iterable[Any], field_names: FrozenSet[str] = frozenset()
+) -> List[str]:
     """Reduce pydantic/FastAPI validation errors to ``loc:type`` strings.
 
     Only the location and the error type survive.  ``input``, ``msg`` and
-    ``ctx`` can echo request content and are dropped.
+    ``ctx`` can echo request content and are dropped.  Location strings that
+    ``field_names`` does not define, such as client-chosen dictionary keys,
+    become ``*``.
     """
 
     fields: List[str] = []
@@ -514,9 +610,10 @@ def schema_error_fields(errors: Iterable[Any]) -> List[str]:
             continue
         loc = error.get("loc")
         loc_items = loc if isinstance(loc, (list, tuple)) else ()
-        location = ".".join(_safe_token(item) for item in loc_items) or "*"
-        error_type = _safe_token(error.get("type"), _SAFE_ERROR_TYPE_RE)
-        fields.append(f"{location}:{error_type}")
+        location = (
+            ".".join(_safe_loc_item(item, field_names) for item in loc_items) or "*"
+        )
+        fields.append(f"{location}:{_safe_error_type(error.get('type'))}")
     return fields
 
 
@@ -568,6 +665,15 @@ def note_inference_request_identity(request: Request, body: Any) -> None:
             setattr(state, attr, value)
 
 
+def _first_bounded_identifier(*candidates: Any) -> str:
+    """Return the first candidate within the request-ID bound, else ``""``."""
+
+    for candidate in candidates:
+        if _valid_request_id(candidate):
+            return candidate
+    return ""
+
+
 def _rejection_cause(exc: BaseException) -> Optional[BaseException]:
     if exc.__cause__ is not None:
         return exc.__cause__
@@ -589,18 +695,23 @@ def _log_inference_rejection(
         schema_errors = getattr(exc, "schema_errors", None)
         if isinstance(exc, RequestValidationError):
             reason = _REQUEST_VALIDATION_REJECTION
-            schema_errors = schema_error_fields(exc.errors())
+            schema_errors = schema_error_fields(
+                exc.errors(), _route_parameter_names(request)
+            )
         if not isinstance(reason, str) or not _REJECTION_REASON_RE.fullmatch(reason):
             reason = _UNTAGGED_REJECTION
-        request_id = (
-            getattr(state, _BODY_REQUEST_ID_STATE_ATTR, None) or header_request_id
+        # Apply the same bound at the sink, whichever source supplied the value:
+        # _check_model_access stores the client's model string unchecked.
+        request_id = _first_bounded_identifier(
+            getattr(state, _BODY_REQUEST_ID_STATE_ATTR, None), header_request_id
         )
-        model_uid = getattr(state, "_audit_model_uid", None) or getattr(
-            state, _BODY_MODEL_STATE_ATTR, None
+        model_uid = _first_bounded_identifier(
+            getattr(state, "_audit_model_uid", None),
+            getattr(state, _BODY_MODEL_STATE_ATTR, None),
         )
         fields = [
             f"request_id={json.dumps(request_id)}",
-            f"model_uid={json.dumps(model_uid if isinstance(model_uid, str) else '')}",
+            f"model_uid={json.dumps(model_uid)}",
             f"endpoint={json.dumps(endpoint)}",
             f"status={status_code}",
             f"reason={reason}",

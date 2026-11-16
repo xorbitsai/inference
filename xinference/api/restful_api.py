@@ -115,6 +115,7 @@ from .model_request_logging import (
     mark_inference_rejection,
     note_inference_request_identity,
     schema_error_fields,
+    schema_field_names,
 )
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
@@ -293,7 +294,7 @@ def _parse_llm_request(schema, raw_body: dict):
             422,
             errors,
             reason="schema_validation",
-            schema_errors=schema_error_fields(errors),
+            schema_errors=schema_error_fields(errors, schema_field_names(schema)),
         ) from exc
 
 

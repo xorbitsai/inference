@@ -17,7 +17,7 @@
 
 import json
 import logging
-from types import SimpleNamespace
+from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -26,7 +26,7 @@ from fastapi import HTTPException, Request
 from starlette.responses import JSONResponse, Response
 
 from .. import model_request_logging, restful_api
-from ..model_request_logging import schema_error_fields
+from ..model_request_logging import schema_error_fields, schema_field_names
 from .test_llm_request_abort import _new_api
 from .test_model_request_logging import _app
 
@@ -69,7 +69,7 @@ def _api(monkeypatch, *, token_router_runtime=None):
     return api
 
 
-async def _post(app, path, content):
+async def _post(app, path, content, headers=None):
     if not isinstance(content, str):
         content = json.dumps(content)
     async with httpx.AsyncClient(
@@ -77,7 +77,9 @@ async def _post(app, path, content):
         base_url="http://test",
     ) as client:
         return await client.post(
-            path, content=content, headers={"content-type": "application/json"}
+            path,
+            content=content,
+            headers={"content-type": "application/json", **(headers or {})},
         )
 
 
@@ -327,7 +329,9 @@ def test_schema_error_fields_drop_content_and_mask_untrusted_keys():
         "not a dict",
     ]
 
-    fields = schema_error_fields(errors)
+    fields = schema_error_fields(
+        errors, frozenset({"metadata", "messages", "content", "max_tokens", "tools"})
+    )
 
     assert fields == [
         "metadata.*.0:string_type",
@@ -336,3 +340,71 @@ def test_schema_error_fields_drop_content_and_mask_untrusted_keys():
         "*.1:*",
         "*:*",
     ]
+
+
+def test_schema_field_names_cover_nested_schema_names_only():
+    names = schema_field_names(restful_api.CreateChatCompletion)
+
+    assert {"messages", "logit_bias", "tools", "function", "parameters"} <= names
+    assert "SamplePrivateLabel" not in names
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,handler,body",
+    [
+        (CHAT, "create_chat_completion", _chat_body()),
+        (
+            "/v1/completions",
+            "create_completion",
+            {"model": "m", "request_id": REQUEST_ID, "prompt": SENTINEL},
+        ),
+    ],
+)
+async def test_identifier_shaped_dict_keys_are_masked(
+    monkeypatch, caplog, path, handler, body
+):
+    api = _api(monkeypatch)
+    caplog.set_level(logging.DEBUG)
+    body = dict(body, logit_bias={"SamplePrivateLabel": "not-an-int"})
+
+    response = await _post(_app(path, getattr(api, handler)), path, body)
+
+    # The response keeps pydantic's original location.
+    assert response.status_code == 422
+    assert ["logit_bias", "SamplePrivateLabel"] in [
+        error["loc"] for error in response.json()["detail"]
+    ]
+    record = _rejections(caplog)[0]
+    errors = _fields(record)["schema_errors"].split(",")
+    assert any(error.startswith("logit_bias.*:") for error in errors)
+    assert "SamplePrivateLabel" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_model_access_denial_bounds_the_logged_model_id(monkeypatch, caplog):
+    api = _api(monkeypatch)
+    api._advanced_auth_service = SimpleNamespace(
+        validate_model_access=lambda *args: False
+    )
+    api._check_model_access = MethodType(
+        restful_api.RESTfulAPI._check_model_access, api
+    )
+    long_model = "m" * 300 + "TAIL"
+    caplog.set_level(logging.DEBUG)
+
+    response = await _post(
+        _app(CHAT, api.create_chat_completion),
+        CHAT,
+        _chat_body(model=long_model),
+        headers={"authorization": "Bearer test-key"},
+    )
+
+    assert response.status_code == 403
+    records = _rejections(caplog)
+    assert len(records) == 1
+    fields = _fields(records[0])
+    assert fields["reason"] == "model_access_denied"
+    assert fields["model_uid"] == '""'
+    assert fields["request_id"] == json.dumps(REQUEST_ID)
+    assert "TAIL" not in records[0].getMessage()
