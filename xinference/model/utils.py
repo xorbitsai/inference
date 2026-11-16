@@ -106,9 +106,8 @@ def _normalize_match_result(
     return False, str(result), default_type, None
 
 
-# Effective virtualenv flag for the current engine-discovery call. The
-# discovery entry point (get_engine_params_by_name_with_virtual_env) sets this
-# to the *request-level* flag so that match_json can honor an explicit
+# Effective virtualenv flag for engine discovery and launch preflight. Entry
+# points publish the request-level flag so match_json can honor an explicit
 # enable_virtual_env=False even when the process-global default is true. When
 # unset (e.g. direct match_json calls outside discovery) it is None and callers
 # fall back to the global constant.
@@ -124,8 +123,8 @@ def virtual_env_allows_missing_engine() -> bool:
     demand, so engine listing must not depend on the library (or a specific
     already-installed version) being present locally.
 
-    Uses the effective request-level flag published by the discovery path
-    (virtualenv_discovery_var) when available, so an explicit
+    Uses the effective request-level flag published by discovery or launch
+    preflight (virtualenv_discovery_var) when available, so an explicit
     enable_virtual_env=False stays strict; otherwise falls back to the
     process-global default. Read lazily so the flag can be toggled at runtime.
     """
@@ -492,6 +491,7 @@ def _force_virtualenv_engine_params(
 
         has_match = False
         matched_specs = []
+        mismatch_reason: Optional[str] = None
         for spec in specs:
             quantization = getattr(spec, "quantization", None) or "none"
             for cls in engine_classes:
@@ -502,7 +502,7 @@ def _force_virtualenv_engine_params(
                     match_res = match_func(family, spec, quantization)
                 except Exception:
                     match_res = False
-                is_match, _, _, _ = _normalize_match_result(
+                is_match, reason, _, _ = _normalize_match_result(
                     match_res,
                     f"Engine {engine_name} is not compatible with current model or environment",
                     "model_compatibility",
@@ -511,10 +511,17 @@ def _force_virtualenv_engine_params(
                     has_match = True
                     matched_specs.append(spec)
                     break
+                if match_res is not False and match_res is not None:
+                    mismatch_reason = reason or mismatch_reason
             if has_match:
                 continue
 
         match_status[engine_name] = has_match
+        if not has_match and mismatch_reason:
+            # Keep explicit compatibility errors instead of a generic override.
+            engine_params[engine_name] = mismatch_reason
+            available_params.pop(engine_name, None)
+            continue
         if engine_name in available_params and isinstance(
             engine_params.get(engine_name), list
         ):

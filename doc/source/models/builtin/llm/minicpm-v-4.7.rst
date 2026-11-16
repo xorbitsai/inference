@@ -8,7 +8,7 @@ MiniCPM-V-4.7
 - **Model Name:** MiniCPM-V-4.7
 - **Languages:** en, zh
 - **Abilities:** chat, vision, hybrid
-- **Description:** MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang requires >=0.5.23 and Python 3.11-3.13 for text and image inputs; its 1B BNB checkpoint is not supported. GGUF and llama.cpp support is not enabled.
+- **Description:** MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants.
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -156,3 +156,35 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name MiniCPM-V-4.7 --size-in-billions 35 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 10 (ggufv2, 1 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 1
+- **Quantizations:** Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, F16, IQ3_M, IQ3_XS, IQ4_NL, IQ4_XS, Q4_0, Q4_1, Q5_0, Q5_1
+- **Engines**: llama.cpp
+- **Model ID:** openbmb/MiniCPM-V-4.7-1B-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.7-1B-gguf>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name MiniCPM-V-4.7 --size-in-billions 1 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 11 (ggufv2, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 35
+- **Quantizations:** Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, F16, IQ3_M, IQ3_XS, IQ4_NL, IQ4_XS, Q4_0, Q4_1, Q5_0, Q5_1, mix_q3gud_im
+- **Engines**: llama.cpp
+- **Model ID:** openbmb/MiniCPM-V-4.7-35B-A3B-gguf
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B-gguf>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.7-35B-A3B-gguf>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name MiniCPM-V-4.7 --size-in-billions 35 --model-format ggufv2 --quantization ${quantization}

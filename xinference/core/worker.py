@@ -5288,6 +5288,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
                 model_kwargs = kwargs.copy()
                 model_kwargs["enable_virtual_env"] = enable_virtual_env
+                if model_type == "LLM":
+                    model_kwargs["_xinference_cache_only"] = True
                 if model_type.lower() == "image":
                     # Cache-only operations intentionally require no runnable
                     # image runtime or allocated accelerator.
