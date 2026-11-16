@@ -277,6 +277,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         )
         self._tp_size = int(parallel.tensor_parallel_size)
         self._tp_rank: Optional[int] = None
+        # TP replicas keep the CPU snapshot path. A GPU budget adds a bounded
+        # copy of recent rows on each rank's device that the matching rank of
+        # a peer replica reads over NIXL; the CPU path serves everything else.
+        self._shard_gpu_budget = 0
+        if (
+            self._tp_size > 1
+            and self._gpu_budget is not None
+            and self._shared_snapshots
+        ):
+            self._shard_gpu_budget = int(self._gpu_budget)
+            self._gpu_budget = None
         if parallel.pipeline_parallel_size != 1:
             raise ValueError("Xavier V1 currently requires PP=1")
         if self._tp_size != 1 and not (
@@ -284,8 +295,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         ):
             raise ValueError(
                 "Xavier V1 supports TP>1 only for full-attention replicas sharing "
-                "CPU snapshots; P/D handoff, recurrent models and "
-                "xavier_gpu_cache_bytes require TP=1"
+                "snapshots; P/D handoff and recurrent models require TP=1"
             )
         multimodal = vllm_config.model_config.is_multimodal_model and not getattr(
             getattr(vllm_config.model_config, "multimodal_config", None),
@@ -1646,6 +1656,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             keys = list(dict.fromkeys(key for m in mappings.values() for key in m))
             if not keys:
                 continue
+            loaded = await self._load_shard_rows_gpu(
+                transfer, request, rank, keys, mappings
+            )
+            if loaded:
+                keys = [key for key in keys if key not in loaded]
+                if not keys:
+                    continue
             read = LayerRead(
                 rows.layer,
                 keys,
@@ -1681,6 +1698,78 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     cache[
                         index(cache.device, [mapping[batch_keys[i]] for i in selected])
                     ] = (blocks.contiguous().view(dtype).view(len(selected), *shape))
+
+    async def _ensure_shard_gpu(self, transfer) -> bool:
+        """Map this rank's caches into the actor's TP GPU transfer, once."""
+        rows = getattr(self, "_shard_rows", None)
+        if not getattr(self, "_shard_gpu_budget", 0) or rows is None:
+            return False
+        state = self.__dict__.get("_shard_gpu_state")
+        if state is not None:
+            return state
+        lock = self.__dict__.setdefault("_shard_gpu_lock", asyncio.Lock())
+        async with lock:
+            state = self.__dict__.get("_shard_gpu_state")
+            if state is not None:
+                return state
+            from torch.multiprocessing.reductions import reduce_tensor
+
+            try:
+                if any(not cache.is_cuda for cache in rows.caches.values()):
+                    raise ValueError("Xavier TP GPU transfer requires CUDA caches")
+                descriptors = {
+                    name: reduce_tensor(cache)[1] for name, cache in rows.caches.items()
+                }
+                torch.cuda.synchronize()
+                await transfer.register_gpu_shard_v1(
+                    self._tp_rank,
+                    self._tp_size,
+                    descriptors,
+                    rows.layout,
+                    rows.row_bytes,
+                    self._shard_gpu_budget,
+                )
+                state = True
+            except Exception:
+                logger.warning(
+                    "Xavier TP GPU transfer unavailable on rank %s; using CPU snapshots",
+                    self._tp_rank,
+                    exc_info=True,
+                )
+                state = False
+            self._shard_gpu_state = state
+            return state
+
+    async def _load_shard_rows_gpu(
+        self, transfer, request, rank, keys, mappings
+    ) -> Set[int]:
+        """Rows the matching rank of the source replica wrote over NIXL."""
+        if not request.lease or not await self._ensure_shard_gpu(transfer):
+            return set()
+        device = next(iter(self._shard_rows.caches.values())).device
+        if device.type == "cuda":
+            # The actor writes these slots from its own process. Earlier work
+            # of this rank must be complete, as for the TP=1 GPU path.
+            torch.cuda.synchronize(device)
+        try:
+            with profile_stage(
+                "gpu_shard_load",
+                request_id=request.request_id,
+                rank=self._rank,
+                tp_rank=self._tp_rank,
+                blocks=len(keys),
+            ):
+                loaded = await transfer.load_gpu_shard_v1(
+                    self._tp_rank, request.lease, rank, keys, mappings
+                )
+        except Exception:
+            logger.warning(
+                "Xavier TP GPU load failed on rank %s; reading from CPU",
+                self._tp_rank,
+                exc_info=True,
+            )
+            return set()
+        return set(loaded)
 
     async def _attach_local_read(self, transfer):
         local = self._local_read
@@ -2233,6 +2322,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     async def _send_shard_stage(self, stages, check):
         transfer = await self._get_transfer_ref()
+        # Registration lets the actor keep GPU copies of the rows it stages.
+        await self._ensure_shard_gpu(transfer)
         rows = self._shard_rows
         return await transfer.stage_shard_blocks_v1(
             self._tp_rank,

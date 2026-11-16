@@ -249,6 +249,37 @@ def test_nixl_pool_options_keep_explicit_ucx_transport(monkeypatch):
     assert inherited["UCX_TLS"] == "rc,cuda_copy"
 
 
+@pytest.mark.parametrize(
+    "address,configured,expected",
+    [
+        ("127.0.0.1:1234", None, "lo"),
+        ("[::1]:1234", None, "lo"),
+        ("127.0.0.1:1234", "vlan950", "vlan950"),
+        ("10.0.0.1:1234", "mlx5_0:1", "mlx5_0:1"),
+        ("10.0.0.1:1234", None, None),
+        ("tcp://gpu-host:1234", None, None),
+        ("tcp://localhost:1234", None, "lo"),
+    ],
+)
+def test_nixl_pool_keeps_ucx_on_the_pool_interface(
+    monkeypatch, address, configured, expected
+):
+    import importlib.metadata
+    import importlib.util
+
+    from ..transport import gpu_pool_options
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.11.1")
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object())
+    if configured is None:
+        monkeypatch.delenv("UCX_NET_DEVICES", raising=False)
+    else:
+        monkeypatch.setenv("UCX_NET_DEVICES", configured)
+    env = {}
+    gpu_pool_options(address, env)
+    assert env.get("UCX_NET_DEVICES") == expected
+
+
 @pytest.mark.asyncio
 async def test_simultaneous_hybrid_loads_do_not_deadlock(monkeypatch):
     first, second = runtime(monkeypatch), runtime(monkeypatch)

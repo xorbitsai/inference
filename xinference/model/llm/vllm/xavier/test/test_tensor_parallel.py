@@ -53,16 +53,33 @@ def _worker(connector_module, config, caches, tp_rank, kv_caches):
     "xavier_config",
     [
         {"rank": 1, "role": "prefill", "gpu_cache_bytes": 0},
-        {"rank": 1, "role": "hybrid", "gpu_cache_bytes": 1024},
+        {"rank": 1, "role": "decode", "gpu_cache_bytes": 1024},
     ],
 )
-def test_tensor_parallel_requires_cpu_snapshots(
+def test_tensor_parallel_requires_shared_snapshots(
     connector_module, shared_config, xavier_config
 ):
     shared_config.parallel_config.tensor_parallel_size = 2
     shared_config.kv_transfer_config.get_from_extra_config = lambda *a: xavier_config
     with pytest.raises(ValueError, match="TP>1"):
         connector_module.XavierConnector(shared_config, None, _groups())
+
+
+def test_tensor_parallel_gpu_budget_is_per_rank(connector_module, shared_config):
+    shared_config.parallel_config.tensor_parallel_size = 2
+    shared_config.kv_transfer_config.get_from_extra_config = lambda *a: {
+        "rank": 1,
+        "role": "hybrid",
+        "gpu_cache_bytes": 1024,
+    }
+    instance = connector_module.XavierConnector(shared_config, None, _groups())
+    try:
+        # The TP=1 engine-mapped GPU store stays off; ranks keep CPU snapshots
+        # and add their own GPU copies.
+        assert instance._gpu_budget is None
+        assert instance._shard_gpu_budget == 1024
+    finally:
+        instance.shutdown()
 
 
 def test_multimodal_requires_shared_snapshots(connector_module, shared_config):
@@ -599,6 +616,64 @@ def test_rank_loads_peer_rows_into_its_caches(connector_module, shared_config):
             loaded = consumer._registered_kv_caches[f"{name}@tp1"]
             assert torch.equal(loaded[[1, 3]], value[[6, 4]])
             assert not loaded[[0, 2, 4, 5, 6, 7]].any()
+    finally:
+        producer.shutdown()
+        consumer.shutdown()
+
+
+@pytest.mark.parametrize("gpu_result", [[66], RuntimeError("peer lost"), []])
+def test_rank_reads_from_cpu_only_rows_the_gpu_did_not_load(
+    connector_module, shared_config, gpu_result
+):
+    shared_config.parallel_config.tensor_parallel_size = 2
+    groups = _groups((["a"], _spec()))
+    values = {"a": torch.arange(64, dtype=torch.float32).reshape(8, 2, 4)}
+    producer = _worker(connector_module, shared_config, groups, 1, values)
+    consumer = _worker(
+        connector_module, shared_config, groups, 1, {"a": torch.zeros(8, 2, 4)}
+    )
+    try:
+        stored = {44: 4, 66: 6}
+        reads, gpu_calls = [], []
+
+        async def read(transfer, rank, batch, device):
+            keys = [key for part in batch for key in part.keys]
+            reads.append(keys)
+            sources = {name: [stored[k] for k in keys] for name in rows.caches}
+            return producer._gather_shard_rows(sources, len(keys))[0].reshape(-1)
+
+        class Transfer:
+            async def load_gpu_shard_v1(self, shard, lease, rank, keys, mappings):
+                gpu_calls.append((shard, lease, rank, keys, mappings))
+                if isinstance(gpu_result, BaseException):
+                    raise gpu_result
+                return gpu_result
+
+        async def transfer_ref():
+            return Transfer()
+
+        async def attach(transfer):
+            return None
+
+        rows = consumer._shard_rows
+        consumer._shard_gpu_budget = 1024
+        consumer._shard_gpu_state = True  # Registered with the actor.
+        consumer._read_shard_rows = read
+        consumer._attach_local_read = attach
+        consumer._get_transfer_ref = transfer_ref
+        consumer._load_request_blocks(
+            connector_module.XavierLoadRequest(
+                "r",
+                {2: {66: 0, 44: 1}},
+                lease="lease-1",
+                local_transfers_by_group={0: {2: {66: 1, 44: 3}}},
+            )
+        )
+        assert gpu_calls == [(1, "lease-1", 2, [66, 44], {"a@tp1": {66: 1, 44: 3}})]
+        expected = [44] if gpu_result == [66] else [66, 44]
+        assert reads == [expected]
+        loaded = consumer._registered_kv_caches["a@tp1"]
+        assert torch.equal(loaded[3], values["a"][4])
     finally:
         producer.shutdown()
         consumer.shutdown()

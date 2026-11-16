@@ -250,7 +250,6 @@ def test_tensor_parallel_replicas_share_cpu_snapshots(engine):
     [
         ({"role": "decode"}, False),
         ({"role": "hybrid", "gpu_cache_bytes": 0}, False),
-        ({"role": "hybrid", "gpu_cache_bytes": 1024}, False),
         ({"role": "hybrid", "cpu_prefix_cache": {"capacity_bytes": 1}}, False),
         ({"role": "hybrid", "shared_prefix": True}, False),
         ({"role": "hybrid", "heterogeneous": True}, False),
@@ -269,6 +268,19 @@ def test_tensor_parallel_requires_shared_cpu_snapshots(
     with pytest.raises(ValueError, match="TP"):
         module.XavierEngine.from_engine_args(args, xavier_config=xavier_config)
     factory.assert_not_called()
+
+
+def test_tensor_parallel_accepts_per_rank_gpu_budget(engine):
+    module, factory = engine
+    module.VLLM_VERSION = "0.32.0"
+    args = SimpleNamespace(
+        tensor_parallel_size=2,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=False),
+    )
+    module.XavierEngine.from_engine_args(
+        args, xavier_config={"role": "hybrid", "rank": 1, "gpu_cache_bytes": 1024}
+    )
+    factory.assert_called_once()
 
 
 def test_gpu_path_rejects_legacy_before_engine_start(engine):
