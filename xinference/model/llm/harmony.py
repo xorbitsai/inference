@@ -588,12 +588,19 @@ async def async_stream_harmony_chat_completion_chunks(
     structured_output: bool = False,
 ) -> AsyncGenerator["ChatCompletionChunk", None]:
     """Typed streaming adapter for ``async_stream_harmony_chat_completion``."""
-    async for chunk in async_stream_harmony_chat_completion(
+    parsed = async_stream_harmony_chat_completion(
         chunks,
         expose_reasoning=expose_reasoning,
         structured_output=structured_output,
-    ):
-        yield cast("ChatCompletionChunk", chunk)
+    )
+    try:
+        async for chunk in parsed:
+            yield cast("ChatCompletionChunk", chunk)
+    finally:
+        # ``async for`` closes neither the parser nor its source when this
+        # adapter is closed early; close both so the engine aborts the request.
+        await parsed.aclose()
+        await chunks.aclose()
 
 
 async def parse_harmony_chat_completion(
