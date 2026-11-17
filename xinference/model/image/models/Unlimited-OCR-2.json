@@ -9,14 +9,28 @@
         "transformers==4.52.1 ; #engine# == \"transformers\"",
         "huggingface-hub==0.36.0 ; #engine# == \"transformers\"",
         "tokenizers==0.21.4 ; #engine# == \"transformers\"",
+        "accelerate>=0.28.0,<2 ; #engine# == \"transformers\"",
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_torchvision# ; #engine# == \"transformers\"",
+        "vllm==0.34.0 ; #engine# == \"vllm\"",
+        "torch==2.14.0 ; #engine# == \"vllm\"",
+        "torchvision==0.29.0 ; #engine# == \"vllm\"",
+        "transformers==5.22.2 ; #engine# == \"vllm\"",
+        "huggingface-hub==2.4.0 ; #engine# == \"vllm\"",
+        "tokenizers==0.23.3 ; #engine# == \"vllm\"",
+        "flashinfer-python==0.7.3 ; #engine# == \"vllm\"",
+        "flashinfer-cubin==0.7.3 ; #engine# == \"vllm\"",
         "#system_numpy#",
         "Pillow>=10.0.1,<=15.0",
         "addict==2.4.0",
         "einops==0.8.2",
         "easydict==1.13"
-      ]
+      ],
+      "extra_index_url": [
+        "https://download.pytorch.org/whl/cu130",
+        "https://flashinfer.ai/whl"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "model_specs": [
       {

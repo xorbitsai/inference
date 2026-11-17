@@ -493,6 +493,62 @@ We can try OCR API out either via cURL, or Xinference's python client:
 
     <OCR result string>
 
+Unlimited-OCR-2 with vLLM
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:ref:`Unlimited-OCR-2 <models_builtin_unlimited-ocr-2>` supports vLLM 0.34.0
+on NVIDIA CUDA GPUs with Python 3.11 or newer. Select the ``vllm`` engine and
+enable per-model virtual environments to install its dependencies separately
+from the default ``transformers`` engine.
+
+The vLLM environment pins the tested PyTorch 2.14.0, Torchvision 0.29.0,
+Transformers 5.22.2, Hugging Face Hub 2.4.0, Tokenizers 0.23.3, and
+FlashInfer Python/cubin 0.7.3 packages. CUDA 13.0 wheels come from the PyTorch
+index; ``flashinfer-cubin`` comes from FlashInfer's official wheel index.
+The Transformers engine retains its separate Transformers 4.52.1 dependency
+set and uses ``accelerate`` when ``device_map`` is configured.
+
+``flashinfer-jit-cache`` is an optional precompiled kernel cache. It is not
+required for OCR correctness. To reduce first-start kernel compilation on
+CUDA 13.0, install the matching cache in the model virtual environment::
+
+   python -m pip install "flashinfer-jit-cache==0.7.3+cu130" --extra-index-url https://flashinfer.ai/whl/cu130
+
+In CUDA containers that set ``LD_LIBRARY_PATH``, give the model virtual
+environment's CUDA/cuDNN libraries precedence over the container's older
+libraries to avoid mixing cuDNN sublibrary versions.
+
+PDF uploads are rasterized in the Xinference API process. Install
+``pypdfium2`` in that service environment, for example through
+``xinference[image]``. Installing it only in the model virtual environment
+does not enable PDF uploads.
+
+For example, download from ModelScope and launch with vLLM::
+
+   xinference launch --model-name Unlimited-OCR-2 --model-type image --model-engine vllm --download_hub modelscope
+
+Use the same OCR API shown above. Single images and lists of page images return
+one document string with the native ``<PAGE>`` and ``<BLOCK>`` markers preserved.
+The adapter adds the required ``<PAGE><image>`` prefix for each input page.
+Set ``model_size="base"`` to disable image tiling; single images use
+``model_size="gundam"`` by default. Page lists default to non-crop mode, matching
+the Transformers adapter; pass ``crop_mode=True`` to enable tiling for each page.
+
+``max_new_tokens`` or ``max_tokens`` controls the total output budget, which
+defaults to 8192 tokens per input page. The native page-count guard limits each
+page to ``max_page_tokens`` (20000 by default). Use ``save_results=True`` with
+``save_dir`` to save the returned text as ``result.md``.
+
+The default image limit is 32 pages per request, subject to the model context
+length and available GPU memory. Override ``limit_mm_per_prompt`` at launch to
+change this limit.
+
+The adapter uses vLLM's offline engine. In vLLM 0.34.0, this model does not
+support pipeline or context parallelism, dual batch overlap, LoRA, speculative
+decoding, quantized weights, non-default KV cache dtypes, or KV transfer
+(including disaggregated prefill/decode). Prefix caching is disabled by vLLM.
+
+
 OvisOCR2 Usage
 ~~~~~~~~~~~~~~
 
