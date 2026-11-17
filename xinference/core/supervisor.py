@@ -244,6 +244,7 @@ class ReplicaInfo:
     )
     active_replica_ids: List[int] = field(default_factory=list)
     routing_keys: OrderedDict[str, int] = field(default_factory=OrderedDict)
+    terminating: Set[int] = field(default_factory=set)
 
 
 _MAX_ROUTING_KEYS_PER_MODEL = 4096
@@ -966,6 +967,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replica_states: List[Dict[str, Any]],
     ):
         worker_address = worker_ref.address
+        terminating = {
+            uid: info.terminating
+            for uid, info in self._model_uid_to_replica_info.items()
+            if info.terminating
+        }
         self._remove_worker_from_replica_mappings(worker_address)
 
         if not replica_states:
@@ -1050,6 +1056,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     replica=len(replica_indexes),
                     scheduler=itertools.cycle(replica_indexes),
                     active_replica_ids=list(replica_indexes),
+                    # Share the set so the in-flight termination's finally
+                    # also clears marks on the rebuilt routing entry.
+                    terminating=terminating.get(model_uid, set()),
                 )
                 self._model_uid_to_replica_info[model_uid] = replica_info
             else:
@@ -5927,10 +5936,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
-        results = await asyncio.gather(
-            *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
-            return_exceptions=True,
-        )
+        terminating = set(replica_info.active_replica_ids)
+        replica_info.terminating.update(terminating)
+        try:
+            results = await asyncio.gather(
+                *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
+                return_exceptions=True,
+            )
+        finally:
+            replica_info.terminating.difference_update(terminating)
         errors = [r for r in results if isinstance(r, Exception)]
         if errors and not suppress_exception:
             raise errors[0]
@@ -6443,12 +6457,17 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not isinstance(worker_refs, (list, tuple)):
             worker_refs = [worker_refs]
 
+        if replica_info is not None:
+            replica_info.terminating.add(replica_id)
         try:
             for worker_ref in worker_refs:
                 await worker_ref.terminate_model(model_uid=replica_model_uid)
         except Exception:
             if not suppress_exception:
                 raise
+        finally:
+            if replica_info is not None:
+                replica_info.terminating.discard(replica_id)
 
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
@@ -6922,16 +6941,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             if state is not None:
                 candidates = sorted(candidates, key=state.should_avoid)
-            last_error = ModelNotReadyError(
-                f"Model {model_uid} has no available replica"
+                candidates = [r for r in candidates if r not in state.draining]
+            terminating = [r for r in candidates if r in replica_info.terminating]
+            candidates = [r for r in candidates if r not in replica_info.terminating]
+            last_error: Union[ModelNotReadyError, RuntimeError] = (
+                RuntimeError(
+                    f"Model {build_replica_model_uid(model_uid, terminating[0])} is in stopping state"
+                )
+                if terminating
+                else ModelNotReadyError(f"Model {model_uid} has no available replica")
             )
             for replica_id in candidates:
-                if state is not None and replica_id in state.draining:
-                    continue
                 try:
                     return await self._get_replica_model(model_uid, replica_id), False
                 except ModelNotReadyError as exc:
-                    last_error = exc
+                    # Preserve the stopping error if no candidate can serve.
+                    if not terminating:
+                        last_error = exc
             raise last_error
         if state is None:
             return await self._get_replica_model(model_uid, first), False

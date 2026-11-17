@@ -109,9 +109,7 @@ async def test_delete_running_model_still_terminates_worker(failed_model):
     supervisor, guard = failed_model
     guard.set_instance_info("demo", _instance("READY"))
     worker = SimpleNamespace(terminate_model=AsyncMock())
-    supervisor._model_uid_to_replica_info["demo"] = SimpleNamespace(
-        active_replica_ids=[0]
-    )
+    supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(1)
     supervisor._replica_model_uid_to_worker["demo-rep0"] = worker
     await supervisor.terminate_model("demo")
     worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep0")

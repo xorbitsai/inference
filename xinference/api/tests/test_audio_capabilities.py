@@ -18,6 +18,7 @@ from ...core.exceptions import ModelNotReadyError
 from ...core.supervisor import SupervisorActor
 from ...core.tests.test_realtime_runtime import FakeModel, RealtimeRuntime
 from ...core.utils import build_replica_model_uid
+from ...core.worker import ModelStatus, WorkerActor
 from ..routers.audio import register_routes
 
 
@@ -155,6 +156,111 @@ async def test_capabilities_try_ready_replica_without_advancing_scheduler(
         )
         expected = 1 if draining or 0 in avoided else 0
         assert descriptor["replica_model_uid"] == f"custom-rep{expected}"
+
+
+def real_worker_lookups(supervisor):
+    workers = []
+    for uid, worker_ref in supervisor._replica_model_uid_to_worker.items():
+        worker = WorkerActor.__new__(WorkerActor)
+        worker._model_uid_to_model_status = {uid: ModelStatus(model_state="ready")}
+        worker._model_uid_to_model = {uid: worker_ref.get_model.return_value}
+        worker._status_guard_ref = None
+        worker_ref.get_model.side_effect = worker.get_model
+        workers.append(worker)
+    return workers
+
+
+@pytest.mark.parametrize("outcome", ["success", "failure", "suppressed", "cancelled"])
+async def test_capabilities_skip_stopping_replica_without_advancing_scheduler(outcome):
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        supervisor._model_replica_locks = {}
+        supervisor._model_reload_tasks = {}
+        supervisor._replica_model_uid_to_worker_shards = {}
+        supervisor._status_guard_ref = SimpleNamespace(
+            remove_replica_status=AsyncMock(), update_instance_info=AsyncMock()
+        )
+        supervisor._clear_replica_model_gpu_memory = Mock()
+        supervisor._unexpected_down_replicas = {}
+        supervisor._invalidate_list_models_debounce_cache = Mock()
+        workers = real_worker_lookups(supervisor)
+        info = supervisor._model_uid_to_replica_info["custom"]
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def terminate(model_uid):
+            await workers[0]._update_model_state(model_uid, "stopping")
+            entered.set()
+            await release.wait()
+            if outcome in ("failure", "suppressed"):
+                raise RuntimeError("Termination failed")
+
+        stopping = supervisor._replica_model_uid_to_worker["custom-rep0"]
+        stopping.terminate_model = AsyncMock(side_effect=terminate)
+        termination = asyncio.create_task(
+            supervisor.terminate_model_replica(
+                "custom", 0, suppress_exception=outcome == "suppressed"
+            )
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 1)
+            assert (
+                workers[0]._model_uid_to_model_status["custom-rep0"].model_state
+                == "stopping"
+            )
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(service.app), base_url="http://test"
+            ) as client:
+                for _ in range(4):
+                    response = await client.get("/v1/models/custom/audio/capabilities")
+                    assert response.status_code == 200
+                    assert response.json() == service.capabilities
+            assert info.terminating == {0}
+            stopping.get_model.assert_not_awaited()
+            ready = supervisor._replica_model_uid_to_worker["custom-rep1"]
+            assert ready.get_model.await_count == 4
+            workers[0]._model_uid_to_model_status["custom-rep0"].model_state = "ready"
+            assert (await supervisor.get_model("custom")).uid == b"custom-rep0"
+        finally:
+            if outcome == "cancelled":
+                termination.cancel()
+            release.set()
+            if outcome in ("failure", "cancelled"):
+                expected = (
+                    RuntimeError if outcome == "failure" else asyncio.CancelledError
+                )
+                with pytest.raises(expected):
+                    await termination
+            else:
+                await termination
+        assert not info.terminating
+
+
+async def test_inference_lookup_preserves_stopping_runtime_error():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        workers = real_worker_lookups(supervisor)
+        workers[0]._model_uid_to_model_status["custom-rep0"].model_state = "stopping"
+        with pytest.raises(RuntimeError) as exc_info:
+            await supervisor.get_model("custom")
+        assert type(exc_info.value) is RuntimeError
+        assert str(exc_info.value) == "Model custom-rep0 is in stopping state"
+        descriptor = await supervisor.get_realtime_endpoint(
+            "custom", "anonymous", "binary.echo"
+        )
+        assert descriptor["replica_model_uid"] == "custom-rep1"
+
+
+async def test_capabilities_preserve_unrelated_worker_error():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        worker = supervisor._replica_model_uid_to_worker["custom-rep0"]
+        error = RuntimeError("Unrelated worker failure")
+        worker.get_model.side_effect = error
+        with pytest.raises(RuntimeError) as exc_info:
+            await supervisor.get_model("custom", for_inference=False)
+        assert exc_info.value is error
+        ready = supervisor._replica_model_uid_to_worker["custom-rep1"]
+        ready.get_model.assert_not_awaited()
 
 
 @pytest.mark.parametrize("draining", [False, True])
