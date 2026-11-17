@@ -1,0 +1,496 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# CI: linux
+
+import copy
+import json
+import os
+import sys
+from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+import torch
+from PIL import Image
+
+from xinference.core.exceptions import InvalidModelRequestError
+from xinference.core.utils import filter_virtualenv_packages_by_markers
+from xinference.model.utils import virtualenv_discovery_var
+
+from .. import _install, generate_engine_config_by_model_name, nemotron
+from ..embed_family import SENTENCE_TRANSFORMER_CLASSES, VLLM_CLASSES, match_embedding
+from ..sentence_transformers.core import SentenceTransformerEmbeddingModel
+from ..vllm.core import VLLMEmbeddingModel
+
+CLASSES = (
+    nemotron.TransformersNemotronEmbeddingModel,
+    nemotron.SentenceTransformerNemotronEmbeddingModel,
+    nemotron.VLLMNemotronEmbeddingModel,
+)
+
+
+def make_model(
+    cls=nemotron.TransformersNemotronEmbeddingModel,
+    name="Nemotron-3.5-Embed-1B-BF16",
+    **kwargs,
+):
+    model = cls(
+        "replica", "/unused", match_embedding(name, "pytorch", "none"), **kwargs
+    )
+    model._clean_cache_if_needed = MagicMock()
+    return model
+
+
+@pytest.mark.parametrize("name", sorted(nemotron.MODEL_NAMES))
+def test_catalog_and_engine_discovery(name):
+    for hub, org, revision in (
+        ("huggingface", "nvidia", "main"),
+        ("modelscope", "nv-community", "master"),
+    ):
+        family = match_embedding(name, "pytorch", "none", hub)
+        assert family.model_specs[0].model_id == f"{org}/{name}"
+        assert family.model_specs[0].model_revision == revision
+        assert family.model_ability == ["embed_vision"]
+        assert family.dimensions == (4096 if "8B" in name else 2048)
+        assert family.max_tokens == 32768
+    token = virtualenv_discovery_var.set(True)
+    try:
+        engines = {}
+        generate_engine_config_by_model_name(family, engines)
+        expected = (
+            {"vllm"}
+            if name.endswith("NVFP4")
+            else {"vllm", "transformers", "sentence_transformers"}
+        )
+        # Discovery uses the Hugging Face spec, as does the registry refresh.
+        family = match_embedding(name, "pytorch", "none")
+        generate_engine_config_by_model_name(family, engines)
+        assert set(engines[name]) == expected
+        for cls in CLASSES:
+            assert (
+                cls.match_json(family, SimpleNamespace(model_format="ggufv2"), "none")
+                is False
+            )
+        assert (
+            SentenceTransformerEmbeddingModel.match_json(
+                family, family.model_specs[0], "none"
+            )
+            is not True
+        )
+        assert (
+            VLLMEmbeddingModel.match_json(family, family.model_specs[0], "none")
+            is not True
+        )
+    finally:
+        virtualenv_discovery_var.reset(token)
+
+
+def test_registration_is_idempotent():
+    _install()
+    _install()
+    assert SENTENCE_TRANSFORMER_CLASSES.count(CLASSES[1]) == 1
+    assert VLLM_CLASSES.count(CLASSES[2]) == 1
+
+
+@pytest.mark.parametrize("engine", ["transformers", "sentence_transformers", "vllm"])
+def test_virtualenv_dependencies(engine):
+    family = match_embedding("Nemotron-3.5-Embed-1B-BF16", "pytorch", "none")
+    packages = filter_virtualenv_packages_by_markers(
+        family.virtualenv.packages, engine, "13.0"
+    )
+    assert "pillow" in packages
+    assert ("#system_torch#" in packages) == (engine != "vllm")
+    assert ("sentence-transformers[image]>5.4" in packages) == (
+        engine == "sentence_transformers"
+    )
+    assert ("vllm>=0.32.0" in packages) == (engine == "vllm")
+    assert ("transformers>=5.17.0,<5.20.0" in packages) == (engine == "vllm")
+
+
+@pytest.mark.parametrize(
+    "engine,package,installed",
+    [
+        ("transformers", "transformers", "5.19.0"),
+        ("sentence_transformers", "sentence-transformers", "5.4"),
+        ("vllm", "vllm", "0.31.0"),
+        ("vllm", "transformers", "5.16.1"),
+        ("vllm", "transformers", "5.20.0"),
+    ],
+)
+def test_old_dependencies_are_rejected(monkeypatch, engine, package, installed):
+    monkeypatch.setattr(nemotron, "check_dependency_available", lambda *_: True)
+    monkeypatch.setattr(
+        nemotron, "version", lambda name: installed if name == package else "99.0"
+    )
+    result = nemotron.check_dependencies(engine)
+    assert result[0] is False
+    assert package in result[1]
+
+
+def test_input_roles_and_image_text_order():
+    sample = {"text": "caption", "image_url": {"url": "data:image/png;base64,abc"}}
+    original = copy.deepcopy(sample)
+    samples, prefix = nemotron.normalize_inputs(["text", sample])
+    assert prefix == "passage:"
+    assert sample == original
+    messages = nemotron.make_messages(samples[1], prefix)
+    assert messages[0] == {"role": "system", "content": "passage:"}
+    assert [part["type"] for part in messages[1]["content"]] == ["image", "text"]
+    assert nemotron.normalize_inputs("question", input_type="query")[1] == "query:"
+    assert nemotron.normalize_inputs("question", prompt_name="query")[1] == "query:"
+    assert (
+        nemotron.normalize_inputs("document", prompt_name="document")[1] == "passage:"
+    )
+
+
+@pytest.mark.parametrize(
+    "value,kwargs",
+    [
+        ({}, {}),
+        ({"text": 1}, {}),
+        ({"image": []}, {}),
+        ({"image": ""}, {}),
+        ({"audio": "a.wav"}, {}),
+        ([1], {}),
+        (None, {}),
+        ({"image_url": {}}, {}),
+        ({"image": "a.png", "image_url": "b.png"}, {}),
+        ({"image": "a.png"}, {"input_type": "query"}),
+        ("text", {"input_type": "bad"}),
+        ("text", {"prompt_name": "bad"}),
+        ("text", {"input_type": "query", "prompt_name": "document"}),
+    ],
+)
+def test_invalid_inputs(value, kwargs):
+    with pytest.raises(InvalidModelRequestError):
+        nemotron.normalize_inputs(value, **kwargs)
+
+
+@pytest.mark.parametrize("dimensions", [0, -1, 2049, True, 1.5])
+def test_invalid_dimensions(dimensions):
+    with pytest.raises(InvalidModelRequestError, match="dimensions must"):
+        make_model()._create_embedding("text", dimensions=dimensions)
+
+
+def test_transformers_pooling_ignores_padding_and_renormalizes_after_truncation():
+    model = make_model()
+    model._processor = MagicMock()
+
+    class Features(dict):
+        def to(self, device):
+            assert device == "cpu"
+            return self
+
+    features = Features(
+        input_ids=torch.tensor([[1, 2, 0]]),
+        attention_mask=torch.tensor([[1, 1, 0]]),
+        pixel_values=torch.ones(1, 3, 2, 2),
+    )
+    model._processor.apply_chat_template.return_value = features
+    model._model = MagicMock(device="cpu", dtype=torch.bfloat16)
+    model._model.return_value.last_hidden_state = torch.tensor(
+        [[[1.0, 2.0, 4.0], [3.0, 2.0, 2.0], [100.0, 100.0, 100.0]]]
+    )
+    image = Image.new("RGB", (2, 2))
+    result = model._create_embedding(
+        {"image": image, "text": "caption"}, dimensions=2, model_uid="public"
+    )
+    torch.testing.assert_close(
+        torch.tensor(result["data"][0]["embedding"]), torch.tensor([2.0, 2.0]) / 8**0.5
+    )
+    assert result["usage"] == {"prompt_tokens": 2, "total_tokens": 2}
+    assert result.token_counts == [2]
+    assert result["model"] == "public"
+    assert result["model_replica"] == "replica"
+    assert features["pixel_values"].dtype == torch.bfloat16
+    assert features["input_ids"].dtype == torch.long
+
+
+def test_transformers_rejects_expanded_input_over_context_limit():
+    model = make_model()
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.return_value = {
+        "input_ids": torch.zeros(1, 32769, dtype=torch.long)
+    }
+    model._model = MagicMock()
+    with pytest.raises(InvalidModelRequestError, match="exceeds 32768"):
+        model._create_embedding("long")
+    model._model.assert_not_called()
+
+
+def test_empty_input_and_sparse_rejection():
+    model = make_model()
+    model._encode_samples = MagicMock()
+    assert model._create_embedding([])["data"] == []
+    model._encode_samples.assert_not_called()
+    with pytest.raises(InvalidModelRequestError, match="sparse"):
+        model._create_embedding("text", return_sparse=True)
+
+
+def test_sentence_transformers_preserves_input_order_and_counts_and_removes_hook():
+    model = make_model(CLASSES[1])
+    encoder = MagicMock()
+
+    def encode(samples, **kwargs):
+        assert kwargs["prompt_name"] == "document"
+        assert kwargs["batch_size"] == 1
+        text = samples[0].get("text", "")
+        encoder.register_forward_pre_hook.call_args.args[0](
+            None, ({"attention_mask": torch.ones(1, len(text) + 1)},)
+        )
+        return torch.tensor([[float(len(text)), 2.0, 9.0]])
+
+    encoder.encode.side_effect = encode
+    model._model = encoder
+    result = model._create_embedding(
+        ["longer", {"image": Image.new("RGB", (2, 2))}, "x"], dimensions=2
+    )
+    assert result.token_counts == [7, 1, 2]
+    assert result["usage"]["total_tokens"] == 10
+    assert result["data"][1]["embedding"] == [0.0, 1.0]
+    encoder.register_forward_pre_hook.return_value.remove.assert_called_once()
+    encoder.encode.side_effect = RuntimeError("encode failure")
+    with pytest.raises(RuntimeError, match="encode failure"):
+        model._create_embedding("x")
+    assert encoder.register_forward_pre_hook.return_value.remove.call_count == 2
+
+
+def test_vllm_prompts_preserve_template_tokens_and_multimodal_data(monkeypatch):
+    model = make_model(CLASSES[2])
+    fake = ModuleType("vllm")
+    fake.PoolingParams = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "vllm", fake)
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.side_effect = [
+        "<bos>text",
+        "<bos>[IMG]caption",
+    ]
+    model._model = MagicMock()
+    model._model.embed.return_value = [
+        SimpleNamespace(
+            outputs=SimpleNamespace(embedding=[3.0, 4.0, 9.0]), prompt_token_ids=[1, 2]
+        ),
+        SimpleNamespace(
+            outputs=SimpleNamespace(embedding=[0.0, 2.0, 9.0]),
+            prompt_token_ids=[1, 2, 3],
+        ),
+    ]
+    image = Image.new("RGB", (2, 2))
+    result = model._create_embedding(
+        ["text", {"image": image, "text": "caption"}], dimensions=2
+    )
+    args, kwargs = model._model.embed.call_args
+    assert args[0][0] == {"prompt": "<bos>text"}
+    assert args[0][1]["multi_modal_data"]["image"].size == (2, 2)
+    assert kwargs["tokenization_kwargs"] == {"add_special_tokens": False}
+    assert kwargs["pooling_params"] == {"use_activation": False}
+    assert result.token_counts == [2, 3]
+    assert result["data"][0]["embedding"] == pytest.approx([0.6, 0.8])
+
+
+@pytest.mark.parametrize(
+    "cls,start_method",
+    [
+        (CLASSES[0], None),
+        (CLASSES[1], None),
+        (CLASSES[2], None),
+        (CLASSES[2], "forkserver"),
+    ],
+)
+def test_load_uses_official_entry_points(monkeypatch, cls, start_method):
+    monkeypatch.setattr(nemotron, "check_dependencies", lambda _: True)
+    transformers = ModuleType("transformers")
+    transformers.AutoModel = MagicMock()
+    transformers.AutoProcessor = MagicMock()
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    model = make_model(cls, device="cpu")
+    if cls is CLASSES[1]:
+        st = ModuleType("sentence_transformers")
+        st.SentenceTransformer = MagicMock()
+        monkeypatch.setitem(sys.modules, "sentence_transformers", st)
+    elif cls is CLASSES[2]:
+        if start_method is None:
+            monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD", raising=False)
+        else:
+            monkeypatch.setenv("VLLM_WORKER_MULTIPROC_METHOD", start_method)
+        vllm = ModuleType("vllm")
+        vllm.LLM = MagicMock()
+        config = ModuleType("vllm.config")
+        config.PoolerConfig = lambda **kwargs: kwargs
+        monkeypatch.setitem(sys.modules, "vllm", vllm)
+        monkeypatch.setitem(sys.modules, "vllm.config", config)
+    model.load()
+    if cls is CLASSES[0]:
+        assert (
+            transformers.AutoModel.from_pretrained.call_args.kwargs["device_map"]
+            == "cpu"
+        )
+    elif cls is CLASSES[1]:
+        assert st.SentenceTransformer.call_args.kwargs["device"] == "cpu"
+    else:
+        assert os.environ["VLLM_WORKER_MULTIPROC_METHOD"] == (start_method or "spawn")
+        assert vllm.LLM.call_args.kwargs["max_model_len"] == 32768
+        assert vllm.LLM.call_args.kwargs["pooler_config"]["pooling_type"] == "MEAN"
+
+
+def test_native_transformers_and_sentence_transformers_agree(tmp_path):
+    transformers = pytest.importorskip("transformers", minversion="5.20.0")
+    pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    from tokenizers import Tokenizer, models, pre_tokenizers
+
+    vocab = {
+        token: index
+        for index, token in enumerate(
+            [
+                "<unk>",
+                "<s>",
+                "</s>",
+                "query",
+                ":",
+                "passage",
+                "caption",
+                "document",
+                "[IMG_BREAK]",
+                "[IMG_END]",
+                "[IMG]",
+                "<pad>",
+            ]
+        )
+    }
+    tokenizer = Tokenizer(models.WordLevel(vocab, unk_token="<unk>"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    tokenizer = transformers.PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer,
+        unk_token="<unk>",
+        pad_token="<pad>",
+        bos_token="<s>",
+        eos_token="</s>",
+        additional_special_tokens=["[IMG]", "[IMG_BREAK]", "[IMG_END]"],
+    )
+    template = (
+        "{% for message in messages %}"
+        "{% if message['role'] == 'system' %}"
+        "{% if message['content'] is string %}{{ message['content'].rstrip(' ') }} "
+        "{% else %}{{ message['content'][0]['text'].rstrip(' ') }} {% endif %}"
+        "{% else %}{% for part in message['content'] %}"
+        "{% if part['type'] == 'image' %}[IMG] "
+        "{% else %}{{ part['text'] }}{% endif %}{% endfor %}{% endif %}{% endfor %}"
+    )
+    processor = transformers.PixtralProcessor(
+        image_processor=transformers.PixtralImageProcessor(size={"longest_edge": 56}),
+        tokenizer=tokenizer,
+        spatial_merge_size=2,
+        chat_template=template,
+    )
+    processor.save_pretrained(tmp_path)
+    config = transformers.Mistral3Config(
+        text_config={
+            "model_type": "ministral3",
+            "vocab_size": len(vocab),
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 1,
+            "num_attention_heads": 2,
+            "num_key_value_heads": 1,
+            "head_dim": 16,
+            "is_causal": False,
+            "pad_token_id": 11,
+        },
+        vision_config={
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 1,
+            "num_attention_heads": 4,
+            "head_dim": 8,
+            "image_size": 56,
+        },
+        image_token_index=10,
+        spatial_merge_size=2,
+    )
+    transformers.Mistral3Model(config).save_pretrained(tmp_path)
+    records = {
+        "modules.json": [
+            {
+                "idx": 0,
+                "name": "0",
+                "path": "",
+                "type": "sentence_transformers.models.Transformer",
+            },
+            {
+                "idx": 1,
+                "name": "1",
+                "path": "1_Pooling",
+                "type": "sentence_transformers.models.Pooling",
+            },
+            {
+                "idx": 2,
+                "name": "2",
+                "path": "2_Normalize",
+                "type": "sentence_transformers.models.Normalize",
+            },
+        ],
+        "config_sentence_transformers.json": {
+            "prompts": {"query": "query: ", "document": "passage: "}
+        },
+        "sentence_bert_config.json": {
+            "max_seq_length": 32768,
+            "module_output_name": "token_embeddings",
+            "modality_config": {
+                modality: {
+                    "method": "forward",
+                    "method_output_name": "last_hidden_state",
+                    **({"format": "structured"} if modality == "message" else {}),
+                }
+                for modality in ["text", "image", "message"]
+            },
+        },
+        "1_Pooling/config.json": {
+            "word_embedding_dimension": 32,
+            "pooling_mode_mean_tokens": True,
+        },
+    }
+    for name, value in records.items():
+        path = tmp_path / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(json.dumps(value))
+    inputs = [
+        "document",
+        {"image": Image.new("RGB", (56, 56))},
+        {"image": Image.new("RGB", (56, 56)), "text": "caption"},
+    ]
+    results = []
+    for cls in CLASSES[:2]:
+        family = match_embedding("Nemotron-3.5-Embed-1B-BF16", "pytorch", "none")
+        family.dimensions = 32
+        model = cls("tiny", str(tmp_path), family, device="cpu", torch_dtype="float32")
+        model.load()
+        result = model._create_embedding(inputs, dimensions=16)
+        assert len(result["data"]) == 3
+        assert (
+            len(
+                model._create_embedding("query", input_type="query")["data"][0][
+                    "embedding"
+                ]
+            )
+            == 32
+        )
+        results.append(result)
+    assert results[0].token_counts == results[1].token_counts
+    for left, right in zip(results[0]["data"], results[1]["data"]):
+        vector = torch.tensor(left["embedding"])
+        torch.testing.assert_close(
+            vector, torch.tensor(right["embedding"]), atol=1e-5, rtol=1e-4
+        )
+        torch.testing.assert_close(vector.norm(), torch.tensor(1.0))

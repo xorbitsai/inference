@@ -1,0 +1,411 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+from abc import abstractmethod
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import torch
+from packaging.version import Version
+
+from ...core.exceptions import InvalidModelRequestError
+from ...device_utils import get_available_device
+from ...types import Embedding, EmbeddingData, EmbeddingUsage
+from ..batch import BatchMixin
+from ..utils import check_dependency_available, virtual_env_allows_missing_engine
+from .core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from .vllm.core import VLLMEmbeddingModel
+
+MODEL_NAMES = {
+    "Nemotron-3.5-Embed-1B-BF16",
+    "Nemotron-3.5-Embed-1B-NVFP4",
+    "Nemotron-3.5-Embed-8B-BF16",
+}
+
+
+def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
+    requirements = (
+        [("vllm", "0.32.0"), ("transformers", "5.17.0")]
+        if engine == "vllm"
+        else [("transformers", "5.20.0")]
+    )
+    if engine == "sentence_transformers":
+        requirements.append(("sentence-transformers", "5.4"))
+    for package, minimum in requirements:
+        available = check_dependency_available(package.replace("-", "_"), package)
+        if available != True:
+            return available
+        try:
+            installed = Version(version(package))
+        except PackageNotFoundError:
+            return False, f"Cannot determine the installed {package} version"
+        exclusive = package == "sentence-transformers"
+        if installed < Version(minimum) or (
+            exclusive and installed == Version(minimum)
+        ):
+            operator = ">" if exclusive else ">="
+            return (
+                False,
+                f"Nemotron 3.5 Embed requires {package}{operator}{minimum}, "
+                f"current: {installed}",
+            )
+        if (
+            engine == "vllm"
+            and package == "transformers"
+            and installed >= Version("5.20.0")
+        ):
+            return (
+                False,
+                "Nemotron 3.5 Embed vLLM requires transformers>=5.17.0,<5.20.0.",
+            )
+    return True
+
+
+def normalize_inputs(inputs: Any, **kwargs: Any) -> Tuple[List[Dict[str, Any]], str]:
+    """Normalize one text/image document per input and select its retrieval role."""
+    input_type = kwargs.get("input_type")
+    prompt_name = kwargs.get("prompt_name")
+    aliases = {"query": "query", "document": "passage", "passage": "passage"}
+    if input_type is not None and (
+        not isinstance(input_type, str) or input_type not in aliases
+    ):
+        raise InvalidModelRequestError(
+            "Nemotron 3.5 Embed input_type must be query or passage."
+        )
+    if prompt_name is not None and (
+        not isinstance(prompt_name, str) or prompt_name not in aliases
+    ):
+        raise InvalidModelRequestError(
+            "Nemotron 3.5 Embed prompt_name must be query or document."
+        )
+    role = aliases.get(input_type or prompt_name or "passage")
+    if input_type and prompt_name and aliases[input_type] != aliases[prompt_name]:
+        raise InvalidModelRequestError(
+            "Nemotron 3.5 Embed input_type and prompt_name conflict."
+        )
+    items = [inputs] if isinstance(inputs, (str, dict)) else inputs
+    if not isinstance(items, list):
+        raise InvalidModelRequestError(
+            "Nemotron 3.5 Embed input must be text, a dict, or a list."
+        )
+    samples = []
+    for item in items:
+        if isinstance(item, str):
+            sample: Dict[str, Any] = {"text": item}
+        elif isinstance(item, dict):
+            if set(item) - {"text", "image", "image_url"}:
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed supports only text and image input."
+                )
+            if "image" in item and "image_url" in item:
+                raise InvalidModelRequestError("Provide image or image_url, not both.")
+            sample = {key: value for key, value in item.items() if value is not None}
+            if "image_url" in sample:
+                image = sample.pop("image_url")
+                sample["image"] = image.get("url") if isinstance(image, dict) else image
+            if "text" in sample and not isinstance(sample["text"], str):
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed text must be a string."
+                )
+            if "image" in sample:
+                from PIL import Image
+
+                image = sample["image"]
+                if not isinstance(image, (str, Image.Image)) or (
+                    isinstance(image, str) and not image
+                ):
+                    raise InvalidModelRequestError(
+                        "Nemotron 3.5 Embed expects one image per document."
+                    )
+            if not sample:
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed input must contain text or image."
+                )
+        else:
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed items must be strings or dicts."
+            )
+        if role == "query" and "image" in sample:
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed queries accept text only."
+            )
+        samples.append(sample)
+    return samples, "query:" if role == "query" else "passage:"
+
+
+def make_messages(sample: Dict[str, Any], prefix: str) -> List[Dict[str, Any]]:
+    content = []
+    if "image" in sample:
+        content.append({"type": "image", "image": sample["image"]})
+    if "text" in sample:
+        content.append({"type": "text", "text": sample["text"]})
+    return [
+        {"role": "system", "content": prefix},
+        {"role": "user", "content": content},
+    ]
+
+
+class _NemotronEmbeddingMixin(EmbeddingModel):
+    engine: str
+    model_family: EmbeddingModelFamilyV2
+    _model: Any
+    _device: Optional[str]
+
+    @abstractmethod
+    def _encode_samples(
+        self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
+    ) -> Tuple[List[torch.Tensor], List[int]]:
+        pass
+
+    @classmethod
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        return check_dependencies(cls.engine)
+
+    @classmethod
+    def match_json(
+        cls,
+        model_family: EmbeddingModelFamilyV2,
+        model_spec: EmbeddingSpecV1,
+        quantization: str,
+    ) -> Union[bool, Tuple[bool, str]]:
+        if (
+            model_family.model_name not in MODEL_NAMES
+            or model_spec.model_format != "pytorch"
+        ):
+            return False
+        if model_family.model_name.endswith("NVFP4") and cls.engine != "vllm":
+            return (
+                False,
+                "Nemotron 3.5 Embed NVFP4 requires vLLM and NVFP4-capable GPUs.",
+            )
+        return True if virtual_env_allows_missing_engine() else cls.check_lib()
+
+    def _validate_dimensions(self, dimensions: Optional[int]) -> None:
+        if dimensions is not None and (
+            isinstance(dimensions, bool)
+            or not isinstance(dimensions, int)
+            or not 0 < dimensions <= self.model_family.dimensions
+        ):
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed dimensions must be a positive integer up to "
+                f"{self.model_family.dimensions}."
+            )
+
+    def _create_embedding(self, sentences: Any, **kwargs: Any) -> Embedding:
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        samples, prefix = normalize_inputs(sentences, **kwargs)
+        dimensions = kwargs.get("dimensions", self._kwargs.get("dimensions"))
+        self._validate_dimensions(dimensions)
+        if kwargs.get("return_sparse", False):
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed does not support sparse embeddings."
+            )
+        from transformers.image_utils import load_image
+
+        for sample in samples:
+            if "image" in sample:
+                image = sample["image"]
+                if isinstance(image, str) and image.startswith("file://"):
+                    image = image[7:]
+                sample["image"] = load_image(image)
+        vectors, counts = (
+            self._encode_samples(samples, prefix, **kwargs) if samples else ([], [])
+        )
+        normalize = kwargs.get(
+            "normalize_embeddings", kwargs.get("normalize_embedding", True)
+        )
+        data = []
+        for index, vector in enumerate(vectors):
+            vector = vector.float()[:dimensions]
+            if normalize:
+                vector = torch.nn.functional.normalize(vector, p=2, dim=0)
+            data.append(
+                EmbeddingData(
+                    index=index, object="embedding", embedding=vector.tolist()
+                )
+            )
+        tokens = sum(counts)
+        self._clean_cache_if_needed(tokens)
+        return self._with_token_counts(
+            Embedding(
+                object="list",
+                model=kwargs.get("model_uid"),
+                model_replica=self._model_uid,
+                data=data,
+                usage=EmbeddingUsage(prompt_tokens=tokens, total_tokens=tokens),
+            ),
+            counts,
+        )
+
+
+class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
+    replica_autoscaling = "batch"
+    engine = "transformers"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        EmbeddingModel.__init__(self, *args, **kwargs)
+        BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+        self._validate_dimensions(self._kwargs.get("dimensions"))
+
+    def load(self) -> None:
+        dependencies = self.check_lib()
+        if dependencies != True:
+            raise ImportError(dependencies[1])  # type: ignore[index]
+        from transformers import AutoModel, AutoProcessor
+
+        self._device = self._device or get_available_device()
+        model_kwargs = dict(self._kwargs.get("model_kwargs", {}))
+        model_kwargs.setdefault("dtype", self._kwargs.get("torch_dtype", "auto"))
+        model_kwargs.setdefault("device_map", self._device)
+        self._processor = AutoProcessor.from_pretrained(self._model_path)
+        self._tokenizer = self._processor.tokenizer
+        self._model = AutoModel.from_pretrained(self._model_path, **model_kwargs).eval()
+
+    def _encode_samples(
+        self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
+    ):
+        vectors, counts = [], []
+        for sample in samples:
+            features = self._processor.apply_chat_template(
+                make_messages(sample, prefix),
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+                **kwargs.get("processing_kwargs", {}),
+            )
+            if features["input_ids"].shape[-1] > self.model_family.max_tokens:
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed input exceeds 32768 tokens; shorten text or resize the image."
+                )
+            features = features.to(self._model.device)
+            if "pixel_values" in features:
+                features["pixel_values"] = features["pixel_values"].to(
+                    self._model.dtype
+                )
+            with torch.inference_mode():
+                hidden = self._model(**features).last_hidden_state.float()
+                mask = features["attention_mask"].unsqueeze(-1)
+                pooled = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1)
+            vectors.append(pooled[0])
+            counts.append(int(features["attention_mask"].sum().item()))
+        return vectors, counts
+
+
+class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingModel):
+    engine = "sentence_transformers"
+
+    def load(self) -> None:
+        dependencies = self.check_lib()
+        if dependencies != True:
+            raise ImportError(dependencies[1])  # type: ignore[index]
+        from sentence_transformers import SentenceTransformer
+
+        self._device = self._device or get_available_device()
+        model_kwargs = dict(self._kwargs.get("model_kwargs", {}))
+        model_kwargs.setdefault("dtype", self._kwargs.get("torch_dtype", "auto"))
+        self._model = SentenceTransformer(
+            self._model_path, device=self._device, model_kwargs=model_kwargs
+        )
+        self._model.max_seq_length = self.model_family.max_tokens
+        self._tokenizer = self._model.tokenizer
+
+    def _encode_samples(
+        self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
+    ):
+        vectors, counts = [], []
+
+        def count_tokens(module: Any, args: Tuple[Any, ...]) -> None:
+            counts.append(int(args[0]["attention_mask"].sum().item()))
+
+        hook = self._model.register_forward_pre_hook(count_tokens)
+        try:
+            # The model card uses batch_size=1 for mixed image/text documents.
+            # Each forward then supplies the exact token count for its input.
+            for sample in samples:
+                with torch.inference_mode():
+                    vector = self._model.encode(
+                        [sample],
+                        prompt_name="query" if prefix == "query:" else "document",
+                        batch_size=1,
+                        convert_to_tensor=True,
+                        convert_to_numpy=False,
+                        show_progress_bar=False,
+                        processing_kwargs=kwargs.get("processing_kwargs"),
+                    )
+                vectors.append(vector[0])
+        finally:
+            hook.remove()
+        return vectors, counts
+
+
+class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
+    replica_autoscaling = "batch"
+    engine = "vllm"
+
+    def load(self) -> None:
+        dependencies = self.check_lib()
+        if dependencies != True:
+            raise ImportError(dependencies[1])  # type: ignore[index]
+        # Xinference loads models in a thread pool. Forking that thread can
+        # inherit locked PyTorch/OpenMP state and hang while cloning weights.
+        os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
+        from transformers import AutoProcessor
+        from vllm import LLM
+        from vllm.config import PoolerConfig
+
+        self._validate_dimensions(self._kwargs.get("dimensions"))
+        options = dict(self._kwargs)
+        for key in ("batch_size", "batch_interval", "dimensions"):
+            options.pop(key, None)
+        options.setdefault("runner", "pooling")
+        options.setdefault("max_model_len", self.model_family.max_tokens)
+        options.setdefault(
+            "pooler_config",
+            PoolerConfig(task="embed", pooling_type="MEAN", use_activation=True),
+        )
+        if self.model_family.model_name.endswith("NVFP4"):
+            options.setdefault("compilation_config", {"compile_mm_encoder": True})
+        self._processor = AutoProcessor.from_pretrained(self._model_path)
+        self._model = LLM(model=self._model_path, **options)
+        self._tokenizer = self._model.get_tokenizer()
+        if self._pooling_load is not None:
+            self._pooling_load.configure_sync(self._model)
+
+    def _encode_samples(
+        self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
+    ):
+        from vllm import PoolingParams
+
+        prompts = []
+        for sample in samples:
+            prompt = {
+                "prompt": self._processor.apply_chat_template(
+                    make_messages(sample, prefix), tokenize=False
+                )
+            }
+            if "image" in sample:
+                prompt["multi_modal_data"] = {"image": sample["image"]}
+            if kwargs.get("processing_kwargs"):
+                prompt["mm_processor_kwargs"] = kwargs["processing_kwargs"]
+            prompts.append(prompt)
+        outputs = self._embed_sync(
+            prompts,
+            pooling_params=PoolingParams(use_activation=False),
+            tokenization_kwargs={"add_special_tokens": False},
+        )
+        return (
+            [torch.tensor(output.outputs.embedding) for output in outputs],
+            [len(output.prompt_token_ids) for output in outputs],
+        )
