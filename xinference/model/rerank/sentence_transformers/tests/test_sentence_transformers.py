@@ -1,3 +1,5 @@
+# CI: linux
+
 import asyncio
 import contextlib
 import shutil
@@ -193,12 +195,15 @@ def test_qwen3_vl_batch_isolation():
 
 @pytest.mark.asyncio
 async def test_qwen3_vl_batch_skips_empty_request():
-    model = SentenceTransformerRerankModel.__new__(SentenceTransformerRerankModel)
+    model = SentenceTransformerRerankModel(
+        "mock",
+        "/unused",
+        BUILTIN_RERANK_MODELS["Qwen3-VL-Reranker-2B"][0],
+        "none",
+        batch_interval=0.01,
+    )
     model._vl_reranker = MagicMock()
     model._vl_reranker.process.return_value = [0.9]
-    model._counter = 0
-    model.batch_interval = 0.01
-    BatchMixin.__init__(model, model.rerank)
 
     try:
         normal, empty = await asyncio.gather(

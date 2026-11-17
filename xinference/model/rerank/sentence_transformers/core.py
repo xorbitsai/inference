@@ -28,7 +28,7 @@ from xoscar import extensible
 
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import dependency_import_guard, make_hashable
-from ...batch import BatchMixin
+from ...batch import BatchMixin, BatchRequestError
 from ...utils import (
     allow_trust_remote_code,
     check_dependency_available,
@@ -39,6 +39,7 @@ from ..nemotron import (
     NEMOTRON_RERANK_MODEL_NAME,
     check_nemotron_dependencies,
     nemotron_messages,
+    prepare_nemotron_request,
 )
 from ..utils import preprocess_sentence
 
@@ -768,6 +769,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
 
     @rerank.batch  # type: ignore
     def rerank(self, args_list, kwargs_list):
+        is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
+        results_with_index = []
         grouped = defaultdict(
             lambda: {
                 "documents": [],
@@ -782,6 +785,12 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
 
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
+            if is_nemotron:
+                try:
+                    documents = prepare_nemotron_request(documents, query)
+                except Exception as error:
+                    results_with_index.append((i, BatchRequestError(error)))
+                    continue
 
             key = make_hashable(extra_kwargs)
             group = grouped[key]
@@ -793,8 +802,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             group["documents"].extend(documents)
             group["query"].extend([query] * documents_size)
             group["indices"].append(i)  # remember original position
-
-        results_with_index = []
 
         # 2. Process each group separately
         for key, group in grouped.items():
@@ -813,6 +820,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 tmp_documents = group["documents"][offset : offset + n]
+                if is_nemotron:
+                    tmp_documents = [doc.original for doc in tmp_documents]
                 tmp_queries = group["query"][offset : offset + n]
                 data = score_list[offset : offset + n]
                 sim_scores_argsort = list(reversed(np.argsort(data)))
@@ -942,6 +951,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         self._reset_token_tracking()
         instruction = kwargs.pop("instruction", None)
         pairs = []
+        messages_for_counts = []
         for query, document in zip(queries, documents):
             messages = nemotron_messages(query, document)
             text_query = "\n\n".join(b["text"] for b in messages[0]["content"])
@@ -957,6 +967,12 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 if block["type"] == "image":
                     doc["image"] = block["image"]
             pairs.append([text_query, doc])
+            if return_len:
+                messages[0]["content"] = [{"type": "text", "text": text_query}]
+                messages[1]["content"] = [
+                    {"type": kind, kind: value} for kind, value in doc.items()
+                ]
+                messages_for_counts.append(messages)
         if not pairs:
             return []
         if return_len:
@@ -969,9 +985,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                     self._model_path
                 )
             counts = []
-            for query, document in pairs:
+            for messages in messages_for_counts:
                 inputs = processor.apply_chat_template(
-                    nemotron_messages(query, document),
+                    messages,
                     tokenize=True,
                     add_generation_prompt=False,
                     return_dict=True,

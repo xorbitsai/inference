@@ -14,7 +14,7 @@ from ....core.replica_load import EngineLoad
 from ....device_utils import empty_cache, is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import dependency_import_guard, make_hashable
-from ...batch import BatchMixin
+from ...batch import BatchMixin, BatchRequestError
 from ...utils import check_dependency_available
 from ...vllm_load import VLLMPoolingLoad
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
@@ -28,6 +28,7 @@ from ..nemotron import (
     NEMOTRON_RERANK_MODEL_NAME,
     check_nemotron_dependencies,
     nemotron_messages,
+    prepare_nemotron_request,
 )
 
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
@@ -234,7 +235,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
     def _rerank_nemotron(
         self, documents: List[Any], queries: List[Any], *, progress: Any = False
     ) -> List[Any]:
-        from transformers.image_utils import load_image
         from vllm.outputs import ScoringRequestOutput
 
         if len(queries) != len(documents):
@@ -247,7 +247,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             images = []
             for block in messages[1]["content"]:
                 if block["type"] == "image":
-                    images.append(load_image(block.pop("image")).convert("RGB"))
+                    images.append(block.pop("image"))
             prompt = self._tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
@@ -550,6 +550,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
     @rerank.batch  # type: ignore
     def rerank(self, args_list, kwargs_list):
+        is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
+        results_with_index = []
         grouped = defaultdict(
             lambda: {
                 "documents": [],
@@ -564,6 +566,12 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
 
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
+            if is_nemotron:
+                try:
+                    documents = prepare_nemotron_request(documents, query)
+                except Exception as error:
+                    results_with_index.append((i, BatchRequestError(error)))
+                    continue
 
             key = make_hashable(extra_kwargs)
             group = grouped[key]
@@ -575,8 +583,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             group["documents"].extend(documents)
             group["query"].extend([query] * documents_size)
             group["indices"].append(i)  # remember original position
-
-        results_with_index = []
 
         # 2. Process each group separately
         for key, group in grouped.items():
@@ -594,6 +600,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 tmp_documents = group["documents"][offset : offset + n]
+                if is_nemotron:
+                    tmp_documents = [doc.original for doc in tmp_documents]
                 data = score_list[offset : offset + n]
                 scores = map(lambda scoreoutput: scoreoutput.outputs.score, data)
                 tmp_documents = list(map(lambda doc: Document(text=doc), tmp_documents))

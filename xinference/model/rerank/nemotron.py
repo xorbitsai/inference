@@ -14,10 +14,13 @@
 """Input and dependency contracts for Nemotron 3.5 multimodal reranking."""
 
 import importlib
+from dataclasses import dataclass
+from io import BytesIO
 from typing import Any, Dict, List, Tuple, Union
 
 from packaging.version import Version
 
+from ..llm import media
 from ..utils import check_dependency_available, virtual_env_allows_missing_engine
 
 NEMOTRON_RERANK_MODEL_NAME = "Nemotron-3.5-Rerank-8B"
@@ -102,8 +105,40 @@ def nemotron_content(value: Any, *, query: bool = False) -> List[Dict[str, Any]]
     return normalized
 
 
+@dataclass
+class _PreparedDocument:
+    original: Any
+    content: List[Dict[str, Any]]
+
+
+def _prepare_document(document: Any) -> _PreparedDocument:
+    if isinstance(document, _PreparedDocument):
+        return document
+    content = nemotron_content(document)
+    for block in content:
+        if block["type"] == "image":
+            from PIL import Image, ImageOps
+
+            data = media.load_media_bytes(block["image"])
+            with Image.open(BytesIO(data)) as image:
+                block["image"] = ImageOps.exif_transpose(image).convert("RGB")
+    return _PreparedDocument(document, content)
+
+
+def prepare_nemotron_request(
+    documents: List[Any], query: Any
+) -> List[_PreparedDocument]:
+    """Prepare one request before adding any of its documents to a batch."""
+    if documents:
+        nemotron_content(query, query=True)
+    return [_prepare_document(document) for document in documents]
+
+
 def nemotron_messages(query: Any, document: Any) -> List[Dict[str, Any]]:
     return [
         {"role": "query", "content": nemotron_content(query, query=True)},
-        {"role": "document", "content": nemotron_content(document)},
+        {
+            "role": "document",
+            "content": [dict(block) for block in _prepare_document(document).content],
+        },
     ]

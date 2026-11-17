@@ -14,6 +14,7 @@
 
 # CI: linux
 
+import asyncio
 import copy
 import sys
 from types import ModuleType, SimpleNamespace
@@ -21,9 +22,11 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from PIL import Image
 
 from xinference.core.utils import filter_virtualenv_packages_by_markers
 from xinference.core.virtual_env_manager import expand_engine_dependency_placeholders
+from xinference.model.llm import media
 from xinference.model.rerank import _install
 from xinference.model.rerank.nemotron import NEMOTRON_RERANK_MODEL_NAME as MODEL
 from xinference.model.rerank.nemotron import nemotron_messages
@@ -35,7 +38,10 @@ from xinference.model.rerank.transformers.core import NemotronTransformersRerank
 from xinference.model.rerank.vllm.core import VLLMRerankModel
 from xinference.model.utils import get_engine_params_by_name_with_virtual_env
 
-IMAGE = "data:image/png;base64,aW1hZ2U="
+IMAGE = (
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAAAAABX3VL4"
+    "AAAADklEQVR4nGNsYGBiYAAAApIAhPd8o1gAAAAASUVORK5CYII="
+)
 
 
 def family():
@@ -162,7 +168,10 @@ async def test_native_transformers_raw_logits_and_multimodal_tokens():
     assert model._get_input_tokens_slice(1, 2) == [6]
     assert model._model.call_args.kwargs["pixel_values"].dtype == torch.bfloat16
     call = model._processor.apply_chat_template.call_args
-    assert call.args[0][1]["content"][1] == {"type": "image", "image": IMAGE}
+    block = call.args[0][1]["content"][1]
+    assert block["type"] == "image"
+    assert isinstance(block["image"], Image.Image)
+    assert block["image"].mode == "RGB"
     assert call.kwargs["add_generation_prompt"] is False
 
 
@@ -178,7 +187,10 @@ def test_native_context_limit_and_empty_input():
     assert model._rerank_nemotron([], [], False) == []
 
 
-def test_sentence_transformers_predict_and_tokens():
+def test_sentence_transformers_predict_and_tokens(monkeypatch):
+    image_url = "https://1.1.1.1/image.png"
+    fetch = Mock(return_value=media.decode_data_uri(IMAGE))
+    monkeypatch.setattr(media, "fetch_media", fetch)
     model = make_model(SentenceTransformerRerankModel)
     model._model = SimpleNamespace(
         predict=Mock(return_value=torch.tensor([-2.0, -1.0], dtype=torch.bfloat16))
@@ -186,15 +198,23 @@ def test_sentence_transformers_predict_and_tokens():
     model._nemotron_processor = SimpleNamespace(
         apply_chat_template=Mock(side_effect=[processor_inputs(3), processor_inputs(5)])
     )
-    documents = ["text", {"text": "page", "image_url": {"url": IMAGE}}]
+    documents = ["text", {"text": "page", "image_url": {"url": image_url}}]
     scores = model._rerank(documents, ["q", "q"], None, None, True, True)
+    fetch.assert_called_once_with(image_url, None)
     assert scores == [-2.0, -1.0]
     assert model._get_n_tokens() == 8
     call = model._model.predict.call_args
-    assert call.args[0] == [
-        ["q", {"text": "text"}],
-        ["q", {"text": "page", "image": IMAGE}],
-    ]
+    assert call.args[0][0] == ["q", {"text": "text"}]
+    query, document = call.args[0][1]
+    assert query == "q"
+    assert document["text"] == "page"
+    assert isinstance(document["image"], Image.Image)
+    assert (
+        model._nemotron_processor.apply_chat_template.call_args.args[0][1]["content"][
+            1
+        ]["image"]
+        is document["image"]
+    )
     assert call.kwargs["batch_size"] == 1
     assert call.kwargs["convert_to_tensor"] is True
 
@@ -229,11 +249,7 @@ def install_fake_vllm(monkeypatch, **attributes):
 @pytest.mark.parametrize("load_reporting", [False, True])
 async def test_vllm_classification_template_and_images(monkeypatch, load_reporting):
     install_fake_vllm(monkeypatch)
-    from transformers import image_utils
 
-    image = Mock()
-    image.convert.return_value = image
-    monkeypatch.setattr(image_utils, "load_image", Mock(return_value=image))
     model = make_model(VLLMRerankModel)
     outputs = [
         SimpleNamespace(outputs=SimpleNamespace(score=-2.0), prompt_token_ids=[1, 2]),
@@ -281,10 +297,81 @@ async def test_vllm_classification_template_and_images(monkeypatch, load_reporti
     if load_reporting:
         assert model._pooling_load._sync_progress is None
     assert "multi_modal_data" not in call.args[0][0]
-    assert call.args[0][1]["multi_modal_data"] == {"image": image}
+    image = call.args[0][1]["multi_modal_data"]["image"]
+    assert isinstance(image, Image.Image)
+    assert image.mode == "RGB"
     assert model._tokenizer.apply_chat_template.call_args.args[0][1]["content"][1] == {
         "type": "image"
     }
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [SentenceTransformerRerankModel, NemotronTransformersRerankModel, VLLMRerankModel],
+)
+@pytest.mark.parametrize("blocked_address", [False, True])
+async def test_media_failure_isolated_in_shared_rerank_batch(
+    cls, blocked_address, monkeypatch
+):
+    from transformers import image_utils
+
+    monkeypatch.setattr(
+        image_utils,
+        "load_image",
+        Mock(side_effect=AssertionError("Backend must not fetch image URLs")),
+    )
+    if cls is VLLMRerankModel:
+        install_fake_vllm(monkeypatch)
+    model = cls("test", "/unused", family(), "none", device="cpu", batch_size=4)
+    model.batch_interval = 0
+    model._model = Mock()
+    if cls is VLLMRerankModel:
+        model._model.encode.return_value = [
+            SimpleNamespace(
+                outputs=SimpleNamespace(score=-1.0), prompt_token_ids=[1, 2]
+            )
+        ]
+        model._tokenizer = SimpleNamespace(
+            apply_chat_template=Mock(return_value="prompt")
+        )
+    elif cls is NemotronTransformersRerankModel:
+        model._processor = SimpleNamespace(
+            apply_chat_template=Mock(return_value=processor_inputs())
+        )
+        model._model.device = "cpu"
+        model._model.dtype = torch.float32
+        model._model.return_value = SimpleNamespace(logits=torch.tensor([[-1.0]]))
+    else:
+        model._model.predict.return_value = torch.tensor([-1.0])
+
+    fetch = Mock(side_effect=OSError("image download failed"))
+    monkeypatch.setattr(media, "fetch_media", fetch)
+    monkeypatch.setenv("XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS", "true")
+    url = (
+        "http://127.0.0.1/image.png" if blocked_address else "https://1.1.1.1/image.png"
+    )
+    score = Mock(wraps=model._rerank_nemotron)
+    monkeypatch.setattr(model, "_rerank_nemotron", score)
+    failed, valid = await asyncio.gather(
+        model.rerank(
+            ["discard this too", {"image": url}], "bad", None, None, True, False
+        ),
+        model.rerank(["keep this"], "good", None, None, True, False),
+        return_exceptions=True,
+    )
+    if blocked_address:
+        assert isinstance(failed, ValueError)
+        assert "public addresses" in str(failed)
+        fetch.assert_not_called()
+    else:
+        assert isinstance(failed, OSError)
+        assert str(failed) == "image download failed"
+        fetch.assert_called_once_with(url, None)
+    assert valid["results"] == [
+        {"index": 0, "relevance_score": -1.0, "document": {"text": "keep this"}}
+    ]
+    score.assert_called_once()
+    assert score.call_args.args[1] == ["good"]
 
 
 def test_vllm_load_uses_mean_pooling_without_activation(monkeypatch):
@@ -354,8 +441,6 @@ def test_sentence_transformers_load_keeps_raw_scores(monkeypatch):
 
 
 async def test_native_requests_keep_queries_scores_and_token_counts_separate():
-    import asyncio
-
     model = make_model(NemotronTransformersRerankModel)
     model._processor = SimpleNamespace(
         apply_chat_template=Mock(

@@ -145,8 +145,10 @@ Use the returned model UID in the standard rerank endpoint::
         }'
 
 Images can be HTTP(S) URLs or base64 data URLs. OpenAI-style content dictionaries
-with ``text`` and ``image_url`` blocks are also accepted. Returned documents
-retain their original input structure. The vLLM adapter renders the checkpoint's
+with ``text`` and ``image_url`` blocks are also accepted. HTTP(S) downloads follow
+Xinference's media policy, including redirect checks, a timeout, and a size limit.
+Private addresses are blocked by default. Returned documents retain their original
+input structure. The vLLM adapter renders the checkpoint's
 query/document template and uses classification pooling, preserving its image
 placeholders and raw logits.
 
