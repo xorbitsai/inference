@@ -18,8 +18,7 @@ Specifications
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name {{ model_name }} --model-type embedding{% if model_name.endswith('-NVFP4') %} --model-engine vllm{% endif %}
-{% if model_name.startswith('Nemotron-3.5-Embed-') %}
+   xinference launch --model-name {{ model_name }} --model-type embedding{% if model_name.startswith('Nemotron-3.5-Embed-') %}{% if model_name.endswith('-NVFP4') %} --model-engine vllm{% endif %}
 
 Multimodal retrieval
 ^^^^^^^^^^^^^^^^^^^^
@@ -60,5 +59,4 @@ The 32,768-token context includes image tokens. Audio and video are not supporte
 The Transformers and Sentence Transformers engines use Transformers 5.20.0
 or later. The vLLM environment uses
 vLLM 0.32.0 or later with ``transformers>=5.17.0,<5.20.0``; use a separate
-environment from the Transformers and Sentence Transformers engines.
-{% endif %}
+environment from the Transformers and Sentence Transformers engines.{% endif %}

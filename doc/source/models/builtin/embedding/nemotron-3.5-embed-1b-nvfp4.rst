@@ -20,7 +20,6 @@ Execute the following command to launch the model::
 
    xinference launch --model-name Nemotron-3.5-Embed-1B-NVFP4 --model-type embedding --model-engine vllm
 
-
 Multimodal retrieval
 ^^^^^^^^^^^^^^^^^^^^
 
