@@ -15,10 +15,12 @@ on:
 
 concurrency:
   # Main pushes must not cancel manual full-suite checks.
-  # The review state keeps a later comment-only review, whose run does
-  # nothing, from cancelling the run an approval started.
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.review.state }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Maintainer approvals of a pull request share one group and cancel
+  # nothing: a later approval waits for the run an earlier one started.
+  # Every other review gets a group of its own, so its run, which does
+  # nothing, cancels nothing either.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request_review' && (github.event.review.state == 'approved' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) && 'approval' || github.run_id) || '' }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review' }}
 
 jobs:
   lint:
@@ -162,6 +164,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      # Whether the older versions already ran on an approved head.
+      checks: read
     outputs:
       full_matrix: ${{ steps.approval.outputs.full_matrix }}
       gpu: ${{ steps.gpu.outputs.gpu }}
@@ -392,6 +396,17 @@ jobs:
       # Linux test job holds one for about 50 minutes. Until a maintainer
       # approves, a pull request tests only the newest Python on each
       # platform; after that, and on main and manual runs, every version.
+      #
+      # A pull request is approved when at least one maintainer's latest
+      # verdict is an approval and none is a change request. Each head gets
+      # the older versions once, from one of two runs:
+      # - a push (`pull_request`) gets them when the pull request was already
+      #   approved by reviews of earlier commits;
+      # - an approval (`pull_request_review`) adds them when the pull request
+      #   is approved and no other run has run, or is running, them on the
+      #   current head. This also covers an approval of an earlier commit
+      #   that arrives after a newer push.
+      # Reviews or checks that cannot be read keep the reduced matrix.
       - name: Detect maintainer approval
         id: approval
         shell: bash
@@ -400,26 +415,59 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # The first older-version job, as GitHub names its check run.
+          OLDER_CHECK: build_test_job (ubuntu-latest, 3.10, xinference)
         run: |
           set -uo pipefail
-          # Anything that is not an unapproved pull request runs everything,
-          # and so does a pull request whose reviews cannot be read.
           full_matrix=true
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "pull_request_review" ]; then
+            full_matrix=false
+            before=false; now=false
             # Reviews arrive oldest first; each maintainer's latest verdict counts.
             if gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
-                --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED") | [.user.login, .state] | @tsv' \
+                --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED") | [.user.login, .state, .commit_id] | @tsv' \
                 > reviews.tsv; then
-              full_matrix=$(awk -F '\t' '
-                { verdict[$1] = $2 }
-                END {
-                  approved = 0; blocked = 0
+              read -r before now < <(awk -F '\t' -v head="$HEAD_SHA" '
+                function approved(verdict,   login, yes, no) {
+                  yes = 0; no = 0
                   for (login in verdict) {
-                    if (verdict[login] == "APPROVED") approved = 1
-                    if (verdict[login] == "CHANGES_REQUESTED") blocked = 1
+                    if (verdict[login] == "APPROVED") yes = 1
+                    if (verdict[login] == "CHANGES_REQUESTED") no = 1
                   }
-                  print (approved && !blocked) ? "true" : "false"
-                }' reviews.tsv)
+                  return yes && !no
+                }
+                { all[$1] = $2; if ($3 != head) earlier[$1] = $2 }
+                END {
+                  print (approved(earlier) ? "true" : "false"), (approved(all) ? "true" : "false")
+                }' reviews.tsv) || true
+              # Anything but an explicit "true" is not an approval.
+              [ "$before" = "true" ] || before=false
+              [ "$now" = "true" ] || now=false
+              echo "Approved before this head: $before; approved now: $now"
+            else
+              echo "::warning::could not read the reviews; testing only the newest Python"
+            fi
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              full_matrix=$before
+            elif [ "$now" = "true" ]; then
+              # Older-version runs of other workflow runs on this head, finished
+              # with a verdict or still queued or running.
+              if ran=$(gh api --method GET "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+                  -f check_name="$OLDER_CHECK" -f per_page=100 \
+                  --jq '[.check_runs[]
+                         | select(.app.slug == "github-actions")
+                         | select((.details_url // "") | contains("/runs/" + env.GITHUB_RUN_ID + "/") | not)
+                         | select(.status != "completed" or .conclusion == "success" or .conclusion == "failure")]
+                        | length'); then
+                if [ "$ran" = "0" ]; then
+                  full_matrix=true
+                else
+                  echo "The older versions already ran on this head."
+                fi
+              else
+                echo "::warning::could not read the checks; testing only the newest Python"
+              fi
             fi
           fi
           echo "full_matrix=$full_matrix" >> "$GITHUB_OUTPUT"

@@ -138,23 +138,62 @@ class TestPythonWorkflow(unittest.TestCase):
         self.assertEqual(platform["os"], ["macos-latest", "windows-latest"])
         self.assertEqual(platform["python-version"], ["3.14"])
 
-    def approval(self, event, reviews=(), *, api_fails=False):
-        """Run the approval step against reviews listed oldest first."""
+    HEAD = "b" * 40
+    EARLIER = "a" * 40
+
+    def approval(
+        self,
+        event,
+        reviews=(),
+        *,
+        api_fails=False,
+        checks=(),
+        checks_fail=False,
+    ):
+        """Run the approval step against reviews listed oldest first.
+
+        A review is (login, state, role) on an earlier commit, or (login,
+        state, role, commit). `checks` are (app, status, conclusion, run id)
+        of the older-version check runs on the head; this run's id is 7.
+        """
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             (work / "bin").mkdir()
             listed = [
-                {"user": {"login": login}, "state": state, "author_association": role}
-                for login, state, role in reviews
+                {
+                    "user": {"login": review[0]},
+                    "state": review[1],
+                    "author_association": review[2],
+                    "commit_id": review[3] if len(review) > 3 else self.EARLIER,
+                }
+                for review in reviews
             ]
             (work / "reviews.json").write_text(json.dumps(listed))
-            # Stands in for `gh api --jq`: applies the step's own filter.
+            runs = [
+                {
+                    "app": {"slug": app},
+                    "status": status,
+                    "conclusion": conclusion,
+                    "details_url": "https://github.com/xorbitsai/inference"
+                    f"/actions/runs/{run_id}/job/1",
+                }
+                for app, status, conclusion, run_id in checks
+            ]
+            (work / "checks.json").write_text(json.dumps({"check_runs": runs}))
+            # Stands in for `gh api --jq`: applies the step's own filter to
+            # the fixture of the endpoint it asks for.
             fake_gh = work / "bin/gh"
             fake_gh.write_text(
                 "#!/bin/bash\n"
-                f"[ {int(api_fails)} = 1 ] && exit 1\n"
+                'case "$*" in\n'
+                f"  *check-runs*) [ {int(checks_fail)} = 1 ] && exit 1;"
+                f' fixture="{work}/checks.json" ;;\n'
+                f"  *reviews*) [ {int(api_fails)} = 1 ] && exit 1;"
+                f' fixture="{work}/reviews.json" ;;\n'
+                "  *) exit 1 ;;\n"
+                "esac\n"
                 'while [ "$1" != "--jq" ]; do shift; done\n'
-                f'exec jq -r "$2" "{work}/reviews.json"\n'
+                'exec jq -r "$2" "$fixture"\n'
             )
             fake_gh.chmod(0o755)
             output = work / "outputs"
@@ -168,6 +207,9 @@ class TestPythonWorkflow(unittest.TestCase):
                     "EVENT_NAME": event,
                     "REPO": "xorbitsai/inference",
                     "PR_NUMBER": "1",
+                    "HEAD_SHA": self.HEAD,
+                    "GITHUB_RUN_ID": "7",
+                    "OLDER_CHECK": APPROVAL_STEP["env"]["OLDER_CHECK"],
                 },
                 check=True,
                 capture_output=True,
@@ -196,13 +238,13 @@ class TestPythonWorkflow(unittest.TestCase):
             ],
         }
         for name, reviews in cases.items():
-            with self.subTest(name):
-                self.assertEqual(
-                    self.approval("pull_request", reviews), "full_matrix=false"
-                )
+            for event in ("pull_request", "pull_request_review"):
+                with self.subTest(name, event=event):
+                    self.assertEqual(self.approval(event, reviews), "full_matrix=false")
 
     @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
-    def test_approved_pull_requests_test_every_python(self):
+    def test_a_push_after_an_approval_tests_every_python(self):
+        # Approval carries over to later commits: stale reviews are kept.
         cases = {role: [("alice", "APPROVED", role)] for role in MAINTAINERS}
         cases["objection resolved"] = [
             ("alice", "CHANGES_REQUESTED", "MEMBER"),
@@ -222,16 +264,126 @@ class TestPythonWorkflow(unittest.TestCase):
                     self.approval("pull_request", reviews), "full_matrix=true"
                 )
 
-    def test_main_manual_approval_and_unreadable_reviews_test_every_python(self):
-        for event in ("push", "workflow_dispatch", "pull_request_review"):
-            with self.subTest(event):
-                # These never ask for the reviews.
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_each_head_gets_the_older_versions_from_one_run(self):
+        head = self.HEAD
+        first_approval = [("alice", "APPROVED", "MEMBER", head)]
+        # The push run of a head approved while it was queued leaves the older
+        # versions to the approval's own run.
+        self.assertEqual(
+            self.approval("pull_request", first_approval), "full_matrix=false"
+        )
+        self.assertEqual(
+            self.approval("pull_request_review", first_approval), "full_matrix=true"
+        )
+        # A head whose push run has them, finished or not, gets nothing from
+        # a later approval.
+        approved_earlier = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("carol", "APPROVED", "OWNER", head),
+        ]
+        self.assertEqual(
+            self.approval("pull_request", approved_earlier), "full_matrix=true"
+        )
+        for status, conclusion in (
+            ("queued", None),
+            ("in_progress", None),
+            ("completed", "success"),
+        ):
+            with self.subTest(status):
                 self.assertEqual(
-                    self.approval(event, api_fails=True), "full_matrix=true"
+                    self.approval(
+                        "pull_request_review",
+                        approved_earlier,
+                        checks=[("github-actions", status, conclusion, 3)],
+                    ),
+                    "full_matrix=false",
+                )
+        # An approval of an earlier commit that arrives after a newer push
+        # still gives the new head the older versions.
+        late = [("alice", "APPROVED", "MEMBER", self.EARLIER)]
+        self.assertEqual(self.approval("pull_request_review", late), "full_matrix=true")
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_an_approval_with_an_outstanding_change_request_adds_nothing(self):
+        reviews = [
+            ("bob", "CHANGES_REQUESTED", "COLLABORATOR"),
+            ("alice", "APPROVED", "MEMBER", self.HEAD),
+        ]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(self.approval(event, reviews), "full_matrix=false")
+        # Once the objection is withdrawn on this head, the approval run
+        # that follows adds the older versions.
+        withdrawn = reviews + [("bob", "APPROVED", "COLLABORATOR", self.HEAD)]
+        self.assertEqual(
+            self.approval("pull_request_review", withdrawn), "full_matrix=true"
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_a_second_approval_does_not_repeat_the_older_versions(self):
+        reviews = [
+            ("alice", "APPROVED", "MEMBER", self.HEAD),
+            ("carol", "APPROVED", "OWNER", self.HEAD),
+        ]
+        for conclusion in ("success", "failure"):
+            with self.subTest(conclusion):
+                self.assertEqual(
+                    self.approval(
+                        "pull_request_review",
+                        reviews,
+                        checks=[("github-actions", "completed", conclusion, 3)],
+                    ),
+                    "full_matrix=false",
+                )
+        # Skipped, cancelled or foreign check runs, and this run's own, do
+        # not count.
+        not_run = [
+            ("github-actions", "completed", "skipped", 3),
+            ("github-actions", "completed", "cancelled", 3),
+            ("someone-else", "completed", "success", 3),
+            ("github-actions", "queued", None, 7),
+            ("github-actions", "completed", "success", 7),
+        ]
+        self.assertEqual(
+            self.approval("pull_request_review", reviews, checks=not_run),
+            "full_matrix=true",
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_unverifiable_pull_requests_test_only_the_newest_python(self):
+        approved = [("alice", "APPROVED", "MEMBER", self.HEAD)]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(
+                    self.approval(event, approved, api_fails=True),
+                    "full_matrix=false",
                 )
         self.assertEqual(
-            self.approval("pull_request", api_fails=True), "full_matrix=true"
+            self.approval("pull_request_review", approved, checks_fail=True),
+            "full_matrix=false",
         )
+
+    def test_main_and_manual_runs_test_every_python(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event):
+                # These never ask for reviews or checks.
+                self.assertEqual(
+                    self.approval(event, api_fails=True, checks_fail=True),
+                    "full_matrix=true",
+                )
+
+    def test_the_older_version_marker_names_a_real_check(self):
+        linux = JOBS["full_matrix_linux_test_job"]
+        versions = linux["strategy"]["matrix"]["python-version"]
+        name = (
+            linux["name"]
+            .replace("${{ matrix.os }}", linux["strategy"]["matrix"]["os"][0])
+            .replace("${{ matrix.python-version }}", versions[0])
+            .replace("${{ matrix.module }}", linux["strategy"]["matrix"]["module"][0])
+        )
+        self.assertEqual(APPROVAL_STEP["env"]["OLDER_CHECK"], name)
+        self.assertEqual(JOBS["changes"]["permissions"]["checks"], "read")
 
     def test_only_a_maintainer_approval_starts_a_review_run(self):
         self.assertEqual(
@@ -245,9 +397,20 @@ class TestPythonWorkflow(unittest.TestCase):
             " github.event.review.author_association)))",
             condition,
         )
-        # A comment-only review must not cancel the run an approval started.
-        self.assertIn(
-            "${{ github.event.review.state }}", WORKFLOW["concurrency"]["group"]
+        # Maintainer approvals share a group and cancel nothing; any other
+        # review has a group of its own, so no review cancels a useful run.
+        self.assertEqual(
+            WORKFLOW["concurrency"]["group"],
+            "${{ github.workflow }}-${{ github.event_name }}-${{"
+            " github.event_name == 'pull_request_review' &&"
+            " (github.event.review.state == 'approved' &&"
+            ' contains(fromJSON(\'["OWNER", "MEMBER", "COLLABORATOR"]\'),'
+            " github.event.review.author_association) && 'approval'"
+            " || github.run_id) || '' }}-${{ github.ref }}",
+        )
+        self.assertEqual(
+            WORKFLOW["concurrency"]["cancel-in-progress"],
+            "${{ github.event_name != 'pull_request_review' }}",
         )
         self.assertEqual(
             JOBS["changes"]["outputs"]["full_matrix"],
