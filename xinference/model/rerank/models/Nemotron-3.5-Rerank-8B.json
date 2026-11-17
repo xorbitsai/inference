@@ -33,13 +33,13 @@
         }
       }
     ],
-    "updated_at": 1794816077,
+    "updated_at": 1794873916,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "sentence-transformers[image]>=6.1.0 ; #engine# == \"sentence_transformers\"",
-        "transformers>=5.20.0,<6 ; #engine# == \"sentence_transformers\"",
-        "transformers>=5.20.0,<6 ; #engine# == \"transformers\"",
+        "sentence-transformers[image]==6.1.0 ; #engine# == \"sentence_transformers\"",
+        "transformers==5.20.0 ; #engine# == \"sentence_transformers\"",
+        "transformers==5.20.0 ; #engine# == \"transformers\"",
         "accelerate ; #engine# == \"sentence_transformers\"",
         "accelerate ; #engine# == \"transformers\"",
         "Pillow",
@@ -47,8 +47,8 @@
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "#system_torchvision# ; #engine# == \"transformers\"",
-        "vllm>=0.32.0 ; #engine# == \"vllm\"",
-        "transformers>=5.19.0,<5.20.0 ; #engine# == \"vllm\"",
+        "vllm==0.32.0 ; #engine# == \"vllm\"",
+        "transformers==5.19.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     }

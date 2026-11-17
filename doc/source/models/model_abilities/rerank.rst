@@ -116,10 +116,10 @@ Launch with one of ``sentence_transformers``, ``transformers``, or ``vllm``::
     xinference launch --model-type rerank --model-name Nemotron-3.5-Rerank-8B \
         --model-engine sentence_transformers --model-format pytorch
 
-The Sentence Transformers backend requires ``sentence-transformers[image]>=6.1.0``
-and ``transformers>=5.20.0``. The native Transformers backend requires
-``transformers>=5.20.0``. The vLLM backend requires ``vllm>=0.32.0`` with its
-compatible Transformers dependency (``>=5.19.0,<5.20.0``). Use separate virtual
+The model virtualenv settings pin the validated backend versions:
+``sentence-transformers[image]==6.1.0`` with ``transformers==5.20.0`` for
+Sentence Transformers, ``transformers==5.20.0`` for native Transformers, and
+``vllm==0.32.0`` with ``transformers==5.19.0`` for vLLM. Use separate virtual
 environments for these backends. Model virtualenv settings install their
 respective dependencies automatically.
 

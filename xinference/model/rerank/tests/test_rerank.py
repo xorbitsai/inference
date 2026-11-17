@@ -22,6 +22,7 @@ import tempfile
 from types import SimpleNamespace
 
 import pytest
+from packaging.version import Version
 
 from xinference._model_catalog import load_model_catalog
 
@@ -525,6 +526,7 @@ def test_register_custom_rerank():
         ("GemmaTokenizerFast", "LLM-based"),
         ("XLMRobertaTokenizer", "normal"),
         ("XLMRobertaTokenizerFast", "normal"),
+        ("TokenizersBackend", "normal"),
         ("UnknownTokenizer", "normal"),
     ],
 )
@@ -536,22 +538,31 @@ def test_auto_detect_tokenizer_types(monkeypatch, tokenizer_name, expected):
     assert RerankModel._auto_detect_type("unused") == expected
 
 
-def test_auto_detect_type():
+@pytest.mark.parametrize(
+    "model",
+    load_model_catalog(os.path.join(os.path.dirname(__file__), "../models")),
+    ids=lambda model: model["model_name"],
+)
+def test_auto_detect_type(model):
     from ..core import RerankModel
 
-    rerank_model_json = os.path.join(os.path.dirname(__file__), "../models")
-    rerank_models = load_model_catalog(rerank_model_json)
-    for m in rerank_models:
-        if m["model_name"] == "minicpm-reranker":
-            # TODO: we need to fix the auto detect type
-            continue
-        try:
-            assert m["type"] == RerankModel._auto_detect_type(
-                m["model_specs"][0]["model_src"]["huggingface"]["model_id"]
+    if model["model_name"] == "minicpm-reranker":
+        pytest.skip("MiniCPM reranker type auto-detection is not supported yet")
+    if model["model_name"] == "Nemotron-3.5-Rerank-8B":
+        from transformers import __version__ as transformers_version
+
+        # The shared CI stack uses Transformers 4 for FlagEmbedding. Exercise
+        # this tokenizer in the model's Transformers 5.20 environment instead.
+        if Version(transformers_version) < Version("5.20.0"):
+            pytest.skip(
+                "Nemotron tokenizer requires its Transformers 5.20 model environment"
             )
-        except EnvironmentError:
-            # gated repo, ignore
-            continue
+    try:
+        assert model["type"] == RerankModel._auto_detect_type(
+            model["model_specs"][0]["model_src"]["huggingface"]["model_id"]
+        )
+    except EnvironmentError:
+        pytest.skip("Tokenizer repository is gated or unavailable")
 
 
 @pytest.mark.parametrize(

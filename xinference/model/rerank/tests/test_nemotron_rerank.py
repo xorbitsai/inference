@@ -67,12 +67,16 @@ def test_catalog_and_virtualenv_engines():
         )
         assert not any("#engine#" in package for package in packages)
         if engine == "vllm":
-            assert "vllm>=0.32.0" in packages
-            assert "transformers>=5.19.0,<5.20.0" in packages
+            assert "vllm==0.32.0" in packages
+            assert "transformers==5.19.0" in packages
             assert not any(p.startswith("sentence-transformers") for p in packages)
         else:
-            assert "transformers>=5.20.0,<6" in packages
+            assert "transformers==5.20.0" in packages
             assert not any(p.startswith("vllm") for p in packages)
+            if engine == "sentence_transformers":
+                assert "sentence-transformers[image]==6.1.0" in packages
+            else:
+                assert not any(p.startswith("sentence-transformers") for p in packages)
     assert not isinstance(engines.get("llama.cpp"), list)
 
 
