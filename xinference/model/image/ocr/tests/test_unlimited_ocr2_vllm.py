@@ -133,7 +133,7 @@ def test_vllm_unlimited_ocr2_is_picklable_before_loading():
 
 
 @pytest.mark.parametrize("page_count", [None, 1, 2])
-def test_vllm_unlimited_ocr2_document_input(fake_vllm, page_count, tmp_path):
+def test_vllm_unlimited_ocr2_document_input(fake_vllm, page_count):
     model = VLLMUnlimitedOCR2Model("ocr-test", device="cuda")
     rgba = Image.new("RGBA", (16, 8))
     images = rgba if page_count is None else [rgba] * page_count
@@ -147,15 +147,12 @@ def test_vllm_unlimited_ocr2_document_input(fake_vllm, page_count, tmp_path):
             top_p=0.8,
             repetition_penalty=1.1,
             max_page_tokens=120,
-            save_results=True,
-            save_dir=str(tmp_path),
             request_id="request",
             test_compress=False,
             eval_mode=True,
             return_dict=True,
         )
         assert result == "<PAGE><BLOCK>Invoice 12345"
-        assert (tmp_path / "result.md").read_text() == result
         assert len(fake_vllm["inputs"]) == 1
         request = fake_vllm["inputs"][0]
         assert request["prompt"] == "<PAGE><image>" * count + "Multi page parsing."
@@ -176,6 +173,30 @@ def test_vllm_unlimited_ocr2_document_input(fake_vllm, page_count, tmp_path):
         assert fake_vllm["sampling"].max_tokens == 8192 * count
         assert fake_vllm["inputs"][0]["mm_processor_kwargs"] == {"crop_mode": True}
         assert fake_vllm["inputs"][0]["prompt"].endswith("Read the invoice.")
+    finally:
+        model.stop()
+
+
+@pytest.mark.parametrize("existing_file", [False, True])
+def test_vllm_unlimited_ocr2_leaves_saving_to_client(
+    fake_vllm, tmp_path, existing_file
+):
+    save_dir = tmp_path / "caller-output"
+    result_path = save_dir / "result.md"
+    if existing_file:
+        save_dir.mkdir()
+        result_path.write_text("existing content", encoding="utf-8")
+
+    model = VLLMUnlimitedOCR2Model("ocr-test", device="cuda")
+    try:
+        result = model.ocr(
+            Image.new("RGB", (16, 16)), save_results=True, save_dir=str(save_dir)
+        )
+        assert result == "<PAGE><BLOCK>Invoice 12345"
+        if existing_file:
+            assert result_path.read_text(encoding="utf-8") == "existing content"
+        else:
+            assert not save_dir.exists()
     finally:
         model.stop()
 
@@ -209,7 +230,6 @@ def test_vllm_unlimited_ocr2_invalid_image(monkeypatch, image):
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        ({"save_results": True}, "save_dir must be provided"),
         ({"model_size": "tiny"}, "model_size must be"),
         ({"prompt": "<PAGE><image><PAGE><image>OCR"}, "one <PAGE><image> per image"),
         ({"prompt": "<PAGE>OCR"}, "one <PAGE><image> per image"),

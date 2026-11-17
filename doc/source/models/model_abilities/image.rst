@@ -536,8 +536,11 @@ the Transformers adapter; pass ``crop_mode=True`` to enable tiling for each page
 
 ``max_new_tokens`` or ``max_tokens`` controls the total output budget, which
 defaults to 8192 tokens per input page. The native page-count guard limits each
-page to ``max_page_tokens`` (20000 by default). Use ``save_results=True`` with
-``save_dir`` to save the returned text as ``result.md``.
+page to ``max_page_tokens`` (20000 by default).
+
+Save the returned text on the client. For PDF uploads, the response contains
+the combined text from the selected pages. The vLLM engine ignores
+``save_results`` and ``save_dir``.
 
 The default image limit is 32 pages per request, subject to the model context
 length and available GPU memory. Override ``limit_mm_per_prompt`` at launch to

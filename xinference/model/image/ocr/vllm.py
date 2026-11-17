@@ -15,7 +15,6 @@
 import concurrent.futures
 import logging
 import threading
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import PIL.Image
@@ -307,10 +306,6 @@ class VLLMUnlimitedOCR2Model(UnlimitedOCR2Model):
             raise ValueError(
                 "Input must be a PIL Image or a non-empty list of PIL Images"
             )
-        save_results = kwargs.pop("save_results", False)
-        save_dir = kwargs.pop("save_dir", None)
-        if save_results and not save_dir:
-            raise ValueError("save_dir must be provided when save_results=True")
         model_size = kwargs.pop("model_size", "gundam")
         if model_size not in ("gundam", "base"):
             raise ValueError("model_size must be 'gundam' or 'base'")
@@ -372,12 +367,7 @@ class VLLMUnlimitedOCR2Model(UnlimitedOCR2Model):
             self._model.generate, inputs, sampling_params
         )
         texts = _extract_text(outputs)
-        result = texts[0] if texts else ""
-        if save_results:
-            output_path = Path(save_dir)
-            output_path.mkdir(parents=True, exist_ok=True)
-            (output_path / "result.md").write_text(result, encoding="utf-8")
-        return result
+        return texts[0] if texts else ""
 
 
 class VLLMGotOCR2Model(GotOCR2Model):
