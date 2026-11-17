@@ -140,6 +140,7 @@ class TestPythonWorkflow(unittest.TestCase):
 
     HEAD = "b" * 40
     EARLIER = "a" * 40
+    OLDER = APPROVAL_STEP["env"]["OLDER_CHECK"]
 
     def approval(
         self,
@@ -149,13 +150,19 @@ class TestPythonWorkflow(unittest.TestCase):
         api_fails=False,
         checks=(),
         checks_fail=False,
+        snapshots=None,
     ):
         """Run the approval step against reviews listed oldest first.
 
         A review is (login, state, role) on an earlier commit, or (login,
         state, role, commit). `checks` are (app, status, conclusion, run id)
-        of the older-version check runs on the head; this run's id is 7.
+        of the older-version check runs on the head, or (app, status,
+        conclusion, run id, name) of any check run; this run's id is 7.
+        `snapshots` lists what successive check-run reads return, the last
+        one repeating.
         """
+        if snapshots is None:
+            snapshots = [checks]
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             (work / "bin").mkdir()
@@ -169,17 +176,21 @@ class TestPythonWorkflow(unittest.TestCase):
                 for review in reviews
             ]
             (work / "reviews.json").write_text(json.dumps(listed))
-            runs = [
-                {
-                    "app": {"slug": app},
-                    "status": status,
-                    "conclusion": conclusion,
-                    "details_url": "https://github.com/xorbitsai/inference"
-                    f"/actions/runs/{run_id}/job/1",
-                }
-                for app, status, conclusion, run_id in checks
-            ]
-            (work / "checks.json").write_text(json.dumps({"check_runs": runs}))
+            for index, snapshot in enumerate(snapshots):
+                runs = [
+                    {
+                        "name": check[4] if len(check) > 4 else self.OLDER,
+                        "app": {"slug": check[0]},
+                        "status": check[1],
+                        "conclusion": check[2],
+                        "details_url": "https://github.com/xorbitsai/inference"
+                        f"/actions/runs/{check[3]}/job/1",
+                    }
+                    for check in snapshot
+                ]
+                (work / f"checks{index}.json").write_text(
+                    json.dumps({"check_runs": runs})
+                )
             # Stands in for `gh api --jq`: applies the step's own filter to
             # the fixture of the endpoint it asks for.
             fake_gh = work / "bin/gh"
@@ -187,7 +198,10 @@ class TestPythonWorkflow(unittest.TestCase):
                 "#!/bin/bash\n"
                 'case "$*" in\n'
                 f"  *check-runs*) [ {int(checks_fail)} = 1 ] && exit 1;"
-                f' fixture="{work}/checks.json" ;;\n'
+                f' read -r n < "{work}/reads" 2>/dev/null || n=0;'
+                f' echo $((n + 1)) > "{work}/reads";'
+                f" [ $n -lt {len(snapshots)} ] || n={len(snapshots) - 1};"
+                f' fixture="{work}/checks$n.json" ;;\n'
                 f"  *reviews*) [ {int(api_fails)} = 1 ] && exit 1;"
                 f' fixture="{work}/reviews.json" ;;\n'
                 "  *) exit 1 ;;\n"
@@ -209,12 +223,17 @@ class TestPythonWorkflow(unittest.TestCase):
                     "PR_NUMBER": "1",
                     "HEAD_SHA": self.HEAD,
                     "GITHUB_RUN_ID": "7",
-                    "OLDER_CHECK": APPROVAL_STEP["env"]["OLDER_CHECK"],
+                    "OLDER_CHECK": self.OLDER,
+                    "OLDER_MARKER": APPROVAL_STEP["env"]["OLDER_MARKER"],
+                    "WAIT_ATTEMPTS": "3",
+                    "WAIT_SECONDS": "0",
                 },
                 check=True,
                 capture_output=True,
                 text=True,
             )
+            reads = work / "reads"
+            self.check_reads = int(reads.read_text()) if reads.exists() else 0
             return output.read_text().strip()
 
     @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
@@ -318,6 +337,130 @@ class TestPythonWorkflow(unittest.TestCase):
         withdrawn = reviews + [("bob", "APPROVED", "COLLABORATOR", self.HEAD)]
         self.assertEqual(
             self.approval("pull_request_review", withdrawn), "full_matrix=true"
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_a_change_request_on_the_head_vetoes_a_retained_approval(self):
+        head = self.HEAD
+        vetoed = [
+            ("alice", "APPROVED", "OWNER"),
+            ("bob", "CHANGES_REQUESTED", "MEMBER", head),
+            ("carol", "APPROVED", "MEMBER", head),
+        ]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(self.approval(event, vetoed), "full_matrix=false")
+        # Without the objection, the approval retained from the earlier
+        # commit still counts on this head.
+        retained = [vetoed[0], vetoed[2]]
+        self.assertEqual(self.approval("pull_request", retained), "full_matrix=true")
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_an_approval_waits_for_another_run_on_the_head_to_decide(self):
+        # A retained approval on the earlier commit and a second one on the
+        # head: the push run of the head schedules the older versions too.
+        reviews = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("carol", "APPROVED", "OWNER", self.HEAD),
+        ]
+        marker = APPROVAL_STEP["env"]["OLDER_MARKER"]
+        marked = "lint (ubuntu-latest, 3.10)" + marker
+        plain = "lint (ubuntu-latest, 3.10)"
+
+        def check(name, status, conclusion=None, run=3):
+            return ("github-actions", status, conclusion, run, name)
+
+        deciding = [check("changes", "in_progress")]
+        decided = [check("changes", "completed", "success")]
+        cases = {
+            # The push run is still in lint and its older versions do not
+            # exist yet: its lint name says they will.
+            "push run in lint": ([decided + [check(marked, "in_progress")]], False),
+            "push run still deciding": (
+                [deciding, decided + [check(marked, "queued")]],
+                False,
+            ),
+            "lint not created yet": (
+                [decided, decided + [check(marked, "queued")]],
+                False,
+            ),
+            "older versions not created yet": (
+                [
+                    decided + [check(marked, "completed", "success")],
+                    decided
+                    + [
+                        check(marked, "completed", "success"),
+                        check(self.OLDER, "queued"),
+                    ],
+                ],
+                False,
+            ),
+            "push run tests only the newest": (
+                [deciding, decided + [check(plain, "in_progress")]],
+                True,
+            ),
+            "push run failed lint": (
+                [decided + [check(marked, "completed", "failure")]],
+                True,
+            ),
+            "another approval run did nothing": (
+                [
+                    [
+                        check("changes", "completed", "success", 4),
+                        check("lint", "completed", "skipped", 4),
+                    ]
+                ],
+                True,
+            ),
+            # A skipped job may show its unexpanded name, marker text included.
+            "skipped lint with its raw name": (
+                [
+                    [
+                        check("changes", "completed", "success", 4),
+                        check(JOBS["lint"]["name"], "completed", "skipped", 4),
+                    ]
+                ],
+                True,
+            ),
+            "skipped review runs": (
+                [
+                    [
+                        check("changes", "completed", "skipped", 5),
+                        check("lint", "completed", "skipped", 5),
+                    ]
+                ],
+                True,
+            ),
+            # This run's own `changes` job is still running.
+            "own run": ([[check("changes", "in_progress", run=7)]], True),
+            "still deciding when the wait ends": ([deciding], False),
+        }
+        for name, (snapshots, full) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(
+                    self.approval(
+                        "pull_request_review", reviews, snapshots=snapshots
+                    ),
+                    f"full_matrix={'true' if full else 'false'}",
+                )
+        self.assertEqual(self.check_reads, 3)
+
+    def test_a_run_that_tests_the_older_versions_marks_its_lint(self):
+        self.assertEqual(
+            JOBS["lint"]["name"],
+            "lint (${{ matrix.os }}, ${{ matrix.python-version }})${{"
+            " (needs.changes.outputs.full_matrix == 'true' &&"
+            " needs.changes.outputs.docs_only != 'true')"
+            f" && '{APPROVAL_STEP['env']['OLDER_MARKER']}' || '' }}}}",
+        )
+        # The marker is promised only where the first older version runs.
+        condition = " ".join(JOBS["full_matrix_linux_test_job"]["if"].split())
+        self.assertIn("needs.changes.outputs.full_matrix == 'true'", condition)
+        self.assertIn("needs.changes.outputs.docs_only != 'true'", condition)
+        self.assertEqual(
+            int(APPROVAL_STEP["env"]["WAIT_ATTEMPTS"])
+            * int(APPROVAL_STEP["env"]["WAIT_SECONDS"]),
+            600,
         )
 
     @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
