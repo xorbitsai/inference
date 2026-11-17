@@ -39,12 +39,14 @@
         "sentence-transformers[image]>5.4 ; #engine# == \"sentence_transformers\"",
         "transformers>=5.20.0 ; #engine# == \"transformers\"",
         "accelerate ; #engine# == \"transformers\"",
-        "#system_torch# ; #engine# == \"transformers\"",
-        "#system_torchvision# ; #engine# == \"transformers\"",
+        "torch>=2.8.0 ; #engine# == \"transformers\"",
+        "torchvision>=0.23.0 ; #engine# == \"transformers\"",
+        "torchaudio>=2.8.0 ; #engine# == \"transformers\"",
         "transformers>=5.20.0 ; #engine# == \"sentence_transformers\"",
         "accelerate ; #engine# == \"sentence_transformers\"",
-        "#system_torch# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+        "torch>=2.8.0 ; #engine# == \"sentence_transformers\"",
+        "torchvision>=0.23.0 ; #engine# == \"sentence_transformers\"",
+        "torchaudio>=2.8.0 ; #engine# == \"sentence_transformers\""
       ]
     },
     "featured": true,

@@ -32,7 +32,9 @@ Send ``input_type="query"`` for text queries and ``input_type="passage"``
 documents accept text, one image, or one image combined with text.
 
 Use ``image`` or ``image_url`` for an HTTP(S) URL, a base64 data URL, or a
-local path on the Xinference server. Lists preserve input order. For example,
+local path on the Xinference server. Local files require
+``XINFERENCE_MEDIA_ALLOW_LOCAL_PATH=true``. Remote images follow Xinference's
+media address, timeout, and size settings. Lists preserve input order. For example,
 send this body to ``/v1/embeddings``:
 
 .. code-block:: json
@@ -52,7 +54,8 @@ send this body to ``/v1/embeddings``:
 Vectors are mean-pooled and L2-normalized after truncating dimensions.
 The 32,768-token context includes image tokens. Audio and video are not supported.
 
-The Transformers and Sentence Transformers engines use Transformers 5.20.0
-or later. The vLLM environment uses
+The Transformers and Sentence Transformers engines require Transformers 5.20.0
+or later and a matching PyTorch and torchvision pair (PyTorch 2.8 and
+torchvision 0.23 or later). The vLLM environment uses
 vLLM 0.32.0 or later with ``transformers>=5.17.0,<5.20.0``; use a separate
 environment from the Transformers and Sentence Transformers engines.

@@ -43,6 +43,7 @@ from ..._compat import (
     ValidationError,
     validator,
 )
+from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingUsage
 from ...utils import make_hashable
@@ -441,17 +442,28 @@ class EmbeddingModel(abc.ABC):
     def _with_token_counts(result: Embedding, token_counts: List[int]) -> Embedding:
         return cast(Embedding, _EmbeddingResult(result, token_counts))
 
+    def _prepare_batch_inputs(self, sentences: List[Any], **kwargs) -> List[Any]:
+        """Prepare one request before merging its inputs with other requests."""
+        return sentences
+
     @create_embedding.batch  # type: ignore
     def create_embedding(self, args_list, kwargs_list):
         grouped = defaultdict(
             lambda: {"sentences": [], "offsets": [], "kwargs": None, "indices": []}
         )
+        results_with_index: List[Tuple[int, Union[Embedding, BatchRequestError]]] = []
 
         # 1. Group by kwargs hash
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
             sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
             if isinstance(sentences, (str, dict)):
                 sentences = [sentences]
+
+            try:
+                sentences = self._prepare_batch_inputs(sentences, **extra_kwargs)
+            except InvalidModelRequestError as exc:
+                results_with_index.append((i, BatchRequestError(exc)))
+                continue
 
             key = make_hashable(extra_kwargs)
             group = grouped[key]
@@ -461,8 +473,6 @@ class EmbeddingModel(abc.ABC):
             group["offsets"].append((current_offset, len(sentences)))
             group["sentences"].extend(sentences)
             group["indices"].append(i)  # remember original position
-
-        results_with_index = []
 
         # 2. Process each group separately
         pending_groups = deque(grouped.values())

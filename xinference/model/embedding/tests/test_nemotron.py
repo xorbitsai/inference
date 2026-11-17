@@ -14,10 +14,14 @@
 
 # CI: linux
 
+import asyncio
 import copy
 import json
 import os
 import sys
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
+from threading import Thread
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -105,13 +109,19 @@ def test_registration_is_idempotent():
 
 
 @pytest.mark.parametrize("engine", ["transformers", "sentence_transformers", "vllm"])
-def test_virtualenv_dependencies(engine):
-    family = match_embedding("Nemotron-3.5-Embed-1B-BF16", "pytorch", "none")
+@pytest.mark.parametrize("size", ["1B", "8B"])
+def test_virtualenv_dependencies(engine, size):
+    family = match_embedding(f"Nemotron-3.5-Embed-{size}-BF16", "pytorch", "none")
     packages = filter_virtualenv_packages_by_markers(
         family.virtualenv.packages, engine, "13.0"
     )
     assert "pillow" in packages
-    assert ("#system_torch#" in packages) == (engine != "vllm")
+    assert "#system_torch#" not in packages
+    assert "#system_torchvision#" not in packages
+    assert ("torch>=2.8.0" in packages) == (engine != "vllm")
+    assert ("torchvision>=0.23.0" in packages) == (engine != "vllm")
+    # Transformers imports installed torchaudio even when processing images.
+    assert ("torchaudio>=2.8.0" in packages) == (engine != "vllm")
     assert ("sentence-transformers[image]>5.4" in packages) == (
         engine == "sentence_transformers"
     )
@@ -131,12 +141,35 @@ def test_virtualenv_dependencies(engine):
 )
 def test_old_dependencies_are_rejected(monkeypatch, engine, package, installed):
     monkeypatch.setattr(nemotron, "check_dependency_available", lambda *_: True)
+    monkeypatch.setattr(nemotron, "requires", lambda _: ["torch==99.0"])
     monkeypatch.setattr(
         nemotron, "version", lambda name: installed if name == package else "99.0"
     )
     result = nemotron.check_dependencies(engine)
     assert result[0] is False
     assert package in result[1]
+
+
+@pytest.mark.parametrize("cls", CLASSES[:2])
+@pytest.mark.parametrize(
+    "torch_version,vision_version,torch_requirement,expected",
+    [
+        ("2.7.1", "0.22.1", "2.7.1", "requires torch>=2.8.0"),
+        ("2.8.0", "0.22.1", "2.7.1", "requires torchvision>=0.23.0"),
+        ("2.8.0", "0.24.0", "2.9.0", "requires matching Torch and torchvision"),
+    ],
+)
+def test_native_load_rejects_incompatible_torch(
+    monkeypatch, cls, torch_version, vision_version, torch_requirement, expected
+):
+    versions = {"torch": torch_version, "torchvision": vision_version}
+    check_import = MagicMock(return_value=True)
+    monkeypatch.setattr(nemotron, "check_dependency_available", check_import)
+    monkeypatch.setattr(nemotron, "version", versions.__getitem__)
+    monkeypatch.setattr(nemotron, "requires", lambda _: [f"torch=={torch_requirement}"])
+    with pytest.raises(ImportError, match=expected):
+        make_model(cls, device="cpu").load()
+    assert all(call.args[0] == "torch" for call in check_import.call_args_list)
 
 
 def test_input_roles_and_image_text_order():
@@ -237,6 +270,102 @@ def test_empty_input_and_sparse_rejection():
     model._encode_samples.assert_not_called()
     with pytest.raises(InvalidModelRequestError, match="sparse"):
         model._create_embedding("text", return_sparse=True)
+
+
+@pytest.mark.parametrize("cls", CLASSES)
+def test_image_loading_obeys_local_file_policy(tmp_path, monkeypatch, cls):
+    image_path = tmp_path / "image with spaces.png"
+    Image.new("RGBA", (2, 3)).save(image_path)
+    model = make_model(cls)
+    model._encode_samples = MagicMock(return_value=([torch.ones(3)], [1]))
+    monkeypatch.delenv("XINFERENCE_MEDIA_ALLOW_LOCAL_PATH", raising=False)
+    for source in (str(image_path), image_path.as_uri()):
+        with pytest.raises(InvalidModelRequestError, match="Local file media"):
+            model._create_embedding({"image": source})
+    model._encode_samples.assert_not_called()
+
+    monkeypatch.setenv("XINFERENCE_MEDIA_ALLOW_LOCAL_PATH", "true")
+    for source in (str(image_path), image_path.as_uri()):
+        model._create_embedding({"image": source})
+        image = model._encode_samples.call_args.args[0][0]["image"]
+        assert image.mode == "RGB"
+        assert image.size == (2, 3)
+
+
+def test_image_loading_obeys_remote_media_policy(monkeypatch):
+    png = BytesIO()
+    Image.new("RGB", (2, 3)).save(png, format="PNG")
+    body = png.getvalue()
+    received = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            received.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        source = f"http://127.0.0.1:{server.server_port}/image.png"
+        model = make_model()
+        model._encode_samples = MagicMock(return_value=([torch.ones(3)], [1]))
+        monkeypatch.delenv("XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS", raising=False)
+        with pytest.raises(InvalidModelRequestError, match="public|private"):
+            model._create_embedding({"image": source})
+        assert received == []
+
+        monkeypatch.setenv("XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS", "false")
+        monkeypatch.setenv("XINFERENCE_MEDIA_MAX_BYTES", "16")
+        with pytest.raises(InvalidModelRequestError, match="Media exceeds 16 bytes"):
+            model._create_embedding({"image": source})
+        model._encode_samples.assert_not_called()
+
+        monkeypatch.setenv("XINFERENCE_MEDIA_MAX_BYTES", str(len(body)))
+        model._create_embedding({"image": source})
+        image = model._encode_samples.call_args.args[0][0]["image"]
+        assert image.size == (2, 3)
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", CLASSES)
+async def test_batch_image_failure_is_request_local(monkeypatch, cls):
+    png = BytesIO()
+    Image.new("RGB", (2, 3)).save(png, format="PNG")
+    load = MagicMock(side_effect=[png.getvalue(), OSError("download failed")])
+    monkeypatch.setattr(nemotron, "load_media_bytes", load)
+    model = make_model(cls, batch_size=4, batch_interval=0.05)
+    model._encode_samples = MagicMock(
+        return_value=([torch.tensor([1.0, 0.0]), torch.tensor([0.0, 1.0])], [2, 3])
+    )
+    failed, first, second = await asyncio.gather(
+        model.create_embedding(
+            [
+                {"image": "https://example.com/good.png"},
+                {"image": "https://example.com/bad.png"},
+            ]
+        ),
+        model.create_embedding("first text"),
+        model.create_embedding("second text"),
+        return_exceptions=True,
+    )
+    assert isinstance(failed, InvalidModelRequestError)
+    assert "download failed" in failed.client_message
+    assert load.call_count == 2
+    model._encode_samples.assert_called_once_with(
+        [{"text": "first text"}, {"text": "second text"}], "passage:"
+    )
+    assert first["data"][0]["embedding"] == [1.0, 0.0]
+    assert second["data"][0]["embedding"] == [0.0, 1.0]
+    assert first["data"][0]["index"] == second["data"][0]["index"] == 0
+    assert first["usage"]["total_tokens"] == 2
+    assert second["usage"]["total_tokens"] == 3
 
 
 def test_sentence_transformers_preserves_input_order_and_counts_and_removes_hook():

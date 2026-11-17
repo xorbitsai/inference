@@ -14,16 +14,20 @@
 
 import os
 from abc import abstractmethod
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, requires, version
+from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
+from packaging.requirements import Requirement
 from packaging.version import Version
+from urllib3.exceptions import HTTPError
 
 from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import get_available_device
 from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..batch import BatchMixin
+from ..llm.media import load_media_bytes
 from ..utils import check_dependency_available, virtual_env_allows_missing_engine
 from .core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 from .vllm.core import VLLMEmbeddingModel
@@ -33,20 +37,20 @@ MODEL_NAMES = {
     "Nemotron-3.5-Embed-1B-NVFP4",
     "Nemotron-3.5-Embed-8B-BF16",
 }
+_EXIF_ORIENTATION = 0x0112
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
     requirements = (
         [("vllm", "0.32.0"), ("transformers", "5.17.0")]
         if engine == "vllm"
-        else [("transformers", "5.20.0")]
+        # Transformers 5.20 imports torch.distributed.checkpoint.hf_storage.
+        else [("torch", "2.8.0"), ("torchvision", "0.23.0"), ("transformers", "5.20.0")]
     )
     if engine == "sentence_transformers":
         requirements.append(("sentence-transformers", "5.4"))
+    installed_versions = {}
     for package, minimum in requirements:
-        available = check_dependency_available(package.replace("-", "_"), package)
-        if available != True:
-            return available
         try:
             installed = Version(version(package))
         except PackageNotFoundError:
@@ -70,6 +74,24 @@ def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
                 False,
                 "Nemotron 3.5 Embed vLLM requires transformers>=5.17.0,<5.20.0.",
             )
+        installed_versions[package] = installed
+        if package == "torchvision":
+            for dependency in requires("torchvision") or []:
+                requirement = Requirement(dependency)
+                if (
+                    requirement.name.lower() == "torch"
+                    and (requirement.marker is None or requirement.marker.evaluate())
+                    and installed_versions["torch"] not in requirement.specifier
+                ):
+                    return (
+                        False,
+                        f"Nemotron 3.5 Embed requires matching Torch and torchvision: "
+                        f"torchvision {installed} requires {requirement}, "
+                        f"current torch: {installed_versions['torch']}",
+                    )
+        available = check_dependency_available(package.replace("-", "_"), package)
+        if available != True:
+            return available
     return True
 
 
@@ -157,6 +179,27 @@ def make_messages(sample: Dict[str, Any], prefix: str) -> List[Dict[str, Any]]:
     ]
 
 
+def _prepare_images(samples: List[Dict[str, Any]]) -> None:
+    from PIL import Image, ImageOps
+
+    for sample in samples:
+        source = sample.get("image")
+        try:
+            if isinstance(source, str):
+                with Image.open(BytesIO(load_media_bytes(source))) as image:
+                    sample["image"] = ImageOps.exif_transpose(image).convert("RGB")
+            elif isinstance(source, Image.Image):
+                if (
+                    source.mode != "RGB"
+                    or source.getexif().get(_EXIF_ORIENTATION, 1) != 1
+                ):
+                    sample["image"] = ImageOps.exif_transpose(source).convert("RGB")
+        except (OSError, ValueError, HTTPError, Image.DecompressionBombError) as exc:
+            raise InvalidModelRequestError(
+                f"Cannot load Nemotron 3.5 Embed image: {exc}"
+            ) from exc
+
+
 class _NemotronEmbeddingMixin(EmbeddingModel):
     engine: str
     model_family: EmbeddingModelFamilyV2
@@ -203,6 +246,16 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 f"{self.model_family.dimensions}."
             )
 
+    def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
+        # Leave text and token arrays to the usual truncation and decoding path.
+        if not isinstance(sentences, list) or not any(
+            isinstance(item, dict) for item in sentences
+        ):
+            return sentences
+        samples, _ = normalize_inputs(sentences, **kwargs)
+        _prepare_images(samples)
+        return samples
+
     def _create_embedding(self, sentences: Any, **kwargs: Any) -> Embedding:
         sentences = self._fix_langchain_openai_inputs(sentences)
         samples, prefix = normalize_inputs(sentences, **kwargs)
@@ -212,14 +265,7 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
             raise InvalidModelRequestError(
                 "Nemotron 3.5 Embed does not support sparse embeddings."
             )
-        from transformers.image_utils import load_image
-
-        for sample in samples:
-            if "image" in sample:
-                image = sample["image"]
-                if isinstance(image, str) and image.startswith("file://"):
-                    image = image[7:]
-                sample["image"] = load_image(image)
+        _prepare_images(samples)
         vectors, counts = (
             self._encode_samples(samples, prefix, **kwargs) if samples else ([], [])
         )
