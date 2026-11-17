@@ -1665,21 +1665,29 @@ async def test_sharded_launch_explicit_defaults_match_omitted(launch_runtime):
 
 
 @pytest.mark.asyncio
-async def test_sharded_launch_xavier_request_keeps_plain_dispatch(launch_runtime):
-    supervisor, _, actors, _ = launch_runtime
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "MLX"])
+async def test_sharded_launch_rejects_xavier_before_worker_rpcs(launch_runtime, engine):
+    supervisor, workers, actors, _ = launch_runtime
     supervisor.is_local_deployment = lambda: False
-    supervisor._launch_builtin_sharded_model = AsyncMock(return_value="pd")
+    for worker in workers:
+        worker.get_model_registration = AsyncMock(return_value=None)
+        worker.get_model_count = AsyncMock(return_value=0)
+        worker.launch_builtin_model.return_value = (worker.address, None)
     kwargs = launch_kwargs()
     kwargs.pop("replica_config")
-    kwargs.update(model_engine="MLX", model_format="mlx", n_worker=2)
-    await supervisor.launch_builtin_model(**kwargs)
-    omitted = supervisor._launch_builtin_sharded_model.await_args
+    kwargs.update(
+        model_engine=engine,
+        model_format="mlx" if engine == "MLX" else "pytorch",
+        n_worker=2,
+        enable_xavier=True,
+    )
+    with pytest.raises(ValueError, match="Xavier requires one worker per replica"):
+        await supervisor.launch_builtin_model(**kwargs)
 
-    await supervisor.launch_builtin_model(**kwargs, enable_xavier=True)
-
-    assert supervisor._launch_builtin_sharded_model.await_count == 2
-    assert supervisor._launch_builtin_sharded_model.await_args == omitted
-    assert not actors
+    supervisor._resolve_download_hub_from_workers.assert_not_awaited()
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        assert not worker.mock_calls
 
 
 @pytest.mark.asyncio

@@ -3580,8 +3580,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 raise ValueError(
                     "NIXL requires explicit prefill and decode replica roles"
                 )
-            # Sharded launches do not set up Xavier; consume the request.
-            kwargs.pop("enable_xavier", False)
+            if kwargs.pop("enable_xavier", False):
+                raise ValueError("Xavier requires one worker per replica")
             if kwargs.pop("xavier_cache_bytes", None) is not None:
                 raise ValueError(
                     "xavier_cache_bytes requires Xavier shared CPU caching and a positive integer"
