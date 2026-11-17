@@ -127,3 +127,84 @@ async def test_consumer_close_stops_production(
         for stream in (consumer, barrier, *raw_streams):
             if stream is not None:
                 await _close(stream)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("output_type", ["json", "binary"])
+@pytest.mark.parametrize("source", ["async", "sync"])
+@pytest.mark.parametrize("request_id", [None, "closed-request"], ids=["no-id", "id"])
+async def test_consumer_close_before_first_read_stops_production(
+    monkeypatch, request_id, source, output_type
+):
+    """Closing an unstarted consumer must still set cancelled and stop the serialized producer."""
+    actor, model = _actor()
+    loop = asyncio.get_running_loop()
+    paused, async_release = asyncio.Event(), asyncio.Event()
+    sync_release = threading.Event()
+    produced, raw_streams = [], []
+
+    def payload(number):
+        return {"item": number} if output_type == "json" else str(number).encode()
+
+    def sync_chunks(name):
+        if name == "barrier":
+            return
+        for number in range(5):
+            produced.append(number)
+            if number == 0:
+                loop.call_soon_threadsafe(paused.set)
+                sync_release.wait()
+            yield payload(number)
+
+    async def async_chunks(name):
+        if name == "barrier":
+            return
+        for number in range(5):
+            produced.append(number)
+            if number == 0:
+                paused.set()
+                await async_release.wait()
+            yield payload(number)
+
+    def infer(name, **kwargs):
+        raw = async_chunks(name) if source == "async" else sync_chunks(name)
+        raw_streams.append(raw)
+        return raw
+
+    async def async_infer(name, **kwargs):
+        return infer(name, **kwargs)
+
+    model.generate = async_infer if source == "async" else infer
+
+    async def open_stream(name, identifier):
+        return await actor._call_wrapper(
+            output_type, model.generate, name, request_id=identifier
+        )
+
+    handler = asyncio.create_task(actor._handle_pending_requests())
+    consumer = barrier = None
+    try:
+        consumer = await open_stream("first", request_id)
+        # Wait for the serialized handler to pull the first item into flight.
+        await asyncio.wait_for(paused.wait(), 10)
+        at_close = list(produced)
+        assert at_close == [0]
+        # Close without ever reading from the consumer
+        await asyncio.wait_for(_close(consumer), 10)
+        assert not actor._request_streams
+        if request_id is not None:
+            assert request_id not in actor._running_tasks
+
+        sync_release.set()
+        async_release.set()
+        barrier = await asyncio.wait_for(open_stream("barrier", None), 10)
+        assert await asyncio.wait_for(_drain(barrier), 10) == []
+        assert produced == [0], f"source advanced after early close: {produced}"
+    finally:
+        sync_release.set()
+        async_release.set()
+        handler.cancel()
+        await asyncio.gather(handler, return_exceptions=True)
+        for stream in (consumer, barrier, *raw_streams):
+            if stream is not None:
+                await _close(stream)

@@ -1935,6 +1935,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
                     def _stream_out_generator():
                         try:
+                            yield None
                             while True:
                                 o = stream_out.get()
                                 if o is stop:
@@ -1946,7 +1947,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                         finally:
                             cancelled.set()
 
-                    return _stream_out_generator()
+                    out = _stream_out_generator()
+                    next(out)
+                    return out
 
                 if inspect.isasyncgen(ret):
                     gen = self._to_async_gen(output_type, ret)
@@ -1959,6 +1962,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
 
                     async def _stream_out_async_gen():
                         try:
+                            yield None
                             while True:
                                 o = await stream_out.get()
                                 if o is stop:
@@ -1970,7 +1974,9 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                         finally:
                             cancelled.set()
 
-                    return _stream_out_async_gen()
+                    out = _stream_out_async_gen()
+                    await out.__anext__()
+                    return out
 
         if output_type == "json":
             return await asyncio.to_thread(json_dumps, ret)
