@@ -452,6 +452,19 @@ class _TextOnlyEngine(_TiktokenDecodingEngine):
         return super()._create_embedding(sentences, **kwargs)
 
 
+class _ListRejectingEngine(_TiktokenDecodingEngine):
+    """Batching engine like sentence-transformers: its tokenizer rejects a list
+    as an individual input."""
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        items = [sentences] if isinstance(sentences, str) else sentences
+        for item in items:
+            if not isinstance(item, str):
+                raise TypeError(f"Unsupported input type: {type(item).__name__}")
+        return super()._create_embedding(sentences, **kwargs)
+
+
 async def _post_concurrently(api_client, engine, inputs, **options):
     """Send ``inputs`` as concurrent /v1/embeddings requests through the real
     route, ``ModelActor`` and batcher of ``engine``."""
@@ -510,6 +523,24 @@ async def test_token_ids_are_validated_after_truncation(
     )
     assert arr.status_code == status, arr.text
     assert text.status_code == 200, text.text
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tokens", [[9906, 1917], [[9906, 1917]]])
+async def test_zero_truncation_sends_empty_text_for_token_arrays(api_client, tokens):
+    # truncate_prompt_tokens=0 slices a token array to []; the backend must get
+    # the empty string for it, not the list.
+    engine = _ListRejectingEngine()
+    arr, text = await _post_concurrently(
+        api_client, engine, [tokens, "hello world"], truncate_prompt_tokens=0
+    )
+    assert arr.status_code == 200, arr.text
+    assert text.status_code == 200, text.text
+    assert len(json.loads(arr.content)["data"]) == 1
+    assert len(json.loads(text.content)["data"]) == 1
+    # One empty string per input: the token array and the (also truncated) text.
+    assert engine.batches == [["", ""]]
     api_client.api._report_error_event.assert_not_awaited()
 
 

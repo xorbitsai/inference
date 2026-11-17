@@ -325,18 +325,27 @@ class EmbeddingModel(abc.ABC):
         sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
         # Check if any element is a list of integers (token ids); decode per
-        # element so token arrays can share a batch with texts
-        if isinstance(sentences, list) and any(_is_token_array(s) for s in sentences):
+        # element so token arrays can share a batch with texts. An empty list is
+        # a token array that ``truncate_prompt_tokens=0`` sliced to nothing: it
+        # decodes to the empty string, one embedding per token array.
+        if isinstance(sentences, list) and any(
+            _is_token_array(s) or s == [] for s in sentences
+        ):
             # List[List[int]] stands for encoded inputs
-            import tiktoken
-
-            enc = tiktoken.get_encoding("cl100k_base")
-            lines_decoded = []
+            enc = None
+            lines_decoded: List[Any] = []
 
             for line in sentences:
+                if line == []:
+                    lines_decoded.append("")
+                    continue
                 if not _is_token_array(line):
                     lines_decoded.append(line)
                     continue
+                if enc is None:
+                    import tiktoken
+
+                    enc = tiktoken.get_encoding("cl100k_base")
                 try:
                     lines_decoded.append(_decode_token_array(enc, line))
                 except (ValueError, TypeError, UnicodeDecodeError) as e:

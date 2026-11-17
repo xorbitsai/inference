@@ -194,6 +194,22 @@ def test_validate_input_without_token_arrays_does_not_import_tiktoken(
     model.validate_input(value, truncate_prompt_tokens=1)
 
 
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ([[]], ""),  # one empty token array: one empty text
+        ([[], []], ["", ""]),
+        ([[], "text"], ["", "text"]),
+        ([], []),  # an empty batch stays an empty batch
+        (["text"], ["text"]),
+    ],
+)
+def test_empty_token_sequences_decode_to_empty_text(value, expected, monkeypatch):
+    monkeypatch.setitem(sys.modules, "tiktoken", None)  # nothing to decode
+    model = _make_stub_model()
+    assert model._fix_langchain_openai_inputs(value) == expected
+
+
 def test_flag_engine_rejects_token_arrays_per_request():
     from ..flag.core import FlagEmbeddingModel
 
