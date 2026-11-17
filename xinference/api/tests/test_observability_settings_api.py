@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -87,6 +89,7 @@ def test_observability_routes_use_settings_scopes(scoped_client):
     assert scoped_client.get(path, headers=_auth_headers("reader")).status_code == 200
 
     payload = scoped_client.get(path, headers=_auth_headers("reader")).json()
+    assert payload["runtime_enable_otel"] is False
     assert (
         scoped_client.put(
             path, headers=_auth_headers("reader"), json=payload
@@ -126,6 +129,7 @@ def test_download_and_observability_apis_save_independently(scoped_client, store
     )
     assert response.status_code == 200
     assert response.json()["opentelemetry"]["otlp_api_key"] == "otel********5678"
+    assert response.json()["runtime_enable_otel"] is False
     assert observability_store.get().opentelemetry.enable_otel is True
     assert download_store.get().download_source == "modelscope"
     document = json.loads(Path(download_store.path).read_text(encoding="utf-8"))

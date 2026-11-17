@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -77,6 +76,7 @@ interface OpenTelemetrySettingsData {
 
 interface ObservabilitySettingsData {
   opentelemetry: OpenTelemetrySettingsData;
+  runtime_enable_otel?: boolean;
 }
 
 type DownloadSettingsForm = Omit<DownloadSettingsData, DownloadNumericField> &
@@ -170,6 +170,10 @@ function normalizeObservabilitySettings(
   };
 }
 
+function getRuntimeEnableOtel(data: ObservabilitySettingsData): boolean {
+  return data.runtime_enable_otel ?? data.opentelemetry.enable_otel;
+}
+
 export default function SystemSettings() {
   const { t } = useI18n();
   const { clusterUIConfig } = useGlobal();
@@ -178,6 +182,7 @@ export default function SystemSettings() {
   const [downloadForm, setDownloadForm] = useState<DownloadSettingsForm>(EMPTY_DOWNLOAD_FORM);
   const [observabilityForm, setObservabilityForm] =
     useState<ObservabilitySettingsForm>(EMPTY_OBSERVABILITY_FORM);
+  const [runtimeEnableOtel, setRuntimeEnableOtel] = useState<boolean | null>(null);
   const [downloadLoading, setDownloadLoading] = useState(true);
   const [observabilityLoading, setObservabilityLoading] = useState(true);
   const [savingTab, setSavingTab] = useState<SettingsTab | null>(null);
@@ -202,6 +207,7 @@ export default function SystemSettings() {
         '/v1/cluster/observability_settings'
       );
       setObservabilityForm(normalizeObservabilitySettings(data));
+      setRuntimeEnableOtel(getRuntimeEnableOtel(data));
     } finally {
       setObservabilityLoading(false);
     }
@@ -271,6 +277,8 @@ export default function SystemSettings() {
     observabilityForm.otel_max_export_batch_size <= observabilityForm.otel_max_queue_size;
   const loading = downloadLoading || observabilityLoading;
   const activeIsValid = activeTab === 'download' ? isDownloadValid : isOtelValid;
+  const enableOtelChanged =
+    runtimeEnableOtel !== null && observabilityForm.enable_otel !== runtimeEnableOtel;
 
   const saveSettings = async () => {
     if (!canEdit || !activeIsValid) return;
@@ -305,6 +313,7 @@ export default function SystemSettings() {
           }
         );
         setObservabilityForm(normalizeObservabilitySettings(data));
+        setRuntimeEnableOtel(getRuntimeEnableOtel(data));
         toast.success(t('systemSettings.observabilitySaveSuccess'));
       }
     } finally {
@@ -326,6 +335,7 @@ export default function SystemSettings() {
           '/v1/cluster/observability_settings/reset'
         );
         setObservabilityForm(normalizeObservabilitySettings(data));
+        setRuntimeEnableOtel(getRuntimeEnableOtel(data));
         toast.success(t('systemSettings.observabilityRestoreSuccess'));
       }
       setResetTarget(null);
@@ -747,51 +757,55 @@ export default function SystemSettings() {
 
             <TabsContent value="observability" className="space-y-6">
               <Card className="gap-0 overflow-hidden rounded-xl py-0 shadow-none">
-                <CardHeader className="border-b bg-muted/20 py-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400">
-                      <Network className="h-5 w-5" />
+                <CardHeader className="border-b bg-muted/20 px-5 py-4 sm:px-6">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400">
+                          <Network className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <CardTitle className="text-base">
+                            {t('systemSettings.openTelemetry')}
+                          </CardTitle>
+                          <CardDescription>
+                            {t('systemSettings.openTelemetryDescription')}
+                          </CardDescription>
+                        </div>
+                      </div>
+
+                      {enableOtelChanged && (
+                        <div
+                          role="status"
+                          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm font-medium shadow-sm"
+                        >
+                          <Info className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                          <span>{t('systemSettings.restartRequired')}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <CardTitle className="text-base">
-                        {t('systemSettings.openTelemetry')}
-                      </CardTitle>
-                      <CardDescription>
-                        {t('systemSettings.openTelemetryDescription')}
-                      </CardDescription>
+
+                    <div className="flex items-center justify-between gap-4 border-t pt-4 xl:border-t-0 xl:pt-0">
+                      <div className="flex flex-col items-start gap-2">
+                        <Label htmlFor="enable-otel" className="block font-semibold">
+                          {t('systemSettings.enableOtel')}
+                        </Label>
+                        <EnvironmentVariable name="XINFERENCE_ENABLE_OTEL" />
+                      </div>
+                      <Switch
+                        id="enable-otel"
+                        checked={observabilityForm.enable_otel}
+                        disabled={!canEdit}
+                        onChange={(checked) => updateObservabilityField('enable_otel', checked)}
+                        aria-label={t('systemSettings.enableOtel')}
+                        className="shadow-sm data-[state=unchecked]:bg-muted-foreground/25"
+                      />
                     </div>
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-7 py-6">
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-muted/20 p-4">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Label htmlFor="enable-otel">{t('systemSettings.enableOtel')}</Label>
-                        <EnvironmentVariable name="XINFERENCE_ENABLE_OTEL" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {t('systemSettings.enableOtelDescription')}
-                      </p>
-                    </div>
-                    <Switch
-                      id="enable-otel"
-                      checked={observabilityForm.enable_otel}
-                      disabled={!canEdit}
-                      onChange={(checked) => updateObservabilityField('enable_otel', checked)}
-                      aria-label={t('systemSettings.enableOtel')}
-                    />
-                  </div>
-
-                  <Alert className="border-amber-500/30 bg-amber-500/5">
-                    <Info />
-                    <AlertTitle>{t('systemSettings.restartRequired')}</AlertTitle>
-                    <AlertDescription>
-                      {t('systemSettings.restartRequiredDescription')}
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="grid gap-6 border-t pt-7 lg:grid-cols-2">
+                <CardContent className="py-6">
+                  <div className="grid gap-6 lg:grid-cols-2">
                     <FieldBlock
                       id="otlp-base-endpoint"
                       label={t('systemSettings.otlpBaseEndpoint')}

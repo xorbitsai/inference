@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
 
 from fastapi import Body, HTTPException, Request, Security
 from pydantic import BaseModel, Field
@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from ..responses import JSONResponse
 
 if TYPE_CHECKING:
+    from ...core.observability_settings_store import ObservabilitySettingsStore
     from ..restful_api import RESTfulAPI
 
 
@@ -51,11 +52,21 @@ class ObservabilitySettingsPayload(BaseModel):
         extra = "forbid"
 
     opentelemetry: OpenTelemetrySettingsPayload
+    runtime_enable_otel: Optional[bool] = None
+
+
+def _with_runtime_state(
+    store: "ObservabilitySettingsStore", settings: Dict[str, Any]
+) -> Dict[str, Any]:
+    return {
+        **settings,
+        "runtime_enable_otel": store.get_runtime().opentelemetry.enable_otel,
+    }
 
 
 async def get_observability_settings(request: Request) -> JSONResponse:
     store = request.app.state.observability_settings_store
-    return JSONResponse(content=store.get_public())
+    return JSONResponse(content=_with_runtime_state(store, store.get_public()))
 
 
 async def update_observability_settings(
@@ -64,15 +75,15 @@ async def update_observability_settings(
 ) -> JSONResponse:
     store = request.app.state.observability_settings_store
     try:
-        settings = store.save_public(body.dict())
+        settings = store.save_public(body.dict(exclude={"runtime_enable_otel"}))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return JSONResponse(content=settings)
+    return JSONResponse(content=_with_runtime_state(store, settings))
 
 
 async def reset_observability_settings(request: Request) -> JSONResponse:
     store = request.app.state.observability_settings_store
-    return JSONResponse(content=store.reset())
+    return JSONResponse(content=_with_runtime_state(store, store.reset()))
 
 
 def register_routes(api: "RESTfulAPI") -> None:

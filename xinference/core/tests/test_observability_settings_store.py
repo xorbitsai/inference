@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import json
 import sys
 from types import SimpleNamespace
@@ -241,6 +243,24 @@ def test_save_updates_loaded_otel_constants(monkeypatch, tmp_path):
         "https://otel.example.com/v1/metrics"
     )
     assert constants.XINFERENCE_OTEL_SAMPLING_RATE == 0.5
+
+
+def test_runtime_snapshot_changes_only_after_restart(tmp_path):
+    path = tmp_path / "system-settings.json"
+    store = ObservabilitySettingsStore(
+        str(path), environ={"XINFERENCE_ENABLE_OTEL": "false"}
+    )
+    payload = store.get_public()
+    payload["opentelemetry"]["enable_otel"] = True
+
+    store.save_public(payload)
+
+    assert store.get_runtime().opentelemetry.enable_otel is False
+
+    restarted = ObservabilitySettingsStore(
+        str(path), environ={"XINFERENCE_ENABLE_OTEL": "false"}
+    )
+    assert restarted.get_runtime().opentelemetry.enable_otel is True
 
 
 def test_export_batch_size_must_not_exceed_queue_size(tmp_path):

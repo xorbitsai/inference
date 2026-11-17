@@ -301,6 +301,7 @@ class ObservabilitySettingsStore:
         self._lock = get_system_settings_file_lock(self._path)
         self._startup = self._settings_from_environment(dict(self._environ))
         self._current = self._load_saved() or self._startup
+        self._runtime = self._current
 
     @property
     def path(self) -> str:
@@ -469,6 +470,9 @@ class ObservabilitySettingsStore:
 
     def get_startup(self) -> ObservabilitySettings:
         return self._startup
+
+    def get_runtime(self) -> ObservabilitySettings:
+        return self._runtime
 
     def get_public(self) -> Dict[str, Any]:
         return self.public_dict(self.get())
