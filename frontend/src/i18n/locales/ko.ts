@@ -1647,6 +1647,19 @@ const ko = {
     view: '보기',
   },
   systemSettings: {
+    restartNow: '재시작하여 적용',
+    restartSuccess: '재시작 후 관측성 설정이 적용되었습니다',
+    restartFailed:
+      '재시작이 완료되지 않았습니다. 다시 시도하거나 클러스터 정보에서 상태를 확인하세요.',
+    restartUnavailable: '앱 내 재시작을 사용할 수 없습니다. Xinference 서비스를 재시작하세요.',
+    restartAdminRequired: '서비스 재시작에는 관리자 권한이 필요합니다',
+    restartNotApplied: '아직 적용되지 않은 설정이 있습니다. 재시작을 다시 시도하세요.',
+    restartProgress: {
+      saving: '설정 저장 중…',
+      supervisor: 'Supervisor 재시작 중…',
+      api: 'API 재시작 중…',
+      verifying: '설정 확인 중…',
+    },
     pageDescription: '모델 다운로드와 OpenTelemetry 관측성을 각각 설정하고 저장합니다.',
     readOnly: '읽기 전용',
     saveChanges: '변경 사항 저장',

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -168,6 +169,12 @@ class OpenTelemetrySettings:
 @dataclass(frozen=True)
 class ObservabilitySettings:
     opentelemetry: OpenTelemetrySettings
+
+    @property
+    def revision(self) -> str:
+        return hashlib.sha256(
+            json.dumps(self.to_dict(), sort_keys=True).encode()
+        ).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
         return {"opentelemetry": self.opentelemetry.to_dict()}
@@ -543,6 +550,14 @@ _store: Optional[ObservabilitySettingsStore] = None
 _store_lock = threading.Lock()
 
 
+def create_observability_settings_store(path: str) -> ObservabilitySettingsStore:
+    """Reuse the CLI baseline when present; otherwise give a host its own store."""
+    with _store_lock:
+        if _store is not None and _store.path == str(Path(path)):
+            return _store
+    return ObservabilitySettingsStore(path)
+
+
 def get_observability_settings_store(path: str) -> ObservabilitySettingsStore:
     global _store
     with _store_lock:
@@ -559,3 +574,20 @@ def initialize_observability_settings(path: str) -> ObservabilitySettingsStore:
     store = get_observability_settings_store(path)
     store.apply_to_environment()
     return store
+
+
+def observability_runtime_state(settings: ObservabilitySettings) -> Dict[str, Any]:
+    error = None
+    if settings.opentelemetry.enable_otel:
+        from .otel import is_otel_initialized
+
+        if not is_otel_initialized():
+            error = (
+                "OpenTelemetry initialization failed. Install xinference[otel] "
+                "and check the service logs."
+            )
+    return {
+        "revision": settings.revision,
+        "enable_otel": settings.opentelemetry.enable_otel,
+        "error": error,
+    }

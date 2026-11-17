@@ -16,7 +16,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
+import os
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from fastapi import Body, HTTPException, Request, Security
 from pydantic import BaseModel, Field
@@ -53,37 +54,69 @@ class ObservabilitySettingsPayload(BaseModel):
 
     opentelemetry: OpenTelemetrySettingsPayload
     runtime_enable_otel: Optional[bool] = None
+    restart_required: Optional[bool] = None
+    restart_supported: Optional[bool] = None
+    restart_components: Optional[List[str]] = None
+    restart_error: Optional[str] = None
 
 
 def _with_runtime_state(
     store: "ObservabilitySettingsStore", settings: Dict[str, Any]
 ) -> Dict[str, Any]:
+    from ...core.observability_settings_store import observability_runtime_state
+
+    runtime = observability_runtime_state(store.get_runtime())
+    pending = store.get() != store.get_runtime() or bool(runtime["error"])
     return {
         **settings,
         "runtime_enable_otel": store.get_runtime().opentelemetry.enable_otel,
+        "restart_required": pending,
+        "restart_supported": False,
+        "restart_components": ["api"] if pending else [],
+        "restart_error": runtime["error"],
     }
 
 
-async def get_observability_settings(request: Request) -> JSONResponse:
+async def _settings_operation(request: Request, operation: str, data=None):
+    from ...deploy.api_host import API_HOST_ENV, host_request
+
+    if os.environ.get(API_HOST_ENV):
+        try:
+            return await host_request(
+                "observability-settings", operation=operation, data=data
+            )
+        except ValueError as error:
+            if str(error) != "Unknown API host command":
+                raise
     store = request.app.state.observability_settings_store
-    return JSONResponse(content=_with_runtime_state(store, store.get_public()))
+    if operation == "get":
+        settings = store.get_public()
+    elif operation == "save":
+        settings = store.save_public(data)
+    else:
+        settings = store.reset()
+    return _with_runtime_state(store, settings)
+
+
+async def get_observability_settings(request: Request) -> JSONResponse:
+    return JSONResponse(content=await _settings_operation(request, "get"))
 
 
 async def update_observability_settings(
     request: Request,
     body: ObservabilitySettingsPayload = Body(...),
 ) -> JSONResponse:
-    store = request.app.state.observability_settings_store
     try:
-        settings = store.save_public(body.dict(exclude={"runtime_enable_otel"}))
+        settings = await _settings_operation(
+            request, "save", body.dict(include={"opentelemetry"})
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return JSONResponse(content=_with_runtime_state(store, settings))
+    return JSONResponse(content=settings)
 
 
 async def reset_observability_settings(request: Request) -> JSONResponse:
-    store = request.app.state.observability_settings_store
-    return JSONResponse(content=_with_runtime_state(store, store.reset()))
+    return JSONResponse(content=await _settings_operation(request, "reset"))
 
 
 def register_routes(api: "RESTfulAPI") -> None:

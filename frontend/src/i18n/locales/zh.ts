@@ -1795,6 +1795,18 @@ const zh = {
     view: '查看',
   },
   systemSettings: {
+    restartNow: '重启并生效',
+    restartSuccess: '可观测性配置已重启生效',
+    restartFailed: '重启未完成，可重试或到集群信息查看状态',
+    restartUnavailable: '当前部署不支持应用内重启，请重启 Xinference 服务',
+    restartAdminRequired: '需要管理员权限才能重启服务',
+    restartNotApplied: '配置尚未全部生效，请重试',
+    restartProgress: {
+      saving: '正在保存配置…',
+      supervisor: '正在重启 Supervisor…',
+      api: '正在重启 API…',
+      verifying: '正在确认配置生效…',
+    },
     pageDescription: '分别配置并独立保存模型下载与 OpenTelemetry 可观测性。',
     readOnly: '只读权限',
     saveChanges: '保存更改',

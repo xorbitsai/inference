@@ -1842,6 +1842,18 @@ const en = {
     view: 'View',
   },
   systemSettings: {
+    restartNow: 'Restart and apply',
+    restartSuccess: 'Observability settings applied after restart',
+    restartFailed: 'Restart incomplete. Retry or check Cluster Information.',
+    restartUnavailable: 'In-app restart is unavailable. Restart the Xinference service.',
+    restartAdminRequired: 'Administrator access is required to restart services',
+    restartNotApplied: 'Some settings are not applied yet. Retry the restart.',
+    restartProgress: {
+      saving: 'Saving settings…',
+      supervisor: 'Restarting Supervisor…',
+      api: 'Restarting API…',
+      verifying: 'Verifying settings…',
+    },
     pageDescription: 'Configure and save model downloads and OpenTelemetry independently.',
     readOnly: 'Read-only access',
     saveChanges: 'Save Changes',

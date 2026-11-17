@@ -82,6 +82,24 @@ def _auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_old_service_host_keeps_settings_available_without_restart(
+    scoped_client, monkeypatch
+):
+    from xinference.deploy import api_host
+
+    monkeypatch.setenv(api_host.API_HOST_ENV, "older-host")
+    monkeypatch.setattr(
+        api_host,
+        "host_request",
+        AsyncMock(side_effect=ValueError("Unknown API host command")),
+    )
+    response = scoped_client.get(
+        "/v1/cluster/observability_settings", headers=_auth_headers("reader")
+    )
+    assert response.status_code == 200
+    assert response.json()["restart_supported"] is False
+
+
 def test_observability_routes_use_settings_scopes(scoped_client):
     path = "/v1/cluster/observability_settings"
     assert scoped_client.get(path).status_code == 401
@@ -130,11 +148,14 @@ def test_download_and_observability_apis_save_independently(scoped_client, store
     assert response.status_code == 200
     assert response.json()["opentelemetry"]["otlp_api_key"] == "otel********5678"
     assert response.json()["runtime_enable_otel"] is False
+    assert response.json()["restart_required"] is True
+    assert response.json()["restart_supported"] is False
     assert observability_store.get().opentelemetry.enable_otel is True
     assert download_store.get().download_source == "modelscope"
     document = json.loads(Path(download_store.path).read_text(encoding="utf-8"))
     assert document["settings"]["download_source"] == "modelscope"
     assert document["observability"]["opentelemetry"]["enable_otel"] is True
+    assert "restart_required" not in document["observability"]
 
 
 def test_entities_reject_fields_from_the_other_section(scoped_client, stores):

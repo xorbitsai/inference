@@ -1657,6 +1657,18 @@ const ja = {
     view: '表示',
   },
   systemSettings: {
+    restartNow: '再起動して適用',
+    restartSuccess: '再起動後にオブザーバビリティ設定を適用しました',
+    restartFailed: '再起動は未完了です。再試行するか、クラスター情報で状態を確認してください。',
+    restartUnavailable: 'アプリ内再起動は利用できません。Xinference サービスを再起動してください。',
+    restartAdminRequired: 'サービスの再起動には管理者権限が必要です',
+    restartNotApplied: '一部の設定が未適用です。再起動を再試行してください。',
+    restartProgress: {
+      saving: '設定を保存中…',
+      supervisor: 'Supervisor を再起動中…',
+      api: 'API を再起動中…',
+      verifying: '設定を確認中…',
+    },
     pageDescription:
       'モデルダウンロードと OpenTelemetry オブザーバビリティを個別に設定・保存します。',
     readOnly: '読み取り専用',

@@ -1,12 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
   Check,
   CloudDownload,
   Gauge,
-  Info,
   Loader2,
   Network,
   RotateCcw,
@@ -14,6 +13,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isAxiosError } from 'axios';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
+import { restartComponent } from './restart';
 
 type DownloadSource = 'auto' | 'huggingface' | 'modelscope' | 'openmind_hub' | 'csghub';
 type OtelProtocol = 'http/protobuf' | 'grpc';
@@ -77,6 +78,10 @@ interface OpenTelemetrySettingsData {
 interface ObservabilitySettingsData {
   opentelemetry: OpenTelemetrySettingsData;
   runtime_enable_otel?: boolean;
+  restart_required?: boolean;
+  restart_supported?: boolean;
+  restart_components?: Array<'api' | 'supervisor'>;
+  restart_error?: string | null;
 }
 
 type DownloadSettingsForm = Omit<DownloadSettingsData, DownloadNumericField> &
@@ -170,25 +175,29 @@ function normalizeObservabilitySettings(
   };
 }
 
-function getRuntimeEnableOtel(data: ObservabilitySettingsData): boolean {
-  return data.runtime_enable_otel ?? data.opentelemetry.enable_otel;
-}
-
 export default function SystemSettings() {
   const { t } = useI18n();
   const { clusterUIConfig } = useGlobal();
-  const { canWriteSettings } = useMenuAuth();
+  const { canWriteSettings, isAdmin } = useMenuAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('download');
   const [downloadForm, setDownloadForm] = useState<DownloadSettingsForm>(EMPTY_DOWNLOAD_FORM);
   const [observabilityForm, setObservabilityForm] =
     useState<ObservabilitySettingsForm>(EMPTY_OBSERVABILITY_FORM);
-  const [runtimeEnableOtel, setRuntimeEnableOtel] = useState<boolean | null>(null);
+  const [savedObservability, setSavedObservability] = useState<ObservabilitySettingsData | null>(
+    null
+  );
+  const [restartStep, setRestartStep] = useState<
+    'saving' | 'supervisor' | 'api' | 'verifying' | null
+  >(null);
+  const [restartError, setRestartError] = useState('');
+  const restartController = useRef<AbortController | null>(null);
   const [downloadLoading, setDownloadLoading] = useState(true);
   const [observabilityLoading, setObservabilityLoading] = useState(true);
   const [savingTab, setSavingTab] = useState<SettingsTab | null>(null);
   const [resettingTab, setResettingTab] = useState<SettingsTab | null>(null);
   const [resetTarget, setResetTarget] = useState<SettingsTab | null>(null);
-  const canEdit = !clusterUIConfig?.auth_advanced || canWriteSettings;
+  const canEdit = (!clusterUIConfig?.auth_advanced || canWriteSettings) && restartStep === null;
+  const canRestart = !clusterUIConfig?.auth_advanced || isAdmin;
 
   const loadDownloadSettings = useCallback(async () => {
     setDownloadLoading(true);
@@ -207,7 +216,7 @@ export default function SystemSettings() {
         '/v1/cluster/observability_settings'
       );
       setObservabilityForm(normalizeObservabilitySettings(data));
-      setRuntimeEnableOtel(getRuntimeEnableOtel(data));
+      setSavedObservability(data);
     } finally {
       setObservabilityLoading(false);
     }
@@ -217,6 +226,8 @@ export default function SystemSettings() {
     void loadDownloadSettings();
     void loadObservabilitySettings();
   }, [loadDownloadSettings, loadObservabilitySettings]);
+
+  useEffect(() => () => restartController.current?.abort(), []);
 
   const updateDownloadField = <K extends keyof DownloadSettingsForm>(
     field: K,
@@ -233,6 +244,7 @@ export default function SystemSettings() {
     field: K,
     value: ObservabilitySettingsForm[K]
   ) => {
+    setRestartError('');
     setObservabilityForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -277,8 +289,70 @@ export default function SystemSettings() {
     observabilityForm.otel_max_export_batch_size <= observabilityForm.otel_max_queue_size;
   const loading = downloadLoading || observabilityLoading;
   const activeIsValid = activeTab === 'download' ? isDownloadValid : isOtelValid;
-  const enableOtelChanged =
-    runtimeEnableOtel !== null && observabilityForm.enable_otel !== runtimeEnableOtel;
+  const observabilityChanged =
+    savedObservability !== null &&
+    Object.entries(observabilityForm).some(
+      ([key, value]) =>
+        value !== savedObservability.opentelemetry[key as keyof OpenTelemetrySettingsData]
+    );
+  const needsRestart = observabilityChanged || Boolean(savedObservability?.restart_required);
+
+  const persistObservabilitySettings = async (signal?: AbortSignal) => {
+    const data = await request.put<ObservabilitySettingsData>(
+      '/v1/cluster/observability_settings',
+      { opentelemetry: observabilityForm },
+      { signal }
+    );
+    setObservabilityForm(normalizeObservabilitySettings(data));
+    setSavedObservability(data);
+    return data;
+  };
+
+  const restartObservability = async () => {
+    if (!canEdit || !canRestart || !isOtelValid || restartController.current) return;
+    const controller = new AbortController();
+    restartController.current = controller;
+    setRestartError('');
+    setRestartStep('saving');
+    try {
+      const saved = await persistObservabilitySettings(controller.signal);
+      if (!saved.restart_supported) throw new Error(t('systemSettings.restartUnavailable'));
+      const components = saved.restart_components ?? ['supervisor', 'api'];
+      for (const component of ['supervisor', 'api'] as const) {
+        controller.signal.throwIfAborted();
+        if (!components.includes(component)) continue;
+        setRestartStep(component);
+        await restartComponent(component, controller.signal);
+      }
+      controller.signal.throwIfAborted();
+      setRestartStep('verifying');
+      const applied = await request.get<ObservabilitySettingsData>(
+        '/v1/cluster/observability_settings',
+        { signal: controller.signal, suppressGlobalError: true }
+      );
+      if (applied.restart_required) {
+        throw new Error(applied.restart_error || t('systemSettings.restartNotApplied'));
+      }
+      setObservabilityForm(normalizeObservabilitySettings(applied));
+      setSavedObservability(applied);
+      toast.success(t('systemSettings.restartSuccess'));
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
+        const message =
+          typeof detail === 'string'
+            ? detail
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        setRestartError(message);
+        toast.error(t('systemSettings.restartFailed'));
+      }
+    } finally {
+      restartController.current = null;
+      if (!controller.signal.aborted) setRestartStep(null);
+    }
+  };
 
   const saveSettings = async () => {
     if (!canEdit || !activeIsValid) return;
@@ -295,25 +369,7 @@ export default function SystemSettings() {
         setDownloadForm(normalizeDownloadSettings(data));
         toast.success(t('systemSettings.downloadSaveSuccess'));
       } else {
-        const data = await request.put<ObservabilitySettingsData>(
-          '/v1/cluster/observability_settings',
-          {
-            opentelemetry: {
-              ...observabilityForm,
-              otel_sampling_rate: Number(observabilityForm.otel_sampling_rate),
-              otel_batch_export_schedule_delay: Number(
-                observabilityForm.otel_batch_export_schedule_delay
-              ),
-              otel_max_queue_size: Number(observabilityForm.otel_max_queue_size),
-              otel_max_export_batch_size: Number(observabilityForm.otel_max_export_batch_size),
-              otel_metric_export_interval: Number(observabilityForm.otel_metric_export_interval),
-              otel_batch_export_timeout: Number(observabilityForm.otel_batch_export_timeout),
-              otel_metric_export_timeout: Number(observabilityForm.otel_metric_export_timeout),
-            },
-          }
-        );
-        setObservabilityForm(normalizeObservabilitySettings(data));
-        setRuntimeEnableOtel(getRuntimeEnableOtel(data));
+        await persistObservabilitySettings();
         toast.success(t('systemSettings.observabilitySaveSuccess'));
       }
     } finally {
@@ -335,7 +391,7 @@ export default function SystemSettings() {
           '/v1/cluster/observability_settings/reset'
         );
         setObservabilityForm(normalizeObservabilitySettings(data));
-        setRuntimeEnableOtel(getRuntimeEnableOtel(data));
+        setSavedObservability(data);
         toast.success(t('systemSettings.observabilityRestoreSuccess'));
       }
       setResetTarget(null);
@@ -519,19 +575,27 @@ export default function SystemSettings() {
         title={t('menu.systemSettings')}
         subTitle={t('systemSettings.pageDescription')}
         extraContent={
-          canEdit ? (
+          canEdit || restartStep !== null ? (
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 onClick={() => setResetTarget(activeTab)}
-                disabled={loading || savingTab !== null || resettingTab !== null}
+                disabled={
+                  loading || savingTab !== null || resettingTab !== null || restartStep !== null
+                }
               >
                 <RotateCcw className="h-4 w-4" />
                 {t('systemSettings.restoreSettings')}
               </Button>
               <Button
                 onClick={saveSettings}
-                disabled={loading || savingTab !== null || resettingTab !== null || !activeIsValid}
+                disabled={
+                  loading ||
+                  savingTab !== null ||
+                  resettingTab !== null ||
+                  !activeIsValid ||
+                  restartStep !== null
+                }
               >
                 {savingTab === activeTab ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -774,14 +838,38 @@ export default function SystemSettings() {
                         </div>
                       </div>
 
-                      {enableOtelChanged && (
-                        <div
-                          role="status"
-                          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm font-medium shadow-sm"
+                      {(needsRestart || restartStep !== null) && (
+                        <Button
+                          variant="outline"
+                          onClick={restartObservability}
+                          disabled={
+                            !canEdit ||
+                            !canRestart ||
+                            !isOtelValid ||
+                            savingTab !== null ||
+                            resettingTab !== null ||
+                            !savedObservability?.restart_supported
+                          }
+                          title={
+                            !canRestart
+                              ? t('systemSettings.restartAdminRequired')
+                              : !savedObservability?.restart_supported
+                                ? t('systemSettings.restartUnavailable')
+                                : undefined
+                          }
+                          className="shrink-0 border-amber-500/30 bg-amber-500/[0.08] hover:bg-amber-500/15"
                         >
-                          <Info className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                          <span>{t('systemSettings.restartRequired')}</span>
-                        </div>
+                          {restartStep !== null ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-4 w-4" />
+                          )}
+                          {t(
+                            restartStep
+                              ? `systemSettings.restartProgress.${restartStep}`
+                              : 'systemSettings.restartNow'
+                          )}
+                        </Button>
                       )}
                     </div>
 
@@ -805,6 +893,11 @@ export default function SystemSettings() {
                 </CardHeader>
 
                 <CardContent className="py-6">
+                  {restartError && (
+                    <p role="alert" className="mb-4 break-words text-sm text-destructive">
+                      {restartError}
+                    </p>
+                  )}
                   <div className="grid gap-6 lg:grid-cols-2">
                     <FieldBlock
                       id="otlp-base-endpoint"

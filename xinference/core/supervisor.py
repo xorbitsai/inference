@@ -1212,6 +1212,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     async def __post_create__(self):
         from ..extensions import get_extensions
+        from .observability_settings_store import ObservabilitySettingsStore
+
+        self._observability_runtime = (
+            ObservabilitySettingsStore._settings_from_environment(dict(os.environ))
+        )
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
@@ -1393,6 +1398,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     def supervisor_upgrade_info(self):
         from .. import __version__
+        from .observability_settings_store import observability_runtime_state
         from .supervisor_upgrade import PROTOCOL_VERSION
 
         return {
@@ -1400,6 +1406,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             "pid": os.getpid(),
             "version": __version__,
             "ready": self._supervisor_prepared,
+            "observability": observability_runtime_state(self._observability_runtime),
         }
 
     async def pause_supervisor(self):
@@ -7674,6 +7681,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
         finally:
+            from .otel import shutdown_otel
+
+            await asyncio.to_thread(shutdown_otel)
             if control is not None:
                 await control.invoke("close")
 

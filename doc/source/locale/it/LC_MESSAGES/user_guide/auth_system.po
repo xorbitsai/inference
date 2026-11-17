@@ -991,3 +991,7 @@ msgstr ""
 "codificati come modulo, non validi o diversi da oggetti e le credenziali "
 "non di tipo stringa restituiscono ``400 Bad Request``; le credenziali "
 "errate restituiscono ``401 Unauthorized``."
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "Gli amministratori possono scegliere **Riavvia e applica** in **Impostazioni di sistema > Osservabilità** per salvare il modulo e riavviare Supervisor e poi API, mantenendo i processi dei modelli. Il pulsante scompare dopo che entrambi i componenti hanno caricato la configurazione salvata; se una sostituzione non riesce, il componente precedente continua a servire le richieste."

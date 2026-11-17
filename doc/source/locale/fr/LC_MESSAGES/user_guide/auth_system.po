@@ -1013,3 +1013,7 @@ msgstr ""
 "ainsi que les identifiants qui ne sont pas des chaînes, renvoient ``400 "
 "Bad Request`` ; les identifiants incorrects renvoient ``401 "
 "Unauthorized``."
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "Les administrateurs peuvent choisir **Redémarrer et appliquer** dans **Paramètres système > Observabilité** pour enregistrer le formulaire et redémarrer Supervisor puis API, tout en conservant les processus des modèles. Le bouton disparaît lorsque les deux composants ont chargé la configuration enregistrée ; si un remplacement échoue, le composant précédent continue de servir les requêtes."

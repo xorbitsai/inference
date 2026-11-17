@@ -263,6 +263,11 @@ Everything above is also available from dedicated pages in the web UI:
 * **Audit Center**: browse recorded API activity (requires ``admin``). See
   :ref:`user_guide_audit_security`.
 
+Administrators can choose **Restart and apply** in **System Settings > Observability**
+to save the form and restart Supervisor followed by API while retaining model
+processes. The button disappears after both components have loaded the saved
+configuration; a failed replacement keeps the previous component serving.
+
 Http Status Code
 ================
 Add the following two HTTP status codes:

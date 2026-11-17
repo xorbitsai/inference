@@ -131,6 +131,7 @@ async def test_failure_after_activation_drains_target_without_terminating(
     )
     source, target = MagicMock(), MagicMock()
     source.environment = {}
+    target.observability = {}
     target.wait = AsyncMock(side_effect=[None, error])
     target.send = AsyncMock()
     target.process.poll.return_value = None
