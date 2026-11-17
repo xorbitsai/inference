@@ -6929,6 +6929,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replicas = (preferred, *(r for r in info.active_replica_ids if r != preferred))
 
         async def probe(replica):
+            model = None
             try:
                 model = await self._get_replica_model(
                     model_uid, replica, rpc_timeout=_CHAT_ROUTING_PROBE_TIMEOUT
@@ -6939,7 +6940,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             except Exception:
                 # Missing signals (including rolling upgrades) keep the usual
                 # affinity and reservation path available.
-                return None, None
+                return model, None
 
         # Worker lookup already bounds each RPC. Keep load deadlines local too:
         # cancelling a group can wait forever for an actor's CancelMessage reply
@@ -6956,7 +6957,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if type(load) is int
         }
         if not loads:
-            return list(replicas), models
+            return sorted(replicas, key=lambda replica: replica not in models), models
         cached, prompt_length = {}, 0
         tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
         model = next((model for model, _ in snapshots if model is not None), None)
@@ -7036,6 +7037,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 candidates = iter(ranked)
             except asyncio.TimeoutError:
                 pass
+        # While the probe reached a replica, a lookup it missed keeps the probe
+        # deadline; if it reached none, keep the ordinary lookup timeout.
+        lookup_timeout = _CHAT_ROUTING_PROBE_TIMEOUT if models else None
         busy = None
         last_error: Optional[Exception] = None
         preserve_route = False
@@ -7058,7 +7062,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 try:
                     model = models.get(replica)
                     if model is None:
-                        model = await self._get_replica_model(model_uid, replica)
+                        model = await self._get_replica_model(
+                            model_uid, replica, rpc_timeout=lookup_timeout
+                        )
                 except Exception as exc:
                     cause = getattr(exc, "__wrapped__", exc)
                     if type(cause) is not Exception:

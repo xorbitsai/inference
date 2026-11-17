@@ -28,9 +28,12 @@ from .test_request_priority import _actor
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("stage", ["lookup", "load", "tokens", "prefixes"])
+@pytest.mark.parametrize(
+    "stage", ["lookup", "lookup_no_load", "load", "tokens", "prefixes"]
+)
 async def test_stalled_routing_probe_does_not_hold_up_chat(monkeypatch, stage):
     monkeypatch.setattr("xinference.core.supervisor._CHAT_ROUTING_PROBE_TIMEOUT", 0.02)
+    monkeypatch.setattr("xinference.constants.XINFERENCE_GET_MODEL_RPC_TIMEOUT", 0.4)
     monkeypatch.setattr(
         "xinference.api.restful_api.XINFERENCE_TOKEN_ROUTER_ENABLED", False
     )
@@ -72,8 +75,10 @@ async def test_stalled_routing_probe_does_not_hold_up_chat(monkeypatch, stage):
     elif stage == "tokens":
         refs[0].get_chat_routing_tokens = stalled
     supervisor, _ = _reservation_supervisor(*refs)
-    if stage == "lookup":
+    if stage in ("lookup", "lookup_no_load"):
         supervisor._replica_model_uid_to_worker["demo-rep0"].get_model = stalled
+    if stage == "lookup_no_load":
+        del refs[1].get_chat_routing_load
     supervisor.describe_model = AsyncMock(return_value={"model_family": "test-family"})
     if stage in ("tokens", "prefixes"):
         supervisor._block_tracker_mapping = {
@@ -117,8 +122,9 @@ async def test_stalled_routing_probe_does_not_hold_up_chat(monkeypatch, stage):
             response = request.result()
             assert response.status_code == 200, response.text
             assert response.json()["served_by"] == (
-                1 if stage in ("lookup", "load") else 0
+                1 if stage in ("lookup", "lookup_no_load", "load") else 0
             )
+            assert len(probe_tasks) == 1
             assert sum(a._model.async_chat.await_count for a in actors) == 1
             assert all(actor._serve_count == 0 for actor in actors)
             assert all(not actor._chat_reservations for actor in actors)
@@ -127,3 +133,95 @@ async def test_stalled_routing_probe_does_not_hold_up_chat(monkeypatch, stage):
             await asyncio.wait_for(
                 asyncio.gather(request, *probe_tasks, return_exceptions=True), 2
             )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("signal", ["missing", "error", "none"])
+async def test_no_load_ranking_keeps_reachable_refs_in_order(signal):
+    models = [SimpleNamespace() for _ in range(4)]
+    for index in (1, 2):
+        if signal != "missing":
+            models[index].get_chat_routing_load = AsyncMock(
+                return_value=None,
+                side_effect=(
+                    RuntimeError("telemetry unavailable") if signal == "error" else None
+                ),
+            )
+    supervisor, info = _reservation_supervisor(*models)
+    for index in (0, 3):
+        supervisor._replica_model_uid_to_worker[
+            f"demo-rep{index}"
+        ].get_model.side_effect = asyncio.TimeoutError
+
+    ranked, reachable = await supervisor._rank_chat_replicas(
+        "demo", info, 0, {"interactive": True}
+    )
+    assert reachable == {1: models[1], 2: models[2]}
+    assert ranked == [1, 2, 0, 3]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("load", [None, 0])
+async def test_ranked_fallback_retries_lookup_with_short_deadline(monkeypatch, load):
+    monkeypatch.setattr("xinference.core.supervisor._CHAT_ROUTING_PROBE_TIMEOUT", 0.02)
+    monkeypatch.setattr("xinference.constants.XINFERENCE_GET_MODEL_RPC_TIMEOUT", 0.4)
+    healthy = SimpleNamespace(
+        get_chat_routing_load=AsyncMock(return_value=load),
+        can_accept_chat_request=AsyncMock(return_value=False),
+    )
+    supervisor, _ = _reservation_supervisor(SimpleNamespace(), healthy)
+    release = asyncio.Event()
+
+    async def stalled(**kwargs):
+        await release.wait()
+        raise ConnectionError("worker unavailable")
+
+    worker = supervisor._replica_model_uid_to_worker["demo-rep0"]
+    worker.get_model.side_effect = stalled
+    supervisor._get_replica_model = AsyncMock(wraps=supervisor._get_replica_model)
+    request = asyncio.create_task(
+        supervisor.get_chat_model(
+            "demo", "task", None, routing_request={"interactive": True}
+        )
+    )
+    try:
+        done, _ = await asyncio.wait([request], timeout=0.15)
+        assert request in done, "ranked fallback used the ordinary lookup timeout"
+        assert request.result() == (healthy, False)
+        calls = supervisor._get_replica_model.await_args_list
+        retries = [call for call in calls if call.args[1] == 0]
+        assert len(retries) == 2
+        assert all(call.kwargs["rpc_timeout"] == 0.02 for call in retries)
+        assert sum(call.args[1] == 1 for call in calls) == 1
+    finally:
+        release.set()
+        await asyncio.wait_for(asyncio.gather(request, return_exceptions=True), 1)
+
+
+@pytest.mark.asyncio
+async def test_ranked_fallback_keeps_ordinary_deadline_when_no_probe_answered(
+    monkeypatch,
+):
+    monkeypatch.setattr("xinference.core.supervisor._CHAT_ROUTING_PROBE_TIMEOUT", 0.02)
+    monkeypatch.setattr("xinference.constants.XINFERENCE_GET_MODEL_RPC_TIMEOUT", 0.4)
+    models = [
+        SimpleNamespace(
+            get_chat_routing_load=AsyncMock(return_value=0),
+            can_accept_chat_request=AsyncMock(return_value=True),
+        )
+        for _ in range(2)
+    ]
+    supervisor, _ = _reservation_supervisor(*models)
+    for index, model in enumerate(models):
+
+        async def slow_lookup(model=model, **kwargs):
+            await asyncio.sleep(0.05)
+            return model
+
+        supervisor._replica_model_uid_to_worker[
+            f"demo-rep{index}"
+        ].get_model.side_effect = slow_lookup
+
+    assert await supervisor.get_chat_model(
+        "demo", "task", None, routing_request={"interactive": True}
+    ) == (models[0], False)
