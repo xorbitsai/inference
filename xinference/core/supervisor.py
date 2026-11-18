@@ -3583,8 +3583,41 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             await self._recover_failed_initial_model_launch(model_uid)
 
         if n_worker > 1:  # type: ignore
-            if kwargs.get("xavier_cache_backend") not in (None, "native"):
+            from ..model.llm.vllm.xavier.transport import (
+                normalize_xavier_transport_backend,
+            )
+            from ..model.llm.xavier.backends.config import normalize_cache_backend
+            from ..model.llm.xavier.transport import validate_gpu_cache_budget
+
+            # Shards bypass the single-worker Xavier setup below. Consume its
+            # defaults and reject unsupported options before dispatching workers.
+            if kwargs.get("xavier_cache_backend") == "lmcache":
                 raise ValueError("The LMCache backend requires one worker per replica")
+            normalize_cache_backend(
+                kwargs.pop("xavier_cache_backend", None),
+                kwargs.pop("xavier_cache_backend_config", None),
+            )
+            transport_backend = normalize_xavier_transport_backend(
+                kwargs.pop(
+                    "vllm_transfer_backend_type",
+                    kwargs.pop("transfer_backend_type", None),
+                )
+            )
+            if transport_backend == "nixl":
+                raise ValueError(
+                    "NIXL requires explicit prefill and decode replica roles"
+                )
+            if kwargs.pop("enable_xavier", False):
+                raise ValueError("Xavier requires one worker per replica")
+            if kwargs.pop("xavier_cache_bytes", None) is not None:
+                raise ValueError(
+                    "xavier_cache_bytes requires Xavier shared CPU caching and a positive integer"
+                )
+            validate_gpu_cache_budget(
+                kwargs.pop("xavier_gpu_cache_bytes", None), False, replica
+            )
+            if (model_engine or "").lower() == "trt-llm":
+                raise ValueError("TRT-LLM currently requires one worker per replica")
             # distributed inference
             return await self._launch_builtin_sharded_model(
                 model_uid,
