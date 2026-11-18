@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import functools
 import importlib.util
 import inspect
@@ -228,6 +229,92 @@ KIMI_K3_TOOL_CALL_FAMILY: Set[str] = set()
 MINICPM5_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
+
+# Chat-context key an engine sets when a stream asked for
+# ``stream_options.continuous_usage_stats``.
+CONTINUOUS_USAGE_CONTEXT_KEY = "_continuous_usage"
+
+
+def continuous_usage_requested(generate_config: Optional[Dict[str, Any]]) -> bool:
+    """Whether a stream asked for cumulative usage on every chunk.
+
+    Mirrors the OpenAI-compatible servers of vLLM and SGLang:
+    ``continuous_usage_stats`` takes effect together with ``include_usage``.
+    Read it before generation, since engines consume ``include_usage``.
+    """
+    options = (generate_config or {}).get("stream_options")
+    return (
+        isinstance(options, dict)
+        and options.get("include_usage") is True
+        and options.get("continuous_usage_stats") is True
+    )
+
+
+class _UsageTracker:
+    """The latest cumulative usage an engine reported on its raw chunks.
+
+    Every engine supplies its own counters (prompt, completion and cached
+    tokens so far) on raw completion chunks; the chat conversion attaches the
+    latest value to each chat chunk with choices, so usage never decreases.
+    """
+
+    __slots__ = ("usage",)
+
+    def __init__(self) -> None:
+        self.usage: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def from_context(cls, ctx: Optional[Dict[str, Any]]) -> Optional["_UsageTracker"]:
+        return cls() if ctx and ctx.get(CONTINUOUS_USAGE_CONTEXT_KEY) else None
+
+    def _observe(self, chunk: Any) -> None:
+        usage = chunk.get("usage") if isinstance(chunk, dict) else None
+        if usage:
+            self.usage = usage
+
+    def track(self, chunks: Iterator[CompletionChunk]) -> Iterator[CompletionChunk]:
+        try:
+            for chunk in chunks:
+                self._observe(chunk)
+                yield chunk
+        finally:
+            close = getattr(chunks, "close", None)
+            if close is not None:
+                close()
+
+    async def atrack(
+        self, chunks: AsyncGenerator[CompletionChunk, None]
+    ) -> AsyncGenerator[CompletionChunk, None]:
+        try:
+            async for chunk in chunks:
+                self._observe(chunk)
+                yield chunk
+        finally:
+            await chunks.aclose()
+
+    def stamp(self, chunk: ChatCompletionChunk) -> ChatCompletionChunk:
+        if chunk.get("choices") and chunk.get("usage") is None and self.usage:
+            usage = ChatModelMixin._sanitize_usage(copy.deepcopy(self.usage))
+            if usage is not None:
+                chunk["usage"] = usage
+        return chunk
+
+
+def _stamp_usage(
+    tracker: Optional[_UsageTracker], chunk: ChatCompletionChunk
+) -> ChatCompletionChunk:
+    return chunk if tracker is None else tracker.stamp(chunk)
+
+
+def with_continuous_usage(
+    ctx: Optional[Dict[str, Any]], requested: bool
+) -> Dict[str, Any]:
+    """Mark a chat context so its stream conversion attaches running usage.
+
+    The key is always written, so a client-supplied ``chat_template_kwargs``
+    entry of the same name can never enable it.
+    """
+    return {**(ctx or {}), CONTINUOUS_USAGE_CONTEXT_KEY: requested}
 
 
 class ChatModelMixin:
@@ -1009,6 +1096,9 @@ class ChatModelMixin:
         previous_texts = [""]
         is_first_chunk = True
         fallback_chunk: Optional[CompletionChunk] = None
+        tracker = _UsageTracker.from_context(ctx)
+        if tracker is not None:
+            chunks = tracker.track(chunks)
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         while True:
@@ -1056,7 +1146,7 @@ class ChatModelMixin:
             finally:
                 if token is not None:
                     chat_context_var.reset(token)
-            yield r
+            yield _stamp_usage(tracker, r)
 
     @classmethod
     def _tools_to_messages_for_deepseek(
@@ -1102,6 +1192,9 @@ class ChatModelMixin:
         full_text = ""
         is_first_chunk = True
         fallback_chunk: Optional[CompletionChunk] = None
+        tracker = _UsageTracker.from_context(ctx)
+        if tracker is not None:
+            chunks = tracker.atrack(chunks)
         upstream_chunks = chunks
         try:
             # Process chunks
@@ -1137,7 +1230,7 @@ class ChatModelMixin:
                             chat_chunk["usage"] = first_usage
                     fallback_chunk = chunk
                     is_first_chunk = False
-                yield chat_chunk
+                yield _stamp_usage(tracker, chat_chunk)
             logger.debug("Chat finished, output: %s", full_text)
         finally:
             # async for does not close its iterator when this conversion
@@ -1728,6 +1821,9 @@ class ChatModelMixin:
         previous_tools_texts = [""]
         tool_call_state: Dict[str, Any] = {"seen": False}
         fallback_chunk: Optional[CompletionChunk] = None
+        tracker = _UsageTracker.from_context(ctx)
+        if tracker is not None:
+            chunks = tracker.track(chunks)
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_sync(chunks)
@@ -1759,7 +1855,7 @@ class ChatModelMixin:
             choice_chunk_idx += 1
             reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
             if reasoning_chunk is not None:
-                yield reasoning_chunk
+                yield _stamp_usage(tracker, reasoning_chunk)
             if tool_chunk is None:
                 continue
             processed_chunk = self._post_process_completion_chunk(
@@ -1771,7 +1867,7 @@ class ChatModelMixin:
                 tools=tools,
             )
             if processed_chunk:
-                yield processed_chunk
+                yield _stamp_usage(tracker, processed_chunk)
 
     async def _async_to_tool_completion_chunks(
         self,
@@ -1789,6 +1885,9 @@ class ChatModelMixin:
         tool_call_state: Dict[str, Any] = {"seen": False}
         full_text = ""
         fallback_chunk: Optional[CompletionChunk] = None
+        tracker = _UsageTracker.from_context(ctx)
+        if tracker is not None:
+            chunks = tracker.atrack(chunks)
         upstream_chunks = chunks
         try:
             if self.reasoning_parser:
@@ -1825,7 +1924,7 @@ class ChatModelMixin:
                     chat_chunk
                 )
                 if reasoning_chunk is not None:
-                    yield reasoning_chunk
+                    yield _stamp_usage(tracker, reasoning_chunk)
                 if tool_chunk is None:
                     continue
                 processed_chunk = self._post_process_completion_chunk(
@@ -1837,7 +1936,7 @@ class ChatModelMixin:
                     tools=tools,
                 )
                 if processed_chunk:
-                    yield processed_chunk
+                    yield _stamp_usage(tracker, processed_chunk)
             logger.debug("Chat finished, output: %s", full_text)
         finally:
             # Keep request cleanup deterministic when the converted tool stream

@@ -80,9 +80,11 @@ from ..utils import (
     MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
+    continuous_usage_requested,
     generate_completion_chunk,
     get_context_length_from_config,
     normalize_response_format,
+    with_continuous_usage,
 )
 
 logger = logging.getLogger(__name__)
@@ -2459,6 +2461,9 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         messages = self.prefill_messages(messages)
+        continuous_usage = continuous_usage_requested(
+            cast(Optional[Dict[str, Any]], generate_config)
+        )
         parallel, generate_config = self._prepare_chat_controls(generate_config)
         if is_forced_tool_choice(generate_config):
             messages, config = prepare_forced_tools(
@@ -2590,9 +2595,10 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                     full_text,
                 )
 
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if tools:
                 result_chunks = self._async_to_tool_completion_chunks(
-                    _log_streaming_chunks(), chat_template_kwargs, tools
+                    _log_streaming_chunks(), stream_ctx, tools
                 )
                 return (
                     single_tool_stream(result_chunks)
@@ -2600,7 +2606,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                     else result_chunks
                 )
             return self._async_to_chat_completion_chunks(
-                _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
+                _log_streaming_chunks(), self.reasoning_parser, stream_ctx
             )
         else:
             # Use async_generate for non-streaming
@@ -3416,6 +3422,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        continuous_usage = continuous_usage_requested(
+            cast(Optional[Dict[str, Any]], generate_config)
+        )
         parallel, generate_config = self._prepare_chat_controls(generate_config)
         if is_forced_tool_choice(generate_config):
             messages, config = prepare_forced_tools(
@@ -3477,9 +3486,10 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     full_text,
                 )
 
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if tools:
                 result_chunks = self._to_tool_completion_chunks(
-                    _log_streaming_chunks(), chat_template_kwargs, tools
+                    _log_streaming_chunks(), stream_ctx, tools
                 )
                 return (
                     single_tool_chunks(result_chunks)
@@ -3487,7 +3497,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     else result_chunks
                 )
             return self._to_chat_completion_chunks(
-                _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
+                _log_streaming_chunks(), self.reasoning_parser, stream_ctx
             )
         else:
             c = self.generate(inputs, generate_config)

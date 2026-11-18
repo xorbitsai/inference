@@ -101,7 +101,9 @@ from ..utils import (
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
+    continuous_usage_requested,
     generate_completion_chunk,
+    with_continuous_usage,
 )
 from ..weight_cache import WeightCachedModel
 from .utils import vllm_check
@@ -3387,6 +3389,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -3430,11 +3433,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 full_prompt, generate_config, tools, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if parse_harmony:
                 from ..harmony import async_stream_harmony_chat_completion_chunks
 
                 raw_stream = self._async_to_chat_completion_chunks(
-                    agen, None, chat_template_kwargs
+                    agen, None, stream_ctx
                 )
                 return async_stream_harmony_chat_completion_chunks(
                     raw_stream,
@@ -3443,11 +3447,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 )
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs, tools
+                    agen, stream_ctx, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, parser, chat_template_kwargs
+                    agen, parser, stream_ctx
                 )
             if parallel_tool_calls is False:
                 return cast(
@@ -4001,6 +4005,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -4034,13 +4039,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 request_id=request_id,
             )
             assert isinstance(agen, AsyncGenerator)
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs, tools
+                    agen, stream_ctx, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, parser, chat_template_kwargs
+                    agen, parser, stream_ctx
                 )
             if parallel_tool_calls is False:
                 return cast(
