@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import torch
@@ -160,6 +162,114 @@ class _TokenStreamRuntime:
 
     def build_decode_kwargs(self, prompts, req_list, batch_size, seq_len):
         return {"input_ids": torch.ones((len(prompts), 1), dtype=torch.long)}
+
+
+def _load_token_stream_model(monkeypatch, tmp_path, model_class, model_config):
+    family = SimpleNamespace(
+        model_name="test",
+        model_family=None,
+        model_ability=["generate", "chat"],
+        model_specs=[
+            SimpleNamespace(
+                model_revision=None, model_format="pytorch", quantization="none"
+            )
+        ],
+        stop=None,
+        stop_token_ids=None,
+        reasoning_start_tag=None,
+        reasoning_end_tag=None,
+        tool_parser=None,
+    )
+    model = model_class(
+        "test-0",
+        family,
+        str(tmp_path),
+        {"device": "cpu", "enable_thinking": True, **model_config},
+    )
+    fake = Mock(
+        wraps=_TokenStreamModel(),
+        config=SimpleNamespace(max_position_embeddings=32),
+        to=Mock(),
+        get_memory_footprint=Mock(return_value=0),
+    )
+    monkeypatch.setattr(
+        model, "_load_model", lambda **kwargs: (fake, _TokenStreamTokenizer())
+    )
+    runtime = _TokenStreamRuntime()
+    monkeypatch.setattr(model, "build_prefill_kwargs", runtime.build_prefill_kwargs)
+    monkeypatch.setattr(model, "build_decode_kwargs", runtime.build_decode_kwargs)
+    if hasattr(model, "chat"):
+        monkeypatch.setattr(model, "_get_full_prompt", lambda *args: "prompt")
+    model.load()
+    return model
+
+
+@pytest.mark.asyncio
+async def test_single_slot_batch_only_text_model(monkeypatch, tmp_path):
+    from ..core import PytorchChatModel
+
+    results = []
+    for model_config in ({}, {"max_num_seqs": 1}):
+        model = _load_token_stream_model(
+            monkeypatch, tmp_path, PytorchChatModel, model_config
+        )
+        inference = model.batch_inference
+        batches = []
+
+        def infer(requests):
+            if model_config:
+                assert len(requests) == 1
+                if batches and requests[0] is not batches[-1][0]:
+                    assert batches[-1][0].stopped
+            batches.append(tuple(requests))
+            inference(requests)
+
+        monkeypatch.setattr(model, "batch_inference", infer)
+        config = {"max_tokens": 18, "temperature": 0.0, "repetition_penalty": 1.0}
+        try:
+            completion, chat = await asyncio.wait_for(
+                asyncio.gather(
+                    model.generate("prompt", config),
+                    model.chat([{"role": "user", "content": "hi"}], config),
+                ),
+                5,
+            )
+            assert model._batch_scheduler is not None
+            assert model.get_request_priority_capacity() == model_config.get(
+                "max_num_seqs", 16
+            )
+            # Each request spans multiple scheduler steps.
+            if model_config:
+                assert len(batches) > 2
+            results.append(
+                (
+                    completion["choices"][0]["text"],
+                    chat["choices"][0]["message"]["content"],
+                    completion["usage"],
+                    chat["usage"],
+                )
+            )
+        finally:
+            await model.stop_scheduler()
+
+    usage = {"prompt_tokens": 14, "completion_tokens": 18, "total_tokens": 32}
+    expected = ("5" + "2" * 17, "5" + "2" * 17, usage, usage)
+    assert results[0] == results[1] == expected
+
+
+@pytest.mark.asyncio
+async def test_single_slot_keeps_direct_chat(monkeypatch, tmp_path):
+    from ..gemma4 import Gemma4ChatModel
+
+    model = _load_token_stream_model(
+        monkeypatch, tmp_path, Gemma4ChatModel, {"max_num_seqs": 1}
+    )
+    direct = Mock(return_value="direct chat")
+    monkeypatch.setattr(model, "build_direct_chat_result", direct)
+    messages = [{"role": "user", "content": "hi"}]
+    assert model._batch_scheduler is None
+    assert await model.chat(messages) == "direct chat"
+    direct.assert_called_once_with(messages, None)
 
 
 def _make_token_limit_request(
