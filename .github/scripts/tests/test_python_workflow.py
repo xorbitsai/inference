@@ -438,9 +438,7 @@ class TestPythonWorkflow(unittest.TestCase):
         for name, (snapshots, full) in cases.items():
             with self.subTest(name):
                 self.assertEqual(
-                    self.approval(
-                        "pull_request_review", reviews, snapshots=snapshots
-                    ),
+                    self.approval("pull_request_review", reviews, snapshots=snapshots),
                     f"full_matrix={'true' if full else 'false'}",
                 )
         self.assertEqual(self.check_reads, 3)
