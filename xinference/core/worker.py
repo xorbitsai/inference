@@ -66,6 +66,7 @@ from ..constants import (
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_TIMEOUT,
     XINFERENCE_HOME,
     XINFERENCE_LOG_CONSOLE,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
@@ -199,6 +200,20 @@ _sglang_source_build_env_lock = threading.Lock()
 # it forgot this worker. OSError covers ConnectionError and, since Python 3.11,
 # TimeoutError (asyncio.TimeoutError is listed for older interpreters).
 _SUPERVISOR_TRANSPORT_ERRORS = (asyncio.TimeoutError, OSError, xo.ServerClosed)
+
+
+def _supervisor_unreachable_budget() -> float:
+    """Seconds a worker tolerates heartbeat transport failures.
+
+    Mirrors the Supervisor's dead-worker check: a worker is declared dead once
+    its last update is older than XINFERENCE_HEALTH_CHECK_TIMEOUT for
+    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD checks spaced
+    XINFERENCE_HEALTH_CHECK_INTERVAL apart.
+    """
+    return (
+        XINFERENCE_HEALTH_CHECK_TIMEOUT
+        + XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD * XINFERENCE_HEALTH_CHECK_INTERVAL
+    )
 
 
 async def _bounded_control_report(owner, key, call, seconds):
@@ -1037,10 +1052,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # registration completes. This flag is the source of truth for registration
         # state, used by get_supervisor_ref to decide whether add_worker is needed.
         self._registered: bool = False
-        # (supervisor ref generation, consecutive heartbeat transport failures).
-        # Keyed by generation so failures against an old ref never count
-        # toward the current one.
-        self._supervisor_transport_failures: Optional[Tuple[int, int]] = None
+        # (supervisor ref generation, time.monotonic() of the last successful
+        # Supervisor RPC, or of the first transport failure when there was none
+        # on this generation). Keyed by generation so time spent failing
+        # against an old ref never counts toward the current one.
+        self._supervisor_last_contact: Optional[Tuple[int, float]] = None
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -2271,42 +2287,49 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             if isinstance(error, _SUPERVISOR_TRANSPORT_ERRORS):
                 # A timeout or connection error says nothing about whether the
                 # Supervisor still knows this worker; it is usually a network
-                # blip. Re-registering replays every replica, so only give up
-                # on the cached refs after the heartbeat has failed
-                # XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD times in a row, the
-                # same count the Supervisor uses before declaring a worker dead.
-                # Status reports ride on the heartbeat's verdict. Errors the
-                # Supervisor itself raises (e.g. WorkerNotRegisteredError after
-                # a restart) still fall through and re-register immediately.
+                # blip. Re-registering replays every replica, so keep the
+                # cached refs until the Supervisor has been unreachable for as
+                # long as it waits before declaring this worker dead. Measuring
+                # time rather than counting failures treats instant connection
+                # errors and full-length timeouts alike. Status reports ride on
+                # the heartbeat's verdict. Any other error (e.g.
+                # WorkerNotRegisteredError from report_worker_status after a
+                # Supervisor restart) still drops the refs immediately.
                 if method_name != "receive_heartbeat":
                     raise
-                previous = getattr(self, "_supervisor_transport_failures", None)
-                failures = (
-                    previous[1] + 1
-                    if previous is not None and previous[0] == supervisor_generation
-                    else 1
-                )
-                self._supervisor_transport_failures = (supervisor_generation, failures)
-                if failures < XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD:
-                    logger.warning(
-                        "Supervisor heartbeat transport failure %s/%s; keeping "
-                        "supervisor references",
-                        failures,
-                        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+                now = time.monotonic()
+                last_contact = self._supervisor_last_contact
+                if last_contact is None or last_contact[0] != supervisor_generation:
+                    last_contact = (supervisor_generation, now)
+                    self._supervisor_last_contact = last_contact
+                unreachable_for = now - last_contact[1]
+                budget = _supervisor_unreachable_budget()
+                if unreachable_for < budget:
+                    logger.debug(
+                        "Supervisor heartbeat failed with %s(%s); unreachable "
+                        "for %.1fs of %.1fs, keeping supervisor references",
+                        type(error).__name__,
+                        error,
+                        unreachable_for,
+                        budget,
                     )
                     raise
                 logger.warning(
-                    "Supervisor heartbeat failed %s consecutive times; dropping "
-                    "supervisor references to re-register",
-                    failures,
+                    "Supervisor unreachable for %.1fs (budget %.1fs), last "
+                    "heartbeat error %s(%s); dropping supervisor references "
+                    "to re-register",
+                    unreachable_for,
+                    budget,
+                    type(error).__name__,
+                    error,
                 )
-            self._supervisor_transport_failures = None
+            self._supervisor_last_contact = None
             self._clear_supervisor_refs(
                 expected_supervisor_ref=supervisor_ref,
                 expected_generation=supervisor_generation,
             )
             raise
-        self._supervisor_transport_failures = None
+        self._supervisor_last_contact = (supervisor_generation, time.monotonic())
         return result
 
     async def _call_supervisor(
@@ -7411,11 +7434,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         by report_status -> report_worker_status path, per supervisor's
         receive_heartbeat design contract (supervisor.py).
 
-        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD consecutive transport
-        failures invalidate the cached supervisor references so the next
-        attempt can refresh a supervisor whose internal address changed after a
-        restart. A shorter network blip keeps the references (and the
-        registration), so it does not trigger a full replica replay.
+        Once transport failures have left the Supervisor unreachable for as
+        long as it waits before declaring this worker dead (see
+        _supervisor_unreachable_budget), the cached supervisor references are
+        invalidated so a later registration can refresh a supervisor whose
+        internal address changed after a restart. A shorter network blip keeps
+        the references (and the registration), so it does not trigger a full
+        replica replay.
         """
         await self._call_supervisor(
             "receive_heartbeat",

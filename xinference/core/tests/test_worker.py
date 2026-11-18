@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import venv
 from pathlib import Path
 from types import SimpleNamespace
@@ -744,14 +745,17 @@ class _HeartbeatSupervisorRef:
         self.outcomes = list(outcomes)
         self.calls = 0
 
-    async def receive_heartbeat(self, worker_address: str):
+    async def _next(self):
         self.calls += 1
         outcome = self.outcomes.pop(0)
         if outcome is not None:
             raise outcome
 
+    async def receive_heartbeat(self, worker_address: str):
+        await self._next()
+
     async def report_worker_status(self, worker_address: str, status):
-        await self.receive_heartbeat(worker_address)
+        await self._next()
 
 
 class _HeartbeatWorker:
@@ -770,6 +774,7 @@ class _HeartbeatWorker:
         self._supervisor_ref_address = "test://supervisor"
         self._supervisor_ref_lock = threading.Lock()
         self._supervisor_ref_generation = 0
+        self._supervisor_last_contact = None
         self._registered = True
         self._status_guard_ref = object()
         self._event_collector_ref = object()
@@ -779,6 +784,12 @@ class _HeartbeatWorker:
     async def _get_supervisor_ref_with_generation(self, add_worker=True):
         assert self._supervisor_ref is not None
         return self._supervisor_ref, self._supervisor_ref_generation
+
+    def backdate_last_contact(self, seconds):
+        self._supervisor_last_contact = (
+            self._supervisor_ref_generation,
+            time.monotonic() - seconds,
+        )
 
     def assert_refs_kept(self, supervisor_ref):
         assert self._supervisor_ref is supervisor_ref
@@ -794,27 +805,62 @@ class _HeartbeatWorker:
         assert self._progress_tracker_ref is None
 
 
+def _set_unreachable_budget(monkeypatch, timeout, threshold, interval):
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_TIMEOUT", timeout)
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", threshold
+    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_INTERVAL", interval)
+
+
+def test_supervisor_unreachable_budget_follows_supervisor_formula(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    assert worker_module._supervisor_unreachable_budget() == 35
+
+
 @pytest.mark.asyncio
-async def test_worker_heartbeat_failure_clears_cached_supervisor_refs(monkeypatch):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
+async def test_worker_heartbeat_fast_failures_within_budget_keep_refs(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # Instant connection errors, more of them than the failure threshold: the
+    # budget is time, not a count, so the registration survives.
     supervisor_ref = _HeartbeatSupervisorRef(
-        [ConnectionRefusedError("stale supervisor address")] * 3
+        [ConnectionRefusedError("refused"), xo.ServerClosed("closed")] * 4
     )
     worker = _HeartbeatWorker(supervisor_ref)
 
-    for _ in range(2):
-        with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+    for _ in range(8):
+        with pytest.raises((ConnectionRefusedError, xo.ServerClosed)):
             await worker.heartbeat()
         worker.assert_refs_kept(supervisor_ref)
-
-    with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
-        await worker.heartbeat()
-    worker.assert_refs_cleared()
+    assert supervisor_ref.calls == 8
 
 
 @pytest.mark.asyncio
-async def test_worker_heartbeat_threshold_one_clears_on_first_failure(monkeypatch):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 1)
+async def test_worker_heartbeat_failure_past_budget_clears_refs(monkeypatch, caplog):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [ConnectionRefusedError("stale supervisor address")] * 2
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    with pytest.raises(ConnectionRefusedError):
+        await worker.heartbeat()
+    worker.assert_refs_kept(supervisor_ref)
+
+    # The Supervisor has now been unreachable longer than it waits before
+    # declaring this worker dead.
+    worker.backdate_last_contact(36)
+    with caplog.at_level(logging.WARNING, logger=worker_module.logger.name):
+        with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+            await worker.heartbeat()
+    worker.assert_refs_cleared()
+    assert worker._supervisor_last_contact is None
+    assert "ConnectionRefusedError(stale supervisor address)" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_zero_budget_clears_on_first_failure(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=0, threshold=1, interval=0)
     worker = _HeartbeatWorker(_HeartbeatSupervisorRef([asyncio.TimeoutError()]))
 
     with pytest.raises(asyncio.TimeoutError):
@@ -823,23 +869,23 @@ async def test_worker_heartbeat_threshold_one_clears_on_first_failure(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_worker_heartbeat_success_resets_transport_failure_count(monkeypatch):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
-    blip = [asyncio.TimeoutError(), xo.ServerClosed("closed")]
-    supervisor_ref = _HeartbeatSupervisorRef(blip + [None] + blip + [None])
+async def test_worker_supervisor_success_resets_unreachable_window(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [asyncio.TimeoutError(), None, asyncio.TimeoutError()]
+    )
     worker = _HeartbeatWorker(supervisor_ref)
 
-    for expected in (asyncio.TimeoutError, xo.ServerClosed):
-        with pytest.raises(expected):
-            await worker.heartbeat()
-    await worker.heartbeat()
-    for expected in (asyncio.TimeoutError, xo.ServerClosed):
-        with pytest.raises(expected):
-            await worker.heartbeat()
-    await worker.heartbeat()
-
-    # Four failures in total, but never three in a row: no re-registration.
-    assert supervisor_ref.calls == 6
+    worker.backdate_last_contact(30)
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    # Any successful Supervisor RPC on this generation restarts the window.
+    await worker._call_supervisor(
+        "report_worker_status", worker.address, {}, add_worker=True
+    )
+    worker.backdate_last_contact(0)
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
     worker.assert_refs_kept(supervisor_ref)
 
 
@@ -847,26 +893,42 @@ async def test_worker_heartbeat_success_resets_transport_failure_count(monkeypat
 async def test_worker_heartbeat_supervisor_error_clears_refs_immediately(
     monkeypatch,
 ):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
-    # The Supervisor answered: this is not a network blip, so keep the old
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # Not a transport error: the heartbeat target is gone, so keep the old
     # clear-and-re-register behaviour.
-    worker = _HeartbeatWorker(
-        _HeartbeatSupervisorRef([supervisor_module.WorkerNotRegisteredError("w")])
-    )
+    worker = _HeartbeatWorker(_HeartbeatSupervisorRef([xo.ActorNotExist("supervisor")]))
 
-    with pytest.raises(supervisor_module.WorkerNotRegisteredError):
+    with pytest.raises(xo.ActorNotExist):
         await worker.heartbeat()
     worker.assert_refs_cleared()
 
 
 @pytest.mark.asyncio
+async def test_worker_status_report_not_registered_clears_refs_immediately(
+    monkeypatch,
+):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # A restarted Supervisor answers report_worker_status with
+    # WorkerNotRegisteredError; re-register right away, whatever the budget.
+    worker = _HeartbeatWorker(
+        _HeartbeatSupervisorRef([supervisor_module.WorkerNotRegisteredError("w")])
+    )
+
+    with pytest.raises(supervisor_module.WorkerNotRegisteredError):
+        await worker._call_supervisor(
+            "report_worker_status", worker.address, {}, add_worker=True
+        )
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
 async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 1)
+    _set_unreachable_budget(monkeypatch, timeout=0, threshold=1, interval=0)
     supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
     worker = _HeartbeatWorker(supervisor_ref)
 
-    # Status reports ride on the heartbeat's verdict: even with a threshold of
-    # one, a timed-out status upload does not drop the registration.
+    # Status reports ride on the heartbeat's verdict: even with no budget, a
+    # timed-out status upload does not drop the registration.
     with pytest.raises(asyncio.TimeoutError):
         await worker._call_supervisor(
             "report_worker_status", worker.address, {}, add_worker=True
@@ -875,19 +937,16 @@ async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_worker_heartbeat_failure_count_restarts_after_ref_refresh(
+async def test_worker_heartbeat_unreachable_window_restarts_after_ref_refresh(
     monkeypatch,
 ):
-    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 2)
-    supervisor_ref = _HeartbeatSupervisorRef(
-        [asyncio.TimeoutError(), asyncio.TimeoutError()]
-    )
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
     worker = _HeartbeatWorker(supervisor_ref)
 
-    with pytest.raises(asyncio.TimeoutError):
-        await worker.heartbeat()
-    # A registration published in between bumps the generation; failures
-    # against the old generation must not count toward the new one.
+    worker.backdate_last_contact(100)
+    # A registration published in between bumps the generation; time spent
+    # failing against the old generation must not count toward the new one.
     worker._supervisor_ref_generation += 1
     with pytest.raises(asyncio.TimeoutError):
         await worker.heartbeat()
