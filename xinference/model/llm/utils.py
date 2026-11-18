@@ -308,11 +308,13 @@ def _stamp_usage(
 
 def with_continuous_usage(
     ctx: Optional[Dict[str, Any]], requested: bool
-) -> Optional[Dict[str, Any]]:
-    """Mark a chat context so its stream conversion attaches running usage."""
-    if not requested:
-        return ctx
-    return {**(ctx or {}), CONTINUOUS_USAGE_CONTEXT_KEY: True}
+) -> Dict[str, Any]:
+    """Mark a chat context so its stream conversion attaches running usage.
+
+    The key is always written, so a client-supplied ``chat_template_kwargs``
+    entry of the same name can never enable it.
+    """
+    return {**(ctx or {}), CONTINUOUS_USAGE_CONTEXT_KEY: requested}
 
 
 class ChatModelMixin:

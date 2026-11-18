@@ -598,9 +598,12 @@ async def async_stream_harmony_chat_completion_chunks(
             yield cast("ChatCompletionChunk", chunk)
     finally:
         # ``async for`` closes neither the parser nor its source when this
-        # adapter is closed early; close both so the engine aborts the request.
-        await parsed.aclose()
-        await chunks.aclose()
+        # adapter is closed early; close both so the engine aborts the request,
+        # the source even if closing the parser fails.
+        try:
+            await parsed.aclose()
+        finally:
+            await chunks.aclose()
 
 
 async def parse_harmony_chat_completion(

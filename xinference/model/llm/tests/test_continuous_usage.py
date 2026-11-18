@@ -207,7 +207,8 @@ def _mlx(model_class, upstream):
 
     def prepare_chat_inputs(messages, generate_config):
         tools = generate_config.pop("tools", None)
-        return "prompt", tools, {}, generate_config
+        context = dict(generate_config.get("chat_template_kwargs") or {})
+        return "prompt", tools, context, generate_config
 
     model.async_generate = async_generate
     model.generate = generate
@@ -238,7 +239,7 @@ async def _chat(monkeypatch, engine, config, upstream):
                 "prompt",
                 None,
                 config.pop("tools", None),
-                {},
+                dict(config.get("chat_template_kwargs") or {}),
                 config,
             )
         )
@@ -322,6 +323,27 @@ async def test_without_the_option_content_chunks_are_unchanged(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ENGINES)
+async def test_chat_template_kwargs_cannot_enable_it(monkeypatch, engine):
+    # Only stream_options turns it on; a same-named client template kwarg is
+    # overwritten, the same way ``_anthropic_request`` is.
+    upstream = _Upstream(_raw_chunks())
+    config = {
+        "stream_options": {"include_usage": True},
+        "chat_template_kwargs": {"_continuous_usage": True},
+    }
+    result = await _chat(monkeypatch, engine, config, upstream)
+    chunks = [chunk async for chunk in result]
+    intermediate = [
+        chunk
+        for chunk in chunks
+        if chunk["choices"] and chunk["choices"][0]["finish_reason"] is None
+    ]
+    assert intermediate
+    assert all(chunk.get("usage") is None for chunk in intermediate)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ENGINES)
 async def test_early_close_still_closes_the_engine_stream(monkeypatch, engine):
     upstream = _Upstream(_raw_chunks())
     config = {"stream_options": dict(CONTINUOUS)}
@@ -329,6 +351,37 @@ async def test_early_close_still_closes_the_engine_stream(monkeypatch, engine):
     first = await result.__anext__()
     assert first["usage"]["completion_tokens"] >= 1
     await result.aclose()
+    assert upstream.closed
+
+
+@pytest.mark.asyncio
+async def test_harmony_close_reaches_the_source_when_the_parser_fails(monkeypatch):
+    from .. import harmony
+
+    upstream = _Upstream(_raw_chunks())
+
+    class _FailingParser:
+        def __init__(self, chunks):
+            self.chunks = chunks
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            return await self.chunks.__anext__()
+
+        async def aclose(self):
+            raise RuntimeError("parser close failed")
+
+    monkeypatch.setattr(
+        harmony,
+        "async_stream_harmony_chat_completion",
+        lambda chunks, **kwargs: _FailingParser(chunks),
+    )
+    result = harmony.async_stream_harmony_chat_completion_chunks(upstream.agen())
+    await result.__anext__()
+    with pytest.raises(RuntimeError, match="parser close failed"):
+        await result.aclose()
     assert upstream.closed
 
 
