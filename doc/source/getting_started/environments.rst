@@ -90,6 +90,10 @@ Default value is ``<XINFERENCE_HOME>/system-settings.json``.
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The maximum number of failed health checks tolerated at Xinference startup.
+It is also the number of consecutive heartbeats a worker lets fail with a
+transport error (timeout or connection error) before it drops its cached
+supervisor references and registers again. A supervisor that answers but no
+longer knows the worker still triggers re-registration immediately.
 Default value is 5.
 
 XINFERENCE_HEALTH_CHECK_INTERVAL
@@ -101,14 +105,6 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
-
-XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Number of consecutive worker heartbeats that must fail with a transport error
-(timeout or connection error) before the worker drops its cached supervisor
-references and registers again. A supervisor that answers but no longer knows
-the worker still triggers re-registration immediately. Set to 1 to re-register
-after the first failure. Default value is 3.
 
 XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -64,6 +64,7 @@ from ..constants import (
     XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
+    XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HOME,
     XINFERENCE_LOG_CONSOLE,
@@ -79,7 +80,6 @@ from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
-    XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD,
     is_metrics_disabled,
 )
 from ..core.model import ModelActor
@@ -2273,7 +2273,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # Supervisor still knows this worker; it is usually a network
                 # blip. Re-registering replays every replica, so only give up
                 # on the cached refs after the heartbeat has failed
-                # XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD times in a row.
+                # XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD times in a row, the
+                # same count the Supervisor uses before declaring a worker dead.
                 # Status reports ride on the heartbeat's verdict. Errors the
                 # Supervisor itself raises (e.g. WorkerNotRegisteredError after
                 # a restart) still fall through and re-register immediately.
@@ -2286,12 +2287,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     else 1
                 )
                 self._supervisor_transport_failures = (supervisor_generation, failures)
-                if failures < XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD:
+                if failures < XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD:
                     logger.warning(
                         "Supervisor heartbeat transport failure %s/%s; keeping "
                         "supervisor references",
                         failures,
-                        XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD,
+                        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
                     )
                     raise
                 logger.warning(
@@ -7410,7 +7411,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         by report_status -> report_worker_status path, per supervisor's
         receive_heartbeat design contract (supervisor.py).
 
-        XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD consecutive transport
+        XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD consecutive transport
         failures invalidate the cached supervisor references so the next
         attempt can refresh a supervisor whose internal address changed after a
         restart. A shorter network blip keeps the references (and the

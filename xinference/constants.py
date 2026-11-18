@@ -73,9 +73,6 @@ XINFERENCE_ENV_HEALTH_CHECK_FAILURE_THRESHOLD = (
 XINFERENCE_ENV_HEALTH_CHECK_INTERVAL = "XINFERENCE_HEALTH_CHECK_INTERVAL"
 XINFERENCE_ENV_HEALTH_CHECK_TIMEOUT = "XINFERENCE_HEALTH_CHECK_TIMEOUT"
 XINFERENCE_ENV_TCP_REQUEST_TIMEOUT = "XINFERENCE_TCP_REQUEST_TIMEOUT"
-XINFERENCE_ENV_WORKER_HEARTBEAT_FAILURE_THRESHOLD = (
-    "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD"
-)
 # Supervisor -> Worker RPC bounds
 XINFERENCE_ENV_LIST_MODELS_PER_WORKER_TIMEOUT = (
     "XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT"
@@ -454,13 +451,6 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT = int(
 )
 XINFERENCE_TCP_REQUEST_TIMEOUT = int(
     os.environ.get(XINFERENCE_ENV_TCP_REQUEST_TIMEOUT, 5)
-)
-# Consecutive heartbeat transport failures (timeout / connection error) a worker
-# tolerates before it drops its cached supervisor references and re-registers.
-# 1 restores the old drop-on-first-failure behaviour. A supervisor that answers
-# but no longer knows the worker still triggers re-registration immediately.
-XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD = max(
-    1, int(os.environ.get(XINFERENCE_ENV_WORKER_HEARTBEAT_FAILURE_THRESHOLD, 3))
 )
 # Per-worker list_models RPC; default well below TCP read-timeout (~600s+) seen in production
 XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT = int(

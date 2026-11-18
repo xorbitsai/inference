@@ -796,9 +796,7 @@ class _HeartbeatWorker:
 
 @pytest.mark.asyncio
 async def test_worker_heartbeat_failure_clears_cached_supervisor_refs(monkeypatch):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
     supervisor_ref = _HeartbeatSupervisorRef(
         [ConnectionRefusedError("stale supervisor address")] * 3
     )
@@ -816,9 +814,7 @@ async def test_worker_heartbeat_failure_clears_cached_supervisor_refs(monkeypatc
 
 @pytest.mark.asyncio
 async def test_worker_heartbeat_threshold_one_clears_on_first_failure(monkeypatch):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 1
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 1)
     worker = _HeartbeatWorker(_HeartbeatSupervisorRef([asyncio.TimeoutError()]))
 
     with pytest.raises(asyncio.TimeoutError):
@@ -828,9 +824,7 @@ async def test_worker_heartbeat_threshold_one_clears_on_first_failure(monkeypatc
 
 @pytest.mark.asyncio
 async def test_worker_heartbeat_success_resets_transport_failure_count(monkeypatch):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
     blip = [asyncio.TimeoutError(), xo.ServerClosed("closed")]
     supervisor_ref = _HeartbeatSupervisorRef(blip + [None] + blip + [None])
     worker = _HeartbeatWorker(supervisor_ref)
@@ -853,9 +847,7 @@ async def test_worker_heartbeat_success_resets_transport_failure_count(monkeypat
 async def test_worker_heartbeat_supervisor_error_clears_refs_immediately(
     monkeypatch,
 ):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 3)
     # The Supervisor answered: this is not a network blip, so keep the old
     # clear-and-re-register behaviour.
     worker = _HeartbeatWorker(
@@ -869,9 +861,7 @@ async def test_worker_heartbeat_supervisor_error_clears_refs_immediately(
 
 @pytest.mark.asyncio
 async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 1
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 1)
     supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
     worker = _HeartbeatWorker(supervisor_ref)
 
@@ -888,9 +878,7 @@ async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
 async def test_worker_heartbeat_failure_count_restarts_after_ref_refresh(
     monkeypatch,
 ):
-    monkeypatch.setattr(
-        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 2
-    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", 2)
     supervisor_ref = _HeartbeatSupervisorRef(
         [asyncio.TimeoutError(), asyncio.TimeoutError()]
     )
