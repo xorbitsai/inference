@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+from ..constants import XINFERENCE_STARTUP_TIMEOUT
 from ..core.system_settings_store import SystemSettingsStore
 from ..core.worker_relaunch import validate_relaunch_options
 from .process_host import (
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
     from .supervisor_host import SupervisorHost
 
 API_HOST_ENV = "XINFERENCE_API_HOST"
-STARTUP_TIMEOUT = 120
+STARTUP_TIMEOUT = XINFERENCE_STARTUP_TIMEOUT
 DIAGNOSTIC_LIMIT = 8192
 
 

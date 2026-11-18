@@ -743,3 +743,57 @@ def test_local_components_migrate_on_demand_and_keep_local_semantics(
         ).read_text()[-5000:]
         assert not failures
         until(lambda: not any(alive(pid) for pid in seen), timeout=10)
+
+
+def test_startup_timeout_is_configurable():
+    code = (
+        "from xinference.deploy import api_host, local_host, supervisor_host\n"
+        "print(api_host.STARTUP_TIMEOUT, local_host.STARTUP_TIMEOUT,"
+        " supervisor_host.STARTUP_TIMEOUT)\n"
+    )
+    environment = {**os.environ, "XINFERENCE_STARTUP_TIMEOUT": "600"}
+    output = subprocess.check_output(
+        [sys.executable, "-c", code], env=environment, text=True
+    )
+    assert output.split() == ["600.0"] * 3
+    environment.pop("XINFERENCE_STARTUP_TIMEOUT")
+    output = subprocess.check_output(
+        [sys.executable, "-c", code], env=environment, text=True
+    )
+    assert output.split() == ["120"] * 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cluster, message",
+    [
+        (
+            "import time; time.sleep(60)",
+            "not ready after 0.5 seconds (set XINFERENCE_STARTUP_TIMEOUT",
+        ),
+        ("raise SystemExit(17)", "process exited with code 17"),
+    ],
+)
+async def test_local_cluster_startup_failure_reports_the_cause(
+    tmp_path, monkeypatch, cluster, message
+):
+    from .. import local_host
+
+    async def start(args, **kwargs):
+        return subprocess.Popen([sys.executable, "-c", cluster], **kwargs)
+
+    monkeypatch.setattr(local_host, "STARTUP_TIMEOUT", 0.5)
+    monkeypatch.setattr(local_host, "start_process", start)
+    host = LocalHost(
+        MagicMock(),
+        {"supervisor_address": "127.0.0.1:1", "worker_address": "127.0.0.1:2"},
+        MagicMock(),
+    )
+    host.directory = tmp_path
+    try:
+        with pytest.raises(RuntimeError, match="Local cluster failed to start") as e:
+            await host.start_components({})
+        assert message in str(e.value)
+    finally:
+        host.cluster.kill()
+        await host.cluster_exit
