@@ -156,6 +156,49 @@ def test_validate_input_names_undecodable_token_ids(value, bad):
         model.validate_input(value)
 
 
+def test_validate_input_caps_listed_ids_and_stops_after_the_eleventh():
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    bad = list(range(151000, 151030))
+    # Duplicates of already seen ids must not count as new distinct ids.
+    value = [[151000, 151000, 151001] + bad + [9906]]
+    shown = ", ".join(str(t) for t in bad[:10])
+    with pytest.raises(InvalidModelRequestError) as exc_info:
+        model.validate_input(value)
+    assert str(exc_info.value).endswith(f": {shown}, ...."), str(exc_info.value)
+
+
+def test_validate_input_exactly_ten_distinct_ids_have_no_ellipsis():
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    bad = list(range(151000, 151010))
+    shown = ", ".join(str(t) for t in bad)
+    with pytest.raises(InvalidModelRequestError) as exc_info:
+        model.validate_input([bad + bad])
+    assert str(exc_info.value).endswith(f": {shown}.")
+
+
+def test_validate_input_many_invalid_ids_is_bounded(monkeypatch):
+    import tiktoken
+
+    enc = tiktoken.get_encoding("cl100k_base")
+    calls = []
+    real = enc.decode_single_token_bytes
+
+    def counting(token):
+        calls.append(token)
+        return real(token)
+
+    monkeypatch.setattr(enc, "decode_single_token_bytes", counting)
+    monkeypatch.setattr(tiktoken, "get_encoding", lambda name: enc)
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    with pytest.raises(InvalidModelRequestError):
+        model.validate_input([list(range(151000, 251000))])
+    # Stops at the 11th distinct invalid id instead of scanning all 100000.
+    assert len(calls) == 11
+
+
 @pytest.mark.parametrize("value", [[[9906, 1917]], ["text", [9906]], "text", []])
 def test_validate_input_accepts_decodable_input(value):
     model = _make_stub_model()

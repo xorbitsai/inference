@@ -20,7 +20,18 @@ import os
 import time
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union, cast
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from xoscar import extensible
 
@@ -40,6 +51,10 @@ from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
+
+
+# How many distinct undecodable token ids an error message lists.
+_MAX_SHOWN_INVALID_IDS = 10
 
 
 def _is_token_array(item) -> bool:
@@ -296,14 +311,30 @@ class EmbeddingModel(abc.ABC):
         import tiktoken
 
         enc = tiktoken.get_encoding("cl100k_base")
-        unknown: List[int] = []
+        # Only the first ``_MAX_SHOWN_INVALID_IDS`` distinct ids are reported, so
+        # stop once one more distinct id shows up: the work stays linear and a
+        # request full of invalid ids cannot hold up the actor's event loop.
+        unknown: List[int] = []  # encounter order, for the message
+        seen: Set[Any] = set()
         for line in arrays:
             for token in line:
                 try:
                     enc.decode_single_token_bytes(token)
                 except (KeyError, OverflowError, TypeError, ValueError):
-                    if token not in unknown:
-                        unknown.append(token)
+                    try:
+                        if token in seen:
+                            continue
+                        seen.add(token)
+                    except TypeError:  # unhashable id
+                        token = repr(token)
+                        if token in seen:
+                            continue
+                        seen.add(token)
+                    unknown.append(token)
+                    if len(unknown) > _MAX_SHOWN_INVALID_IDS:
+                        break
+            if len(unknown) > _MAX_SHOWN_INVALID_IDS:
+                break
             if not unknown:
                 try:
                     _decode_token_array(enc, line)
@@ -313,11 +344,11 @@ class EmbeddingModel(abc.ABC):
                         "cl100k_base tokenizer."
                     ) from None
         if unknown:
-            shown = ", ".join(str(t) for t in unknown[:10])
+            shown = ", ".join(str(t) for t in unknown[:_MAX_SHOWN_INVALID_IDS])
             raise InvalidModelRequestError(
                 f"Token ids not recognized by the cl100k_base tokenizer used to "
                 f"decode token arrays: {shown}"
-                f"{', ...' if len(unknown) > 10 else ''}."
+                f"{', ...' if len(unknown) > _MAX_SHOWN_INVALID_IDS else ''}."
             )
 
     def _fix_langchain_openai_inputs(
