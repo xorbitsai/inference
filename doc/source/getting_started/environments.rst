@@ -102,6 +102,14 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
 
+XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of consecutive worker heartbeats that must fail with a transport error
+(timeout or connection error) before the worker drops its cached supervisor
+references and registers again. A supervisor that answers but no longer knows
+the worker still triggers re-registration immediately. Set to 1 to re-register
+after the first failure. Default value is 3.
+
 XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Maximum age in seconds of the last valid per-model GPU-memory snapshot retained

@@ -738,49 +738,172 @@ class DummyActorRef:
         self.address = address
 
 
+class _HeartbeatSupervisorRef:
+    def __init__(self, outcomes):
+        # Each outcome is None (success) or an exception to raise.
+        self.outcomes = list(outcomes)
+        self.calls = 0
+
+    async def receive_heartbeat(self, worker_address: str):
+        self.calls += 1
+        outcome = self.outcomes.pop(0)
+        if outcome is not None:
+            raise outcome
+
+    async def report_worker_status(self, worker_address: str, status):
+        await self.receive_heartbeat(worker_address)
+
+
+class _HeartbeatWorker:
+    heartbeat = WorkerActor.heartbeat
+    _run_on_actor_loop = WorkerActor._run_on_actor_loop
+    _ownership_metadata = WorkerActor._ownership_metadata
+    _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+    _call_supervisor = WorkerActor._call_supervisor
+    _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+
+    def __init__(self, supervisor_ref):
+        self.address = "test://worker"
+        self._actor_loop = None
+        self._supervisor_init_lock = None
+        self._supervisor_ref = supervisor_ref
+        self._supervisor_ref_address = "test://supervisor"
+        self._supervisor_ref_lock = threading.Lock()
+        self._supervisor_ref_generation = 0
+        self._registered = True
+        self._status_guard_ref = object()
+        self._event_collector_ref = object()
+        self._cache_tracker_ref = object()
+        self._progress_tracker_ref = object()
+
+    async def _get_supervisor_ref_with_generation(self, add_worker=True):
+        assert self._supervisor_ref is not None
+        return self._supervisor_ref, self._supervisor_ref_generation
+
+    def assert_refs_kept(self, supervisor_ref):
+        assert self._supervisor_ref is supervisor_ref
+        assert self._registered
+        assert self._status_guard_ref is not None
+
+    def assert_refs_cleared(self):
+        assert self._supervisor_ref is None
+        assert not self._registered
+        assert self._status_guard_ref is None
+        assert self._event_collector_ref is None
+        assert self._cache_tracker_ref is None
+        assert self._progress_tracker_ref is None
+
+
 @pytest.mark.asyncio
-async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
-    class FailingSupervisorRef:
-        async def receive_heartbeat(self, worker_address: str):
-            raise ConnectionRefusedError("stale supervisor address")
+async def test_worker_heartbeat_failure_clears_cached_supervisor_refs(monkeypatch):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
+    )
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [ConnectionRefusedError("stale supervisor address")] * 3
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
 
-    class DummyWorker:
-        heartbeat = WorkerActor.heartbeat
-        _run_on_actor_loop = WorkerActor._run_on_actor_loop
-        _ownership_metadata = WorkerActor._ownership_metadata
-        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
-        _call_supervisor = WorkerActor._call_supervisor
-        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
-
-        def __init__(self):
-            self.address = "test://worker"
-            self._actor_loop = None
-            self._supervisor_init_lock = None
-            self._supervisor_ref = FailingSupervisorRef()
-            self._supervisor_ref_address = "test://supervisor"
-            self._supervisor_ref_lock = threading.Lock()
-            self._supervisor_ref_generation = 0
-            self._registered = True
-            self._status_guard_ref = object()
-            self._event_collector_ref = object()
-            self._cache_tracker_ref = object()
-            self._progress_tracker_ref = object()
-
-        async def _get_supervisor_ref_with_generation(self, add_worker=True):
-            assert not add_worker
-            return self._supervisor_ref, self._supervisor_ref_generation
-
-    worker = DummyWorker()
+    for _ in range(2):
+        with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+            await worker.heartbeat()
+        worker.assert_refs_kept(supervisor_ref)
 
     with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
         await worker.heartbeat()
+    worker.assert_refs_cleared()
 
-    assert worker._supervisor_ref is None
-    assert not worker._registered
-    assert worker._status_guard_ref is None
-    assert worker._event_collector_ref is None
-    assert worker._cache_tracker_ref is None
-    assert worker._progress_tracker_ref is None
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_threshold_one_clears_on_first_failure(monkeypatch):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 1
+    )
+    worker = _HeartbeatWorker(_HeartbeatSupervisorRef([asyncio.TimeoutError()]))
+
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_success_resets_transport_failure_count(monkeypatch):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
+    )
+    blip = [asyncio.TimeoutError(), xo.ServerClosed("closed")]
+    supervisor_ref = _HeartbeatSupervisorRef(blip + [None] + blip + [None])
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    for expected in (asyncio.TimeoutError, xo.ServerClosed):
+        with pytest.raises(expected):
+            await worker.heartbeat()
+    await worker.heartbeat()
+    for expected in (asyncio.TimeoutError, xo.ServerClosed):
+        with pytest.raises(expected):
+            await worker.heartbeat()
+    await worker.heartbeat()
+
+    # Four failures in total, but never three in a row: no re-registration.
+    assert supervisor_ref.calls == 6
+    worker.assert_refs_kept(supervisor_ref)
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_supervisor_error_clears_refs_immediately(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 3
+    )
+    # The Supervisor answered: this is not a network blip, so keep the old
+    # clear-and-re-register behaviour.
+    worker = _HeartbeatWorker(
+        _HeartbeatSupervisorRef([supervisor_module.WorkerNotRegisteredError("w")])
+    )
+
+    with pytest.raises(supervisor_module.WorkerNotRegisteredError):
+        await worker.heartbeat()
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
+async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 1
+    )
+    supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    # Status reports ride on the heartbeat's verdict: even with a threshold of
+    # one, a timed-out status upload does not drop the registration.
+    with pytest.raises(asyncio.TimeoutError):
+        await worker._call_supervisor(
+            "report_worker_status", worker.address, {}, add_worker=True
+        )
+    worker.assert_refs_kept(supervisor_ref)
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_failure_count_restarts_after_ref_refresh(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD", 2
+    )
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [asyncio.TimeoutError(), asyncio.TimeoutError()]
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    # A registration published in between bumps the generation; failures
+    # against the old generation must not count toward the new one.
+    worker._supervisor_ref_generation += 1
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    worker.assert_refs_kept(supervisor_ref)
 
 
 @pytest.mark.asyncio

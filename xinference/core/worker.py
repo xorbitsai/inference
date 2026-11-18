@@ -79,6 +79,7 @@ from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
+    XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD,
     is_metrics_disabled,
 )
 from ..core.model import ModelActor
@@ -192,6 +193,12 @@ _venv_setup_done: Dict[str, str] = {}
 # carry a Rust toolchain; SGLang explicitly supports a pure-Python build for
 # serving workloads that do not use those extensions.
 _sglang_source_build_env_lock = threading.Lock()
+
+
+# Failures that only mean the Supervisor could not be reached in time, not that
+# it forgot this worker. OSError covers ConnectionError and, since Python 3.11,
+# TimeoutError (asyncio.TimeoutError is listed for older interpreters).
+_SUPERVISOR_TRANSPORT_ERRORS = (asyncio.TimeoutError, OSError, xo.ServerClosed)
 
 
 async def _bounded_control_report(owner, key, call, seconds):
@@ -1030,6 +1037,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # registration completes. This flag is the source of truth for registration
         # state, used by get_supervisor_ref to decide whether add_worker is needed.
         self._registered: bool = False
+        # (supervisor ref generation, consecutive heartbeat transport failures).
+        # Keyed by generation so failures against an old ref never count
+        # toward the current one.
+        self._supervisor_transport_failures: Optional[Tuple[int, int]] = None
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -2245,7 +2256,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             await fence.checkpoint()
         try:
             method = getattr(supervisor_ref, method_name)
-            return await _bounded_control_report(
+            result = await _bounded_control_report(
                 self,
                 method_name,
                 lambda: xo.wait_for(
@@ -2256,12 +2267,46 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as error:
+            if isinstance(error, _SUPERVISOR_TRANSPORT_ERRORS):
+                # A timeout or connection error says nothing about whether the
+                # Supervisor still knows this worker; it is usually a network
+                # blip. Re-registering replays every replica, so only give up
+                # on the cached refs after the heartbeat has failed
+                # XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD times in a row.
+                # Status reports ride on the heartbeat's verdict. Errors the
+                # Supervisor itself raises (e.g. WorkerNotRegisteredError after
+                # a restart) still fall through and re-register immediately.
+                if method_name != "receive_heartbeat":
+                    raise
+                previous = getattr(self, "_supervisor_transport_failures", None)
+                failures = (
+                    previous[1] + 1
+                    if previous is not None and previous[0] == supervisor_generation
+                    else 1
+                )
+                self._supervisor_transport_failures = (supervisor_generation, failures)
+                if failures < XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD:
+                    logger.warning(
+                        "Supervisor heartbeat transport failure %s/%s; keeping "
+                        "supervisor references",
+                        failures,
+                        XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD,
+                    )
+                    raise
+                logger.warning(
+                    "Supervisor heartbeat failed %s consecutive times; dropping "
+                    "supervisor references to re-register",
+                    failures,
+                )
+            self._supervisor_transport_failures = None
             self._clear_supervisor_refs(
                 expected_supervisor_ref=supervisor_ref,
                 expected_generation=supervisor_generation,
             )
             raise
+        self._supervisor_transport_failures = None
+        return result
 
     async def _call_supervisor(
         self,
@@ -7365,9 +7410,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         by report_status -> report_worker_status path, per supervisor's
         receive_heartbeat design contract (supervisor.py).
 
-        A transport failure invalidates the cached supervisor references so the
-        next attempt can refresh a supervisor whose internal address changed
-        after a restart.
+        XINFERENCE_WORKER_HEARTBEAT_FAILURE_THRESHOLD consecutive transport
+        failures invalidate the cached supervisor references so the next
+        attempt can refresh a supervisor whose internal address changed after a
+        restart. A shorter network blip keeps the references (and the
+        registration), so it does not trigger a full replica replay.
         """
         await self._call_supervisor(
             "receive_heartbeat",
