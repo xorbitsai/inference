@@ -23,12 +23,14 @@ import time
 import typing
 import weakref
 from collections import OrderedDict, defaultdict
+from contextlib import aclosing
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     Callable,
     Coroutine,
     DefaultDict,
@@ -7029,6 +7031,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             tuple(info.active_replica_ids),
         )
         models: Dict[int, Any] = {}
+        ranked = None
         if routing_request and len(info.active_replica_ids) > 1:
             try:
                 ranked, models = await self._rank_chat_replicas(
@@ -7037,9 +7040,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 candidates = iter(ranked)
             except asyncio.TimeoutError:
                 pass
-        # While the probe reached a replica, a lookup it missed keeps the probe
-        # deadline; if it reached none, keep the ordinary lookup timeout.
-        lookup_timeout = _CHAT_ROUTING_PROBE_TIMEOUT if models else None
         busy = None
         last_error: Optional[Exception] = None
         preserve_route = False
@@ -7054,33 +7054,128 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             except Exception:
                 logger.debug("Chat reservation cleanup failed", exc_info=True)
 
-        for replica in candidates:
-            if replica in tried or replica in draining:
-                continue
-            tried.add(replica)
+        async def lookup_candidates() -> (
+            AsyncGenerator[Tuple[int, Optional[asyncio.Task]], None]
+        ):
+            if ranked is None:
+                for replica in candidates:
+                    yield replica, None
+                return
+            # Reuse reachable refs before starting ordinary worker lookups.
+            for replica in ranked:
+                if replica in models:
+                    yield replica, None
+            tasks = {
+                asyncio.create_task(
+                    self._get_replica_model(model_uid, replica, rpc_timeout=None)
+                ): replica
+                for replica in ranked
+                if replica not in models
+                and replica not in tried
+                and replica in info.active_replica_ids
+                and replica not in draining
+            }
+            pending = set(tasks)
             try:
-                try:
-                    model = models.get(replica)
-                    if model is None:
-                        model = await self._get_replica_model(
-                            model_uid, replica, rpc_timeout=lookup_timeout
-                        )
-                except Exception as exc:
-                    cause = getattr(exc, "__wrapped__", exc)
-                    if type(cause) is not Exception:
-                        raise
-                    # Retained Workers report last_error as a plain Exception.
-                    # Confirm the diagnostic, or its removal during cleanup.
-                    status = await xo.wait_for(
-                        self.get_model_status(
-                            build_replica_model_uid(model_uid, replica)
-                        ),
-                        _AFFINITY_CAPACITY_TIMEOUT,
+                while pending:
+                    done, pending = await asyncio.wait(
+                        pending, return_when=asyncio.FIRST_COMPLETED
                     )
-                    if status is not None and (
-                        not status.last_error or status.last_error not in str(exc)
-                    ):
-                        raise
+                    for task in tasks:
+                        if task in done:
+                            yield tasks[task], task
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        async with aclosing(lookup_candidates()) as lookups:
+            async for replica, lookup in lookups:
+                if replica in tried or replica in draining:
+                    continue
+                tried.add(replica)
+                try:
+                    try:
+                        model = models.get(replica)
+                        if lookup is not None:
+                            model = await lookup
+                        elif model is None:
+                            model = await self._get_replica_model(
+                                model_uid, replica, rpc_timeout=None
+                            )
+                    except Exception as exc:
+                        cause = getattr(exc, "__wrapped__", exc)
+                        if type(cause) is not Exception:
+                            raise
+                        # Retained Workers report last_error as a plain Exception.
+                        # Confirm the diagnostic, or its removal during cleanup.
+                        status = await xo.wait_for(
+                            self.get_model_status(
+                                build_replica_model_uid(model_uid, replica)
+                            ),
+                            _AFFINITY_CAPACITY_TIMEOUT,
+                        )
+                        if status is not None and (
+                            not status.last_error or status.last_error not in str(exc)
+                        ):
+                            raise
+                        logger.warning(
+                            "Skipping unavailable chat replica %s",
+                            build_replica_model_uid(model_uid, replica),
+                            exc_info=True,
+                        )
+                        last_error = exc
+                        continue
+                    available = True
+                    reserved = False
+                    if len(info.active_replica_ids) > 1:
+                        try:
+                            needs_capacity_probe = reservation_id is None
+                            if reservation_id is not None:
+                                try:
+                                    reserved = available = await xo.wait_for(
+                                        model.reserve_chat_request(reservation_id),
+                                        _AFFINITY_CAPACITY_TIMEOUT,
+                                    )
+                                except asyncio.TimeoutError:
+                                    # The actor may have committed before the reply timed out.
+                                    await release_reservation(model)
+                                    raise
+                                except AttributeError as exc:
+                                    if (
+                                        "has no attribute 'reserve_chat_request'"
+                                        not in str(exc)
+                                    ):
+                                        raise
+                                    needs_capacity_probe = True
+                            if needs_capacity_probe:
+                                available = await xo.wait_for(
+                                    model.can_accept_chat_request(),
+                                    _AFFINITY_CAPACITY_TIMEOUT,
+                                )
+                        except asyncio.TimeoutError:
+                            # A slow probe does not establish that a live actor is
+                            # unavailable. Keep it as a fallback and retain affinity.
+                            available = False
+                            if replica == preferred:
+                                preserve_route = True
+                        except AttributeError as exc:
+                            # Supervisor upgrades retain actors from older versions.
+                            if "has no attribute 'can_accept_chat_request'" not in str(
+                                exc
+                            ):
+                                raise
+                except ModelNotReadyError:
+                    continue
+                except (
+                    RuntimeError,
+                    ValueError,
+                    ConnectionError,
+                    asyncio.TimeoutError,
+                    xo.ActorNotExist,
+                    xo.ServerClosed,
+                ) as exc:
                     logger.warning(
                         "Skipping unavailable chat replica %s",
                         build_replica_model_uid(model_uid, replica),
@@ -7088,82 +7183,28 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     )
                     last_error = exc
                     continue
-                available = True
-                reserved = False
-                if len(info.active_replica_ids) > 1:
-                    try:
-                        needs_capacity_probe = reservation_id is None
-                        if reservation_id is not None:
-                            try:
-                                reserved = available = await xo.wait_for(
-                                    model.reserve_chat_request(reservation_id),
-                                    _AFFINITY_CAPACITY_TIMEOUT,
-                                )
-                            except asyncio.TimeoutError:
-                                # The actor may have committed before the reply timed out.
-                                await release_reservation(model)
-                                raise
-                            except AttributeError as exc:
-                                if (
-                                    "has no attribute 'reserve_chat_request'"
-                                    not in str(exc)
-                                ):
-                                    raise
-                                needs_capacity_probe = True
-                        if needs_capacity_probe:
-                            available = await xo.wait_for(
-                                model.can_accept_chat_request(),
-                                _AFFINITY_CAPACITY_TIMEOUT,
-                            )
-                    except asyncio.TimeoutError:
-                        # A slow probe does not establish that a live actor is
-                        # unavailable. Keep it as a fallback and retain affinity.
-                        available = False
-                        if replica == preferred:
-                            preserve_route = True
-                    except AttributeError as exc:
-                        # Supervisor upgrades retain actors from older versions.
-                        if "has no attribute 'can_accept_chat_request'" not in str(exc):
-                            raise
-            except ModelNotReadyError:
-                continue
-            except (
-                RuntimeError,
-                ValueError,
-                ConnectionError,
-                asyncio.TimeoutError,
-                xo.ActorNotExist,
-                xo.ServerClosed,
-            ) as exc:
-                logger.warning(
-                    "Skipping unavailable chat replica %s",
-                    build_replica_model_uid(model_uid, replica),
-                    exc_info=True,
-                )
-                last_error = exc
-                continue
-            current_info = self._model_uid_to_replica_info.get(model_uid)
-            if (
-                current_info is not info
-                or replica not in info.active_replica_ids
-                or replica in draining
-            ):
-                if reserved:
-                    await release_reservation(model)
-                if current_info is not info:
-                    break
-                continue
-            if available:
-                # A concurrent request may already have moved or evicted this key.
+                current_info = self._model_uid_to_replica_info.get(model_uid)
                 if (
-                    routing_key is not None
-                    and not preserve_route
-                    and routes.get(routing_key) == preferred
+                    current_info is not info
+                    or replica not in info.active_replica_ids
+                    or replica in draining
                 ):
-                    routes[routing_key] = replica
-                return model, reserved
-            if busy is None:
-                busy = (replica, model)
+                    if reserved:
+                        await release_reservation(model)
+                    if current_info is not info:
+                        break
+                    continue
+                if available:
+                    # A concurrent request may already have moved or evicted this key.
+                    if (
+                        routing_key is not None
+                        and not preserve_route
+                        and routes.get(routing_key) == preferred
+                    ):
+                        routes[routing_key] = replica
+                    return model, reserved
+                if busy is None:
+                    busy = (replica, model)
         if (
             busy is not None
             and self._model_uid_to_replica_info.get(model_uid) is info

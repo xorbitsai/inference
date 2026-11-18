@@ -44,15 +44,29 @@ async def call_worker_route(
 
     if rpc_timeout is None:
         rpc_timeout = XINFERENCE_GET_MODEL_RPC_TIMEOUT
+
+    async def call(worker: Any) -> Any:
+        task = asyncio.create_task(actor_call(worker, method, **kwargs))
+        try:
+            return await xo.wait_for(task, rpc_timeout)
+        except asyncio.CancelledError:
+            # Cancelling xo.wait_for does not cancel its actor call. Forward the
+            # cancellation without waiting for a stalled worker to acknowledge it.
+            task.cancel()
+            task.add_done_callback(
+                lambda done: None if done.cancelled() else done.exception()
+            )
+            raise
+
     try:
-        return await xo.wait_for(actor_call(ref, method, **kwargs), rpc_timeout)
+        return await call(ref)
     except Exception:
         current = owner._replica_model_uid_to_worker.get(uid)
         if isinstance(current, (tuple, list)):
             current = current[0] if current else None
         if current is None or current == ref:
             raise
-        return await xo.wait_for(actor_call(current, method, **kwargs), rpc_timeout)
+        return await call(current)
 
 
 class WorkerOwnership:
