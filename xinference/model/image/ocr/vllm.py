@@ -32,10 +32,12 @@ from .ovisocr2 import OvisOCR2Model
 from .ovisocr3 import ThreadedOvisOCR3Model
 from .paddleocr_vl import PaddleOCRVLModel
 from .teleocr import TeleOCRModel
+from .unlimited_ocr2 import UnlimitedOCR2Model
 
 logger = logging.getLogger(__name__)
 _navidc_vllm_executor_lock = threading.Lock()
 _minicpm_vllm_executor_lock = threading.Lock()
+_unlimited_vllm_executor_lock = threading.Lock()
 
 
 def _load_vllm_model(model_path: str, model_kwargs: Dict[str, Any]):
@@ -232,6 +234,140 @@ class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
             "num_extracted_images": 0,
         }
         return response
+
+
+class VLLMUnlimitedOCR2Model(UnlimitedOCR2Model):
+    required_libs = ("vllm",)
+    PAGE_GUARD = (
+        "vllm.model_executor.models.unlimited_ocr2:PageCountGuardLogitsProcessor"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    def _run_on_vllm_thread(self, fn, *args, **kwargs):
+        # The offline vLLM client must be created and used on the same thread.
+        with _unlimited_vllm_executor_lock:
+            if self._executor is None:
+                self._executor = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=1,
+                    thread_name_prefix=f"unlimited-ocr2-{self._model_uid}",
+                )
+            executor = self._executor
+        return executor.submit(fn, *args, **kwargs).result()
+
+    def load(self) -> None:
+        import torch
+
+        from ....device_utils import get_available_device
+
+        if torch.device(self._device or get_available_device()).type != "cuda":
+            raise ValueError("Unlimited-OCR-2 vLLM requires a CUDA device")
+        config = _sanitize_vllm_kwargs(self._kwargs)
+        config.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
+        config.setdefault("gpu_memory_utilization", 0.8)
+        config.setdefault("max_num_batched_tokens", 2048)
+        config.setdefault("enable_prefix_caching", False)
+        config.setdefault("limit_mm_per_prompt", {"image": 32})
+        processors = list(config.get("logits_processors") or [])
+        if self.PAGE_GUARD not in processors:
+            processors.append(self.PAGE_GUARD)
+        config["logits_processors"] = processors
+        try:
+            self._model = self._run_on_vllm_thread(
+                _load_vllm_model, self._model_path, config
+            )
+        except Exception:
+            self.stop()
+            raise
+
+    def stop(self) -> None:
+        try:
+            if self._model is not None:
+                self._run_on_vllm_thread(_shutdown_vllm_model, self._model)
+        finally:
+            self._model = None
+            with _unlimited_vllm_executor_lock:
+                executor, self._executor = self._executor, None
+            if executor is not None:
+                executor.shutdown(wait=False)
+
+    def ocr(
+        self,
+        image: Union[PIL.Image.Image, List[PIL.Image.Image]],
+        prompt: Optional[str] = None,
+        **kwargs: Any,
+    ) -> str:
+        images = image if isinstance(image, list) else [image]
+        if not images or not all(isinstance(img, PIL.Image.Image) for img in images):
+            raise ValueError(
+                "Input must be a PIL Image or a non-empty list of PIL Images"
+            )
+        model_size = kwargs.pop("model_size", "gundam")
+        if model_size not in ("gundam", "base"):
+            raise ValueError("model_size must be 'gundam' or 'base'")
+        # Preserve the Transformers adapter's non-crop default for page lists.
+        crop_mode = kwargs.pop(
+            "crop_mode", model_size == "gundam" and not isinstance(image, list)
+        )
+        text = self._normalize_prompt(prompt)
+        prefix = "<PAGE><image>" * len(images)
+        if "<image>" in text or "<PAGE>" in text:
+            if (
+                not text.startswith(prefix)
+                or text.count("<image>") != len(images)
+                or text.count("<PAGE>") != len(images)
+            ):
+                raise ValueError("Prompt must contain one <PAGE><image> per image")
+        else:
+            text = prefix + text
+
+        from vllm import SamplingParams
+
+        max_tokens = kwargs.pop("max_tokens", None)
+        if max_tokens is None:
+            max_tokens = kwargs.pop("max_new_tokens", 8192 * len(images))
+        do_sample = kwargs.pop("do_sample", False)
+        temperature = kwargs.pop("temperature", None)
+        sampling_kwargs: Dict[str, Any] = {
+            "max_tokens": max_tokens,
+            "temperature": (
+                temperature if temperature is not None else (1.0 if do_sample else 0.0)
+            ),
+            "skip_special_tokens": False,
+            "extra_args": {"max_page_tokens": kwargs.pop("max_page_tokens", 20000)},
+        }
+        for key in (
+            "top_p",
+            "top_k",
+            "min_p",
+            "repetition_penalty",
+            "presence_penalty",
+            "frequency_penalty",
+            "stop",
+            "seed",
+        ):
+            if key in kwargs:
+                sampling_kwargs[key] = kwargs[key]
+        sampling_params = SamplingParams(**sampling_kwargs)
+        inputs = [
+            {
+                "prompt": text,
+                "multi_modal_data": {"image": [img.convert("RGB") for img in images]},
+                "mm_processor_kwargs": {"crop_mode": crop_mode},
+            }
+        ]
+        if self._model is None:
+            self.load()
+        assert self._model is not None
+        outputs = self._run_on_vllm_thread(
+            self._model.generate, inputs, sampling_params
+        )
+        texts = _extract_text(outputs)
+        return texts[0] if texts else ""
 
 
 class VLLMGotOCR2Model(GotOCR2Model):

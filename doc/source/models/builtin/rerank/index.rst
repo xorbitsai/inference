@@ -47,3 +47,9 @@ The following is a list of built-in rerank models in Xinference:
   
    r3-rerank-0.6b
   
+   yuanbao-reranker-0.6b
+  
+   yuanbao-reranker-4b
+  
+   yuanbao-reranker-8b
+  

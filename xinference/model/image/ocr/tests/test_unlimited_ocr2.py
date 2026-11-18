@@ -8,12 +8,15 @@ import pytest
 import torch
 from PIL import Image
 
+from xinference.core.utils import filter_virtualenv_packages_by_markers
+
 from ... import load_model_family_from_json
 from ...core import BUILTIN_IMAGE_MODELS, create_image_model_instance
 from .. import register_builtin_ocr_engines
 from ..ocr_family import generate_engine_config_by_model_name
 from ..unlimited_ocr import UnlimitedOCRModel
 from ..unlimited_ocr2 import UnlimitedOCR2Model
+from ..vllm import VLLMUnlimitedOCR2Model
 
 
 def test_unlimited_ocr2_metadata_and_factory(monkeypatch):
@@ -40,9 +43,12 @@ def test_unlimited_ocr2_metadata_and_factory(monkeypatch):
         )
         generate_engine_config_by_model_name(family, engines)
         assert not UnlimitedOCRModel.match(family)
-    assert set(engines["Unlimited-OCR-2"]) == {"transformers"}
+    assert set(engines["Unlimited-OCR-2"]) == {"transformers", "vllm"}
     assert engines["Unlimited-OCR-2"]["transformers"][0]["ocr_class"] is (
         UnlimitedOCR2Model
+    )
+    assert engines["Unlimited-OCR-2"]["vllm"][0]["ocr_class"] is (
+        VLLMUnlimitedOCR2Model
     )
     monkeypatch.setitem(BUILTIN_IMAGE_MODELS, "Unlimited-OCR-2", variants)
     for hub in ("huggingface", "modelscope"):
@@ -53,7 +59,18 @@ def test_unlimited_ocr2_metadata_and_factory(monkeypatch):
             model_path="/models/unlimited-ocr2",
             enable_virtual_env=False,
         )
-        assert isinstance(model, UnlimitedOCR2Model)
+        assert type(model) is UnlimitedOCR2Model
+        assert model.model_family.model_hub == hub
+        assert model.model_ability == ["ocr"]
+        model = create_image_model_instance(
+            "unlimited-test",
+            "Unlimited-OCR-2",
+            model_engine="vllm",
+            download_hub=hub,
+            model_path="/models/unlimited-ocr2",
+            enable_virtual_env=False,
+        )
+        assert type(model) is VLLMUnlimitedOCR2Model
         assert model.model_family.model_hub == hub
         assert model.model_ability == ["ocr"]
     assert not UnlimitedOCR2Model.match(
@@ -62,6 +79,45 @@ def test_unlimited_ocr2_metadata_and_factory(monkeypatch):
     assert not UnlimitedOCR2Model.match(
         SimpleNamespace(model_name="Unlimited-OCR-2", model_format="ggufv2")
     )
+
+
+def test_unlimited_ocr2_engine_dependencies():
+    families = {}
+    path = Path(__file__).parents[2] / "models" / "Unlimited-OCR-2.json"
+    load_model_family_from_json(str(path), families)
+    for family in families["Unlimited-OCR-2"]:
+        packages = family.virtualenv.packages
+        transformers = filter_virtualenv_packages_by_markers(
+            packages, "transformers", None
+        )
+        vllm = filter_virtualenv_packages_by_markers(packages, "vllm", None)
+        assert "transformers==4.52.1" in transformers
+        assert "huggingface-hub==0.36.0" in transformers
+        assert "tokenizers==0.21.4" in transformers
+        assert "#system_torch#" in transformers
+        assert "#system_torchvision#" in transformers
+        assert "accelerate>=0.28.0,<2" in transformers
+        assert not any(package.startswith("vllm") for package in transformers)
+        assert {
+            "vllm==0.34.0",
+            "torch==2.14.0",
+            "torchvision==0.29.0",
+            "transformers==5.22.2",
+            "huggingface-hub==2.4.0",
+            "tokenizers==0.23.3",
+            "flashinfer-python==0.7.3",
+            "flashinfer-cubin==0.7.3",
+        } <= set(vllm)
+        assert "transformers==4.52.1" not in vllm
+        assert "huggingface-hub==0.36.0" not in vllm
+        assert "tokenizers==0.21.4" not in vllm
+        assert "#system_torch#" not in vllm
+        assert "#system_torchvision#" not in vllm
+        assert family.virtualenv.extra_index_url == [
+            "https://download.pytorch.org/whl/cu130",
+            "https://flashinfer.ai/whl",
+        ]
+        assert family.virtualenv.index_strategy == "unsafe-best-match"
 
 
 @pytest.mark.parametrize("device_map", [None, "auto"])

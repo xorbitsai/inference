@@ -41,7 +41,7 @@ from ..nemotron import (
     nemotron_messages,
     prepare_nemotron_request,
 )
-from ..utils import preprocess_sentence
+from ..utils import is_qwen3_reranker, preprocess_sentence
 
 logger = logging.getLogger(__name__)
 _RERANK_MIN_SPLIT_CHARS = 256
@@ -210,9 +210,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             ).eval()
         elif (
             self.model_family.type == "normal"
-            and "qwen3" not in self.model_family.model_name.lower()
+            and not is_qwen3_reranker(self.model_family.model_name)
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
-            and "r3-rerank" not in self.model_family.model_name.lower()
         ):
             # sentence-transformers >= 5.4 imports torchcodec at import time and
             # only tolerates ImportError/OSError; a broken (version-mismatched)
@@ -280,11 +279,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self._model = AutoModel.from_pretrained(
                 self._model_path, trust_remote_code=True, **model_kwargs
             ).eval()
-        elif (
-            "qwen3" in self.model_family.model_name.lower()
-            or "r3-rerank" in self.model_family.model_name.lower()
-        ):
-            # qwen3-reranker (also covers R3-rerank, fine-tuned from Qwen3-Reranker)
+        elif is_qwen3_reranker(self.model_family.model_name):
+            # Qwen3-Reranker and its text reranking derivatives.
             # now we use transformers
             # TODO: support engines for rerank models
             with dependency_import_guard("transformers"):
@@ -293,7 +289,15 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path, padding_side="left"
             )
+            is_yuanbao = self.model_family.model_name.startswith("Yuanbao-Reranker-")
+            if is_yuanbao and tokenizer.pad_token_id is None:
+                tokenizer.pad_token = tokenizer.eos_token
             model_kwargs = {"device_map": "auto"}
+            if is_yuanbao:
+                model_kwargs.update(
+                    device_map=self._device or "auto",
+                    torch_dtype=torch.float16 if self._use_fp16 else "auto",
+                )
             if enable_flash_attn:
                 model_kwargs["attn_implementation"] = "flash_attention_2"
                 model_kwargs["torch_dtype"] = torch.float16
@@ -312,22 +316,30 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
             prefix_tokens = tokenizer.encode(prefix, add_special_tokens=False)
             suffix_tokens = tokenizer.encode(suffix, add_special_tokens=False)
+            input_prefix = [] if is_yuanbao else prefix_tokens
+            tokenizer_kwargs = {"add_special_tokens": False} if is_yuanbao else {}
 
             def process_inputs(pairs):
                 inputs = tokenizer(
-                    pairs,
+                    [prefix + pair for pair in pairs] if is_yuanbao else pairs,
                     padding=False,
                     truncation="longest_first",
                     return_attention_mask=False,
-                    max_length=max_length - len(prefix_tokens) - len(suffix_tokens),
+                    max_length=max_length - len(input_prefix) - len(suffix_tokens),
+                    **tokenizer_kwargs,
                 )
                 for i, ele in enumerate(inputs["input_ids"]):
-                    inputs["input_ids"][i] = prefix_tokens + ele + suffix_tokens
+                    inputs["input_ids"][i] = input_prefix + ele + suffix_tokens
                 inputs = tokenizer.pad(
                     inputs, padding=True, return_tensors="pt", max_length=max_length
                 )
                 for key in inputs:
                     inputs[key] = inputs[key].to(model.device)
+                if is_yuanbao:
+                    mask = inputs["attention_mask"]
+                    inputs["position_ids"] = (mask.long().cumsum(-1) - 1).masked_fill(
+                        mask == 0, 0
+                    )
                 return inputs
 
             token_false_id = tokenizer.convert_tokens_to_ids("no")
@@ -337,6 +349,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             @torch.inference_mode()
             def compute_logits(inputs, **kwargs):
                 batch_scores = model(**inputs, **rerank_forward_kwargs).logits[:, -1, :]
+                if is_yuanbao:
+                    batch_scores = batch_scores.float()
                 true_vector = batch_scores[:, token_true_id]
                 false_vector = batch_scores[:, token_false_id]
                 batch_scores = torch.stack([false_vector, true_vector], dim=1)
@@ -522,9 +536,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                     similarity_scores = similarity_scores[0]
         elif (
             self.model_family.type == "normal"
-            and "qwen3" not in self.model_family.model_name.lower()
+            and not is_qwen3_reranker(self.model_family.model_name)
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
-            and "r3-rerank" not in self.model_family.model_name.lower()
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
 
@@ -585,10 +598,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 if return_len:
                     self._token_tracking_data.input_tokens = per_doc_tokens
                     self._token_tracking_data.n_tokens = sum(per_doc_tokens)
-        elif (
-            "qwen3" in self.model_family.model_name.lower()
-            or "r3-rerank" in self.model_family.model_name.lower()
-        ):
+        elif is_qwen3_reranker(self.model_family.model_name):
 
             def format_instruction(instruction, query, doc):
                 if instruction is None:
@@ -599,8 +609,13 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                         )
                     else:
                         instruction = "Given a web search query, retrieve relevant passages that answer the query"
-                output = "<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {doc}".format(
-                    instruction=instruction, query=query, doc=doc
+                separator = (
+                    "\n\n"
+                    if self.model_family.model_name.startswith("Yuanbao-Reranker-")
+                    else "\n"
+                )
+                output = "<Instruct>: {instruction}{separator}<Query>: {query}{separator}<Document>: {doc}".format(
+                    instruction=instruction, query=query, doc=doc, separator=separator
                 )
                 return output
 
@@ -850,9 +865,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 if return_len:
                     if (
                         self.model_family.type == "normal"
-                        or "qwen3" in self.model_family.model_name.lower()
+                        or is_qwen3_reranker(self.model_family.model_name)
                         or "jina-reranker-v3" in self.model_family.model_name.lower()
-                        or "r3-rerank" in self.model_family.model_name.lower()
                     ):
                         input_len = sum(
                             self._get_input_tokens_slice(offset, offset + n)
@@ -1096,6 +1110,15 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                     return dep_check
             if model_spec.model_format not in ["pytorch"]:
                 return False, "Qwen3-VL reranker supports pytorch format only"
+            return True
+
+        if model_family.model_name.startswith("Yuanbao-Reranker-"):
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+            if model_spec.model_format != "pytorch":
+                return False, "Yuanbao-Reranker supports pytorch format only"
             return True
 
         # virtualenv mode: dependencies provided by child venv, skip import check

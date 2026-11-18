@@ -31,7 +31,8 @@ if has_group llm; then
   packages+=(tensorizer sentencepiece tiktoken einops protobuf transformers_stream_generator)
 fi
 if has_group embedding; then
-  packages+=('sentence-transformers==5.1.1' 'FlagEmbedding==1.3.5' onnx onnxconverter_common einops)
+  # jina-clip-v2's remote modeling code (test_clip_embedding) imports einops.
+  packages+=('sentence-transformers==5.1.1' 'FlagEmbedding==1.3.5' einops onnx onnxconverter_common)
 fi
 if has_group image; then
   packages+=('diffusers==0.35.1' sentencepiece protobuf)
@@ -72,7 +73,7 @@ if has_group llm; then
   python -c 'import tensorizer'
 fi
 if has_group embedding; then
-  python -c 'from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import xllamacpp; import einops'
+  python -c 'from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import einops, xllamacpp'
 fi
 if has_group image || has_group audio; then
   python -c 'from diffusers import DiffusionPipeline'

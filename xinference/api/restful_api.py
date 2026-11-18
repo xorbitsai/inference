@@ -108,7 +108,14 @@ from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
-from .model_request_logging import ModelRequestLoggingRoute, get_model_request_id
+from .model_request_logging import (
+    InferenceRequestRejected,
+    ModelRequestLoggingRoute,
+    get_model_request_id,
+    mark_inference_rejection,
+    note_inference_request_identity,
+    schema_error_fields,
+)
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     PDF_MAGIC,
@@ -237,13 +244,14 @@ async def _read_llm_request_body(request: Request) -> dict:
     try:
         raw_body = await request.json()
     except ValueError as exc:
-        raise HTTPException(
-            status_code=400, detail="Request body must be valid JSON"
+        raise InferenceRequestRejected(
+            400, "Request body must be valid JSON", reason="invalid_json"
         ) from exc
     if not isinstance(raw_body, dict):
-        raise HTTPException(
-            status_code=400, detail="Request body must be a JSON object"
+        raise InferenceRequestRejected(
+            400, "Request body must be a JSON object", reason="body_not_object"
         )
+    note_inference_request_identity(request, raw_body)
     return raw_body
 
 
@@ -280,7 +288,13 @@ def _parse_llm_request(schema, raw_body: dict):
             {key: value for key, value in raw_body.items() if key != "cache_salt"}
         )
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+        errors = exc.errors()
+        raise InferenceRequestRejected(
+            422,
+            errors,
+            reason="schema_validation",
+            schema_errors=schema_error_fields(errors, schema),
+        ) from exc
 
 
 class _SSERequestAbortController:
@@ -1118,9 +1132,10 @@ class RESTfulAPI(CancelMixin):
             request.state._audit_model_uid = model_uid
             request.state._audit_model_type = model_type or ""
             request.state.audit_status = "denied"
-            raise HTTPException(
-                status_code=403,
-                detail=f"API key does not have access to model: {model_uid}",
+            raise InferenceRequestRejected(
+                403,
+                f"API key does not have access to model: {model_uid}",
+                reason="model_access_denied",
             )
         # Store audit context for deferred recording after request completes
         request.state._audit_model_uid = model_uid
@@ -1417,14 +1432,18 @@ class RESTfulAPI(CancelMixin):
             max_model_len,
         )
         if kind == "context_length_exceeded":
-            raise HTTPException(status_code=400, detail=CONTEXT_LENGTH_EXCEEDED_DETAIL)
+            raise InferenceRequestRejected(
+                400, CONTEXT_LENGTH_EXCEEDED_DETAIL, reason="context_length_exceeded"
+            )
         if kind == "invalid_multimodal_input":
-            raise HTTPException(status_code=400, detail=INVALID_MULTIMODAL_INPUT_DETAIL)
+            raise InferenceRequestRejected(
+                400, INVALID_MULTIMODAL_INPUT_DETAIL, reason="multimodal_input"
+            )
         if kind == "multimodal_limit_exceeded":
             detail = error.get("message")
             if not isinstance(detail, str):
                 detail = INVALID_MULTIMODAL_INPUT_DETAIL
-            raise HTTPException(status_code=400, detail=detail)
+            raise InferenceRequestRejected(400, detail, reason="multimodal_limit")
         if kind == "unsupported":
             return RESTfulAPI._compat_multimodal_preflight()
         if kind == "preflight_unavailable":
@@ -1461,12 +1480,22 @@ class RESTfulAPI(CancelMixin):
 
         request_error = RESTfulAPI._model_request_error_detail(e)
         if request_error is not None:
-            raise HTTPException(status_code=400, detail=request_error)
+            raise InferenceRequestRejected(
+                400,
+                request_error,
+                reason=(
+                    "invalid_model_request"
+                    if isinstance(e, InvalidModelRequestError)
+                    else "cache_salt_unsupported"
+                ),
+            )
         message = str(e)
         if isinstance(e, ValueError):
             for detail in PRIORITY_ERROR_MESSAGES:
                 if message.endswith(detail):
-                    raise HTTPException(status_code=400, detail=detail)
+                    raise InferenceRequestRejected(
+                        400, detail, reason="invalid_priority"
+                    )
         context_error = isinstance(e, ContextLengthExceeded)
         if sanitize and RESTfulAPI._is_context_length_error(e):
             context_error = True
@@ -1477,30 +1506,38 @@ class RESTfulAPI(CancelMixin):
                 message,
             )
             if multimodal_limit:
-                raise HTTPException(status_code=400, detail=multimodal_limit.group(0))
+                raise InferenceRequestRejected(
+                    400, multimodal_limit.group(0), reason="multimodal_limit"
+                )
         if sanitize and isinstance(e, ValueError):
             if re.search(
                 r"(?:Invalid|Empty) (?:base64 )?data URI"
                 r"(?: for (?:image_url|video_url))?$",
                 message,
             ):
-                raise HTTPException(status_code=400, detail="Invalid media data URI.")
+                raise InferenceRequestRejected(
+                    400, "Invalid media data URI.", reason="invalid_media_data_uri"
+                )
         if context_error:
-            raise HTTPException(
-                status_code=400,
-                detail=CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
+            raise InferenceRequestRejected(
+                400,
+                CONTEXT_LENGTH_EXCEEDED_DETAIL if sanitize else str(e),
+                reason="context_length_exceeded",
             )
         if isinstance(e, RequestQueueFullError):
-            raise HTTPException(
-                status_code=429,
-                detail="Rate limit reached" if sanitize else message,
+            raise InferenceRequestRejected(
+                429,
+                "Rate limit reached" if sanitize else message,
+                reason="request_queue_full",
                 headers={"Retry-After": "1"},
             )
         if "Rate limit reached" in message or (
             sanitize and isinstance(e, HTTPException) and e.status_code == 429
         ):
-            raise HTTPException(
-                status_code=429, detail="Rate limit reached" if sanitize else str(e)
+            raise InferenceRequestRejected(
+                429,
+                "Rate limit reached" if sanitize else str(e),
+                reason="rate_limited",
             )
 
     @staticmethod
@@ -2849,7 +2886,9 @@ class RESTfulAPI(CancelMixin):
             if XINFERENCE_REQUIRE_CACHE_SALT and salt is None:
                 raise ValueError("cache_salt is required")
         except ValueError as exc:
-            raise HTTPException(400, str(exc)) from None
+            raise InferenceRequestRejected(
+                400, str(exc), reason="invalid_cache_salt"
+            ) from None
         for target in (source, *targets):
             target.pop("cache_salt", None)
             if salt is not None:
@@ -3000,7 +3039,9 @@ class RESTfulAPI(CancelMixin):
                 )
                 return Response(data, media_type="application/json")
             except RequestIdConflictError as e:
-                raise HTTPException(409, e.client_message) from e
+                raise InferenceRequestRejected(
+                    409, e.client_message, reason="request_id_conflict"
+                ) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -3783,14 +3824,18 @@ class RESTfulAPI(CancelMixin):
         try:
             raw_body = await request.json()
         except Exception:
+            mark_inference_rejection(request, "invalid_json")
             return self._responses_error(400, "Request body must be valid JSON")
+        note_inference_request_identity(request, raw_body)
         try:
             req = parse_responses_request(raw_body)
         except ResponsesProtocolError as exc:
+            mark_inference_rejection(request, "responses_protocol")
             return self._responses_error(
                 exc.status_code, exc.message, param=exc.param, code=exc.code
             )
         except (AttributeError, KeyError, TypeError) as exc:
+            mark_inference_rejection(request, "invalid_request")
             return self._responses_error(400, f"Invalid request: {exc}")
 
         model_uid = req.model
@@ -3800,6 +3845,7 @@ class RESTfulAPI(CancelMixin):
             self._check_model_access(request, model_uid, "LLM")
             self._apply_cache_salt(request, raw_body, req.chat_body)
         except HTTPException as exc:
+            mark_inference_rejection(request, getattr(exc, "reason", "untagged"))
             return self._responses_error(
                 exc.status_code, str(exc.detail), headers=exc.headers
             )
@@ -3822,6 +3868,7 @@ class RESTfulAPI(CancelMixin):
                 self._get_supervisor_ref, model_uid, self._report_error_event
             )
         except HTTPException as exc:
+            mark_inference_rejection(request, getattr(exc, "reason", "untagged"))
             return self._responses_error(
                 exc.status_code, str(exc.detail), headers=exc.headers
             )
@@ -5479,8 +5526,10 @@ class RESTfulAPI(CancelMixin):
         messages = body.messages and list(body.messages) or None
 
         if not messages:
-            raise HTTPException(
-                status_code=400, detail="Invalid input. Please specify the prompt."
+            raise InferenceRequestRejected(
+                400,
+                "Invalid input. Please specify the prompt.",
+                reason="empty_messages",
             )
 
         has_tool_message = messages[-1].get("role") == "tool"
@@ -5496,9 +5545,10 @@ class RESTfulAPI(CancelMixin):
                 or len(routing_key) > 128
                 or not routing_key.strip()
             ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="routing_key must be a non-blank string of at most 128 characters",
+                raise InferenceRequestRejected(
+                    400,
+                    "routing_key must be a non-blank string of at most 128 characters",
+                    reason="invalid_routing_key",
                 )
             scope = json.dumps([_request_credential(request), routing_key])
             routing_options["routing_key"] = hashlib.sha256(scope.encode()).hexdigest()
@@ -5532,7 +5582,9 @@ class RESTfulAPI(CancelMixin):
             try:
                 template_kwargs = normalize_chat_template_kwargs(raw_body)
             except TokenizationError as exc:
-                raise HTTPException(400, str(exc)) from exc
+                raise InferenceRequestRejected(
+                    400, str(exc), reason="chat_template_kwargs"
+                ) from exc
             if template_kwargs:
                 raw_body["chat_template_kwargs"] = template_kwargs
             return await self._proxy_token_router_chat_completion(
@@ -5632,7 +5684,9 @@ class RESTfulAPI(CancelMixin):
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
+            raise InferenceRequestRejected(
+                400, str(ve), reason="describe_model"
+            ) from ve
         except Exception as e:
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
@@ -5679,7 +5733,9 @@ class RESTfulAPI(CancelMixin):
         except NotImplementedError as exc:
             raise HTTPException(501, str(exc))
         except (ValueError, TypeError) as exc:
-            raise HTTPException(400, str(exc))
+            raise InferenceRequestRejected(
+                400, str(exc), reason="reasoning_controls"
+            ) from exc
 
         model_family = desc.get("model_family", "")
         RESTfulAPI._apply_multiple_choice_count(
@@ -5703,14 +5759,16 @@ class RESTfulAPI(CancelMixin):
         )
         if model_family not in total_call_family:
             if has_tools:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Only {total_call_family} support tool calls",
+                raise InferenceRequestRejected(
+                    400,
+                    f"Only {total_call_family} support tool calls",
+                    reason="tools_unsupported",
                 )
             if has_tool_message:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Only {total_call_family} support tool messages",
+                raise InferenceRequestRejected(
+                    400,
+                    f"Only {total_call_family} support tool messages",
+                    reason="tool_messages_unsupported",
                 )
 
         # Reject misplaced ``system`` messages before entering the worker for
@@ -5724,7 +5782,9 @@ class RESTfulAPI(CancelMixin):
             try:
                 check_system_role_order(messages)
             except MessageRoleOrderError as ve:
-                raise HTTPException(status_code=400, detail=str(ve))
+                raise InferenceRequestRejected(
+                    400, str(ve), reason="system_role_order"
+                ) from ve
 
         media_counts = {
             item_type: self._count_multimodal_items(messages, item_type)
@@ -5771,10 +5831,11 @@ class RESTfulAPI(CancelMixin):
                     type(exc).__module__ == "vllm.exceptions"
                     and type(exc).__name__ == "VLLMValidationError"
                 ):
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Invalid multimodal input or processing parameters.",
-                    )
+                    raise InferenceRequestRejected(
+                        400,
+                        "Invalid multimodal input or processing parameters.",
+                        reason="multimodal_input",
+                    ) from exc
                 logger.error(
                     "Multimodal preflight is temporarily unavailable; rejecting "
                     "the request before generation.",
@@ -5791,12 +5852,13 @@ class RESTfulAPI(CancelMixin):
                 continue
             count = media_counts.get(item_type, 0)
             if count > limit:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
+                raise InferenceRequestRejected(
+                    400,
+                    (
                         f"At most {limit} {item_type}(s) may be provided in one prompt; "
                         f"received {count}."
                     ),
+                    reason="multimodal_limit",
                 )
         if isinstance(preflight, dict):
             effective_max_tokens = preflight.get("effective_max_tokens")
@@ -5841,7 +5903,11 @@ class RESTfulAPI(CancelMixin):
                         or not isinstance(error.get("message"), str)
                     ):
                         raise ValueError("Invalid reasoning preflight error")
-                    raise HTTPException(error["status"], error["message"])
+                    raise InferenceRequestRejected(
+                        error["status"],
+                        error["message"],
+                        reason="reasoning_preflight",
+                    )
             except HTTPException:
                 raise
             except ModelNotReadyError as exc:
@@ -5980,7 +6046,9 @@ class RESTfulAPI(CancelMixin):
                 data = await run_chat()
                 return Response(content=data, media_type="application/json")
             except RequestIdConflictError as e:
-                raise HTTPException(409, e.client_message) from e
+                raise InferenceRequestRejected(
+                    409, e.client_message, reason="request_id_conflict"
+                ) from e
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
                 logger.error(e, exc_info=True)
@@ -6002,19 +6070,22 @@ class RESTfulAPI(CancelMixin):
         if n is None or n == 1:
             return
         if n < 1:
-            raise HTTPException(status_code=400, detail="n must be at least 1")
+            raise InferenceRequestRejected(
+                400, "n must be at least 1", reason="invalid_n"
+            )
         if stream:
-            raise HTTPException(
-                status_code=400, detail="n > 1 is not supported with streaming"
+            raise InferenceRequestRejected(
+                400, "n > 1 is not supported with streaming", reason="invalid_n"
             )
         if tools:
-            raise HTTPException(
-                status_code=400, detail="n > 1 is not supported with tools"
+            raise InferenceRequestRejected(
+                400, "n > 1 is not supported with tools", reason="invalid_n"
             )
         if not (is_vllm_backend or model_engine in {"llama.cpp", "llama_cpp"}):
-            raise HTTPException(
-                status_code=400,
-                detail="n > 1 is not supported by this model backend",
+            raise InferenceRequestRejected(
+                400,
+                "n > 1 is not supported by this model backend",
+                reason="invalid_n",
             )
         kwargs["n"] = n
 

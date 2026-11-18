@@ -18,12 +18,6 @@ from ...batch import BatchMixin, BatchRequestError
 from ...utils import check_dependency_available
 from ...vllm_load import VLLMPoolingLoad
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
-
-QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
-QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
-    os.path.dirname(__file__), "qwen3_vl_reranker.jinja"
-)
-logger = logging.getLogger(__name__)
 from ..nemotron import (
     NEMOTRON_RERANK_MODEL_NAME,
     check_nemotron_dependencies,
@@ -31,7 +25,12 @@ from ..nemotron import (
     prepare_nemotron_request,
 )
 
-SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
+QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
+QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
+    os.path.dirname(__file__), "qwen3_vl_reranker.jinja"
+)
+logger = logging.getLogger(__name__)
+SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "Yuanbao"]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
@@ -84,7 +83,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             "Qwen3-Reranker-0.6B",
             "Qwen3-Reranker-4B",
             "Qwen3-Reranker-8B",
-        }:
+        } or model_name.startswith("Yuanbao-Reranker-"):
             if "hf_overrides" not in self._kwargs:
                 self._kwargs["hf_overrides"] = {
                     "architectures": ["Qwen3ForSequenceClassification"],
@@ -270,6 +269,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self, documents: List[Any], query: Union[Any, List[Any]], **kwargs
     ) -> Tuple[List[Any], List[Any]]:
         enable_qwen3_rerank_template = kwargs.pop("enable_qwen3_rerank_template", None)
+        is_yuanbao = self.model_family.model_name.startswith("Yuanbao-Reranker-")
+        instruction = kwargs.pop("instruction", None) if is_yuanbao else None
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._model is not None
@@ -280,26 +281,39 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             query_list = [query] * documents_size
 
-        if self.model_family.model_name in {
-            "Qwen3-Reranker-0.6B",
-            "Qwen3-Reranker-4B",
-            "Qwen3-Reranker-8B",
-        }:
-            if enable_qwen3_rerank_template is False:
+        if (
+            self.model_family.model_name
+            in {
+                "Qwen3-Reranker-0.6B",
+                "Qwen3-Reranker-4B",
+                "Qwen3-Reranker-8B",
+            }
+            or is_yuanbao
+        ):
+            if enable_qwen3_rerank_template is False and not is_yuanbao:
                 pass
-            elif enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
-                instruction = "Given a web search query, retrieve relevant passages that answer the query"
+            elif (
+                is_yuanbao
+                or enable_qwen3_rerank_template is True
+                or QWEN3_RERANK_TEMPLATE
+            ):
+                if instruction is None:
+                    instruction = "Given a web search query, retrieve relevant passages that answer the query"
                 prefix = (
                     "<|im_start|>system\nJudge whether the Document meets the requirements based on"
                     " the Query and the Instruct provided. "
                     'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
                 )
                 suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-                query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
+                separator = "\n\n" if is_yuanbao else "\n"
+                query_template = "{prefix}<Instruct>: {instruction}{separator}<Query>: {query}{separator}"
                 document_template = "<Document>: {doc}{suffix}"
                 processed_queries = [
                     query_template.format(
-                        prefix=prefix, instruction=instruction, query=query
+                        prefix=prefix,
+                        instruction=instruction,
+                        query=query,
+                        separator=separator,
                     )
                     for query in query_list
                 ]
@@ -309,7 +323,54 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 ]
                 query_list = processed_queries
                 documents = processed_documents
+                if is_yuanbao and len(query_list) in (1, len(documents)):
+                    if len(query_list) == 1:
+                        query_list = query_list * len(documents)
+                    pairs = [
+                        self._truncate_yuanbao_pair(q, d, suffix)
+                        for q, d in zip(query_list, documents)
+                    ]
+                    query_list = [q for q, _ in pairs]
+                    documents = [d for _, d in pairs]
         return query_list, documents
+
+    def _truncate_yuanbao_pair(
+        self, query: str, document: str, suffix: str
+    ) -> Tuple[str, str]:
+        max_length = self.model_family.max_tokens or 8192
+        config = getattr(self._model, "model_config", None)
+        engine_limit = getattr(config, "max_model_len", None)
+        if isinstance(engine_limit, int):
+            max_length = min(max_length, engine_limit)
+        body_limit = max_length - len(
+            self._tokenizer.encode(suffix, add_special_tokens=False)
+        )
+        if body_limit <= 0:
+            raise ValueError(
+                "Yuanbao-Reranker token limit must leave room for the scoring suffix"
+            )
+
+        body = query + document[: -len(suffix)]
+        tokens = self._tokenizer.encode(body, add_special_tokens=False)
+        if len(tokens) <= body_limit:
+            return query, document
+        if getattr(self._tokenizer, "is_fast", False):
+            offsets = self._tokenizer(
+                body, add_special_tokens=False, return_offsets_mapping=True
+            )["offset_mapping"]
+            body = body[: offsets[body_limit - 1][1]]
+        else:
+            body = self._tokenizer.decode(
+                tokens[:body_limit], skip_special_tokens=False
+            )
+        # Re-tokenizing a truncated string can change a BPE boundary. Check the
+        # complete prompt so vLLM never has to truncate away the scoring suffix.
+        while (
+            len(self._tokenizer.encode(body + suffix, add_special_tokens=False))
+            > max_length
+        ):
+            body = body[:-1]
+        return body, suffix
 
     def _prepare_native_inputs(
         self, documents: List[Any], query: Any, **kwargs
