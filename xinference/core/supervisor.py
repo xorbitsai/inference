@@ -1117,23 +1117,33 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if replica_info is not None
                 else len(set(replica_indexes))
             )
-            model_name = next(
+            # Identity fields are None when no replica reported a usable value.
+            # The worker fills gaps with defaults (None version, empty ability
+            # list), so those are treated as "not reported" rather than as facts.
+            model_name: Optional[str] = next(
                 (
                     state.get("model_name")
                     for state in states
                     if isinstance(state.get("model_name"), str)
+                    and state.get("model_name")
                 ),
-                model_uid,
-            )
-            model_version = next(
-                (state.get("model_version") for state in states),
                 None,
             )
-            model_ability: List[str] = []
+            model_version: Optional[str] = next(
+                (
+                    state.get("model_version")
+                    for state in states
+                    if state.get("model_version") is not None
+                ),
+                None,
+            )
+            model_ability: Optional[List[str]] = None
             for state in states:
                 candidate_ability = state.get("model_ability")
-                if isinstance(candidate_ability, list) and all(
-                    isinstance(item, str) for item in candidate_ability
+                if (
+                    isinstance(candidate_ability, list)
+                    and candidate_ability
+                    and all(isinstance(item, str) for item in candidate_ability)
                 ):
                     model_ability = candidate_ability
                     break
@@ -1158,28 +1168,45 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             if existing_infos:
                 existing_info = existing_infos[0]
-                await self._status_guard_ref.update_instance_info(
-                    model_uid,
-                    {
-                        "model_name": model_name,
-                        "model_version": model_version,
-                        "model_ability": model_ability,
-                        "replica": inferred_replica_count,
-                        "status": LaunchStatus.READY.name,
-                        "instance_created_ts": min(
-                            existing_info.instance_created_ts, instance_created_ts
-                        ),
-                        "n_worker": max(existing_info.n_worker or 1, n_worker),
-                    },
-                )
+                updates: Dict[str, Any] = {
+                    "replica": inferred_replica_count,
+                    "status": LaunchStatus.READY.name,
+                    "instance_created_ts": min(
+                        existing_info.instance_created_ts, instance_created_ts
+                    ),
+                    "n_worker": max(existing_info.n_worker or 1, n_worker),
+                }
+                # Re-registration replays what the worker knows, which is a
+                # subset of what the launch recorded. Merge instead of replace:
+                # an identity field the worker did not report keeps its stored
+                # value, so a transient reconnect cannot erase it.
+                preserved_fields = []
+                for field, reported in (
+                    ("model_name", model_name),
+                    ("model_version", model_version),
+                    ("model_ability", model_ability),
+                ):
+                    if reported is not None:
+                        updates[field] = reported
+                    elif getattr(existing_info, field, None) not in (None, []):
+                        preserved_fields.append(field)
+                if preserved_fields:
+                    logger.warning(
+                        "Worker %s re-registered model %s without reporting %s; "
+                        "keeping the stored value(s)",
+                        worker_address,
+                        model_uid,
+                        ", ".join(preserved_fields),
+                    )
+                await self._status_guard_ref.update_instance_info(model_uid, updates)
             else:
                 await self._status_guard_ref.set_instance_info(
                     model_uid,
                     InstanceInfo(
-                        model_name=model_name,
+                        model_name=model_name or model_uid,
                         model_uid=model_uid,
                         model_version=model_version,
-                        model_ability=model_ability,
+                        model_ability=model_ability or [],
                         replica=inferred_replica_count,
                         status=LaunchStatus.READY.name,
                         instance_created_ts=instance_created_ts,

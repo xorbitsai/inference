@@ -2221,6 +2221,158 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
     assert api_statuses[0]["gpu_idx"] == [0]
 
 
+def _reconnect_replica_state(replica_model_uid: str, **overrides) -> dict:
+    state = {
+        "replica_model_uid": replica_model_uid,
+        "n_worker": 1,
+        "shard": 0,
+        "model_uid": "model-a",
+        "model_name": "qwen3",
+        "model_version": None,
+        "model_ability": [],
+        "status": LaunchStatus.READY.name,
+        "created_ts": 1710000100,
+        "instance_created_ts": 1710000100,
+    }
+    state.update(overrides)
+    return state
+
+
+async def _supervisor_with_stored_instance(monkeypatch, replica_uids):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    await supervisor._status_guard_ref.set_instance_info(
+        "model-a",
+        InstanceInfo(
+            model_name="qwen3",
+            model_uid="model-a",
+            model_version="qwen3--8b--pytorch--none",
+            model_ability=["generate", "chat"],
+            replica=len(replica_uids),
+            status=LaunchStatus.READY.name,
+            instance_created_ts=1710000000,
+        ),
+    )
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    return supervisor
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconnect_keeps_unreported_identity_fields(
+    monkeypatch, caplog
+):
+    replica_uids = ["model-a-rep0"]
+    supervisor = await _supervisor_with_stored_instance(monkeypatch, replica_uids)
+    # A worker that lost nothing but cannot report the version/ability it was
+    # launched with (the stored record is the only source of truth for them).
+    replica_states = [
+        {
+            key: value
+            for key, value in _reconnect_replica_state(replica_uids[0]).items()
+            if key != "model_name"
+        }
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "qwen3"
+    assert instance_info.model_version == "qwen3--8b--pytorch--none"
+    assert instance_info.model_ability == ["generate", "chat"]
+    # Fields the worker does report still update.
+    assert instance_info.status == LaunchStatus.READY.name
+    assert instance_info.replica == 1
+    assert instance_info.instance_created_ts == 1710000000
+    (replica_status,) = await supervisor._status_guard_ref.get_replica_statuses(
+        "model-a"
+    )
+    assert replica_status.worker_address == "worker-1"
+    assert replica_status.replica_model_uid == "model-a-rep0"
+
+    assert (
+        "Worker worker-1 re-registered model model-a without reporting "
+        "model_name, model_version, model_ability; keeping the stored value(s)"
+    ) in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconnect_applies_reported_identity_fields(
+    monkeypatch, caplog
+):
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    supervisor = await _supervisor_with_stored_instance(monkeypatch, replica_uids)
+    # The first replica has no version; the second one does, and wins over the
+    # stored value. Only model_ability is missing everywhere and kept.
+    replica_states = [
+        _reconnect_replica_state(replica_uids[0], model_name="qwen3-renamed"),
+        _reconnect_replica_state(
+            replica_uids[1], model_version="qwen3--8b--pytorch--awq"
+        ),
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "qwen3-renamed"
+    assert instance_info.model_version == "qwen3--8b--pytorch--awq"
+    assert instance_info.model_ability == ["generate", "chat"]
+    assert instance_info.replica == 2
+    assert (
+        "Worker worker-1 re-registered model model-a without reporting "
+        "model_ability; keeping the stored value(s)"
+    ) in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_without_stored_instance_uses_defaults(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={"model-a-rep0": {"model_uid": "model-a-rep0", "address": "worker-1"}},
+    )
+
+    async def fake_actor_ref(address, uid):
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    replica_state = {
+        key: value
+        for key, value in _reconnect_replica_state("model-a-rep0").items()
+        if key != "model_name"
+    }
+
+    await supervisor.add_worker("worker-1", replica_states=[replica_state])
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "model-a"
+    assert instance_info.model_version is None
+    assert instance_info.model_ability == []
+    assert instance_info.replica == 1
+
+
 def test_prepare_virtual_env_without_engine_vars():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
