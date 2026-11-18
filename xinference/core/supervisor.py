@@ -33,6 +33,7 @@ from typing import (
     Coroutine,
     DefaultDict,
     Dict,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -244,12 +245,46 @@ class ReplicaInfo:
     )
     active_replica_ids: List[int] = field(default_factory=list)
     routing_keys: OrderedDict[str, int] = field(default_factory=OrderedDict)
-    terminating: Set[int] = field(default_factory=set)
+
+
+@dataclass
+class _ReplicaDeletion:
+    owner_count: int
+    active_calls: int = 0
+    route_version: int = 0
 
 
 _MAX_ROUTING_KEYS_PER_MODEL = 4096
 _AFFINITY_CAPACITY_TIMEOUT = 1
 _CHAT_ROUTING_PROBE_TIMEOUT = 0.1
+_REPLICA_DELETION_CHECK_TIMEOUT = 1
+
+
+def _pop_replica_route(owner: "SupervisorActor", uid: str) -> None:
+    owner._replica_model_uid_to_worker.pop(uid, None)
+    getattr(owner, "_replica_deletions", {}).pop(uid, None)
+
+
+async def _terminate_replica_on_workers(
+    owner: "SupervisorActor", uid: str, workers: Iterable[Any], **kwargs: Any
+) -> None:
+    route = owner._replica_model_uid_to_worker.get(uid)
+    deletion = None
+    if route is not None and not uid.endswith("-rank0"):
+        deletions = owner.__dict__.setdefault("_replica_deletions", {})
+        count = len(route) if isinstance(route, (list, tuple)) else 1
+        deletion = deletions.setdefault(uid, _ReplicaDeletion(count))
+        deletion.owner_count = max(count, deletion.owner_count)
+        deletion.route_version += 1
+        deletion.active_calls += 1
+    try:
+        for worker in workers:
+            if worker is None:
+                raise ValueError(f"Model not found in the model list, uid: {uid}")
+            await worker.terminate_model(model_uid=uid, **kwargs)
+    finally:
+        if deletion is not None:
+            deletion.active_calls -= 1
 
 
 @dataclass
@@ -576,7 +611,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             registered = self._worker_address_to_worker.get(address)
             generation = self._worker_metadata_generation.get(address)
             try:
-                await worker.terminate_model(model_uid=uid)
+                await _terminate_replica_on_workers(self, uid, [worker])
             except Exception as error:
                 # The removal path may have resolved this registration while
                 # termination was pending. An RPC error alone is not evidence.
@@ -776,7 +811,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         remaining_worker_refs
                     )
             else:
-                self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+                _pop_replica_route(self, replica_model_uid)
                 self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
                 if parsed is not None:
                     model_uids_to_prune.add(parsed[0])
@@ -967,11 +1002,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replica_states: List[Dict[str, Any]],
     ):
         worker_address = worker_ref.address
-        terminating = {
-            uid: info.terminating
-            for uid, info in self._model_uid_to_replica_info.items()
-            if info.terminating
-        }
+        deletions = getattr(self, "_replica_deletions", {})
+        previous_deletions = deletions.copy()
         self._remove_worker_from_replica_mappings(worker_address)
 
         if not replica_states:
@@ -1005,6 +1037,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 "n_worker": n_worker,
                 "shard": shard,
             }
+            if (deletion := previous_deletions.get(replica_model_uid)) is not None:
+                # Replay preserves the stop, but fences replies from before replay.
+                deletion.route_version += 1
+                deletions[replica_model_uid] = deletion
 
             existing_worker_refs = self._replica_model_uid_to_worker.get(
                 replica_model_uid
@@ -1056,9 +1092,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     replica=len(replica_indexes),
                     scheduler=itertools.cycle(replica_indexes),
                     active_replica_ids=list(replica_indexes),
-                    # Share the set so the in-flight termination's finally
-                    # also clears marks on the rebuilt routing entry.
-                    terminating=terminating.get(model_uid, set()),
                 )
                 self._model_uid_to_replica_info[model_uid] = replica_info
             else:
@@ -5473,7 +5506,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     # Ready replicas and asynchronously loading engines no
                     # longer have a worker launch guard; terminate them too.
                     pass
-                await worker.terminate_model(model_uid=replica_uid)
+                await _terminate_replica_on_workers(self, replica_uid, [worker])
 
             if not operation.cancelling:
                 operation.cancelling = True
@@ -5500,7 +5533,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 # being acknowledged. Sweep again after dispatch has drained.
                 results = await asyncio.gather(
                     *(
-                        worker.terminate_model(model_uid=uid)
+                        _terminate_replica_on_workers(self, uid, [worker])
                         for uid, workers in operation.workers.items()
                         for worker in workers
                     ),
@@ -5912,13 +5945,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if not isinstance(worker_refs, (list, tuple)):
                 worker_refs = [worker_refs]
 
-            for worker_ref in worker_refs:
-                if worker_ref is None:
-                    raise ValueError(
-                        f"Model not found in the model list, uid: {_replica_model_uid}"
-                    )
-                await worker_ref.terminate_model(model_uid=_replica_model_uid)
-            self._replica_model_uid_to_worker.pop(_replica_model_uid, None)
+            await _terminate_replica_on_workers(self, _replica_model_uid, worker_refs)
+            _pop_replica_route(self, _replica_model_uid)
 
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
@@ -5936,15 +5964,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
-        terminating = set(replica_info.active_replica_ids)
-        replica_info.terminating.update(terminating)
-        try:
-            results = await asyncio.gather(
-                *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
-                return_exceptions=True,
-            )
-        finally:
-            replica_info.terminating.difference_update(terminating)
+        results = await asyncio.gather(
+            *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
+            return_exceptions=True,
+        )
         errors = [r for r in results if isinstance(r, Exception)]
         if errors and not suppress_exception:
             raise errors[0]
@@ -5960,7 +5983,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._model_reload_status.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
         for replica_model_uid in rep_model_uids:
-            self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+            _pop_replica_route(self, replica_model_uid)
             self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
             self._clear_replica_model_gpu_memory(replica_model_uid)
         self._invalidate_list_models_debounce_cache()
@@ -6317,14 +6340,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # Best-effort cleanup: terminate the partially-launched replica on the
             # worker so it doesn't leak GPU memory.
             try:
-                await target_worker_ref.terminate_model(
-                    model_uid=new_replica_uid, is_model_die=True
+                await _terminate_replica_on_workers(
+                    self, new_replica_uid, [target_worker_ref], is_model_die=True
                 )
             except Exception:
                 pass
             # A reconnect during launch/load may already have published this
             # replica. Remove that replayed route as well as the worker model.
-            self._replica_model_uid_to_worker.pop(new_replica_uid, None)
+            _pop_replica_route(self, new_replica_uid)
             self._replica_model_uid_to_worker_shards.pop(new_replica_uid, None)
             current_info = self._model_uid_to_replica_info.get(model_uid)
             if current_info is not None:
@@ -6457,19 +6480,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not isinstance(worker_refs, (list, tuple)):
             worker_refs = [worker_refs]
 
-        if replica_info is not None:
-            replica_info.terminating.add(replica_id)
         try:
-            for worker_ref in worker_refs:
-                await worker_ref.terminate_model(model_uid=replica_model_uid)
+            await _terminate_replica_on_workers(self, replica_model_uid, worker_refs)
         except Exception:
             if not suppress_exception:
                 raise
-        finally:
-            if replica_info is not None:
-                replica_info.terminating.discard(replica_id)
 
-        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        _pop_replica_route(self, replica_model_uid)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
         # terminate_model can synchronously reconnect/replay before returning.
         # Its callback must remain free to run: acquiring the scale lock in
@@ -6736,7 +6753,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         # Eviction half: mirror terminate_model_replica, minus
         # worker_ref.terminate_model.
-        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        _pop_replica_route(self, replica_model_uid)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
         self._clear_replica_model_gpu_memory(replica_model_uid)
         replica_info.replica_to_worker_refs.pop(replica_idx, None)
@@ -6896,6 +6913,52 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
         raise RealtimeError("endpoint_unavailable", "Model is not ready", 1013)
 
+    async def _revalidate_replica_deletion(
+        self, uid: str, deletions: Dict[str, _ReplicaDeletion]
+    ) -> None:
+        deletion = deletions.get(uid)
+        route = self._replica_model_uid_to_worker.get(uid)
+        if deletion is None or deletion.active_calls or route is None:
+            return
+        workers = route if isinstance(route, (list, tuple)) else [route]
+        if len(workers) < deletion.owner_count:
+            return
+        version = deletion.route_version
+
+        def current() -> bool:
+            return (
+                deletions.get(uid) is deletion
+                and deletion.route_version == version
+                and self._replica_model_uid_to_worker.get(uid) is route
+            )
+
+        async def serving() -> bool:
+            try:
+                for worker in workers:
+                    try:
+                        status = await worker.get_model_status(uid)
+                    except AttributeError:
+                        status = None
+                    state = getattr(status, "model_state", None)
+                    if state not in (None, "", "ready") or getattr(
+                        status, "last_error", None
+                    ):
+                        return False
+                    if not current() or await worker.get_model(model_uid=uid) is None:
+                        return False
+            except Exception:
+                return False
+            return True
+
+        try:
+            ready = await xo.wait_for(
+                serving(), timeout=_REPLICA_DELETION_CHECK_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            return
+        if ready and current():
+            deletions.pop(uid, None)
+
     async def _select_model(
         self,
         model_uid: str,
@@ -6942,22 +7005,36 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if state is not None:
                 candidates = sorted(candidates, key=state.should_avoid)
                 candidates = [r for r in candidates if r not in state.draining]
-            terminating = [r for r in candidates if r in replica_info.terminating]
-            candidates = [r for r in candidates if r not in replica_info.terminating]
-            last_error: Union[ModelNotReadyError, RuntimeError] = (
-                RuntimeError(
-                    f"Model {build_replica_model_uid(model_uid, terminating[0])} is in stopping state"
+            deletions = self.__dict__.setdefault("_replica_deletions", {})
+            replicas = {build_replica_model_uid(model_uid, r): r for r in candidates}
+            # Check retained targets even when an earlier sibling can serve.
+            if checks := deletions.keys() & replicas.keys():
+                await asyncio.gather(
+                    *(
+                        self._revalidate_replica_deletion(uid, deletions)
+                        for uid in checks
+                    )
                 )
-                if terminating
-                else ModelNotReadyError(f"Model {model_uid} has no available replica")
+            last_error = ModelNotReadyError(
+                f"Model {model_uid} has no available replica"
             )
-            for replica_id in candidates:
+            for uid, replica_id in replicas.items():
+                if uid in deletions:
+                    continue
                 try:
-                    return await self._get_replica_model(model_uid, replica_id), False
+                    model = await self._get_replica_model(model_uid, replica_id)
                 except ModelNotReadyError as exc:
-                    # Preserve the stopping error if no candidate can serve.
-                    if not terminating:
-                        last_error = exc
+                    last_error = exc
+                except Exception:
+                    if uid not in deletions:
+                        raise
+                else:
+                    if uid in deletions or uid not in self._replica_model_uid_to_worker:
+                        continue
+                    return model, False
+            for uid in replicas:
+                if uid in deletions:
+                    raise RuntimeError(f"Model {uid} is in stopping state")
             raise last_error
         if state is None:
             return await self._get_replica_model(model_uid, first), False

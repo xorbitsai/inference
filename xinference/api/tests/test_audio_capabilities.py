@@ -46,18 +46,28 @@ def audio_api(supervisor):
 
 
 @asynccontextmanager
-async def replicated_audio():
+async def replicated_audio(replica_count=2):
     supervisor = SupervisorActor.__new__(SupervisorActor)
     supervisor._pd_model_mapping = {}
     supervisor._replica_autoscalers = {}
     supervisor._model_uid_to_replica_info = {
-        "custom": supervisor._build_replica_info(2)
+        "custom": supervisor._build_replica_info(replica_count)
     }
     supervisor._replica_model_uid_to_worker = {}
+    supervisor._replica_model_uid_to_worker_shards = {}
+    supervisor._model_replica_locks = {}
+    supervisor._model_reload_tasks = {}
+    supervisor._initial_model_launches = {}
+    supervisor._status_guard_ref = SimpleNamespace(
+        remove_replica_status=AsyncMock(), update_instance_info=AsyncMock()
+    )
+    supervisor._clear_replica_model_gpu_memory = Mock()
+    supervisor._unexpected_down_replicas = {}
+    supervisor._invalidate_list_models_debounce_cache = Mock()
     runtimes = []
     capabilities = {"asr": {"streaming": True, "server_vad": True}}
     try:
-        for replica in range(2):
+        for replica in range(replica_count):
             uid = build_replica_model_uid("custom", replica)
             model = FakeModel()
             model.load()
@@ -164,25 +174,18 @@ def real_worker_lookups(supervisor):
         worker = WorkerActor.__new__(WorkerActor)
         worker._model_uid_to_model_status = {uid: ModelStatus(model_state="ready")}
         worker._model_uid_to_model = {uid: worker_ref.get_model.return_value}
+        worker._model_uid_launching_guard = {}
         worker._status_guard_ref = None
         worker_ref.get_model.side_effect = worker.get_model
+        worker_ref.get_model_status = AsyncMock(side_effect=worker.get_model_status)
         workers.append(worker)
     return workers
 
 
-@pytest.mark.parametrize("outcome", ["success", "failure", "suppressed", "cancelled"])
+@pytest.mark.parametrize("outcome", ["success", "failure", "suppressed"])
 async def test_capabilities_skip_stopping_replica_without_advancing_scheduler(outcome):
     async with replicated_audio() as service:
         supervisor = service.supervisor
-        supervisor._model_replica_locks = {}
-        supervisor._model_reload_tasks = {}
-        supervisor._replica_model_uid_to_worker_shards = {}
-        supervisor._status_guard_ref = SimpleNamespace(
-            remove_replica_status=AsyncMock(), update_instance_info=AsyncMock()
-        )
-        supervisor._clear_replica_model_gpu_memory = Mock()
-        supervisor._unexpected_down_replicas = {}
-        supervisor._invalidate_list_models_debounce_cache = Mock()
         workers = real_worker_lookups(supervisor)
         info = supervisor._model_uid_to_replica_info["custom"]
         entered, release = asyncio.Event(), asyncio.Event()
@@ -214,25 +217,146 @@ async def test_capabilities_skip_stopping_replica_without_advancing_scheduler(ou
                     response = await client.get("/v1/models/custom/audio/capabilities")
                     assert response.status_code == 200
                     assert response.json() == service.capabilities
-            assert info.terminating == {0}
             stopping.get_model.assert_not_awaited()
             ready = supervisor._replica_model_uid_to_worker["custom-rep1"]
             assert ready.get_model.await_count == 4
-            workers[0]._model_uid_to_model_status["custom-rep0"].model_state = "ready"
-            assert (await supervisor.get_model("custom")).uid == b"custom-rep0"
+            assert next(info.scheduler) == 0
         finally:
-            if outcome == "cancelled":
-                termination.cancel()
             release.set()
-            if outcome in ("failure", "cancelled"):
-                expected = (
-                    RuntimeError if outcome == "failure" else asyncio.CancelledError
-                )
-                with pytest.raises(expected):
+            if outcome == "failure":
+                with pytest.raises(RuntimeError, match="Termination failed"):
                     await termination
             else:
                 await termination
-        assert not info.terminating
+        assert ("custom-rep0" in supervisor._replica_model_uid_to_worker) == (
+            outcome == "failure"
+        )
+
+
+async def test_capabilities_skip_replica_still_stopping_after_cancelled_delete():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        uid = "custom-rep0"
+        stopping, ready = supervisor._replica_model_uid_to_worker.values()
+        worker, _ = real_worker_lookups(supervisor)
+        recovered_capabilities = {"asr": {"streaming": False, "server_vad": False}}
+        stopping.get_model.return_value.get_audio_capabilities.return_value = (
+            recovered_capabilities
+        )
+        info = supervisor._model_uid_to_replica_info["custom"]
+        scheduler = info.scheduler
+        entered = asyncio.Event()
+
+        async def pause_at_supervisor_lookup():
+            entered.set()
+            await asyncio.Future()
+
+        worker.get_supervisor_ref = pause_at_supervisor_lookup
+        stopping.terminate_model = AsyncMock(side_effect=worker.terminate_model)
+        deletion = asyncio.create_task(supervisor.terminate_model_replica("custom", 0))
+        try:
+            await asyncio.wait_for(entered.wait(), 2)
+        finally:
+            deletion.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await deletion
+        assert worker.get_model_status(uid).model_state == "stopping"
+        assert supervisor._replica_model_uid_to_worker[uid] is stopping
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            for _ in range(4):
+                response = await client.get("/v1/models/custom/audio/capabilities")
+                assert response.status_code == 200
+                assert response.json() == service.capabilities
+            stopping.get_model.assert_not_awaited()
+            assert ready.get_model.await_count == 4
+            assert stopping.get_model_status.await_count == 4
+            ready.get_model_status.assert_not_awaited()
+            assert info.scheduler is scheduler
+            assert [next(scheduler), next(scheduler)] == [0, 1]
+
+            await worker._update_model_state(uid, "ready")
+            response = await client.get("/v1/models/custom/audio/capabilities")
+            assert response.status_code == 200
+            assert response.json() == recovered_capabilities
+            assert stopping.get_model_status.await_count == 5
+
+
+async def test_capabilities_revalidate_after_delete_rejected_before_worker_stop():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        real_worker_lookups(supervisor)
+        worker = supervisor._replica_model_uid_to_worker["custom-rep0"]
+        worker.terminate_model = AsyncMock(side_effect=RuntimeError("Call rejected"))
+        with pytest.raises(RuntimeError, match="Call rejected"):
+            await supervisor.terminate_model_replica("custom", 0)
+        # Put the ready sibling first. The retained route still needs a check.
+        assert (await supervisor.get_model("custom")).uid == b"custom-rep0"
+        worker.get_model.reset_mock()
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            response = await client.get("/v1/models/custom/audio/capabilities")
+            assert response.status_code == 200
+            assert response.json() == service.capabilities
+        worker.get_model_status.assert_awaited_once_with("custom-rep0")
+        worker.get_model.assert_awaited_once_with(model_uid="custom-rep0")
+
+
+async def test_capabilities_revalidate_a_sole_retained_replica():
+    async with replicated_audio(replica_count=1) as service:
+        supervisor = service.supervisor
+        (worker,) = real_worker_lookups(supervisor)
+        (route,) = supervisor._replica_model_uid_to_worker.values()
+
+        async def interrupted(model_uid):
+            await worker._update_model_state(model_uid, "stopping")
+            raise RuntimeError("Termination interrupted")
+
+        route.terminate_model = AsyncMock(side_effect=interrupted)
+        with pytest.raises(RuntimeError, match="Termination interrupted"):
+            await supervisor.terminate_model_replica("custom", 0)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            response = await client.get("/v1/models/custom/audio/capabilities")
+            assert response.status_code == 500
+            route.get_model.assert_not_awaited()
+            await worker._update_model_state("custom-rep0", "ready")
+            response = await client.get("/v1/models/custom/audio/capabilities")
+            assert response.status_code == 200
+            assert response.json() == service.capabilities
+            assert route.get_model_status.await_count == 2
+
+
+async def test_capabilities_keep_retained_target_excluded_after_partial_model_delete():
+    async with replicated_audio() as service:
+        supervisor = service.supervisor
+        _, worker = real_worker_lookups(supervisor)
+        removed, retained = supervisor._replica_model_uid_to_worker.values()
+
+        async def interrupted(model_uid):
+            await worker._update_model_state(model_uid, "stopping")
+            raise RuntimeError("Termination interrupted")
+
+        removed.terminate_model = AsyncMock()
+        retained.terminate_model = AsyncMock(side_effect=interrupted)
+        with pytest.raises(RuntimeError, match="Termination interrupted"):
+            await supervisor.terminate_model("custom")
+        assert supervisor._replica_model_uid_to_worker == {"custom-rep1": retained}
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(service.app), base_url="http://test"
+        ) as client:
+            response = await client.get("/v1/models/custom/audio/capabilities")
+            assert response.status_code == 500
+            assert response.json() == {
+                "detail": "Model custom-rep1 is in stopping state"
+            }
+        removed.get_model.assert_not_awaited()
+        retained.get_model.assert_not_awaited()
+        retained.get_model_status.assert_awaited_once_with("custom-rep1")
 
 
 async def test_inference_lookup_preserves_stopping_runtime_error():
@@ -279,6 +403,7 @@ async def test_capabilities_keep_existing_error_when_no_replica_is_ready(drainin
             for _ in range(4):
                 response = await client.get("/v1/models/custom/audio/capabilities")
                 assert response.status_code == 503
+                assert response.headers["retry-after"] == "30"
                 error = (
                     "Model custom has no available replica"
                     if draining
