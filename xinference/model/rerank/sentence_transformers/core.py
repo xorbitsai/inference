@@ -787,7 +787,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
             if is_nemotron:
                 try:
-                    documents = prepare_nemotron_request(documents, query)
+                    documents = self._prepare_nemotron_batch_documents(
+                        documents, query, extra_kwargs.get("instruction")
+                    )
                 except Exception as error:
                     results_with_index.append((i, BatchRequestError(error)))
                     continue
@@ -936,6 +938,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         }
         extra_kwargs = {**extra_args, **bound.arguments.get("kwargs", {})}
         return documents, query, extra_kwargs
+
+    def _prepare_nemotron_batch_documents(
+        self, documents: List[Any], query: Any, instruction: Optional[str]
+    ) -> List[Any]:
+        return prepare_nemotron_request(documents, query)
 
     def _rerank_nemotron(
         self,

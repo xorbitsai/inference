@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
@@ -25,6 +26,12 @@ from ..nemotron import (
 )
 from ..sentence_transformers.core import SentenceTransformerRerankModel
 from ..utils import preprocess_sentence
+
+
+@dataclass(frozen=True)
+class _TokenizedDocument:
+    original: Any
+    inputs: Any
 
 
 class NemotronTransformersRerankModel(SentenceTransformerRerankModel):
@@ -58,6 +65,41 @@ class NemotronTransformersRerankModel(SentenceTransformerRerankModel):
         ).eval()
         self._tokenizer = self._processor.tokenizer
 
+    def _tokenize_pair(self, query: Any, document: Any, instruction: Optional[str]):
+        messages = nemotron_messages(query, document)
+        if instruction:
+            text = "\n\n".join(b["text"] for b in messages[0]["content"])
+            messages[0]["content"] = [
+                {
+                    "type": "text",
+                    "text": preprocess_sentence(
+                        text, instruction, self.model_family.model_name
+                    ),
+                }
+            ]
+        inputs = self._processor.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=False,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        max_tokens = self.model_family.max_tokens or 32768
+        if inputs["input_ids"].shape[-1] > max_tokens:
+            raise ValueError(
+                f"Nemotron reranker input exceeds {max_tokens} tokens; shorten the text or resize the image"
+            )
+        return inputs
+
+    def _prepare_nemotron_batch_documents(
+        self, documents: List[Any], query: Any, instruction: Optional[str]
+    ) -> List[Any]:
+        # Keep processor errors within this request before merging valid pairs.
+        return [
+            _TokenizedDocument(doc, self._tokenize_pair(query, doc, instruction))
+            for doc in documents
+        ]
+
     def _rerank_nemotron(
         self,
         documents: List[Any],
@@ -78,28 +120,11 @@ class NemotronTransformersRerankModel(SentenceTransformerRerankModel):
         self._reset_token_tracking()
         scores = []
         for query, document in zip(queries, documents):
-            messages = nemotron_messages(query, document)
-            if instruction:
-                text = "\n\n".join(b["text"] for b in messages[0]["content"])
-                messages[0]["content"] = [
-                    {
-                        "type": "text",
-                        "text": preprocess_sentence(
-                            text, instruction, self.model_family.model_name
-                        ),
-                    }
-                ]
-            inputs = self._processor.apply_chat_template(
-                messages,
-                tokenize=True,
-                add_generation_prompt=False,
-                return_dict=True,
-                return_tensors="pt",
+            inputs = (
+                document.inputs
+                if isinstance(document, _TokenizedDocument)
+                else self._tokenize_pair(query, document, instruction)
             )
-            if inputs["input_ids"].shape[-1] > (self.model_family.max_tokens or 32768):
-                raise ValueError(
-                    "Nemotron reranker input exceeds 32768 tokens; shorten the text or resize the image"
-                )
             count = int(inputs["attention_mask"].sum())
             self._token_tracking_data.input_tokens.append(count)
             self._token_tracking_data.n_tokens += count

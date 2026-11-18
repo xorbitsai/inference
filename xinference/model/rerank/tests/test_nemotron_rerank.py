@@ -187,6 +187,40 @@ def test_native_context_limit_and_empty_input():
     assert model._rerank_nemotron([], [], False) == []
 
 
+async def test_native_context_limit_failure_isolated_in_shared_batch():
+    model = make_model(NemotronTransformersRerankModel)
+    model.batch_size = 4
+    model.batch_interval = 0
+
+    def tokenize(messages, **kwargs):
+        text = messages[1]["content"][0]["text"]
+        lengths = {"first document": 3, "over limit": 32769, "short document": 4}
+        return processor_inputs(lengths[text])
+
+    processor = Mock(side_effect=tokenize)
+    model._processor = SimpleNamespace(apply_chat_template=processor)
+    model._model = Mock(
+        device="cpu",
+        dtype=torch.bfloat16,
+        return_value=SimpleNamespace(logits=torch.tensor([[-1.0]])),
+    )
+    failed, valid = await asyncio.gather(
+        model.rerank(["first document", "over limit"], "q1", None, None, True, True),
+        model.rerank(["short document"], "q2", None, None, True, True),
+        return_exceptions=True,
+    )
+
+    assert isinstance(failed, ValueError)
+    assert "exceeds 32768" in str(failed)
+    assert valid["results"] == [
+        {"index": 0, "relevance_score": -1.0, "document": {"text": "short document"}}
+    ]
+    assert valid["meta"]["tokens"]["input_tokens"] == 4
+    assert processor.call_count == 3
+    model._model.assert_called_once()
+    assert model._model.call_args.kwargs["input_ids"].shape[-1] == 4
+
+
 def test_sentence_transformers_predict_and_tokens(monkeypatch):
     image_url = "https://1.1.1.1/image.png"
     fetch = Mock(return_value=media.decode_data_uri(IMAGE))
