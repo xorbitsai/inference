@@ -214,10 +214,15 @@ class SessionBoundSupervisorRef:
         return self._ref.__reduce__()
 
     def __getattr__(self, name: str) -> Any:
-        from .supervisor_control import READS
+        from .supervisor_control import READS, ROUTER_NODE_WATCHES
 
         method = getattr(self._ref, name)
-        if name.startswith("_") or name in READS or not callable(method):
+        if (
+            name.startswith("_")
+            or name in READS
+            or name in ROUTER_NODE_WATCHES
+            or not callable(method)
+        ):
             return method
         # Initial registration precedes the first session installation.
         if self._fence.session is None:

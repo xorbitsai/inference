@@ -1373,6 +1373,114 @@ async def test_busy_pause_leaves_existing_operation_and_cleanup_admitted():
     assert cleaned.is_set() and not control.ready
 
 
+@pytest.fixture
+def controlled_router(tmp_path):
+    from ..router_config_store import RouterConfigStore
+    from ..router_orchestration import RouterOrchestrationController
+
+    owner, state, port = controlled_owner()
+    receiver = SupervisorActor.__new__(SupervisorActor)
+    receiver.address = "supervisor:1234"
+    receiver._controller_control = owner._controller_control
+    db_path = str(tmp_path / "routers.db")
+    receiver._token_router_orchestration = RouterOrchestrationController(
+        db_path, RouterConfigStore(db_path)
+    )
+    # A restarting Supervisor can already have a registered node on disk.
+    receiver._token_router_orchestration.register_node(
+        {
+            "node_id": "node-a",
+            "advertise_host": "127.0.0.1",
+            "port_range_start": 13000,
+            "port_range_end": 13010,
+            "max_instances": 4,
+        }
+    )
+    return receiver, state, port
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method", ["watch_token_router_assignments", "watch_tokenizer_asset_bindings"]
+)
+async def test_open_router_watch_allows_pause(
+    controlled_router, monkeypatch, method: str
+):
+    from .. import router_orchestration
+
+    receiver, state, port = controlled_router
+    with pytest.raises(ControlSessionRejected, match="fence_pending"):
+        await getattr(receiver, method)("node-a", wait_seconds=0)
+    await port.pause(1)
+    state.phase = "active"
+    await port.resume()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def hold_poll(_delay: float) -> None:
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(
+        router_orchestration, "asyncio", SimpleNamespace(sleep=hold_poll)
+    )
+    poll = getattr(receiver, method)
+    initial = await poll("node-a", wait_seconds=0)
+    watch = asyncio.create_task(poll("node-a", initial["cursor"]))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        await asyncio.wait_for(port.pause(1), 5)
+        assert not port.status()["ready"]
+        assert not watch.done()
+        with pytest.raises(ControlSessionRejected, match="fence_pending"):
+            await getattr(receiver, method)("node-a", wait_seconds=0)
+        receiver._token_router_orchestration._watch_epoch += "-changed"
+        release.set()
+        with pytest.raises(ControlSessionRejected, match="fence_pending"):
+            await asyncio.wait_for(watch, 5)
+        await port.resume()
+        snapshot = await getattr(receiver, method)("node-a", initial["cursor"], 0)
+        assert snapshot["cursor"] != initial["cursor"]
+        state.owner = session(2)
+        with pytest.raises(ControlSessionRejected, match="stale_session"):
+            await getattr(receiver, method)("node-a", wait_seconds=0)
+    finally:
+        watch.cancel()
+        await asyncio.gather(watch, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_inflight_router_node_update_refuses_pause(controlled_router):
+    receiver, state, port = controlled_router
+    await port.pause(1)
+    state.phase = "active"
+    await port.resume()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def hold_update(invocation, call):
+        assert invocation.method == "set_token_router_node_state"
+        entered.set()
+        await release.wait()
+        return await call()
+
+    receiver._controller_control.authority.around_supervisor_call = hold_update
+    update = asyncio.create_task(
+        receiver.set_token_router_node_state("node-a", "cordoned")
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        with pytest.raises(RuntimeError, match="active management work"):
+            await asyncio.wait_for(port.pause(1), 5)
+        assert port.status()["ready"]
+        assert not update.done()
+        release.set()
+        assert (await asyncio.wait_for(update, 5))["desired_state"] == "cordoned"
+        await port.pause(1)
+        assert not port.status()["ready"]
+    finally:
+        update.cancel()
+        await asyncio.gather(update, return_exceptions=True)
+
+
 @pytest.mark.asyncio
 async def test_registration_is_not_subject_to_the_report_timeout(monkeypatch):
     from .. import worker as module
