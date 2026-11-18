@@ -246,6 +246,13 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 f"{self.model_family.dimensions}."
             )
 
+    def _validate_context_length(self, length: int) -> None:
+        if length > self.model_family.max_tokens:
+            raise InvalidModelRequestError(
+                f"Nemotron 3.5 Embed input exceeds {self.model_family.max_tokens} "
+                "tokens; shorten text or resize the image."
+            )
+
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
         # Leave text and token arrays to the usual truncation and decoding path.
         if not isinstance(sentences, list) or not any(
@@ -331,10 +338,7 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                 return_tensors="pt",
                 **kwargs.get("processing_kwargs", {}),
             )
-            if features["input_ids"].shape[-1] > self.model_family.max_tokens:
-                raise InvalidModelRequestError(
-                    "Nemotron 3.5 Embed input exceeds 32768 tokens; shorten text or resize the image."
-                )
+            self._validate_context_length(features["input_ids"].shape[-1])
             features = features.to(self._model.device)
             if "pixel_values" in features:
                 features["pixel_values"] = features["pixel_values"].to(
@@ -357,6 +361,7 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
         if dependencies != True:
             raise ImportError(dependencies[1])  # type: ignore[index]
         from sentence_transformers import SentenceTransformer
+        from sentence_transformers.models import Normalize
 
         self._device = self._device or get_available_device()
         model_kwargs = dict(self._kwargs.get("model_kwargs", {}))
@@ -364,6 +369,10 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
         self._model = SentenceTransformer(
             self._model_path, device=self._device, model_kwargs=model_kwargs
         )
+        # Leave pooled vectors raw so the adapter can truncate dimensions
+        # and then apply the caller's normalization option.
+        if isinstance(self._model[-1], Normalize):
+            del self._model[-1]
         self._model.max_seq_length = self.model_family.max_tokens
         self._tokenizer = self._model.tokenizer
 
@@ -373,7 +382,9 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
         vectors, counts = [], []
 
         def count_tokens(module: Any, args: Tuple[Any, ...]) -> None:
-            counts.append(int(args[0]["attention_mask"].sum().item()))
+            mask = args[0]["attention_mask"]
+            self._validate_context_length(mask.shape[-1])
+            counts.append(int(mask.sum().item()))
 
         hook = self._model.register_forward_pre_hook(count_tokens)
         try:
@@ -433,6 +444,7 @@ class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
         from vllm import PoolingParams
+        from vllm.exceptions import VLLMValidationError
 
         prompts = []
         for sample in samples:
@@ -446,11 +458,14 @@ class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
             if kwargs.get("processing_kwargs"):
                 prompt["mm_processor_kwargs"] = kwargs["processing_kwargs"]
             prompts.append(prompt)
-        outputs = self._embed_sync(
-            prompts,
-            pooling_params=PoolingParams(use_activation=False),
-            tokenization_kwargs={"add_special_tokens": False},
-        )
+        try:
+            outputs = self._embed_sync(
+                prompts,
+                pooling_params=PoolingParams(use_activation=False),
+                tokenization_kwargs={"add_special_tokens": False},
+            )
+        except VLLMValidationError as exc:
+            raise InvalidModelRequestError(str(exc)) from exc
         return (
             [torch.tensor(output.outputs.embedding) for output in outputs],
             [len(output.prompt_token_ids) for output in outputs],

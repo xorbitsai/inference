@@ -493,12 +493,12 @@ class EmbeddingModel(abc.ABC):
 
             try:
                 embedding_list = self._create_embedding(sentences, **kwargs)
-            except ContextLengthExceeded as exc:
+            except (ContextLengthExceeded, InvalidModelRequestError) as exc:
                 if len(indices) == 1:
                     results_with_index.append((indices[0], BatchRequestError(exc)))
                 else:
                     # The engine rejected a merged group. Retry each caller's
-                    # inputs together to identify which request exceeded its limit.
+                    # inputs together to identify which request was invalid.
                     pending_groups.extend(
                         {
                             "sentences": sentences[offset : offset + count],

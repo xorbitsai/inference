@@ -23,10 +23,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from threading import Thread
 from types import ModuleType, SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 import torch
+from fastapi import FastAPI
 from PIL import Image
 
 from xinference.core.exceptions import InvalidModelRequestError
@@ -263,6 +265,75 @@ def test_transformers_rejects_expanded_input_over_context_limit():
     model._model.assert_not_called()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_input,options,error",
+    [
+        (["valid document", "overlong"], {}, "exceeds 32768"),
+        ("short", {"dimensions": 0}, "dimensions must"),
+    ],
+)
+async def test_rest_embedding_validation_is_request_local(
+    monkeypatch, bad_input, options, error
+):
+    from xinference.api.restful_api import RESTfulAPI
+
+    model = make_model(batch_size=3, batch_interval=0.05)
+    model._processor = MagicMock()
+    model._model = MagicMock(device="cpu", dtype=torch.float32)
+    model._model.return_value.last_hidden_state = torch.tensor([[[3.0, 4.0]]])
+
+    class Features(dict):
+        def to(self, device):
+            return self
+
+    def preprocess(messages, **kwargs):
+        text = messages[-1]["content"][-1]["text"]
+        length = 32769 if text == "overlong" else 1
+        return Features(
+            input_ids=torch.zeros(1, length, dtype=torch.long),
+            attention_mask=torch.ones(1, length),
+        )
+
+    model._processor.apply_chat_template.side_effect = preprocess
+
+    async def create_embedding(*args, **kwargs):
+        return json.dumps(await model.create_embedding(*args, **kwargs))
+
+    monkeypatch.setattr(
+        "xinference.api.restful_api.require_model",
+        AsyncMock(return_value=SimpleNamespace(create_embedding=create_embedding)),
+    )
+    api = object.__new__(RESTfulAPI)
+    api._set_trace_model = MagicMock()
+    api._set_trace_model_type = MagicMock()
+    api._check_model_access = MagicMock()
+    api._get_supervisor_ref = AsyncMock()
+    api._report_error_event = AsyncMock()
+    app = FastAPI()
+    app.add_api_route("/v1/embeddings", api.create_embedding, methods=["POST"])
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        invalid, valid = await asyncio.gather(
+            client.post(
+                "/v1/embeddings",
+                json={"model": "nemotron", "input": bad_input, **options},
+            ),
+            client.post("/v1/embeddings", json={"model": "nemotron", "input": "short"}),
+        )
+
+    assert invalid.status_code == 400, invalid.text
+    assert error in invalid.json()["detail"]
+    assert valid.status_code == 200, valid.text
+    result = valid.json()
+    assert result["model"] == "nemotron"
+    assert result["data"][0]["embedding"] == pytest.approx([0.6, 0.8])
+    assert result["data"][0]["index"] == 0
+    assert result["usage"]["total_tokens"] == 1
+
+
 def test_empty_input_and_sparse_rejection():
     model = make_model()
     model._encode_samples = MagicMock()
@@ -376,8 +447,9 @@ def test_sentence_transformers_preserves_input_order_and_counts_and_removes_hook
         assert kwargs["prompt_name"] == "document"
         assert kwargs["batch_size"] == 1
         text = samples[0].get("text", "")
+        length = 32769 if text == "overlong" else len(text) + 1
         encoder.register_forward_pre_hook.call_args.args[0](
-            None, ({"attention_mask": torch.ones(1, len(text) + 1)},)
+            None, ({"attention_mask": torch.ones(1, length)},)
         )
         return torch.tensor([[float(len(text)), 2.0, 9.0]])
 
@@ -390,17 +462,31 @@ def test_sentence_transformers_preserves_input_order_and_counts_and_removes_hook
     assert result["usage"]["total_tokens"] == 10
     assert result["data"][1]["embedding"] == [0.0, 1.0]
     encoder.register_forward_pre_hook.return_value.remove.assert_called_once()
+    with pytest.raises(InvalidModelRequestError, match="exceeds 32768"):
+        model._create_embedding("overlong")
+    assert encoder.register_forward_pre_hook.return_value.remove.call_count == 2
     encoder.encode.side_effect = RuntimeError("encode failure")
     with pytest.raises(RuntimeError, match="encode failure"):
         model._create_embedding("x")
-    assert encoder.register_forward_pre_hook.return_value.remove.call_count == 2
+    assert encoder.register_forward_pre_hook.return_value.remove.call_count == 3
+
+
+def mock_vllm_pooling(monkeypatch):
+    class VLLMValidationError(Exception):
+        pass
+
+    vllm = ModuleType("vllm")
+    vllm.PoolingParams = lambda **kwargs: kwargs
+    exceptions = ModuleType("vllm.exceptions")
+    exceptions.VLLMValidationError = VLLMValidationError
+    monkeypatch.setitem(sys.modules, "vllm", vllm)
+    monkeypatch.setitem(sys.modules, "vllm.exceptions", exceptions)
+    return VLLMValidationError
 
 
 def test_vllm_prompts_preserve_template_tokens_and_multimodal_data(monkeypatch):
     model = make_model(CLASSES[2])
-    fake = ModuleType("vllm")
-    fake.PoolingParams = lambda **kwargs: kwargs
-    monkeypatch.setitem(sys.modules, "vllm", fake)
+    mock_vllm_pooling(monkeypatch)
     model._processor = MagicMock()
     model._processor.apply_chat_template.side_effect = [
         "<bos>text",
@@ -429,6 +515,39 @@ def test_vllm_prompts_preserve_template_tokens_and_multimodal_data(monkeypatch):
     assert result["data"][0]["embedding"] == pytest.approx([0.6, 0.8])
 
 
+@pytest.mark.asyncio
+async def test_vllm_context_error_is_request_local(monkeypatch):
+    error_class = mock_vllm_pooling(monkeypatch)
+    model = make_model(CLASSES[2], batch_size=2, batch_interval=0.05)
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.side_effect = (
+        lambda messages, **kwargs: messages[-1]["content"][-1]["text"]
+    )
+    model._model = MagicMock()
+
+    def embed(prompts, **kwargs):
+        if any(item["prompt"] == "overlong" for item in prompts):
+            raise error_class("Prompt exceeds engine context")
+        return [
+            SimpleNamespace(
+                outputs=SimpleNamespace(embedding=[3.0, 4.0]), prompt_token_ids=[1, 2]
+            )
+        ]
+
+    model._model.embed.side_effect = embed
+    valid, invalid = await asyncio.gather(
+        model.create_embedding("valid"),
+        model.create_embedding("overlong"),
+        return_exceptions=True,
+    )
+    first_prompts = model._model.embed.call_args_list[0].args[0]
+    assert first_prompts == [{"prompt": "valid"}, {"prompt": "overlong"}]
+    assert valid["data"][0]["embedding"] == pytest.approx([0.6, 0.8])
+    assert valid["usage"]["total_tokens"] == 2
+    assert isinstance(invalid, InvalidModelRequestError)
+    assert invalid.client_message == "Prompt exceeds engine context"
+
+
 @pytest.mark.parametrize(
     "cls,start_method",
     [
@@ -448,7 +567,10 @@ def test_load_uses_official_entry_points(monkeypatch, cls, start_method):
     if cls is CLASSES[1]:
         st = ModuleType("sentence_transformers")
         st.SentenceTransformer = MagicMock()
+        modules = ModuleType("sentence_transformers.models")
+        modules.Normalize = torch.nn.Identity
         monkeypatch.setitem(sys.modules, "sentence_transformers", st)
+        monkeypatch.setitem(sys.modules, "sentence_transformers.models", modules)
     elif cls is CLASSES[2]:
         if start_method is None:
             monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD", raising=False)
@@ -600,6 +722,7 @@ def test_native_transformers_and_sentence_transformers_agree(tmp_path):
         {"image": Image.new("RGB", (56, 56)), "text": "caption"},
     ]
     results = []
+    raw_results = []
     for cls in CLASSES[:2]:
         family = match_embedding("Nemotron-3.5-Embed-1B-BF16", "pytorch", "none")
         family.dimensions = 32
@@ -616,6 +739,16 @@ def test_native_transformers_and_sentence_transformers_agree(tmp_path):
             == 32
         )
         results.append(result)
+        raw = model._create_embedding(inputs, dimensions=16, normalize_embeddings=False)
+        assert raw.token_counts == result.token_counts
+        for normalized, unnormalized in zip(result["data"], raw["data"]):
+            vector = torch.tensor(unnormalized["embedding"])
+            assert not torch.isclose(vector.norm(), torch.tensor(1.0))
+            torch.testing.assert_close(
+                torch.nn.functional.normalize(vector, dim=0),
+                torch.tensor(normalized["embedding"]),
+            )
+        raw_results.append(raw)
     assert results[0].token_counts == results[1].token_counts
     for left, right in zip(results[0]["data"], results[1]["data"]):
         vector = torch.tensor(left["embedding"])
@@ -623,3 +756,10 @@ def test_native_transformers_and_sentence_transformers_agree(tmp_path):
             vector, torch.tensor(right["embedding"]), atol=1e-5, rtol=1e-4
         )
         torch.testing.assert_close(vector.norm(), torch.tensor(1.0))
+    for left, right in zip(raw_results[0]["data"], raw_results[1]["data"]):
+        torch.testing.assert_close(
+            torch.tensor(left["embedding"]),
+            torch.tensor(right["embedding"]),
+            atol=1e-5,
+            rtol=1e-4,
+        )

@@ -51,7 +51,8 @@ send this body to ``/v1/embeddings``:
    }
 
 ``dimensions`` accepts a positive integer up to the native embedding size.
-Vectors are mean-pooled and L2-normalized after truncating dimensions.
+By default, mean-pooled vectors are L2-normalized after truncating dimensions.
+Set ``normalize_embeddings=false`` to return the unnormalized vectors.
 The 32,768-token context includes image tokens. Audio and video are not supported.
 
 The Transformers and Sentence Transformers engines require Transformers 5.20.0
