@@ -5623,7 +5623,7 @@ class RESTfulAPI(CancelMixin):
                 async def release_reservation() -> None:
                     with anyio.CancelScope(shield=True):
                         try:
-                            await asyncio.wait_for(
+                            await xo.wait_for(
                                 model.release_chat_reservation(reservation_id),
                                 timeout=1,
                             )
