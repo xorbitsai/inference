@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { createRelaunchRequestId } from '@/lib/relaunch-request-id';
 import request from '@/lib/request';
 
 type Service = 'api' | 'supervisor';
@@ -123,8 +124,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   const prefix = 'clusterInfo.serviceRelaunch';
   useEffect(() => {
     if (!open) return;
-    requestId.current =
-      crypto.randomUUID?.() ?? `${service}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    requestId.current = createRelaunchRequestId(service);
     setPython('');
     setSubmitError('');
   }, [open, service]);

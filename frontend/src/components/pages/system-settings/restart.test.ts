@@ -25,6 +25,29 @@ it('waits for Supervisor completion before returning', async () => {
   assert.deepEqual(calls, ['/v1/supervisor/relaunch', '/v1/supervisor-relaunches/one']);
 });
 
+it('sends relaunch request IDs when randomUUID is unavailable', async (t) => {
+  const crypto = globalThis.crypto;
+  t.mock.getter(globalThis, 'crypto', () => ({
+    getRandomValues: crypto.getRandomValues.bind(crypto),
+  }));
+  const calls: { url: string; requestId: string }[] = [];
+  request.post = (async (url: string, body: { request_id: string }) => {
+    calls.push({ url, requestId: body.request_id });
+    return { operation_id: 'http-restart', status: 'succeeded' };
+  }) as typeof request.post;
+
+  const { signal } = new AbortController();
+  await restartComponent('supervisor', signal);
+  await restartComponent('api', signal);
+
+  assert.deepEqual(
+    calls.map(({ url }) => url),
+    ['/v1/supervisor/relaunch', '/v1/api/relaunch']
+  );
+  assert.match(calls[0].requestId, /^supervisor-\d+-/);
+  assert.match(calls[1].requestId, /^api-\d+-/);
+});
+
 it('recovers an accepted restart when its POST response is lost', async () => {
   let requestId: string;
   request.post = (async (_url: string, body: { request_id: string }) => {

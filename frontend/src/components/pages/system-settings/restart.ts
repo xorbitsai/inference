@@ -1,5 +1,6 @@
 import { isAxiosError } from 'axios';
 
+import { createRelaunchRequestId } from '@/lib/relaunch-request-id';
 import request from '@/lib/request';
 
 type Component = 'api' | 'supervisor';
@@ -32,7 +33,7 @@ function delay(signal: AbortSignal): Promise<void> {
 
 export async function restartComponent(component: Component, signal: AbortSignal) {
   signal.throwIfAborted();
-  const requestId = crypto.randomUUID();
+  const requestId = createRelaunchRequestId(component);
   const options = { signal, suppressGlobalError: true };
   let operation: RestartOperation;
   try {
