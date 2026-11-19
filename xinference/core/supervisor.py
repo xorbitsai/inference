@@ -9132,6 +9132,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         *,
         check_runtime_instances: bool = True,
     ) -> Dict[str, Any]:
+        from .model_runtime import get_model_runtime_info
+
         errors: List[str] = []
         warnings: List[str] = []
         asset_id = str(config.get("tokenizer_asset_id") or "").strip()
@@ -9187,13 +9189,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
 
         running_models = await self.list_models()
+        backend_entries = self._token_router_backend_entries(config)
+        runtime_model_uids = {
+            str(backend.get("model_uid") or "")
+            for _, backend in backend_entries
+            if isinstance(backend.get("max_context_tokens"), int)
+        } & running_models.keys()
+        # Share one probe window across backends and allow for missing replica lists.
+        runtime_infos = await asyncio.gather(
+            *(
+                get_model_runtime_info(self, model_uid)
+                for model_uid in runtime_model_uids
+            ),
+            return_exceptions=True,
+        )
+        runtime_contexts = {
+            model_uid: info["runtime_context_length"]
+            for model_uid, info in zip(runtime_model_uids, runtime_infos)
+            if isinstance(info, dict) and info["runtime_context_length"] is not None
+        }
         compatible_models = {
             str(name).strip().casefold()
             for name in asset_validation.get("compatible_models", [])
             if str(name).strip()
         }
         backend_models: Dict[str, Dict[str, Any]] = {}
-        for backend_id, backend in self._token_router_backend_entries(config):
+        for backend_id, backend in backend_entries:
             model_uid = str(backend.get("model_uid") or "")
             model_info = running_models.get(model_uid)
             if model_info is None:
@@ -9232,7 +9253,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     f"asset {asset_id}: {model_name or model_uid}"
                 )
             configured_context = backend.get("max_context_tokens")
-            actual_context = model_info.get("context_length")
+            actual_context = runtime_contexts.get(
+                model_uid, model_info.get("context_length")
+            )
             if (
                 isinstance(configured_context, int)
                 and isinstance(actual_context, int)
