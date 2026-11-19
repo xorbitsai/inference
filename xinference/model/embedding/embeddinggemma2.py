@@ -142,6 +142,7 @@ def normalize_inputs(
 
 class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
     replica_autoscaling = "batch"
+    _decodes_token_arrays = True
 
     engine = "transformers"
     _device: Optional[str]

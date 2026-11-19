@@ -2305,6 +2305,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         kwargs.pop("_batch_queue_budget", None)
         if hasattr(self._model, "create_embedding"):
+            # Check this request alone: inside the shared batch one bad input
+            # would fail every request queued with it.
+            validate_input = getattr(self._model, "validate_input", None)
+            if validate_input is not None:
+                validate_input(
+                    input,
+                    truncate_prompt_tokens=kwargs.get("truncate_prompt_tokens"),
+                )
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
             )

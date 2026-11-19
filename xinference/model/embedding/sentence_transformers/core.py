@@ -406,6 +406,7 @@ def _build_encode_kwargs(
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "batch"
+    _decodes_token_arrays = True
 
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)

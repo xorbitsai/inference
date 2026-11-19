@@ -23,6 +23,7 @@ import pytest
 import torch
 from xoscar.batch import _ExtensibleWrapper
 
+from ....core.exceptions import InvalidModelRequestError
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...utils import virtualenv_discovery_var
 from .. import core as embedding_core
@@ -138,6 +139,138 @@ def test_create_embedding_batch_treats_dict_as_one_multimodal_input():
     assert len(results) == 2
     assert [len(result["data"]) for result in results] == [1, 1]
     assert [result["data"][0]["index"] for result in results] == [0, 0]
+
+
+@pytest.mark.parametrize(
+    "value,bad",
+    [
+        ([[9906, 151000]], "151000"),  # nested array, id outside cl100k_base
+        ([[9906], [100256, 151000, 151000]], "100256, 151000"),
+        ([[-1]], "-1"),
+    ],
+)
+def test_validate_input_names_undecodable_token_ids(value, bad):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    with pytest.raises(InvalidModelRequestError, match=f"recognized.*: {bad}\\."):
+        model.validate_input(value)
+
+
+def test_validate_input_caps_listed_ids_and_stops_after_the_eleventh():
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    bad = list(range(151000, 151030))
+    # Duplicates of already seen ids must not count as new distinct ids.
+    value = [[151000, 151000, 151001] + bad + [9906]]
+    shown = ", ".join(str(t) for t in bad[:10])
+    with pytest.raises(InvalidModelRequestError) as exc_info:
+        model.validate_input(value)
+    assert str(exc_info.value).endswith(f": {shown}, ...."), str(exc_info.value)
+
+
+def test_validate_input_exactly_ten_distinct_ids_have_no_ellipsis():
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    bad = list(range(151000, 151010))
+    shown = ", ".join(str(t) for t in bad)
+    with pytest.raises(InvalidModelRequestError) as exc_info:
+        model.validate_input([bad + bad])
+    assert str(exc_info.value).endswith(f": {shown}.")
+
+
+def test_validate_input_many_invalid_ids_is_bounded(monkeypatch):
+    import tiktoken
+
+    enc = tiktoken.get_encoding("cl100k_base")
+    calls = []
+    real = enc.decode_single_token_bytes
+
+    def counting(token):
+        calls.append(token)
+        return real(token)
+
+    monkeypatch.setattr(enc, "decode_single_token_bytes", counting)
+    monkeypatch.setattr(tiktoken, "get_encoding", lambda name: enc)
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    with pytest.raises(InvalidModelRequestError):
+        model.validate_input([list(range(151000, 251000))])
+    # Stops at the 11th distinct invalid id instead of scanning all 100000.
+    assert len(calls) == 11
+
+
+@pytest.mark.parametrize("value", [[[9906, 1917]], ["text", [9906]], "text", []])
+def test_validate_input_accepts_decodable_input(value):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    model.validate_input(value)
+
+
+@pytest.mark.parametrize(
+    "value,truncate,ok",
+    [
+        ([[9468, 19044]], None, True),
+        ([[9468, 19044]], 1, False),  # prefix cuts the emoji mid-character
+        ([[9906, 151000]], 1, True),  # bad id is truncated away
+        ([[9906, 151000]], 2, False),
+        ([[9468, 19044]], 0, True),
+    ],
+)
+def test_validate_input_checks_the_truncated_prefix(value, truncate, ok):
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    if ok:
+        model.validate_input(value, truncate_prompt_tokens=truncate)
+    else:
+        with pytest.raises(InvalidModelRequestError):
+            model.validate_input(value, truncate_prompt_tokens=truncate)
+
+
+@pytest.mark.parametrize("value", ["text", ["a", "b"], [{"text": "a"}], []])
+def test_validate_input_without_token_arrays_does_not_import_tiktoken(
+    value, monkeypatch
+):
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+    model = _make_stub_model()
+    model._decodes_token_arrays = True
+    model.validate_input(value)
+    model.validate_input(value, truncate_prompt_tokens=1)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ([[]], ""),  # one empty token array: one empty text
+        ([[], []], ["", ""]),
+        ([[], "text"], ["", "text"]),
+        ([], []),  # an empty batch stays an empty batch
+        (["text"], ["text"]),
+    ],
+)
+def test_empty_token_sequences_decode_to_empty_text(value, expected, monkeypatch):
+    monkeypatch.setitem(sys.modules, "tiktoken", None)  # nothing to decode
+    model = _make_stub_model()
+    assert model._fix_langchain_openai_inputs(value) == expected
+
+
+def test_flag_engine_rejects_token_arrays_per_request():
+    from ..flag.core import FlagEmbeddingModel
+
+    assert FlagEmbeddingModel._rejects_token_arrays is True
+    model = _make_stub_model()
+    model._rejects_token_arrays = True
+    for value in ([[1, 2]], ["text", [1, 2]]):
+        with pytest.raises(InvalidModelRequestError, match="Token arrays"):
+            model.validate_input(value)
+    model.validate_input(["text"])
+    model.validate_input("text")
+
+
+def test_validate_input_skips_engines_that_do_not_decode():
+    # llama.cpp and flag read the ids as the model's own vocabulary ids.
+    model = _make_stub_model()
+    assert model._decodes_token_arrays is False
+    model.validate_input([[151000]])
 
 
 class _CountingEncoder:
@@ -552,6 +685,67 @@ def test_consecutive_large_batches_keep_gc_cooldown_and_release_gpu_cache(
         model._clean_cache_if_needed(embedding_core.EMBEDDING_EMPTY_CACHE_TOKENS)
     assert collect.call_count == 1
     assert release.call_count == 100
+
+
+class _DecodingStubEmbeddingModel(_StubEmbeddingModel):
+    """Stub that decodes token arrays like the real engines, then embeds.
+
+    Records what it was given and returns one vector (``[len(text)]``) per
+    input, so a wrongly merged or undecoded batch is visible in the result.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seen = []
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        self.seen.append(sentences)
+        data = [
+            EmbeddingData(index=i, object="embedding", embedding=[float(len(s))])
+            for i, s in enumerate(sentences)
+        ]
+        return Embedding(
+            object="list",
+            model=self._model_uid,
+            model_replica=self._model_uid,
+            data=data,
+            usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+        )
+
+
+# cl100k_base: "hello world" -> [15339, 1917]; "hello" -> [15339]
+_HELLO_WORLD = [15339, 1917]
+
+
+def _decoding_model():
+    pytest.importorskip("tiktoken")
+    return _DecodingStubEmbeddingModel("stub-uid", "/tmp/stub-embedding", _STUB_SPEC)
+
+
+def test_batched_nested_token_array_next_to_text_request():
+    # Already broken on main: the batch is decoded as token arrays wholesale.
+    model = _decoding_model()
+    results = model.create_embedding.batch(
+        _ExtensibleWrapper.delay([[15339, 1917]]),
+        _ExtensibleWrapper.delay(["foo", {"text": "bar"}]),
+    )
+
+    assert model.seen == [["hello world", "foo", {"text": "bar"}]]
+    assert [len(r["data"]) for r in results] == [1, 2]
+
+
+def test_fix_langchain_openai_inputs_decodes_per_element():
+    pytest.importorskip("tiktoken")
+    fix = EmbeddingModel._fix_langchain_openai_inputs
+    assert fix(None, [[15339, 1917]]) == "hello world"
+    assert fix(None, [[15339], [1917]]) == ["hello", " world"]
+    assert fix(None, [[15339], "foo"]) == ["hello", "foo"]
+    assert fix(None, "foo") == "foo"
+    assert fix(None, ["a", "b"]) == ["a", "b"]
+    assert fix(None, [{"text": "b"}]) == [{"text": "b"}]
 
 
 class _VocabTokenizer:

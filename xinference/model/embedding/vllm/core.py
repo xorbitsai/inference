@@ -49,6 +49,7 @@ SUPPORTED_MODELS_PREFIXES = [
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "native"
+    _decodes_token_arrays = True
     _pooling_load: Optional[VLLMPoolingLoad] = None
 
     # The backend can be either a synchronous LLM or an asynchronous engine.
