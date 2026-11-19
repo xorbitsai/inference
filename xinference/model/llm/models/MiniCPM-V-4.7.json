@@ -561,7 +561,7 @@
         "av ; #engine# == \"Transformers\"",
         "bitsandbytes>=0.45.0 ; #engine# == \"Transformers\"",
         "compressed-tensors>=0.18.0 ; #engine# == \"Transformers\"",
-        "vllm==0.31.1rc1.dev281+gc85616efc ; #engine# == \"vllm\"",
+        "vllm>=0.32.0 ; #engine# == \"vllm\"",
         "qwen-omni-utils>=0.0.9 ; #engine# == \"vllm\"",
         "audioread ; #engine# == \"vllm\"",
         "sglang>=0.5.23 ; #engine# == \"sglang\"",
@@ -569,9 +569,7 @@
         "qwen-vl-utils ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"Transformers\" or #engine# == \"vllm\"",
         "xllamacpp>=2026.10.11870 ; #engine# == \"llama.cpp\""
-      ],
-      "extra_index_url": "https://wheels.vllm.ai/c85616efc6f0eaa50ca1f1a09c32368aedffd3d8",
-      "index_strategy": "unsafe-best-match"
+      ]
     }
   }
 ]

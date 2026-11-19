@@ -230,7 +230,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
-MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
+MINICPMV47_MIN_VLLM_VERSION = version.parse("0.32.0")
 
 
 def _is_gpt_oss_model(model_family: Optional["LLMFamilyV2"]) -> bool:
@@ -3537,8 +3537,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if effective_version < MINICPMV47_MIN_VLLM_VERSION:
                 return (
                     False,
-                    "MiniCPM-V-4.7 requires vLLM nightly "
-                    "0.31.1rc1.dev281+gc85616efc or newer (PR #58674)",
+                    f"MiniCPM-V-4.7 requires vLLM >= {MINICPMV47_MIN_VLLM_VERSION}; "
+                    f"found {effective_version}",
                 )
             _append_unique(
                 supported_architectures, "MiniCPMV4_7ForConditionalGeneration"
