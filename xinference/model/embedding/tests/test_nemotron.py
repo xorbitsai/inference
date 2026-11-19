@@ -287,6 +287,21 @@ def test_transformers_rejects_expanded_input_over_context_limit():
             {},
             "processing_kwargs must be an object",
         ),
+        *[
+            (
+                "short",
+                {"processing_kwargs": {key: value}},
+                {},
+                f"reserved processing_kwargs: {key}",
+            )
+            for key, value in [
+                ("return_tensors", "pt"),
+                ("return_dict", True),
+                ("tokenize", True),
+                ("conversation", []),
+                ("self", None),
+            ]
+        ],
     ],
     ids=[
         "context",
@@ -296,6 +311,11 @@ def test_transformers_rejects_expanded_input_over_context_limit():
         "list-options",
         "boolean-options",
         "string-options",
+        "reserved-return-tensors",
+        "reserved-return-dict",
+        "reserved-tokenize",
+        "reserved-conversation",
+        "reserved-self",
     ],
 )
 async def test_rest_embedding_validation_is_request_local(
@@ -312,8 +332,8 @@ async def test_rest_embedding_validation_is_request_local(
         def to(self, device):
             return self
 
-    def preprocess(messages, **kwargs):
-        text = messages[-1]["content"][-1]["text"]
+    def preprocess(conversation, **kwargs):
+        text = conversation[-1]["content"][-1]["text"]
         length = 32769 if text == "overlong" else 1
         return Features(
             input_ids=torch.zeros(1, length, dtype=torch.long),

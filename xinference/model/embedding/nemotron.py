@@ -38,6 +38,9 @@ MODEL_NAMES = {
     "Nemotron-3.5-Embed-8B-BF16",
 }
 _EXIF_ORIENTATION = 0x0112
+_TRANSFORMERS_CHAT_TEMPLATE_RESERVED = frozenset(
+    {"self", "conversation", "tokenize", "return_dict", "return_tensors"}
+)
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
@@ -265,6 +268,16 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
             raise InvalidModelRequestError(
                 "Nemotron 3.5 Embed processing_kwargs must be an object or null."
             )
+        if self.engine == "transformers" and processing_kwargs:
+            reserved = _TRANSFORMERS_CHAT_TEMPLATE_RESERVED.intersection(
+                processing_kwargs
+            )
+            if reserved:
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed does not accept reserved processing_kwargs: "
+                    + ", ".join(sorted(reserved))
+                    + "."
+                )
         return dimensions
 
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
