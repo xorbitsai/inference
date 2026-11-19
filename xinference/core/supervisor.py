@@ -23,7 +23,7 @@ import time
 import typing
 import weakref
 from collections import OrderedDict, defaultdict
-from contextlib import aclosing
+from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import getLogger
@@ -7044,6 +7044,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         last_error: Optional[Exception] = None
         preserve_route = False
         tried = set()
+        reserved_model = None
 
         async def release_reservation(model) -> None:
             try:
@@ -7053,6 +7054,22 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
             except Exception:
                 logger.debug("Chat reservation cleanup failed", exc_info=True)
+
+        @asynccontextmanager
+        async def reservation_guard() -> AsyncGenerator[None, None]:
+            try:
+                yield
+            except BaseException:
+                if reserved_model is not None:
+                    cleanup = asyncio.create_task(release_reservation(reserved_model))
+                    # Keep ownership through repeated cancellation. The helper's
+                    # RPC deadline bounds this wait, without an outer timer.
+                    while not cleanup.done():
+                        try:
+                            await asyncio.shield(cleanup)
+                        except asyncio.CancelledError:
+                            pass
+                raise
 
         async def lookup_candidates() -> (
             AsyncGenerator[Tuple[int, Optional[asyncio.Task]], None]
@@ -7090,7 +7107,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
 
-        async with aclosing(lookup_candidates()) as lookups:
+        async with reservation_guard(), aclosing(lookup_candidates()) as lookups:
             async for replica, lookup in lookups:
                 if replica in tried or replica in draining:
                     continue
@@ -7138,6 +7155,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                                         model.reserve_chat_request(reservation_id),
                                         _AFFINITY_CAPACITY_TIMEOUT,
                                     )
+                                    if reserved:
+                                        reserved_model = model
                                 except asyncio.TimeoutError:
                                     # The actor may have committed before the reply timed out.
                                     await release_reservation(model)
@@ -7191,6 +7210,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 ):
                     if reserved:
                         await release_reservation(model)
+                        reserved_model = None
                     if current_info is not info:
                         break
                     continue

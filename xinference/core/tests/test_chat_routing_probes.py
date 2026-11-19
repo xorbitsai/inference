@@ -299,6 +299,150 @@ async def test_full_fast_replica_routes_chat_to_slow_idle_replica(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cancel_again, release_reply_times_out",
+    [(False, False), (True, False), (True, True)],
+    ids=["once", "twice", "release_timeout"],
+)
+async def test_cancel_during_lookup_cleanup_releases_chat_reservation(
+    monkeypatch, cancel_again, release_reply_times_out
+):
+    monkeypatch.setattr("xinference.core.supervisor._CHAT_ROUTING_PROBE_TIMEOUT", 0.02)
+    monkeypatch.setattr(
+        "xinference.core.supervisor._AFFINITY_CAPACITY_TIMEOUT",
+        0.05 if release_reply_times_out else 0.2,
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_GET_MODEL_RPC_TIMEOUT", 0.4)
+    monkeypatch.setattr(
+        "xinference.api.restful_api.XINFERENCE_TOKEN_ROUTER_ENABLED", False
+    )
+    actors, refs = [], []
+    for index in range(3):
+        actor, model = _actor(request_limits=1)
+        model.async_chat = AsyncMock(return_value={"choices": [], "served_by": index})
+        actors.append(actor)
+        refs.append(
+            SimpleNamespace(
+                uid=f"demo-rep{index}".encode(),
+                chat=actor.chat,
+                get_chat_routing_load=actor.get_chat_routing_load,
+                reserve_chat_request=AsyncMock(side_effect=actor.reserve_chat_request),
+                release_chat_reservation=AsyncMock(
+                    side_effect=actor.release_chat_reservation
+                ),
+                is_vllm_backend=AsyncMock(return_value=False),
+                is_transformers_batching_enabled=AsyncMock(return_value=False),
+            )
+        )
+    actors[0]._serve_count = 1
+    supervisor, _ = _reservation_supervisor(*refs)
+    supervisor.describe_model = AsyncMock(return_value={"model_family": "test-family"})
+    lookup_cleanup_started, finish_lookup_cleanup = asyncio.Event(), asyncio.Event()
+    release_started, finish_release = asyncio.Event(), asyncio.Event()
+    lookup_tasks, rpc_tasks = [], []
+    original_lookup = supervisor._get_replica_model
+
+    async def lookup(model_uid, replica, **kwargs):
+        try:
+            return await original_lookup(model_uid, replica, **kwargs)
+        except asyncio.CancelledError:
+            if replica == 1 and kwargs.get("rpc_timeout") is None:
+                lookup_tasks.append(asyncio.current_task())
+                lookup_cleanup_started.set()
+                await finish_lookup_cleanup.wait()
+            raise
+
+    async def stalled_lookup(**kwargs):
+        rpc_tasks.append(asyncio.current_task())
+        await asyncio.Event().wait()
+
+    async def slow_lookup(**kwargs):
+        await asyncio.sleep(0.06)
+        return refs[2]
+
+    async def release(reservation_id):
+        rpc_tasks.append(asyncio.current_task())
+        if release_reply_times_out:
+            actors[2].release_chat_reservation(reservation_id)
+        release_started.set()
+        await finish_release.wait()
+        if not release_reply_times_out:
+            actors[2].release_chat_reservation(reservation_id)
+
+    supervisor._get_replica_model = lookup
+    supervisor._replica_model_uid_to_worker["demo-rep1"].get_model.side_effect = (
+        stalled_lookup
+    )
+    supervisor._replica_model_uid_to_worker["demo-rep2"].get_model.side_effect = (
+        slow_lookup
+    )
+    refs[2].release_chat_reservation.side_effect = release
+    api = object.__new__(RESTfulAPI)
+    api._set_trace_model = Mock()
+    api._set_trace_model_type = Mock()
+    api._check_model_access = Mock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._report_error_event = AsyncMock()
+    app = FastAPI()
+    app.add_api_route(
+        "/v1/chat/completions", api.create_chat_completion, methods=["POST"]
+    )
+    body = {
+        "model": "demo",
+        "messages": [{"role": "user", "content": "hello"}],
+        "routing_key": "task",
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        request = asyncio.create_task(client.post("/v1/chat/completions", json=body))
+        release_waiter = asyncio.create_task(release_started.wait())
+        try:
+            await asyncio.wait_for(lookup_cleanup_started.wait(), 1)
+            assert len(actors[2]._chat_reservations) == 1
+            actors[2]._model.async_chat.assert_not_awaited()
+            request.cancel("client cancelled")
+            await asyncio.wait(
+                [request, release_waiter],
+                timeout=0.5,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            assert release_started.is_set(), "supervisor abandoned its reservation"
+            if cancel_again:
+                request.cancel("client cancelled again")
+                await asyncio.sleep(0)
+                assert not request.done()
+            if release_reply_times_out:
+                done, _ = await asyncio.wait([request], timeout=0.3)
+                assert request in done, "reservation cleanup exceeded its RPC deadline"
+            else:
+                finish_release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await request
+            assert not actors[2]._chat_reservations
+            refs[2].release_chat_reservation.assert_awaited_once()
+            assert await actors[2].can_accept_chat_request()
+            finish_lookup_cleanup.set()
+            response = await client.post("/v1/chat/completions", json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["served_by"] == 2
+            assert refs[2].reserve_chat_request.await_count == 2
+            assert not actors[2]._chat_reservations
+        finally:
+            finish_lookup_cleanup.set()
+            finish_release.set()
+            request.cancel()
+            release_waiter.cancel()
+            await asyncio.gather(
+                request,
+                release_waiter,
+                *lookup_tasks,
+                *rpc_tasks,
+                return_exceptions=True,
+            )
+
+
+@pytest.mark.asyncio
 async def test_ranked_fallback_keeps_ordinary_deadline_when_no_probe_answered(
     monkeypatch,
 ):
