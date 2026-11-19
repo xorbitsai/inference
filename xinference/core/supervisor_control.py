@@ -110,6 +110,10 @@ READS = (
         "supervisor_upgrade_info",
     }
 )
+ROUTER_NODE_WATCHES = {
+    "watch_token_router_assignments",
+    "watch_tokenizer_asset_bindings",
+}
 SERVICE_CALLS = {
     "controller_session_status",
     "supervisor_extension_operation",
@@ -432,6 +436,15 @@ def bind_supervisor_control(owner, name, method):
             raise ControlSessionRejected("invalid_context") from None
 
         async def run():
+            if name in ROUTER_NODE_WATCHES:
+                # Agents act on changed snapshots. Check authority on entry and
+                # delivery without holding a management slot across the poll.
+                with control.fence.local_scope(command):
+                    await control.fence.checkpoint()
+                    snapshot = await method(*args, **kwargs)
+                    if snapshot is not None:
+                        await control.fence.checkpoint()
+                    return snapshot
             async with control.fence.command(command):
 
                 async def execute(args=args, kwargs=kwargs):
