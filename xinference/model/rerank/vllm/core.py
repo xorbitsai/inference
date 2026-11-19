@@ -6,6 +6,7 @@ import os
 import uuid
 from collections import defaultdict
 from contextlib import nullcontext
+from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
 from xoscar import extensible
@@ -22,7 +23,6 @@ from ..nemotron import (
     NEMOTRON_RERANK_MODEL_NAME,
     check_nemotron_dependencies,
     nemotron_messages,
-    prepare_nemotron_request,
 )
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
@@ -31,6 +31,12 @@ QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
 )
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "Yuanbao"]
+
+
+@dataclass(frozen=True)
+class _PreparedNemotronPrompt:
+    original: Any
+    prompt: dict[str, Any]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
@@ -231,6 +237,43 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             outputs = self._model.score(query_list, documents, **score_kwargs)
         return outputs
 
+    def _build_nemotron_prompt(self, query: Any, document: Any) -> dict[str, Any]:
+        messages = nemotron_messages(query, document)
+        image = None
+        for block in messages[1]["content"]:
+            if block["type"] == "image":
+                image = block.pop("image")
+        prompt = {
+            "prompt": self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+        }
+        if image is not None:
+            prompt["multi_modal_data"] = {"image": image}
+        return prompt
+
+    def _prepare_nemotron_batch_documents(
+        self, documents: List[Any], query: Any
+    ) -> List[_PreparedNemotronPrompt]:
+        prepared = []
+        for document in documents:
+            prompt = self._build_nemotron_prompt(query, document)
+            # Use encode()'s renderer and tokenization defaults. Rendering
+            # expands image placeholders. Use the separate processor-only
+            # cache since these inputs aren't sent to the engine.
+            (rendered,) = self._model.renderer.render_cmpl([prompt], skip_mm_cache=True)
+            token_count = len(rendered["prompt_token_ids"])
+            max_model_len = self._model.model_config.max_model_len
+            if token_count > max_model_len:
+                raise ValueError(
+                    f"Nemotron reranker input uses {token_count} tokens, exceeding "
+                    f"vLLM max_model_len={max_model_len}; shorten the text or resize the image"
+                )
+            prepared.append(_PreparedNemotronPrompt(document, prompt))
+        return prepared
+
     def _rerank_nemotron(
         self, documents: List[Any], queries: List[Any], *, progress: Any = False
     ) -> List[Any]:
@@ -240,22 +283,14 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             raise ValueError(
                 "Nemotron reranker query and documents must have equal length"
             )
-        inputs = []
-        for query, document in zip(queries, documents):
-            messages = nemotron_messages(query, document)
-            images = []
-            for block in messages[1]["content"]:
-                if block["type"] == "image":
-                    images.append(block.pop("image"))
-            prompt = self._tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=False,
+        inputs = [
+            (
+                document.prompt
+                if isinstance(document, _PreparedNemotronPrompt)
+                else self._build_nemotron_prompt(query, document)
             )
-            request = {"prompt": prompt}
-            if images:
-                request["multi_modal_data"] = {"image": images[0]}
-            inputs.append(request)
+            for query, document in zip(queries, documents)
+        ]
         if not inputs:
             return []
         # score()/rerank() can misrender this checkpoint's image placeholders.
@@ -629,7 +664,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
             if is_nemotron:
                 try:
-                    documents = prepare_nemotron_request(documents, query)
+                    documents = self._prepare_nemotron_batch_documents(documents, query)
                 except Exception as error:
                     results_with_index.append((i, BatchRequestError(error)))
                     continue

@@ -303,6 +303,10 @@ async def test_vllm_classification_template_and_images(monkeypatch, load_reporti
 
     model._model = SimpleNamespace(
         encode=Mock(side_effect=encode),
+        model_config=SimpleNamespace(max_model_len=32768),
+        renderer=SimpleNamespace(
+            render_cmpl=Mock(return_value=[{"prompt_token_ids": [1, 2, 3]}])
+        ),
         llm_engine=SimpleNamespace(
             vllm_config=SimpleNamespace(
                 scheduler_config=SimpleNamespace(max_num_seqs=1)
@@ -339,6 +343,73 @@ async def test_vllm_classification_template_and_images(monkeypatch, load_reporti
     }
 
 
+@pytest.mark.parametrize("with_image", [False, True])
+async def test_vllm_context_limit_failure_isolated_in_shared_batch(
+    monkeypatch, with_image
+):
+    install_fake_vllm(monkeypatch)
+    model = make_model(VLLMRerankModel)
+    model.batch_size = 4
+    model.batch_interval = 0
+    max_model_len = 8
+
+    def token_ids(prompt):
+        text_tokens = len(prompt["prompt"].split())
+        image_tokens = 5 if "multi_modal_data" in prompt else 0
+        return [1] * (text_tokens + image_tokens)
+
+    def render_cmpl(prompts, *, skip_mm_cache):
+        assert skip_mm_cache is True
+        return [{"prompt_token_ids": token_ids(p)} for p in prompts]
+
+    def encode(prompts, **kwargs):
+        outputs = []
+        for prompt in prompts:
+            ids = token_ids(prompt)
+            if len(ids) > max_model_len:
+                raise ValueError("prompt exceeds engine context")
+            outputs.append(
+                SimpleNamespace(
+                    outputs=SimpleNamespace(score=-1.0), prompt_token_ids=ids
+                )
+            )
+        return outputs
+
+    model._model = SimpleNamespace(
+        model_config=SimpleNamespace(max_model_len=max_model_len),
+        renderer=SimpleNamespace(render_cmpl=Mock(side_effect=render_cmpl)),
+        encode=Mock(side_effect=encode),
+    )
+    model._tokenizer = SimpleNamespace(
+        apply_chat_template=lambda messages, **kwargs: messages[1]["content"][0]["text"]
+    )
+    oversized = (
+        {"text": "four text tokens here", "image": IMAGE}
+        if with_image
+        else "one two three four five six seven eight nine"
+    )
+    boundary = {"text": "three tokens here", "image": IMAGE}
+
+    rejected, short, at_limit = await asyncio.gather(
+        model.rerank(["discard this", oversized], "bad", None, None, True, True),
+        model.rerank(["short"], "good", None, None, True, True),
+        model.rerank([boundary], "boundary", None, None, True, True),
+        return_exceptions=True,
+    )
+
+    assert isinstance(rejected, ValueError)
+    assert short["results"][0]["relevance_score"] == -1.0
+    assert short["meta"]["tokens"]["input_tokens"] == 1
+    assert at_limit["results"][0]["document"]["text"] == boundary
+    assert at_limit["meta"]["tokens"]["input_tokens"] == max_model_len
+    assert str(max_model_len) in str(rejected)
+    model._model.encode.assert_called_once()
+    assert [p["prompt"] for p in model._model.encode.call_args.args[0]] == [
+        "short",
+        "three tokens here",
+    ]
+
+
 @pytest.mark.parametrize(
     "cls",
     [SentenceTransformerRerankModel, NemotronTransformersRerankModel, VLLMRerankModel],
@@ -360,6 +431,8 @@ async def test_media_failure_isolated_in_shared_rerank_batch(
     model.batch_interval = 0
     model._model = Mock()
     if cls is VLLMRerankModel:
+        model._model.model_config.max_model_len = 32768
+        model._model.renderer.render_cmpl.return_value = [{"prompt_token_ids": [1, 2]}]
         model._model.encode.return_value = [
             SimpleNamespace(
                 outputs=SimpleNamespace(score=-1.0), prompt_token_ids=[1, 2]
