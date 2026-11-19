@@ -293,6 +293,120 @@ async def test_describe_running_model_honors_disabled_feature_gate(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path", ["/v1/messages", "/v1/messages/count_tokens", "/v1/responses"]
+)
+async def test_physical_inference_honors_disabled_token_router(
+    tmp_path, monkeypatch, path
+):
+    supervisor = make_supervisor(tmp_path)
+    create_enabled_router(supervisor)
+    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_TOKEN_ROUTER_ENABLED", False
+    )
+
+    class PhysicalModel:
+        async def chat(self, messages, config, raw_params=None):
+            return {
+                "choices": [
+                    {"message": {"content": "from-physical"}, "finish_reason": "stop"}
+                ],
+                "usage": {"prompt_tokens": 23, "completion_tokens": 1},
+            }
+
+        async def prepare_anthropic_request(self, messages, config):
+            return {"messages": messages, "generate_config": config, "input_tokens": 23}
+
+    async def get_model(_self, model_uid):
+        assert model_uid == "virtual-model"
+        return PhysicalModel()
+
+    supervisor.get_model = MethodType(get_model, supervisor)
+    api = make_rest_api(supervisor)
+    app = make_anthropic_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
+    payload = {"model": "virtual-model"}
+    if path == "/v1/responses":
+        payload["input"] = "hello"
+    else:
+        payload = {
+            **payload,
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 32,
+        }
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            path, headers={"anthropic-version": "2023-06-01"}, json=payload
+        )
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    if path == "/v1/responses":
+        assert result["output"][0]["content"][0]["text"] == "from-physical"
+    elif path == "/v1/messages":
+        assert result["content"] == [{"type": "text", "text": "from-physical"}]
+    else:
+        assert result == {"input_tokens": 23}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path, handler, payload, status, message",
+    [
+        (
+            "/v1/messages/count_tokens",
+            "count_anthropic_tokens",
+            {"messages": [{"role": "user", "content": "hello"}]},
+            501,
+            "Token counting for Token Router virtual models is not available",
+        ),
+        (
+            "/v1/responses",
+            "create_response",
+            {"input": "hello"},
+            503,
+            "No ready Token Router runtime is available for virtual model virtual-model",
+        ),
+    ],
+)
+async def test_count_tokens_and_responses_honor_enabled_token_router(
+    tmp_path, monkeypatch, path, handler, payload, status, message
+):
+    supervisor = make_supervisor(tmp_path)
+    create_enabled_router(supervisor)
+    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_TOKEN_ROUTER_ENABLED", True
+    )
+
+    async def get_model(_self, model_uid):
+        pytest.fail("A matched virtual model must not reach physical lookup")
+
+    supervisor.get_model = MethodType(get_model, supervisor)
+    api = make_rest_api(supervisor)
+    app = FastAPI()
+    app.add_api_route(path, getattr(api, handler), methods=["POST"])
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            path,
+            headers={"anthropic-version": "2023-06-01"},
+            json={"model": "virtual-model", **payload},
+        )
+
+    assert response.status_code == status, response.text
+    assert response.json()["error"]["message"] == message
+
+
+@pytest.mark.asyncio
 async def test_managed_runtime_remains_available_but_degraded_when_agent_is_offline(
     tmp_path,
 ):

@@ -3249,11 +3249,13 @@ class RESTfulAPI(CancelMixin):
             canonical = await asyncio.to_thread(parse_anthropic_request, body)
             self._set_trace_model(canonical.requested_model)
             self._set_trace_model_type("llm")
-            supervisor = await self._get_supervisor_ref()
-            if (
-                await supervisor.resolve_token_router_runtime(canonical.requested_model)
-                is not None
-            ):
+            token_router_runtime = None
+            if XINFERENCE_TOKEN_ROUTER_ENABLED:
+                supervisor = await self._get_supervisor_ref()
+                token_router_runtime = await supervisor.resolve_token_router_runtime(
+                    canonical.requested_model
+                )
+            if token_router_runtime is not None:
                 raise NotImplementedError(
                     "Token counting for Token Router virtual models is not available"
                 )
@@ -3361,11 +3363,13 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
 
+        token_router_runtime = None
         try:
-            supervisor_ref = await self._get_supervisor_ref()
-            token_router_runtime = await supervisor_ref.resolve_token_router_runtime(
-                model_uid
-            )
+            if XINFERENCE_TOKEN_ROUTER_ENABLED:
+                supervisor_ref = await self._get_supervisor_ref()
+                token_router_runtime = (
+                    await supervisor_ref.resolve_token_router_runtime(model_uid)
+                )
         except Exception:
             logger.exception("Failed to resolve Anthropic model target: %s", model_uid)
             return self._anthropic_error(
@@ -3862,11 +3866,13 @@ class RESTfulAPI(CancelMixin):
                 exc.status_code, str(exc.detail), headers=exc.headers
             )
 
+        token_router_runtime = None
         try:
-            supervisor_ref = await self._get_supervisor_ref()
-            token_router_runtime = await supervisor_ref.resolve_token_router_runtime(
-                model_uid
-            )
+            if XINFERENCE_TOKEN_ROUTER_ENABLED:
+                supervisor_ref = await self._get_supervisor_ref()
+                token_router_runtime = (
+                    await supervisor_ref.resolve_token_router_runtime(model_uid)
+                )
         except Exception:
             logger.exception("Failed to resolve Responses model target: %s", model_uid)
             return self._responses_error(500, "Failed to resolve the requested model")
