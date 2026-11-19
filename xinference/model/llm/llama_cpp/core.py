@@ -33,12 +33,41 @@ from ....types import (
 )
 from ....utils import dependency_import_guard
 from ..._llamacpp import configure_gpu_layers
-from ...utils import check_dependency_available
+from ...utils import check_dependency_available, virtual_env_allows_missing_engine
 from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, normalize_response_format
 
 logger = logging.getLogger(__name__)
+
+MINICPMV47_MIN_XLLAMACPP_VERSION = "2026.10.11870"
+
+
+def _minicpmv47_runtime_error(
+    model_family: LLMFamilyV2, *, allow_virtual_env: bool = False
+) -> Optional[str]:
+    if "MiniCPMV4_7ForConditionalGeneration" not in (
+        getattr(model_family, "architectures", None) or []
+    ):
+        return None
+    if allow_virtual_env and virtual_env_allows_missing_engine():
+        return None
+    try:
+        from xllamacpp import __version__ as installed
+    except (ImportError, OSError):
+        installed = None
+    if installed is not None:
+        try:
+            if version.parse(installed) >= version.parse(
+                MINICPMV47_MIN_XLLAMACPP_VERSION
+            ):
+                return None
+        except (version.InvalidVersion, TypeError):
+            pass
+    return (
+        f"MiniCPM-V-4.7 requires xllamacpp >= {MINICPMV47_MIN_XLLAMACPP_VERSION}; "
+        f"found {installed or 'not installed'}"
+    )
 
 
 def _owned_native_stream(
@@ -368,6 +397,9 @@ class XllamaCppModel(LLM, ChatModelMixin):
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
+        runtime_error = _minicpmv47_runtime_error(llm_family, allow_virtual_env=True)
+        if runtime_error:
+            return False, runtime_error
         if llm_spec.model_format not in ["ggufv2"]:
             return False, "llama.cpp engine only supports ggufv2 format"
         if (
@@ -377,10 +409,21 @@ class XllamaCppModel(LLM, ChatModelMixin):
             return False, "llama.cpp engine requires chat or generate ability"
         return True
 
+    @classmethod
+    def validate_launch(cls, model_family: LLMFamilyV2) -> None:
+        """Reject incompatible runtimes before downloading checkpoints."""
+        runtime_error = _minicpmv47_runtime_error(model_family, allow_virtual_env=True)
+        if runtime_error:
+            raise ValueError(runtime_error)
+
     def load(self):
         with dependency_import_guard("xllamacpp"):
             from xllamacpp import CommonParams, Server, __version__
 
+            # Loading must validate the installed runtime even in virtualenv mode.
+            runtime_error = _minicpmv47_runtime_error(self.model_family)
+            if runtime_error:
+                raise RuntimeError(runtime_error)
             try:
                 if version.parse(__version__) < version.parse("0.2.0"):
                     raise RuntimeError(

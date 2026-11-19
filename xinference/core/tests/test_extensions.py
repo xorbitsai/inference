@@ -23,7 +23,7 @@ import httpx
 import pytest
 from fastapi import APIRouter, FastAPI, Response
 
-from xinference import extensions
+from xinference import constants, extensions
 
 
 @pytest.fixture(autouse=True)
@@ -358,11 +358,12 @@ def extension_api(monkeypatch):
     api._advanced_auth_service = None
     api._auth_service = object()
     api._monitor_config_store = api._system_settings_store = None
+    api._observability_settings_store = None
     api._host, api._port = "127.0.0.1", 0
     monkeypatch.setattr(restful_api, "Server", Mock())
     monkeypatch.setattr(restful_api, "mount_frontend", lambda *args: True)
     monkeypatch.setattr(restful_api, "is_metrics_disabled", lambda: True)
-    monkeypatch.setattr(restful_api, "XINFERENCE_ENABLE_OTEL", False)
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_OTEL", False)
     monkeypatch.setattr("xinference.api.routers.register_all_routes", lambda api: None)
     return api
 

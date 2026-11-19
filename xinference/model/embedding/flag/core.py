@@ -85,6 +85,9 @@ def _transformers_dtype_compat() -> Iterator[None]:
 
 class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "batch"
+    # FlagEmbedding passes the batch to a text tokenizer, so a token array
+    # would fail every request in the batch.
+    _rejects_token_arrays = True
 
     def __init__(
         self,

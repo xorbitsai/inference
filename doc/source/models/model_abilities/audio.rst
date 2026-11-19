@@ -1230,6 +1230,111 @@ Upstream officially supports Python 3.10 and 3.11. A GPU is strongly
 recommended; enable ``use_bf16`` at launch to reduce GPU memory use. Text-based
 emotion guidance additionally requires ``use_qwen_emo=True``.
 
+dots.tts.edit V1.1
+~~~~~~~~~~~~~~~~~~
+
+``dots.tts.edit-v1.1`` uses the upstream ``dots-studio/dots.tts.edit``
+checkpoint from Hugging Face (``main``) or ModelScope (``master``). It supports
+English and Mandarin speech at 48 kHz through the PyTorch engine. Python
+3.10--3.12 is required. The inference runtime is bundled in
+``xinference/thirdparty/dots_tts`` with its upstream license and source revision.
+The model virtual environment installs its third-party dependencies; no
+upstream Python package or GitHub source archive is needed at launch.
+
+Launch the model with the Python client:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    uid = client.launch_model(
+        model_name="dots.tts.edit-v1.1",
+        model_type="audio",
+        model_engine="PyTorch",
+        download_hub="modelscope",  # Or "huggingface".
+    )
+    model = client.get_model(uid)
+
+CUDA uses ``precision="bfloat16"`` by default. Set ``optimize=True`` at launch
+to enable the upstream ``torch.compile`` acceleration. Initial compilation
+can take several minutes; ``warmup_on_optimize=False`` defers warmup.
+CPU inference uses ``precision="float32"`` and requires CUDA to be hidden
+from the model worker. MPS is not supported by the upstream runtime.
+Other launch options are ``max_generate_length``, ``max_sequence_length``
+and ``vocoder_merge_steps``.
+
+For voice cloning, pass reference audio and optionally its exact transcript.
+Without a transcript, the model uses speaker-embedding conditioning only.
+Without reference audio, it samples a random voice; this is mainly useful
+with a single-speaker fine-tuned checkpoint.
+
+.. code-block:: python
+
+    from pathlib import Path
+
+    reference = Path("reference.wav").read_bytes()
+    audio = model.speech(
+        "Hello, welcome to Xinference.",
+        prompt_speech=reference,
+        prompt_text="The exact words spoken in the reference audio.",
+        response_format="wav",
+        num_steps=10,
+        guidance_scale=1.2,
+        seed=42,
+    )
+    Path("speech.wav").write_bytes(audio)
+
+TTS supports ``stream=True``. Use ``response_format="pcm"`` for incremental
+48 kHz mono, signed 16-bit little-endian samples. Streaming MP3, WAV, FLAC
+and OGG use the shared audio encoder and require a compatible
+TorchAudio/TorchCodec encoding backend. Non-streaming output supports the
+same formats through SoundFile.
+
+For speech editing, set ``task="edit"``, upload the source through
+``prompt_speech``, and put the tagged instruction in ``input``:
+
+.. code-block:: python
+
+    edited = model.speech(
+        'Hello <sub targ="small">brave</sub> world.',
+        task="edit",
+        prompt_speech=reference,
+        response_format="wav",
+        use_xvector="auto",
+    )
+    Path("edited.wav").write_bytes(edited)
+
+The upstream runtime derives source and target transcripts from the tags.
+``source_text`` (or ``prompt_text``) and ``target_text`` override them.
+``instruction`` and ``instruct`` are aliases for an explicit editing
+instruction and also select editing mode. ``template_name="edit"`` selects
+the same mode. Upload reference audio with ``prompt_speech``. The HTTP API
+rejects ``source_audio_path`` and ``prompt_audio_path``; worker-local paths
+are available only to trusted callers using the model directly in process.
+
+Supported edit tags include ``<del>``, ``<ins>``, ``<sub targ="replacement">``,
+``<emo>``, ``<pitch>``, ``<rate>``, ``<enhance>``, ``<bg>``, ``<pause/>`` and
+``<spk_transfer/>``. Free-form style descriptions use the ``desc`` attribute,
+for example ``<emo desc="quiet, warm delivery">hello</emo>``. Editing is
+non-streaming. ``use_xvector`` accepts booleans or ``"auto"`` for editing;
+TTS accepts booleans. Automatic editing guidance follows the upstream rules
+for the operations present in the instruction.
+
+Both modes accept ``num_steps``, ``ode_method``, ``guidance_scale``,
+``speaker_scale``, ``seed``, ``profile_inference`` and ``log_profile_calls``.
+TTS additionally accepts ``language``, ``normalize_text`` and the upstream
+TTS ``template_name`` values. Named voices are ignored; ``speed`` must be
+``1.0``. Use editing tags for localized rate, pitch and emotion control.
+
+SGLang-Omni and the MLX community port currently document other dots.tts
+checkpoints rather than edit V1.1. The experimental audio.cpp Edit path
+requires a separate native binary and converted GGUF weights. These paths
+are not registered as engines for this checkpoint in Xinference.
+See the `upstream model card <https://huggingface.co/dots-studio/dots.tts.edit>`_
+and `runtime examples <https://github.com/studio-dots-ai/dots.tts>`_ for
+the full instruction syntax.
+
 IndexTTS2 Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

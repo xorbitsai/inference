@@ -1644,6 +1644,18 @@ const zhTW = {
     view: '檢視',
   },
   systemSettings: {
+    restartNow: '重新啟動並生效',
+    restartSuccess: '可觀測性設定已重新啟動並生效',
+    restartFailed: '重新啟動尚未完成，可重試或至叢集資訊查看狀態',
+    restartUnavailable: '目前部署不支援應用程式內重新啟動，請重新啟動 Xinference 服務',
+    restartAdminRequired: '需要管理員權限才能重新啟動服務',
+    restartNotApplied: '設定尚未全部生效，請重試',
+    restartProgress: {
+      saving: '正在儲存設定…',
+      supervisor: '正在重新啟動 Supervisor…',
+      api: '正在重新啟動 API…',
+      verifying: '正在確認設定生效…',
+    },
     pageDescription: '統一設定模型下載來源、鏡像服務與下載任務策略。',
     readOnly: '只讀許可權',
     saveChanges: '儲存更改',

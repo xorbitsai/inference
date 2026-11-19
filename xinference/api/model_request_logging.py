@@ -14,21 +14,37 @@
 """Opt-in JSON-lines logging for model inference HTTP requests."""
 
 import asyncio
+import collections.abc
 import inspect
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
+import types
+import typing
 import uuid
 from contextvars import ContextVar, Token
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, Tuple
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+)
 
 import anyio
+import typing_extensions
 from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import FormData, UploadFile
@@ -459,6 +475,356 @@ def _error_text(status_code: int) -> str:
         return "Request failed"
 
 
+# Always-on, content-free record of inference requests answered with a 4xx.
+# Callers (for example a billing gateway) only see FastAPI's ``{"detail": ...}``
+# body, so the runtime log is the only place that can say which check rejected a
+# request.  The line must never carry request content: no body, message text,
+# ``detail`` string, exception message, or pydantic ``input``/``msg``/``ctx``.
+_REJECTION_REASON_RE = re.compile(r"[a-z][a-z0-9_]{0,63}")
+# pydantic v1 error types are dotted, for example ``type_error.integer``.
+_SAFE_ERROR_TYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]{0,63}")
+_MAX_LOGGED_SCHEMA_ERRORS = 10
+_UNTAGGED_REJECTION = "untagged"
+_REQUEST_VALIDATION_REJECTION = "request_validation"
+_REJECTION_STATE_ATTR = "_inference_rejection_reason"
+_BODY_MODEL_STATE_ATTR = "_inference_body_model"
+_BODY_REQUEST_ID_STATE_ATTR = "_inference_body_request_id"
+
+
+# ``X | Y`` annotations (Python 3.10+).
+_UnionType = getattr(types, "UnionType", None)
+# TypedDict qualifiers wrap a field's real type: ``Required[FunctionDefinition]``.
+_QUALIFIER_FORMS = tuple(
+    form
+    for module in (typing, typing_extensions)
+    for name in ("Required", "NotRequired", "ReadOnly")
+    for form in (getattr(module, name, None),)
+    if form is not None
+)
+
+
+def _safe_error_type(value: Any) -> str:
+    if isinstance(value, str) and _SAFE_ERROR_TYPE_RE.fullmatch(value):
+        return value
+    return "*"
+
+
+class _FieldSet:
+    """A schema position defined by explicit ``(name, alias, annotation)`` rows."""
+
+    __slots__ = ("fields",)
+
+    def __init__(self, fields: Iterable[Tuple[str, Optional[str], Any]]):
+        self.fields = tuple(fields)
+
+
+def _flatten_annotation(annotation: Any) -> List[Any]:
+    """Expand ``Optional``/``Union``/``Annotated`` into concrete candidates."""
+
+    if annotation is None or annotation is type(None):
+        return []
+    if isinstance(annotation, list):  # an explicit set of alternatives
+        return [flat for item in annotation for flat in _flatten_annotation(item)]
+    origin = typing.get_origin(annotation)
+    if origin is typing.Literal:
+        return []
+    if origin is typing.Annotated or origin in _QUALIFIER_FORMS:
+        return _flatten_annotation(typing.get_args(annotation)[0])
+    if origin is typing.Union or (
+        _UnionType is not None and isinstance(annotation, _UnionType)
+    ):
+        flattened: List[Any] = []
+        for arg in typing.get_args(annotation):
+            flattened.extend(_flatten_annotation(arg))
+        return flattened
+    return [annotation]
+
+
+def _declared_fields(cls: Any) -> List[Tuple[str, Optional[str], Any]]:
+    """Return ``(name, alias, annotation)`` for a pydantic model or TypedDict."""
+
+    if isinstance(cls, _FieldSet):
+        return list(cls.fields)
+    if not isinstance(cls, type):
+        return []
+    model_fields = getattr(cls, "model_fields", None)  # pydantic v2
+    if isinstance(model_fields, dict):
+        return [
+            (name, getattr(info, "alias", None), getattr(info, "annotation", None))
+            for name, info in model_fields.items()
+        ]
+    v1_fields = getattr(cls, "__fields__", None)  # pydantic v1
+    if isinstance(v1_fields, dict):
+        return [
+            (name, getattr(info, "alias", None), getattr(info, "outer_type_", None))
+            for name, info in v1_fields.items()
+        ]
+    if typing.is_typeddict(cls) or hasattr(cls, "__required_keys__"):
+        try:
+            hints = typing.get_type_hints(cls)
+        except Exception:
+            hints = dict(getattr(cls, "__annotations__", {}))
+        return [(name, None, annotation) for name, annotation in hints.items()]
+    return []
+
+
+def _container_origin(annotation: Any) -> Any:
+    origin = typing.get_origin(annotation) or annotation
+    return origin if isinstance(origin, type) else None
+
+
+def _mapping_values(annotation: Any) -> Optional[List[Any]]:
+    """Value types when ``annotation`` is a mapping, else ``None``."""
+
+    origin = _container_origin(annotation)
+    if (
+        origin is None
+        or not issubclass(origin, collections.abc.Mapping)
+        # A TypedDict subclasses dict but declares its keys, like a model.
+        or hasattr(origin, "__required_keys__")
+    ):
+        return None
+    args = typing.get_args(annotation)
+    # A bare ``dict`` has unknown values: nothing below it is schema-defined.
+    return [args[1]] if len(args) == 2 else []
+
+
+def _sequence_items(annotation: Any) -> List[Any]:
+    origin = _container_origin(annotation)
+    if (
+        origin is None
+        or issubclass(origin, (str, bytes, bytearray, collections.abc.Mapping))
+        or not issubclass(origin, collections.abc.Iterable)
+    ):
+        return []
+    return [arg for arg in typing.get_args(annotation) if arg is not Ellipsis]
+
+
+def _schema_location(loc_items: Iterable[Any], root: Any) -> str:
+    """Render a validation location, keeping only schema-defined segments.
+
+    Each segment is read at its own position in the schema.  A string is
+    kept only when the model at that position declares it; stepping into a
+    mapping always masks the key, because the client chose it.  Integer
+    segments are array indices and are kept.
+    """
+
+    candidates = _flatten_annotation(root)
+    parts: List[str] = []
+    for item in loc_items:
+        mappings = [_mapping_values(c) for c in candidates]
+        mapping_values = [v for values in mappings if values for v in values]
+        if any(values is not None for values in mappings) or isinstance(item, bool):
+            parts.append("*")
+            candidates = [
+                c for value in mapping_values for c in _flatten_annotation(value)
+            ]
+            continue
+        if isinstance(item, int):
+            parts.append(str(item))
+            candidates = [
+                flat
+                for c in candidates
+                for arg in _sequence_items(c)
+                for flat in _flatten_annotation(arg)
+            ]
+            continue
+        matched = [
+            annotation
+            for c in candidates
+            for name, alias, annotation in _declared_fields(c)
+            if isinstance(item, str) and item in (name, alias)
+        ]
+        if matched:
+            parts.append(item)
+            candidates = [c for a in matched for c in _flatten_annotation(a)]
+        else:
+            # Unknown here: a pydantic v2 union tag or an undeclared key.  Mask
+            # it and stay at this position; later strings must still match.
+            parts.append("*")
+    return ".".join(parts) or "*"
+
+
+def _route_parameter_schema(request: Request) -> _FieldSet:
+    """The request-validation schema of the matched route, by source."""
+
+    # FastAPI's attribute name; split so codespell does not "correct" it.
+    route_deps = getattr(request.scope.get("route"), "depend" "ant", None)
+    sources = []
+    for source, group in (
+        ("path", "path_params"),
+        ("query", "query_params"),
+        ("header", "header_params"),
+        ("cookie", "cookie_params"),
+        ("body", "body_params"),
+    ):
+        rows = []
+        for param in getattr(route_deps, group, None) or ():
+            annotation = getattr(
+                getattr(param, "field_info", None), "annotation", None
+            ) or getattr(param, "outer_type_", None)
+            name = getattr(param, "name", None)
+            alias = getattr(param, "alias", None)
+            if isinstance(name, str):
+                rows.append(
+                    (name, alias if isinstance(alias, str) else None, annotation)
+                )
+        # A single, non-embedded body model is reported by its own fields.
+        root: Any = _FieldSet(rows)
+        if source == "body" and rows:
+            root = [root] + [row[2] for row in rows]
+        sources.append((source, None, root))
+    return _FieldSet(sources)
+
+
+def schema_error_fields(errors: Iterable[Any], schema: Any = None) -> List[str]:
+    """Reduce pydantic/FastAPI validation errors to ``loc:type`` strings.
+
+    Only the location and the error type survive.  ``input``, ``msg`` and
+    ``ctx`` can echo request content and are dropped.  Location segments that
+    ``schema`` does not declare at that position, such as client-chosen
+    dictionary keys, become ``*``.
+    """
+
+    fields: List[str] = []
+    for error in errors:
+        if not isinstance(error, dict):
+            continue
+        loc = error.get("loc")
+        loc_items = loc if isinstance(loc, (list, tuple)) else ()
+        try:
+            location = _schema_location(loc_items, schema)
+        except Exception:
+            # Never turn a 422 into a 500 over a schema shape we cannot walk.
+            logger.debug("Could not render a validation location", exc_info=True)
+            location = "*"
+        fields.append(f"{location}:{_safe_error_type(error.get('type'))}")
+    return fields
+
+
+class InferenceRequestRejected(HTTPException):
+    """An inference ``HTTPException`` that names the rejecting check.
+
+    The response is identical to ``HTTPException``; ``reason`` is a stable,
+    content-free tag written to the rejection log instead of ``detail``.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        detail: Any = None,
+        *,
+        reason: str,
+        headers: Optional[Dict[str, str]] = None,
+        schema_errors: Optional[List[str]] = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=detail, headers=headers)
+        self.reason = reason
+        self.schema_errors = schema_errors
+
+
+def mark_inference_rejection(request: Request, reason: str) -> None:
+    """Tag a 4xx response that a handler returns instead of raising."""
+
+    state = getattr(request, "state", None)
+    if state is not None:
+        setattr(state, _REJECTION_STATE_ATTR, reason)
+
+
+def note_inference_request_identity(request: Request, body: Any) -> None:
+    """Remember the body's model and request ID for the rejection log.
+
+    A gateway can put its own correlation ID in the JSON ``request_id`` field;
+    model replicas log that ID, so the rejection line must use it too.
+    """
+
+    state = getattr(request, "state", None)
+    if state is None or not isinstance(body, dict):
+        return
+    for key, attr in (
+        ("model", _BODY_MODEL_STATE_ATTR),
+        ("request_id", _BODY_REQUEST_ID_STATE_ATTR),
+    ):
+        value = body.get(key)
+        if _valid_request_id(value):
+            setattr(state, attr, value)
+
+
+def _first_bounded_identifier(*candidates: Any) -> str:
+    """Return the first candidate within the request-ID bound, else ``""``."""
+
+    for candidate in candidates:
+        if _valid_request_id(candidate):
+            return candidate
+    return ""
+
+
+def _rejection_cause(exc: BaseException) -> Optional[BaseException]:
+    if exc.__cause__ is not None:
+        return exc.__cause__
+    return None if exc.__suppress_context__ else exc.__context__
+
+
+def _log_inference_rejection(
+    request: Request,
+    header_request_id: str,
+    endpoint: str,
+    status_code: int,
+    exc: Optional[BaseException] = None,
+) -> None:
+    try:
+        state = request.state
+        reason = getattr(exc, "reason", None) or getattr(
+            state, _REJECTION_STATE_ATTR, None
+        )
+        schema_errors = getattr(exc, "schema_errors", None)
+        if isinstance(exc, RequestValidationError):
+            reason = _REQUEST_VALIDATION_REJECTION
+            schema_errors = schema_error_fields(
+                exc.errors(), _route_parameter_schema(request)
+            )
+        if not isinstance(reason, str) or not _REJECTION_REASON_RE.fullmatch(reason):
+            reason = _UNTAGGED_REJECTION
+        # Apply the same bound at the sink, whichever source supplied the value:
+        # _check_model_access stores the client's model string unchecked.
+        request_id = _first_bounded_identifier(
+            getattr(state, _BODY_REQUEST_ID_STATE_ATTR, None), header_request_id
+        )
+        model_uid = _first_bounded_identifier(
+            getattr(state, "_audit_model_uid", None),
+            getattr(state, _BODY_MODEL_STATE_ATTR, None),
+        )
+        fields = [
+            f"request_id={json.dumps(request_id)}",
+            f"model_uid={json.dumps(model_uid)}",
+            f"endpoint={json.dumps(endpoint)}",
+            f"status={status_code}",
+            f"reason={reason}",
+        ]
+        if exc is not None:
+            fields.append(f"exception={type(exc).__name__}")
+            cause = _rejection_cause(exc)
+            if cause is not None:
+                fields.append(f"cause={type(cause).__name__}")
+        if schema_errors:
+            shown = schema_errors[:_MAX_LOGGED_SCHEMA_ERRORS]
+            fields.append(f"schema_errors={','.join(shown)}")
+            if len(schema_errors) > len(shown):
+                fields.append(f"schema_errors_total={len(schema_errors)}")
+        logger.warning("Inference request rejected: %s", " ".join(fields))
+    except Exception as log_error:
+        # Logging must never change the response.  Do not echo request data.
+        logger.warning(
+            "Failed to log an inference request rejection: %s",
+            type(log_error).__name__,
+        )
+
+
+def _is_logged_rejection(status_code: int) -> bool:
+    # 499 is the server's own record of a client disconnect, not a rejection.
+    return 400 <= status_code < 500 and status_code != 499
+
+
 class ModelRequestLoggingRoute(APIRoute):
     """APIRoute that logs inference requests after authentication succeeds."""
 
@@ -484,8 +850,14 @@ class ModelRequestLoggingRoute(APIRoute):
                 status_code = getattr(exc, "status_code", 500)
                 if isinstance(exc, asyncio.CancelledError):
                     status_code = 499
+                elif isinstance(exc, RequestValidationError):
+                    status_code = 422
                 elif not isinstance(status_code, int):
                     status_code = 500
+                if _is_logged_rejection(status_code):
+                    _log_inference_rejection(
+                        request, request_id, endpoint, status_code, exc
+                    )
 
                 # Authentication/authorization failures and rejected oversized
                 # payloads must never persist the body.
@@ -516,6 +888,10 @@ class ModelRequestLoggingRoute(APIRoute):
 
             _reset_current_model_request_id(context_token)
             response.headers.setdefault("X-Request-ID", request_id)
+            if _is_logged_rejection(response.status_code):
+                _log_inference_rejection(
+                    request, request_id, endpoint, response.status_code
+                )
             if (
                 XINFERENCE_MODEL_REQUEST_LOG_ENABLED
                 and response.status_code not in _BODY_LOG_EXCLUDED_STATUS_CODES

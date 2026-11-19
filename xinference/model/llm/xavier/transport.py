@@ -56,6 +56,13 @@ def resolve_nixl_host(host: str, host_key: str = "VLLM_NIXL_SIDE_CHANNEL_HOST") 
     return host
 
 
+def _is_loopback(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host == "localhost"
+
+
 def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
     import os
     from importlib.metadata import version
@@ -77,4 +84,12 @@ def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
         host = f"[{host}]"
     env["UCX_MEMTYPE_CACHE"] = "n"
     env.setdefault("UCX_TLS", os.environ.get("UCX_TLS", "tcp,cuda_copy,cuda_ipc"))
+    devices = os.environ.get("UCX_NET_DEVICES")
+    if devices:
+        env.setdefault("UCX_NET_DEVICES", devices)
+    elif _is_loopback(host.strip("[]")):
+        # A loopback pool only talks to this host. On multi-homed hosts UCX
+        # may otherwise pick another interface for its TCP endpoints and fail
+        # to connect even to itself.
+        env.setdefault("UCX_NET_DEVICES", "lo")
     return {"external_address": f"nixl://{host}:0"}

@@ -84,22 +84,39 @@ variable.
 
 XINFERENCE_SYSTEM_SETTINGS_PATH
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Path to the JSON file that stores system settings configured through the Web UI.
+Path to the JSON file that stores system settings configured through the Web UI,
+including the independent ``settings`` (download) and ``observability`` sections.
 Default value is ``<XINFERENCE_HOME>/system-settings.json``.
+Each Web UI tab updates only its own section. An absent section falls back to
+the corresponding startup environment variables.
 
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The maximum number of failed health checks tolerated at Xinference startup.
+The supervisor also uses it to detect dead workers: a worker is declared dead
+once it has not reported for longer than ``XINFERENCE_HEALTH_CHECK_TIMEOUT`` on
+this many consecutive checks, ``XINFERENCE_HEALTH_CHECK_INTERVAL`` seconds
+apart. A worker uses the same window,
+``XINFERENCE_HEALTH_CHECK_TIMEOUT + XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD *
+XINFERENCE_HEALTH_CHECK_INTERVAL`` seconds since its last successful call to the
+supervisor, before heartbeat transport errors (timeouts or connection errors)
+make it drop its cached supervisor references. It registers again on its next
+full status report, sent every ``XINFERENCE_STATUS_REPORT_MULTIPLIER``
+heartbeats. A shorter outage keeps the registration. A supervisor that answers
+a status report with ``WorkerNotRegisteredError`` (for example after a restart)
+makes the worker re-register on its next status report.
 Default value is 5.
 
 XINFERENCE_HEALTH_CHECK_INTERVAL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Health check interval (seconds) at Xinference startup.
+Health check interval (seconds) at Xinference startup. The supervisor's
+dead-worker check and the worker's heartbeat also run at this interval.
 Default value is 5.
 
 XINFERENCE_HEALTH_CHECK_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Health check timeout (seconds) at Xinference startup.
+Health check timeout (seconds) at Xinference startup. The supervisor also
+counts a worker as missing a check once its last report is older than this.
 Default value is 10.
 
 XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL

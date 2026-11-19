@@ -617,12 +617,18 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     validate()
                 elif self._lock is None:
                     raise ValueError(self._replica_autoscaling_error)
+            elif mode != "batch" or not isinstance(model, BatchMixin):
+                raise ValueError(self._replica_autoscaling_error)
+            if mode == "serialized" or (
+                mode == "native"
+                and self._lock is not None
+                and self._model_description.get("model_type") == "rerank"
+            ):
+                # Rerank calls finish under the lock. Keep their waiters movable.
                 self._serialized_replica_admission = SerializedReplicaAdmission(
                     replica_admission["queue_capacity"],
                     replica_admission["queue_timeout_ms"] / 1000,
                 )
-            elif mode != "batch" or not isinstance(model, BatchMixin):
-                raise ValueError(self._replica_autoscaling_error)
             self._replica_concurrency = min(
                 self._request_limits, replica_admission["concurrency_per_replica"]
             )
@@ -804,9 +810,21 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
             store_port=self._xavier_config.get("store_port"),  # type: ignore
             world_addresses=rank_addresses,
             cache_backend=self._xavier_config.get("cache_backend"),
+            # Replicas whose snapshots live in CPU memory keep many objects
+            # alive; freeze what initialization created. TP replicas use CPU
+            # snapshots even with a GPU budget, which only adds GPU copies.
             freeze_initialization_gc=(
                 self._model._is_vllm_v1()
-                and self._xavier_config.get("gpu_cache_bytes") is None
+                and (
+                    self._xavier_config.get("gpu_cache_bytes") is None
+                    or int(
+                        (getattr(self._model, "_model_config", None) or {}).get(
+                            "tensor_parallel_size"
+                        )
+                        or 1
+                    )
+                    > 1
+                )
             ),
         )
         await self._model.init_xavier()
@@ -1513,7 +1531,7 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception as e:
                     return e
 
-            if len(pending) == 4:
+            if isinstance(pending[3], _RealtimeFileStream):
                 # For realtime-enabled adapters, lock ownership was transferred
                 # from generator creation to this pending stream, not released.
                 lease = pending[3]
@@ -1560,7 +1578,10 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     await _await_owned_task(asyncio.create_task(close_stream()))
                 continue
 
-            while True:
+            # Set by the consumer when it is closed, so an abandoned stream
+            # stops pulling its source instead of draining it.
+            cancelled, raw = pending[3], pending[4]
+            while not cancelled.is_set():
                 try:
                     if inspect.isgenerator(gen):
                         r = await asyncio.to_thread(_wrapper, gen)
@@ -1577,6 +1598,20 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                 except Exception:
                     logger.exception("stream encountered an error.")
                 break
+            if cancelled.is_set():
+                try:
+                    if inspect.isgenerator(gen):
+                        try:
+                            await asyncio.to_thread(gen.close)
+                        finally:
+                            await asyncio.to_thread(raw.close)
+                    elif inspect.isasyncgen(gen):
+                        try:
+                            await gen.aclose()
+                        finally:
+                            await raw.aclose()
+                except Exception:
+                    logger.exception("Failed to close an abandoned stream.")
 
     def _queue_realtime_file_stream(self, output_type: str, raw, request_id):
         lease = _RealtimeFileStream(raw, request_id)
@@ -1911,37 +1946,55 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
                     gen = self._to_generator(output_type, ret)
                     stream_out = queue.Queue()
                     stop = object()
-                    self._pending_requests.put_nowait((gen, stream_out, stop))
+                    cancelled = threading.Event()
+                    self._pending_requests.put_nowait(
+                        (gen, stream_out, stop, cancelled, ret)
+                    )
 
                     def _stream_out_generator():
-                        while True:
-                            o = stream_out.get()
-                            if o is stop:
-                                break
-                            elif isinstance(o, Exception):
-                                raise o
-                            else:
-                                yield o
+                        try:
+                            yield None
+                            while True:
+                                o = stream_out.get()
+                                if o is stop:
+                                    break
+                                elif isinstance(o, Exception):
+                                    raise o
+                                else:
+                                    yield o
+                        finally:
+                            cancelled.set()
 
-                    return _stream_out_generator()
+                    out = _stream_out_generator()
+                    next(out)
+                    return out
 
                 if inspect.isasyncgen(ret):
                     gen = self._to_async_gen(output_type, ret)
                     stream_out = asyncio.Queue()
                     stop = object()
-                    self._pending_requests.put_nowait((gen, stream_out, stop))
+                    cancelled = threading.Event()
+                    self._pending_requests.put_nowait(
+                        (gen, stream_out, stop, cancelled, ret)
+                    )
 
                     async def _stream_out_async_gen():
-                        while True:
-                            o = await stream_out.get()
-                            if o is stop:
-                                break
-                            elif isinstance(o, Exception):
-                                raise o
-                            else:
-                                yield o
+                        try:
+                            yield None
+                            while True:
+                                o = await stream_out.get()
+                                if o is stop:
+                                    break
+                                elif isinstance(o, Exception):
+                                    raise o
+                                else:
+                                    yield o
+                        finally:
+                            cancelled.set()
 
-                    return _stream_out_async_gen()
+                    out = _stream_out_async_gen()
+                    await out.__anext__()
+                    return out
 
         if output_type == "json":
             return await asyncio.to_thread(json_dumps, ret)
@@ -2252,6 +2305,14 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
         kwargs.pop("request_id", None)
         kwargs.pop("_batch_queue_budget", None)
         if hasattr(self._model, "create_embedding"):
+            # Check this request alone: inside the shared batch one bad input
+            # would fail every request queued with it.
+            validate_input = getattr(self._model, "validate_input", None)
+            if validate_input is not None:
+                validate_input(
+                    input,
+                    truncate_prompt_tokens=kwargs.get("truncate_prompt_tokens"),
+                )
             return await self._call_wrapper_json(
                 self._model.create_embedding, input, *args, **kwargs
             )
@@ -2898,20 +2959,31 @@ class ModelActor(ModelGenerationMixin, xo.StatelessActor, CancelMixin):
     async def get_replica_load(self) -> Optional[ReplicaLoad]:
         if not self._can_report_replica_load():
             return None
-        serial = self.__dict__.get("_serialized_replica_admission")
-        if serial is not None:
-            return ReplicaLoad(
-                serial.queue.qsize(),
-                serial.queue.oldest_wait(),
-                int(
-                    not serial.running
-                    and _count_replica_work(self) < self._request_limits
-                ),
-                engine_running=int(serial.running),
-            )
         engine = await self._read_engine_load()
         if not self._can_report_replica_load():
             return None
+        serial = self.__dict__.get("_serialized_replica_admission")
+        if serial is not None:
+            queued = serial.queue.qsize()
+            oldest_wait = serial.queue.oldest_wait()
+            if engine is None:
+                if not queued:
+                    return None
+                return ReplicaLoad(
+                    queued, oldest_wait, 0, engine_running=int(serial.running)
+                )
+            return ReplicaLoad(
+                queued,
+                oldest_wait,
+                int(
+                    not serial.running
+                    and not engine.running
+                    and _count_replica_work(self) < self._request_limits
+                ),
+                engine.waiting,
+                engine.backlog_seconds,
+                max(int(serial.running), engine.running),
+            )
         queued, oldest_wait = (
             self._replica_batch.batch_queue_load()
             if self._has_redistributable_batch()

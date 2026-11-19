@@ -27,7 +27,10 @@ from fastapi import HTTPException, Request
 
 from ..core.exceptions import ModelNotReadyError
 from ..core.rpc_context import actor_call, correlate_model_ref
-from .model_request_logging import get_current_model_request_id
+from .model_request_logging import (
+    InferenceRequestRejected,
+    get_current_model_request_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +199,7 @@ async def _model_lookup(get_supervisor_ref, model_uid, report_error_event):
         cached_detail = _check_negative_cache(model_uid)
         if cached_detail is not None:
             logger.debug("get_model blocked by negative cache for uid: %s", model_uid)
-            raise HTTPException(status_code=404, detail=cached_detail)
+            raise InferenceRequestRejected(404, cached_detail, reason="model_not_found")
         yield supervisor
     except HTTPException:
         raise
@@ -216,7 +219,7 @@ async def _model_lookup(get_supervisor_ref, model_uid, report_error_event):
         _put_negative_cache(model_uid)
         # HTTP 404 – "resource not found" is the correct semantic for a
         # model uid that does not exist.
-        raise HTTPException(status_code=404, detail=str(ve))
+        raise InferenceRequestRejected(404, str(ve), reason="model_not_found") from ve
     except Exception as e:
         logger.error(e, exc_info=True)
         if report_error_event:

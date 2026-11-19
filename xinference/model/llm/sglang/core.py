@@ -72,7 +72,9 @@ from ..utils import (
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
+    continuous_usage_requested,
     generate_completion_chunk,
+    with_continuous_usage,
 )
 from ..weight_cache import WeightCachedModel
 from .gc_lifecycle import InitializationGCFreeze
@@ -1400,6 +1402,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(config)
         anthropic = config.get("_anthropic_request", False)
         self._apply_thinking_budget(config)
         if anthropic and is_forced_tool_choice(config):
@@ -1427,13 +1430,14 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         )
         if config.get("stream"):
             assert isinstance(completion, AsyncGenerator)
+            stream_ctx = with_continuous_usage(context, continuous_usage)
             if tools:
                 chunks = self._async_to_tool_completion_chunks(
-                    completion, context, tools
+                    completion, stream_ctx, tools
                 )
             else:
                 chunks = self._async_to_chat_completion_chunks(
-                    completion, parser, context
+                    completion, parser, stream_ctx
                 )
             return (
                 cast(

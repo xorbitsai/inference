@@ -19,14 +19,21 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { PermissionSelector } from './permissions';
+import type { UserCreationAuthorization } from './authorization';
 
-interface CreateUserDialogProps {
+type CreateUserDialogProps = {
+  authorization?: UserCreationAuthorization;
   trigger?: ReactNode;
   children?: ReactNode;
   onSuccess: () => void | Promise<void>;
-}
+};
 
-export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDialogProps) {
+export function CreateUserDialog({
+  trigger,
+  children,
+  onSuccess,
+  authorization,
+}: CreateUserDialogProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,6 +41,7 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
   const [form] = useForm();
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (loading && !nextOpen) return;
     setOpen(nextOpen);
     if (nextOpen) {
       form.resetFields();
@@ -44,18 +52,27 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
   const handleCreate = async (values: Record<string, unknown>) => {
     setLoading(true);
     try {
-      await request.post('/v1/admin/users', {
-        username: values.username,
-        password: values.password,
-        permissions,
-      });
-      toast.success(t('userManagement.createSuccess'));
-      setOpen(false);
-      await onSuccess();
+      if (authorization) {
+        await authorization.onCreateUser(values);
+      } else {
+        await request.post('/v1/admin/users', {
+          username: values.username,
+          password: values.password,
+          permissions,
+        });
+      }
     } catch {
-      // handled by interceptor
+      // The request interceptor or custom handler reports creation errors.
+      return;
     } finally {
       setLoading(false);
+    }
+    toast.success(t('userManagement.createSuccess'));
+    setOpen(false);
+    try {
+      await onSuccess();
+    } catch {
+      // Refresh errors are reported by the caller; creation already succeeded.
     }
   };
 
@@ -101,14 +118,23 @@ export function CreateUserDialog({ trigger, children, onSuccess }: CreateUserDia
           </FormField>
 
           <div className="mt-4">
-            <PermissionSelector selected={permissions} onChange={setPermissions} />
+            {authorization ? (
+              authorization.createFields
+            ) : (
+              <PermissionSelector selected={permissions} onChange={setPermissions} />
+            )}
           </div>
 
           <DialogFooter className="mt-4">
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={loading}
+              onClick={() => handleOpenChange(false)}
+            >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} disabled={authorization?.createDisabled}>
               {t('userManagement.create')}
             </Button>
           </DialogFooter>

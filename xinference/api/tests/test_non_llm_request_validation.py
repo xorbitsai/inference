@@ -35,7 +35,10 @@ from ...model.audio.ace_step import AceStepModel
 from ...model.audio.melotts import MeloTTSModel
 from ...model.audio.vllm import VLLMQwen3ASRModel
 from ...model.audio.vllm_omni import VLLMOmniTTSModel
+from ...model.batch import BatchMixin
+from ...model.embedding.core import EmbeddingModel
 from ...model.video.diffusers import DiffusersVideoModel
+from ...types import Embedding, EmbeddingData, EmbeddingUsage
 from ..restful_api import RESTfulAPI
 
 JSON_ENDPOINTS = [
@@ -148,6 +151,64 @@ def _uploads(names):
     image = io.BytesIO()
     Image.new("RGB", (1, 1)).save(image, format="PNG")
     return [(name, ("test.png", image.getvalue(), "image/png")) for name in names]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["source_audio_path", "prompt_audio_path"])
+@pytest.mark.parametrize("encoding", ["json", "multipart"])
+@pytest.mark.parametrize("location", ["top-level", "kwargs"])
+async def test_speech_rejects_worker_local_audio_paths_before_dispatch(
+    api_client, tmp_path, field, encoding, location
+):
+    reference = tmp_path / "reference.wav"
+    reference.write_bytes(b"worker-local audio")
+    body = {"model": "test", "input": "hello"}
+    option = {field: str(reference)}
+    body.update({"kwargs": json.dumps(option)} if location == "kwargs" else option)
+
+    async with api_client.client as client:
+        if encoding == "json":
+            response = await client.post("/v1/audio/speech", json=body)
+        else:
+            response = await client.post(
+                "/v1/audio/speech",
+                data=body,
+                files={"prompt_speech": ("reference.wav", b"uploaded audio")},
+            )
+
+    _assert_client_error(response, api_client)
+    assert field in response.json()["detail"]
+    assert "prompt_speech" in response.json()["detail"]
+    api_client.require_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("task", ["tts", "edit"])
+async def test_speech_forwards_uploaded_reference_audio(api_client, task):
+    reference = b"uploaded reference audio"
+    async with api_client.client as client:
+        response = await client.post(
+            "/v1/audio/speech",
+            data={
+                "model": "test",
+                "input": "hello",
+                "response_format": "wav",
+                "kwargs": json.dumps({"task": task}),
+            },
+            files={"prompt_speech": ("reference.wav", reference, "audio/wav")},
+        )
+
+    assert response.status_code == 200, response.text
+    api_client.model.speech.assert_awaited_once_with(
+        input="hello",
+        voice=None,
+        response_format="wav",
+        speed=1.0,
+        stream=False,
+        prompt_speech=reference,
+        task=task,
+    )
+    api_client.api._report_error_event.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -306,6 +367,208 @@ async def test_embedding_top_level_options_are_preserved(api_client):
     api_client.model.create_embedding.assert_awaited_once_with(
         "hello", dimensions=128, model_uid="test"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ([9906, 1917], [[9906, 1917]]),  # one flat token array is wrapped
+        (["1", "2"], ["1", "2"]),  # numeric strings stay texts
+        ([["101", "102"]], [[101, 102]]),
+        ([[9906], [1917]], [[9906], [1917]]),
+    ],
+)
+async def test_embedding_token_array_input(api_client, value, expected):
+    async with api_client.client as client:
+        response = await client.post(
+            "/v1/embeddings", json={"model": "test", "input": value}
+        )
+    assert response.status_code == 200
+    api_client.model.create_embedding.assert_awaited_once_with(
+        expected, model_uid="test"
+    )
+
+
+class _TiktokenDecodingEngine(EmbeddingModel, BatchMixin):
+    """Batching engine that decodes token arrays like the real engines do."""
+
+    _decodes_token_arrays = True
+
+    def __init__(self):
+        EmbeddingModel.__init__(
+            self,
+            "test",
+            "unused",
+            SimpleNamespace(
+                model_specs=[None],
+                model_name="stub-embedding",
+                to_description=lambda: {},
+            ),
+        )
+        BatchMixin.__init__(self, self.create_embedding, batch_interval=0.2)
+        self.batches = []
+
+    @classmethod
+    def check_lib(cls):
+        return True
+
+    @classmethod
+    def match_json(cls, model_family, model_spec, quantization):
+        return True
+
+    def load(self):
+        pass
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        self.batches.append(list(sentences))
+        data = [
+            EmbeddingData(index=i, object="embedding", embedding=[float(len(s))])
+            for i, s in enumerate(sentences)
+        ]
+        return Embedding(
+            object="list",
+            model="test",
+            model_replica="test-rep0",
+            data=data,
+            usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+        )
+
+
+class _TextOnlyEngine(_TiktokenDecodingEngine):
+    """Batching engine like flag: its tokenizer only accepts text."""
+
+    _decodes_token_arrays = False
+    _rejects_token_arrays = True
+
+    def _create_embedding(self, sentences, **kwargs):
+        if isinstance(sentences, str):
+            sentences = [sentences]
+        if not all(isinstance(s, str) for s in sentences):
+            raise TypeError("TextInputSequence must be str")
+        return super()._create_embedding(sentences, **kwargs)
+
+
+class _ListRejectingEngine(_TiktokenDecodingEngine):
+    """Batching engine like sentence-transformers: its tokenizer rejects a list
+    as an individual input."""
+
+    def _create_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        items = [sentences] if isinstance(sentences, str) else sentences
+        for item in items:
+            if not isinstance(item, str):
+                raise TypeError(f"Unsupported input type: {type(item).__name__}")
+        return super()._create_embedding(sentences, **kwargs)
+
+
+async def _post_concurrently(api_client, engine, inputs, **options):
+    """Send ``inputs`` as concurrent /v1/embeddings requests through the real
+    route, ``ModelActor`` and batcher of ``engine``."""
+    actor = ModelActor("test:123", "test:345", engine, "test-rep0")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    api_client.model.create_embedding.side_effect = actor.create_embedding
+
+    async def post(client, value):
+        return await client.post(
+            "/v1/embeddings", json={"model": "test", "input": value, **options}
+        )
+
+    try:
+        async with api_client.client as client:
+            return await asyncio.gather(*(post(client, v) for v in inputs))
+    finally:
+        task = engine._process_batch_task
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_undecodable_token_ids_only_fail_their_own_request(api_client):
+    engine = _TiktokenDecodingEngine()
+    # 151000 is a Qwen id that cl100k_base cannot decode.
+    bad, good = await _post_concurrently(
+        api_client, engine, [[9906, 151000], "hello world"]
+    )
+    assert bad.status_code == 400, bad.text
+    assert "151000" in bad.json()["detail"]
+    assert good.status_code == 200, good.text
+    assert json.loads(good.content)["data"][0]["embedding"] == [11.0]
+    assert engine.batches == [["hello world"]]
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tokens,truncate,status",
+    [
+        ([9468, 19044], 1, 400),  # cuts the emoji in the middle of its bytes
+        ([9468, 19044], 2, 200),  # whole emoji
+        ([9468, 19044], 0, 200),  # nothing is decoded
+        ([9906, 1917, 151000], 2, 200),  # the undecodable id is cut off
+        ([9906, 151000], 2, 400),
+    ],
+)
+async def test_token_ids_are_validated_after_truncation(
+    api_client, tokens, truncate, status
+):
+    engine = _TiktokenDecodingEngine()
+    arr, text = await _post_concurrently(
+        api_client, engine, [tokens, "hello world"], truncate_prompt_tokens=truncate
+    )
+    assert arr.status_code == status, arr.text
+    assert text.status_code == 200, text.text
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tokens", [[9906, 1917], [[9906, 1917]]])
+async def test_zero_truncation_sends_empty_text_for_token_arrays(api_client, tokens):
+    # truncate_prompt_tokens=0 slices a token array to []; the backend must get
+    # the empty string for it, not the list.
+    engine = _ListRejectingEngine()
+    arr, text = await _post_concurrently(
+        api_client, engine, [tokens, "hello world"], truncate_prompt_tokens=0
+    )
+    assert arr.status_code == 200, arr.text
+    assert text.status_code == 200, text.text
+    assert len(json.loads(arr.content)["data"]) == 1
+    assert len(json.loads(text.content)["data"]) == 1
+    # One empty string per input: the token array and the (also truncated) text.
+    assert engine.batches == [["", ""]]
+    api_client.api._report_error_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text_input", ["hello world", ["hello", "world"]])
+async def test_text_input_does_not_need_tiktoken(api_client, monkeypatch, text_input):
+    # xinference[embedding] does not declare tiktoken; only token arrays need it.
+    monkeypatch.setitem(sys.modules, "tiktoken", None)
+    (response,) = await _post_concurrently(
+        api_client, _TiktokenDecodingEngine(), [text_input]
+    )
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.asyncio
+async def test_token_array_for_text_only_engine_does_not_fail_text_request(
+    api_client,
+):
+    engine = _TextOnlyEngine()
+    flat, nested, text = await _post_concurrently(
+        api_client, engine, [[9906, 1917], [[9906, 1917]], "hello world"]
+    )
+    assert flat.status_code == 400, flat.text
+    assert nested.status_code == 400, nested.text
+    assert "Token arrays are not supported" in flat.json()["detail"]
+    assert text.status_code == 200, text.text
+    assert engine.batches == [["hello world"]]
+    api_client.api._report_error_event.assert_not_awaited()
 
 
 @pytest.mark.asyncio

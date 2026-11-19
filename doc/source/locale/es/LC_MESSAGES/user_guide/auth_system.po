@@ -995,3 +995,7 @@ msgstr ""
 "codificados como formulario, mal formados o que no sean objetos, así como"
 " las credenciales que no sean cadenas, devuelven ``400 Bad Request``; las"
 " credenciales incorrectas devuelven ``401 Unauthorized``."
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "Los administradores pueden elegir **Reiniciar y aplicar** en **Configuración del sistema > Observabilidad** para guardar el formulario y reiniciar Supervisor y después API, conservando los procesos de los modelos. El botón desaparece cuando ambos componentes han cargado la configuración guardada; si una sustitución falla, el componente anterior sigue atendiendo solicitudes."

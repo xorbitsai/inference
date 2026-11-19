@@ -27,8 +27,9 @@ import { ChangePasswordDialog } from './change-password-dialog';
 import { CreateUserDialog } from './create-user-dialog';
 import { EditPermissionsDialog } from './edit-permissions-dialog';
 import { PermissionBadges } from './permissions';
+import type { UserManagementProps } from './authorization';
 
-export default function UserManagement() {
+export default function UserManagement({ authorization }: UserManagementProps) {
   const { t } = useI18n();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,9 +52,14 @@ export default function UserManagement() {
   }, []);
 
   useEffect(() => {
-    const payload = decodeJwtPayload(getAccessToken()) || decodeJwtPayload(getRefreshToken());
-    const userId = Number(payload?.user_id);
-    setCurrentUserId(Number.isFinite(userId) ? userId : null);
+    const updateCurrentUser = () => {
+      const payload = decodeJwtPayload(getAccessToken()) || decodeJwtPayload(getRefreshToken());
+      const userId = Number(payload?.user_id);
+      setCurrentUserId(Number.isSafeInteger(userId) && userId > 0 ? userId : null);
+    };
+    updateCurrentUser();
+    window.addEventListener('xinference-auth-change', updateCurrentUser);
+    return () => window.removeEventListener('xinference-auth-change', updateCurrentUser);
   }, []);
 
   useEffect(() => {
@@ -108,16 +114,17 @@ export default function UserManagement() {
   return (
     <PageContainer
       title={t('menu.userManagement')}
-      subTitle={t('userManagement.pageDescription')}
+      subTitle={authorization?.description ?? t('userManagement.pageDescription')}
       extraContent={
         <CreateUserDialog
           trigger={
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4" />
               {t('userManagement.createUser')}
             </Button>
           }
           onSuccess={fetchUsers}
+          authorization={authorization}
         />
       }
     >
@@ -127,7 +134,9 @@ export default function UserManagement() {
             <TableRow>
               <TableHead>{t('userManagement.username')}</TableHead>
               <TableHead>{t('userManagement.source')}</TableHead>
-              <TableHead>{t('userManagement.permissions')}</TableHead>
+              <TableHead>
+                {authorization ? authorization.columnTitle : t('userManagement.permissions')}
+              </TableHead>
               <TableHead>{t('userManagement.createdAt')}</TableHead>
               <TableHead>{t('userManagement.enabled')}</TableHead>
               <TableHead className="text-right">{t('common.operation')}</TableHead>
@@ -152,6 +161,10 @@ export default function UserManagement() {
             ) : (
               users.map((user) => {
                 const isCurrentUser = user.id === currentUserId;
+                const authorizationContext = {
+                  isCurrentUser: currentUserId === null ? null : isCurrentUser,
+                  onSuccess: fetchUsers,
+                };
 
                 return (
                   <TableRow key={user.id}>
@@ -176,11 +189,15 @@ export default function UserManagement() {
                       <Badge variant="secondary">{user.source}</Badge>
                     </TableCell>
                     <TableCell>
-                      <PermissionBadges
-                        permissions={user.permissions}
-                        expanded={expandedPermissionIds.includes(user.id)}
-                        onToggleExpanded={() => togglePermissionExpanded(user.id)}
-                      />
+                      {authorization ? (
+                        authorization.renderUser(user, authorizationContext)
+                      ) : (
+                        <PermissionBadges
+                          permissions={user.permissions}
+                          expanded={expandedPermissionIds.includes(user.id)}
+                          onToggleExpanded={() => togglePermissionExpanded(user.id)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {user.created_at || '-'}
@@ -226,15 +243,19 @@ export default function UserManagement() {
                             onSuccess={fetchUsers}
                           />
                         )}
-                        <EditPermissionsDialog
-                          trigger={
-                            <Button variant="ghost" size="sm" title={t('common.edit')}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          }
-                          userDetail={user}
-                          onSuccess={fetchUsers}
-                        />
+                        {authorization ? (
+                          authorization.renderActions(user, authorizationContext)
+                        ) : (
+                          <EditPermissionsDialog
+                            trigger={
+                              <Button variant="ghost" size="sm" title={t('common.edit')}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            }
+                            userDetail={user}
+                            onSuccess={fetchUsers}
+                          />
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"

@@ -1,0 +1,52 @@
+# Dots documentation translations.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-16 00:00+0800\n"
+"PO-Revision-Date: 2026-11-16 00:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: pt_BR\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:5
+msgid "dots.tts.edit-v1.1"
+msgstr "dots.tts.edit-v1.1"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:7
+msgid "**Model Name:** dots.tts.edit-v1.1"
+msgstr "**Nome do modelo:** dots.tts.edit-v1.1"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:8
+msgid "**Model Family:** dots_tts_edit"
+msgstr "**Família do modelo:** dots_tts_edit"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:9
+msgid ""
+"**Abilities:** ['text2audio', 'text2audio_zero_shot', "
+"'text2audio_voice_cloning', 'text2audio_emotion_control']"
+msgstr ""
+"**Capacidades:** ['text2audio', 'text2audio_zero_shot', "
+"'text2audio_voice_cloning', 'text2audio_emotion_control']"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:10
+msgid "**Multilingual:** True"
+msgstr "**Multilíngue:** Sim"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:13
+msgid "Specifications"
+msgstr "Especificações"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:15
+msgid "**Model ID:** dots-studio/dots.tts.edit"
+msgstr "**ID do modelo:** dots-studio/dots.tts.edit"
+
+#: ../../source/models/builtin/audio/dots.tts.edit-v1.1.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "Execute o seguinte comando para iniciar o modelo::"

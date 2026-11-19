@@ -95,6 +95,9 @@ jobs:
       - name: Test live account permissions
         if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:permissions
+      - name: Test user management authorization
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
+        run: cd frontend && npm run test:user-management
       - name: Test catalog refresh controls
         if: ${{ needs.changes.outputs.docs_only != 'true' }}
         run: cd frontend && npm run test:catalog-refresh
@@ -584,6 +587,7 @@ jobs:
             xinference/model/audio/tests/test_native_async_audio.py
             xinference/model/audio/tests/test_cosyvoice_security.py
             xinference/model/audio/tests/test_audio8_tts.py
+            xinference/model/audio/tests/test_dots_tts.py
             xinference/model/audio/tests/test_kokoro.py::test_kokoro_dependencies_exclude_broken_preshed
             xinference/model/audio/tests/test_funasr_realtime.py
             xinference/model/audio/tests/test_funasr_realtime_probe.py
@@ -627,6 +631,7 @@ jobs:
             xinference/model/llm/vllm/xavier/test/test_local_directory.py
             xinference/model/llm/vllm/xavier/test/test_local_read.py
             xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py
+            xinference/model/llm/vllm/xavier/test/test_shard_gpu_transfer.py
             xinference/model/llm/vllm/xavier/test/test_kv_schema.py
             xinference/model/llm/vllm/xavier/test/test_cross_engine.py
             xinference/model/llm/vllm/xavier/test/test_cache_salt.py

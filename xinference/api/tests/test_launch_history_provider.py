@@ -148,13 +148,13 @@ def test_provider_errors_never_initialize_sqlite(monkeypatch, tmp_path, kind):
     assert not path.exists()
 
 
+@pytest.mark.usefixtures("isolated_system_settings")
 @pytest.mark.parametrize("authenticated", [False, True])
 def test_real_api_constructor_passes_selected_auth_store(
     monkeypatch, tmp_path, authenticated
 ):
     from xinference.api import restful_api
     from xinference.api.oauth2.advanced import auth_service
-    from xinference.core import system_settings_store
 
     selected_auth = Database(str(tmp_path / "auth.db")) if authenticated else None
     monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: authenticated)
@@ -171,10 +171,8 @@ def test_real_api_constructor_passes_selected_auth_store(
         ("XINFERENCE_AUTH_DB_PATH", "auth.db"),
         ("XINFERENCE_LAUNCH_HISTORY_DB_PATH", "history.db"),
         ("XINFERENCE_MONITOR_CONFIG_DB_PATH", "monitor.db"),
-        ("XINFERENCE_SYSTEM_SETTINGS_PATH", "settings.json"),
     ):
         monkeypatch.setattr(restful_api, name, str(tmp_path / filename))
-    monkeypatch.setattr(system_settings_store, "_store", None)
     provider = Mock(return_value=Mock(spec=LaunchHistoryStorage))
     install(monkeypatch, provider)
     api = restful_api.RESTfulAPI("127.0.0.1:1", "127.0.0.1", 0)

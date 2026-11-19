@@ -19,13 +19,16 @@ import os
 import platform
 import sys
 import uuid
+from contextlib import nullcontext
 from typing import Any, List, Optional
 
 from packaging import version
 
+from ....core.replica_load import EngineLoad
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import dependency_import_guard
 from ..._llamacpp import configure_gpu_layers
+from ...llama_cpp_load import LlamaCppSchedulerLoad
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,9 @@ def _get_error_payload(response: Any) -> Optional[Any]:
 
 
 class XllamaCppRerankModel(RerankModel):
+    replica_autoscaling = "native"
+    _scheduler_load: Optional[LlamaCppSchedulerLoad] = None
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._llm = None
@@ -163,6 +169,8 @@ class XllamaCppRerankModel(RerankModel):
                     logger.warning(
                         "Failed to set the param %s = %s, error: %s", k, v, e
                     )
+            if self._scheduler_load is not None:
+                params.endpoint_metrics = True
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
@@ -177,6 +185,13 @@ class XllamaCppRerankModel(RerankModel):
             raise RuntimeError(f"Load model {self._model_name} failed")
         pass
 
+    def enable_engine_load_reporting(self) -> None:
+        self._scheduler_load = LlamaCppSchedulerLoad()
+
+    async def get_engine_load(self) -> Optional[EngineLoad]:
+        load = self._scheduler_load
+        return await load.get_engine_load(self._llm) if load is not None else None
+
     def rerank(
         self,
         documents: List[str],
@@ -190,7 +205,9 @@ class XllamaCppRerankModel(RerankModel):
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._llm is not None
-        result = self._llm.handle_rerank({"query": query, "documents": documents})
+        load = self._scheduler_load
+        with load.request() if load is not None else nullcontext():
+            result = self._llm.handle_rerank({"query": query, "documents": documents})
         error = _get_error_payload(result)
         if error:
             raise Exception(_error_message(error))

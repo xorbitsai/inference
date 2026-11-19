@@ -5,7 +5,9 @@ import asyncio
 import json
 from contextlib import nullcontext
 from datetime import datetime, timedelta
+from functools import partial
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -21,6 +23,7 @@ from xinference.api.restful_api import RESTfulAPI, _request_credential
 from xinference.api.routers import benchmarks
 from xinference.benchmark.adapter import StageRunner
 from xinference.benchmark.service import BenchmarkConfig, BenchmarkService
+from xinference.core.model_runtime import get_model_runtime_info
 
 
 @pytest_asyncio.fixture
@@ -613,6 +616,11 @@ async def test_api_permissions_validation_and_snapshot(tmp_path, header):
                 "env": {"SECRET": "private"},
             }
         ),
+        get_model_runtime_info=AsyncMock(
+            side_effect=AttributeError(
+                "'SupervisorActor' object has no attribute 'get_model_runtime_info'"
+            )
+        ),
         get_model_reload_config=AsyncMock(
             return_value={
                 "engine": "vllm",
@@ -691,6 +699,79 @@ async def test_api_permissions_validation_and_snapshot(tmp_path, header):
             )
         ).status_code == 422
     await service.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "registered_limit,runtime_limit,replica_snapshots,expected_status",
+    [
+        pytest.param(40960, 8192, [["model-0"], ["model-0"]], 422, id="known-runtime"),
+        pytest.param(8192, None, [["model-0"], ["model-0"]], 422, id="unknown-runtime"),
+        pytest.param(
+            40960,
+            8192,
+            [["model-0"], ["model-0", "model-1"]],
+            201,
+            id="changing-topology",
+        ),
+    ],
+)
+async def test_api_benchmark_context_limit(
+    registered_limit: int,
+    runtime_limit: int | None,
+    replica_snapshots: list[list[str]],
+    expected_status: int,
+):
+    create = Mock(return_value={"id": "job"})
+    model = SimpleNamespace(
+        get_runtime_context_length=AsyncMock(return_value=runtime_limit)
+    )
+    supervisor = SimpleNamespace(
+        describe_running_model=AsyncMock(
+            return_value={
+                "model_type": "LLM",
+                "model_ability": ["chat"],
+                "context_length": registered_limit,
+            }
+        ),
+        get_instance_info=AsyncMock(return_value=[]),
+        get_cluster_device_info=AsyncMock(return_value=[]),
+        get_model_reload_config=AsyncMock(return_value={}),
+        _iter_active_replica_model_uids=Mock(side_effect=replica_snapshots),
+        _replica_model_uid_to_worker={
+            "model-0": SimpleNamespace(get_model=AsyncMock(return_value=model))
+        },
+    )
+    supervisor.get_model_runtime_info = partial(get_model_runtime_info, supervisor)
+    api = SimpleNamespace(
+        _router=APIRouter(),
+        _advanced_auth_service=None,
+        _benchmark_service=SimpleNamespace(create=create),
+        is_authenticated=lambda: False,
+        _check_model_access=Mock(),
+        _get_supervisor_ref=AsyncMock(return_value=supervisor),
+        _host="127.0.0.1",
+        _port=9997,
+    )
+    app = FastAPI()
+    benchmarks.register_routes(cast(RESTfulAPI, api))
+    app.include_router(api._router)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://api"
+    ) as client:
+        response = await client.post(
+            "/v1/benchmarks",
+            json={"model_uid": "model", "input_tokens": 9000, "output_tokens": 1000},
+        )
+    assert response.status_code == expected_status, response.text
+    if expected_status == 422:
+        assert response.json() == {
+            "detail": "Input and output exceed the model context length"
+        }
+        create.assert_not_called()
+    else:
+        assert response.json() == {"id": "job"}
+        create.assert_called_once()
 
 
 @pytest.mark.asyncio

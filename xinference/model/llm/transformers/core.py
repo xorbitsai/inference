@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
 import json
 import logging
 import os
@@ -448,6 +449,17 @@ class PytorchModel(LLM):
 
         # For regular PytorchModel (non-multimodal), enable batching by default
         max_num_seqs = self._pytorch_model_config.get("max_num_seqs", 16)
+        if max_num_seqs == 1:
+            # Batch-only text models still need the scheduler with a single slot.
+            if type(self)._direct_generate is not PytorchModel._direct_generate:
+                return False
+            if isinstance(self, PytorchChatModel):
+                # Synchronous chat overrides already implement direct execution.
+                return (
+                    inspect.iscoroutinefunction(self.chat)
+                    and type(self)._direct_chat is PytorchChatModel._direct_chat
+                )
+            return True
         return max_num_seqs > 1
 
     async def _ensure_scheduler_started(self):

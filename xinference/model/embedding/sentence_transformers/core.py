@@ -406,6 +406,7 @@ def _build_encode_kwargs(
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     replica_autoscaling = "batch"
+    _decodes_token_arrays = True
 
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
@@ -589,6 +590,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 truncate_dim=dimensions,
                 **st_kwargs,
             )
+
+        # Our encoding loop needs one padded row per input for token usage,
+        # token embeddings and output ordering. Newer sentence-transformers
+        # automatically packs FA2 inputs without an attention_mask. Keep its
+        # padded layout while preserving the selected attention implementation.
+        for module in self._model.modules():
+            if hasattr(module, "unpad_inputs"):
+                module.unpad_inputs = False
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer

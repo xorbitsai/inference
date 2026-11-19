@@ -183,6 +183,7 @@ class APIProcess:
     draining: asyncio.Event = field(default_factory=asyncio.Event)
     writer: Optional[asyncio.StreamWriter] = None
     version: Optional[str] = None
+    observability: Dict[str, Any] = field(default_factory=dict)
 
     async def send(self, command: str) -> None:
         if self.writer is None or self.writer.is_closing():
@@ -216,6 +217,10 @@ class APIHost:
         configuration: Dict[str, Any],
         settings_store: SystemSettingsStore,
     ):
+        from ..core.observability_settings_store import (
+            create_observability_settings_store,
+        )
+
         self.listener = listener
         self.configuration = configuration
         self.children: Dict[str, APIProcess] = {}
@@ -227,6 +232,9 @@ class APIHost:
         self.directory = Path()
         self.working_directory = Path.cwd()
         self.settings_store = settings_store
+        self.observability_store = create_observability_settings_store(
+            settings_store.path
+        )
         self.settings_lock = asyncio.Lock()
         self.supervisor_host: Optional["SupervisorHost"] = None
 
@@ -253,6 +261,39 @@ class APIHost:
             await supervisor.update_system_settings(self.settings_store.get().to_dict())
             return result
 
+    def observability_settings(self, operation: str, data=None) -> Dict[str, Any]:
+        store = self.observability_store
+        if operation == "baseline":
+            return store.get_startup().to_dict()
+        if operation == "save":
+            store.save_public(data)
+        elif operation == "reset":
+            store.reset()
+        elif operation != "get":
+            raise ValueError("Unknown observability settings operation")
+        components = {
+            "supervisor": getattr(self.supervisor_host, "active", None),
+            "api": self.active,
+        }
+        pending = []
+        errors = []
+        for name, component in components.items():
+            runtime = getattr(component, "observability", None) or {}
+            if runtime.get("revision") != store.get().revision or runtime.get("error"):
+                pending.append(name)
+            if runtime.get("error"):
+                errors.append(f"{name}: {runtime['error']}")
+        return {
+            **store.get_public(),
+            "runtime_enable_otel": getattr(self.active, "observability", {}).get(
+                "enable_otel", store.get_runtime().opentelemetry.enable_otel
+            ),
+            "restart_required": bool(pending),
+            "restart_components": pending,
+            "restart_supported": all(components.values()),
+            "restart_error": "; ".join(errors) or None,
+        }
+
     async def _connection(self, reader, writer):
         child = None
         try:
@@ -268,6 +309,7 @@ class APIHost:
                     event = json.loads(line)
                     if event.get("state") == "ready" and event.get("protocol") == 1:
                         child.version = event["version"]
+                        child.observability = event.get("observability", {})
                         child.ready.set()
                     elif event.get("state") == "serving":
                         child.serving.set()
@@ -317,6 +359,10 @@ class APIHost:
                     raise
                 except Exception as error:
                     raise RuntimeError(str(error)) from error
+            elif command == "observability-settings":
+                result = self.observability_settings(
+                    request["operation"], request.get("data")
+                )
             else:
                 raise ValueError("Unknown API host command")
             writer.write(json.dumps({"result": result}).encode() + b"\n")
@@ -450,6 +496,8 @@ class APIHost:
             target = await self.spawn(operation["python_executable"], environment)
             operation["target_pid"] = target.process.pid
             await target.wait(target.ready)
+            if target.observability.get("error"):
+                raise RuntimeError(target.observability["error"])
             operation.update(status="switching", target_version=target.version)
             activated = True
             await target.send("activate")

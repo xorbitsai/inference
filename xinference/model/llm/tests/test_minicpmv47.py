@@ -129,9 +129,11 @@ def test_official_checkpoints_and_engine_selection(
 
 @pytest.mark.parametrize("size", [1, 35])
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
-def test_gguf_is_not_registered(size, hub):
-    for quantization in ("F16", "Q4_K_M", "mix_q3gud_im"):
+def test_unsupported_quantizations(size, hub):
+    for quantization in ("Q2_K", "Q3_K_M"):
         assert match_llm("MiniCPM-V-4.7", "ggufv2", size, quantization, hub) is None
+    if size == 1:
+        assert match_llm("MiniCPM-V-4.7", "ggufv2", size, "mix_q3gud_im", hub) is None
     assert match_llm("MiniCPM-V-4.7", "fp8", 1, "FP8", hub) is None
 
 
@@ -149,7 +151,10 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
             for size, fmt, quant, _ in VARIANTS
             if engine != "SGLang" or fmt != "bnb"
         }
-    assert not isinstance(params.get("llama.cpp"), list)
+    assert {
+        (int(entry["model_size_in_billions"]), entry["model_format"])
+        for entry in params["llama.cpp"]
+    } == {(1, "ggufv2"), (35, "ggufv2")}
     assert "MiniCPM-V-4.7" not in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 
 
@@ -157,9 +162,9 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
     "engine,expected",
     [
         ("Transformers", "transformers>=5.18.0"),
-        ("vllm", "vllm==0.31.1rc1.dev281+gc85616efc"),
+        ("vllm", "vllm>=0.32.0"),
         ("sglang", "sglang>=0.5.23"),
-        ("llama.cpp", None),
+        ("llama.cpp", "xllamacpp>=2026.10.11870"),
     ],
 )
 def test_virtualenv_requirements(engine, expected):
@@ -183,9 +188,8 @@ def test_virtualenv_requirements(engine, expected):
         assert "qwen-omni-utils>=0.0.9" in prepared
         assert "audioread" in prepared
         assert "#system_numpy#" in prepared
-        assert family.virtualenv.extra_index_url.endswith(
-            "/c85616efc6f0eaa50ca1f1a09c32368aedffd3d8"
-        )
+        assert family.virtualenv.extra_index_url is None
+        assert family.virtualenv.index_strategy is None
     else:
         assert "qwen-omni-utils>=0.0.9" not in prepared
         assert "audioread" not in prepared
@@ -620,12 +624,13 @@ async def test_vllm_rejects_invalid_frame_limit(frame_limit):
     "installed_version,accepted",
     [
         ("0.31.0", False),
-        ("0.31.1rc1.dev280", False),
-        ("0.31.1rc1.dev281+gc85616efc", True),
-        ("0.31.1", True),
+        ("0.31.1rc1.dev281+gc85616efc", False),
+        ("0.32.0rc1", False),
+        ("0.32.0", True),
+        ("0.32.1", True),
     ],
 )
-def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, accepted):
+def test_vllm_release_gate(virtualenv_worker, monkeypatch, installed_version, accepted):
     monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: False)
     monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
     monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version(installed_version))
@@ -633,7 +638,8 @@ def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, ac
     result = vllm_core.VLLMMultiModel.match_json(family, family.model_specs[0], "none")
     assert (result is True) is accepted
     if not accepted:
-        assert "PR #58674" in result[1]
+        assert "requires vLLM >= 0.32.0" in result[1]
+        assert installed_version in result[1]
 
 
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])

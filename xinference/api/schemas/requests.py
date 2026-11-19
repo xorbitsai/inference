@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from ..._compat import BaseModel, Field, validator
+from ..._compat import BaseModel, Field, StrictInt, validator
 from ...types import CreateCompletion
 
 
@@ -24,10 +24,12 @@ class CreateCompletionRequest(CreateCompletion):
 
 class CreateEmbeddingRequest(BaseModel):
     model: str
+    # Flat int list before List[str]: pydantic v1 coerces ints to str, and
+    # StrictInt keeps numeric strings like ["1", "2"] as texts.
     input: Union[
         str,
+        List[StrictInt],
         List[str],
-        List[int],
         List[List[int]],
         Dict[str, Any],
         List[Dict[str, Any]],

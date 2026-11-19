@@ -50,7 +50,6 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
-    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
@@ -1118,23 +1117,33 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if replica_info is not None
                 else len(set(replica_indexes))
             )
-            model_name = next(
+            # Identity fields are None when no replica reported a usable value.
+            # The worker fills gaps with defaults (None version, empty ability
+            # list), so those are treated as "not reported" rather than as facts.
+            model_name: Optional[str] = next(
                 (
                     state.get("model_name")
                     for state in states
                     if isinstance(state.get("model_name"), str)
+                    and state.get("model_name")
                 ),
-                model_uid,
-            )
-            model_version = next(
-                (state.get("model_version") for state in states),
                 None,
             )
-            model_ability: List[str] = []
+            model_version: Optional[str] = next(
+                (
+                    state.get("model_version")
+                    for state in states
+                    if state.get("model_version") is not None
+                ),
+                None,
+            )
+            model_ability: Optional[List[str]] = None
             for state in states:
                 candidate_ability = state.get("model_ability")
-                if isinstance(candidate_ability, list) and all(
-                    isinstance(item, str) for item in candidate_ability
+                if (
+                    isinstance(candidate_ability, list)
+                    and candidate_ability
+                    and all(isinstance(item, str) for item in candidate_ability)
                 ):
                     model_ability = candidate_ability
                     break
@@ -1159,28 +1168,45 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             if existing_infos:
                 existing_info = existing_infos[0]
-                await self._status_guard_ref.update_instance_info(
-                    model_uid,
-                    {
-                        "model_name": model_name,
-                        "model_version": model_version,
-                        "model_ability": model_ability,
-                        "replica": inferred_replica_count,
-                        "status": LaunchStatus.READY.name,
-                        "instance_created_ts": min(
-                            existing_info.instance_created_ts, instance_created_ts
-                        ),
-                        "n_worker": max(existing_info.n_worker or 1, n_worker),
-                    },
-                )
+                updates: Dict[str, Any] = {
+                    "replica": inferred_replica_count,
+                    "status": LaunchStatus.READY.name,
+                    "instance_created_ts": min(
+                        existing_info.instance_created_ts, instance_created_ts
+                    ),
+                    "n_worker": max(existing_info.n_worker or 1, n_worker),
+                }
+                # Re-registration replays what the worker knows, which is a
+                # subset of what the launch recorded. Merge instead of replace:
+                # an identity field the worker did not report keeps its stored
+                # value, so a transient reconnect cannot erase it.
+                preserved_fields = []
+                for field, reported in (
+                    ("model_name", model_name),
+                    ("model_version", model_version),
+                    ("model_ability", model_ability),
+                ):
+                    if reported is not None:
+                        updates[field] = reported
+                    elif getattr(existing_info, field, None) not in (None, []):
+                        preserved_fields.append(field)
+                if preserved_fields:
+                    logger.warning(
+                        "Worker %s re-registered model %s without reporting %s; "
+                        "keeping the stored value(s)",
+                        worker_address,
+                        model_uid,
+                        ", ".join(preserved_fields),
+                    )
+                await self._status_guard_ref.update_instance_info(model_uid, updates)
             else:
                 await self._status_guard_ref.set_instance_info(
                     model_uid,
                     InstanceInfo(
-                        model_name=model_name,
+                        model_name=model_name or model_uid,
                         model_uid=model_uid,
                         model_version=model_version,
-                        model_ability=model_ability,
+                        model_ability=model_ability or [],
                         replica=inferred_replica_count,
                         status=LaunchStatus.READY.name,
                         instance_created_ts=instance_created_ts,
@@ -1214,11 +1240,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     async def __post_create__(self):
         from ..extensions import get_extensions
+        from .observability_settings_store import ObservabilitySettingsStore
+
+        self._observability_runtime = (
+            ObservabilitySettingsStore._settings_from_environment(dict(os.environ))
+        )
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._uptime = time.time()
-        if XINFERENCE_ENABLE_OTEL:
+        from .. import constants as xinference_constants
+
+        if xinference_constants.XINFERENCE_ENABLE_OTEL:
             try:
                 from .otel import setup_otel
 
@@ -1393,6 +1426,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     def supervisor_upgrade_info(self):
         from .. import __version__
+        from .observability_settings_store import observability_runtime_state
         from .supervisor_upgrade import PROTOCOL_VERSION
 
         return {
@@ -1400,6 +1434,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             "pid": os.getpid(),
             "version": __version__,
             "ready": self._supervisor_prepared,
+            "observability": observability_runtime_state(self._observability_runtime),
         }
 
     async def pause_supervisor(self):
@@ -3557,8 +3592,41 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             await self._recover_failed_initial_model_launch(model_uid)
 
         if n_worker > 1:  # type: ignore
-            if kwargs.get("xavier_cache_backend") not in (None, "native"):
+            from ..model.llm.vllm.xavier.transport import (
+                normalize_xavier_transport_backend,
+            )
+            from ..model.llm.xavier.backends.config import normalize_cache_backend
+            from ..model.llm.xavier.transport import validate_gpu_cache_budget
+
+            # Shards bypass the single-worker Xavier setup below. Consume its
+            # defaults and reject unsupported options before dispatching workers.
+            if kwargs.get("xavier_cache_backend") == "lmcache":
                 raise ValueError("The LMCache backend requires one worker per replica")
+            normalize_cache_backend(
+                kwargs.pop("xavier_cache_backend", None),
+                kwargs.pop("xavier_cache_backend_config", None),
+            )
+            transport_backend = normalize_xavier_transport_backend(
+                kwargs.pop(
+                    "vllm_transfer_backend_type",
+                    kwargs.pop("transfer_backend_type", None),
+                )
+            )
+            if transport_backend == "nixl":
+                raise ValueError(
+                    "NIXL requires explicit prefill and decode replica roles"
+                )
+            if kwargs.pop("enable_xavier", False):
+                raise ValueError("Xavier requires one worker per replica")
+            if kwargs.pop("xavier_cache_bytes", None) is not None:
+                raise ValueError(
+                    "xavier_cache_bytes requires Xavier shared CPU caching and a positive integer"
+                )
+            validate_gpu_cache_budget(
+                kwargs.pop("xavier_gpu_cache_bytes", None), False, replica
+            )
+            if (model_engine or "").lower() == "trt-llm":
+                raise ValueError("TRT-LLM currently requires one worker per replica")
             # distributed inference
             return await self._launch_builtin_sharded_model(
                 model_uid,
@@ -7735,6 +7803,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
         finally:
+            from .otel import shutdown_otel
+
+            await asyncio.to_thread(shutdown_otel)
             if control is not None:
                 await control.invoke("close")
 
@@ -9123,6 +9194,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         *,
         check_runtime_instances: bool = True,
     ) -> Dict[str, Any]:
+        from .model_runtime import get_model_runtime_info
+
         errors: List[str] = []
         warnings: List[str] = []
         asset_id = str(config.get("tokenizer_asset_id") or "").strip()
@@ -9178,13 +9251,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
 
         running_models = await self.list_models()
+        backend_entries = self._token_router_backend_entries(config)
+        runtime_model_uids = {
+            str(backend.get("model_uid") or "")
+            for _, backend in backend_entries
+            if isinstance(backend.get("max_context_tokens"), int)
+        } & running_models.keys()
+        # Share one probe window across backends and allow for missing replica lists.
+        runtime_infos = await asyncio.gather(
+            *(
+                get_model_runtime_info(self, model_uid)
+                for model_uid in runtime_model_uids
+            ),
+            return_exceptions=True,
+        )
+        runtime_contexts = {
+            model_uid: info["runtime_context_length"]
+            for model_uid, info in zip(runtime_model_uids, runtime_infos)
+            if isinstance(info, dict) and info["runtime_context_length"] is not None
+        }
         compatible_models = {
             str(name).strip().casefold()
             for name in asset_validation.get("compatible_models", [])
             if str(name).strip()
         }
         backend_models: Dict[str, Dict[str, Any]] = {}
-        for backend_id, backend in self._token_router_backend_entries(config):
+        for backend_id, backend in backend_entries:
             model_uid = str(backend.get("model_uid") or "")
             model_info = running_models.get(model_uid)
             if model_info is None:
@@ -9223,7 +9315,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     f"asset {asset_id}: {model_name or model_uid}"
                 )
             configured_context = backend.get("max_context_tokens")
-            actual_context = model_info.get("context_length")
+            actual_context = runtime_contexts.get(
+                model_uid, model_info.get("context_length")
+            )
             if (
                 isinstance(configured_context, int)
                 and isinstance(actual_context, int)
