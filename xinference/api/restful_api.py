@@ -74,7 +74,6 @@ from ..constants import (
     XINFERENCE_AUTH_DB_PATH,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
-    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_HTTP_LIMIT_CONCURRENCY,
     XINFERENCE_HTTP_REQUEST_TIMEOUT,
     XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
@@ -1064,6 +1063,14 @@ class RESTfulAPI(CancelMixin):
             XINFERENCE_SYSTEM_SETTINGS_PATH
         )
 
+        from ..core.observability_settings_store import (
+            initialize_observability_settings,
+        )
+
+        self._observability_settings_store = initialize_observability_settings(
+            XINFERENCE_SYSTEM_SETTINGS_PATH
+        )
+
         self._router = APIRouter(route_class=ModelRequestLoggingRoute)
         self._elasticsearch_client: Optional[aiohttp.ClientSession] = None
         self._token_router_client: Optional[httpx.AsyncClient] = None
@@ -1818,7 +1825,9 @@ class RESTfulAPI(CancelMixin):
             return _guard_speech_stream_failure(request, response)
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
-        if XINFERENCE_ENABLE_OTEL:
+        from .. import constants as xinference_constants
+
+        if xinference_constants.XINFERENCE_ENABLE_OTEL:
             try:
                 from ..core.otel import setup_otel
 
@@ -1840,6 +1849,9 @@ class RESTfulAPI(CancelMixin):
         self._app.state.advanced_auth = self._advanced_auth_service
         self._app.state.monitor_config_store = self._monitor_config_store
         self._app.state.system_settings_store = self._system_settings_store
+        self._app.state.observability_settings_store = (
+            self._observability_settings_store
+        )
 
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes

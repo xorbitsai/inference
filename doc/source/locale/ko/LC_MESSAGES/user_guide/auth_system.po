@@ -845,3 +845,7 @@ msgstr ""
 "``POST /token`` 경로로 보내야 합니다. 폼 인코딩된 본문, 잘못된 형식이나 객체가 아닌 본문, 문자열이 아닌 자격 "
 "증명에는 ``400 Bad Request`` 응답을 반환합니다. 자격 증명이 올바르지 않으면 ``401 Unauthorized`` "
 "응답을 반환합니다."
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "관리자는 **시스템 설정 > 관측성** 메뉴에서 **재시작하여 적용** 버튼을 선택하여 양식을 저장하고 모델 프로세스를 유지하면서 Supervisor와 API를 차례로 재시작할 수 있습니다. 두 구성 요소가 저장된 설정을 로드하면 버튼이 사라집니다. 교체에 실패하면 이전 구성 요소가 계속 요청을 처리합니다."

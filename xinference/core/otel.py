@@ -45,6 +45,25 @@ logger = logging.getLogger(__name__)
 
 # Sentinel so setup_otel() is idempotent (safe to call multiple times)
 _otel_initialized = False
+_otel_shutdown = False
+_otel_providers: list[Any] = []
+
+
+def is_otel_initialized() -> bool:
+    return _otel_initialized and not _otel_shutdown
+
+
+def shutdown_otel() -> None:
+    """Stop exporters when a retired generation remains alive as a host."""
+    global _otel_shutdown
+    if _otel_shutdown:
+        return
+    _otel_shutdown = True
+    for provider in reversed(_otel_providers):
+        try:
+            provider.shutdown()
+        except Exception:
+            logger.exception("Failed to shut down a retired OpenTelemetry provider")
 
 
 @dataclass
@@ -191,6 +210,7 @@ def _setup_tracing(
     resource = Resource.create({"service.name": service_name})
     sampler = TraceIdRatioBased(sampling_rate)
     provider = TracerProvider(resource=resource, sampler=sampler)
+    _otel_providers.append(provider)
 
     exporter = _build_span_exporter(
         endpoint=trace_endpoint,
@@ -270,6 +290,7 @@ def _setup_metrics(
         export_timeout_millis=export_timeout_ms,
     )
     provider = MeterProvider(resource=resource, metric_readers=[reader])
+    _otel_providers.append(provider)
     metrics.set_meter_provider(provider)
 
 

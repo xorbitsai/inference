@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from xinference import extensions
+from xinference import constants, extensions
 
 from ..control_session import ControllerSession
 from ..supervisor import SupervisorActor
@@ -44,7 +44,7 @@ async def test_startup_loads_ownership_before_support_actor_awaits(
             ),
         ),
     )
-    monkeypatch.setattr("xinference.core.supervisor.XINFERENCE_ENABLE_OTEL", False)
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_OTEL", False)
     owner = SupervisorActor()
     owner.address = "supervisor:1234"
 

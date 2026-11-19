@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-11-17 23:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ja_JP\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "管理者は **システム設定 > オブザーバビリティ** の **再起動して適用** を選択してフォームを保存し、モデルプロセスを維持したまま Supervisor、API の順に再起動できます。両方のコンポーネントが保存済みの設定を読み込むとボタンが消えます。置き換えに失敗した場合、以前のコンポーネントが引き続きリクエストを処理します。"

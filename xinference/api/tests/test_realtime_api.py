@@ -242,9 +242,9 @@ async def test_gateway_disconnect_releases_runtime():
         await wait_empty(service.runtime)
 
 
+@pytest.mark.usefixtures("isolated_system_settings")
 @pytest.mark.parametrize("allowed", [False, True])
 async def test_ip_allowlist_through_real_api_stack(monkeypatch, tmp_path, allowed):
-    from ...core import system_settings_store
     from .. import restful_api
 
     monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: False)
@@ -254,11 +254,9 @@ async def test_ip_allowlist_through_real_api_stack(monkeypatch, tmp_path, allowe
         ("XINFERENCE_AUTH_DB_PATH", "auth.db"),
         ("XINFERENCE_LAUNCH_HISTORY_DB_PATH", "history.db"),
         ("XINFERENCE_MONITOR_CONFIG_DB_PATH", "monitor.db"),
-        ("XINFERENCE_SYSTEM_SETTINGS_PATH", "settings.json"),
     ):
         monkeypatch.setattr(restful_api, name, str(tmp_path / filename))
     monkeypatch.setattr(restful_api.RESTfulAPI, "_allowed_ip_list", None)
-    monkeypatch.setattr(system_settings_store, "_store", None)
     monkeypatch.setattr(
         restful_api,
         "XINFERENCE_ALLOWED_IPS",

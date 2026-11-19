@@ -36,6 +36,7 @@ class SupervisorProcess:
     exited: asyncio.Task
     version: Optional[str] = None
     shared: bool = False
+    observability: Optional[Dict[str, Any]] = None
 
 
 class SupervisorHost:
@@ -77,6 +78,10 @@ class SupervisorHost:
         self.active = source
 
     async def spawn(self, executable, environment):
+        from ..core.observability_settings_store import (
+            create_observability_settings_store,
+        )
+
         environment = {
             key: value for key, value in environment.items() if key != API_HOST_ENV
         }
@@ -93,6 +98,11 @@ class SupervisorHost:
                     "address": address,
                     "service_address": self.address,
                     "settings": self.settings_store.get().to_dict(),
+                    "observability": create_observability_settings_store(
+                        self.settings_store.path
+                    )
+                    .get()
+                    .to_dict(),
                     "logging_conf": self.configuration.get("logging_conf"),
                     "local_deployment": self.configuration.get("local_deployment"),
                 }
@@ -133,6 +143,7 @@ class SupervisorHost:
                     await asyncio.sleep(0.05)
                     continue
                 child.version = info["version"]
+                child.observability = info.get("observability", {})
                 return
             except (ConnectionError, OSError, xo.ActorNotExist, asyncio.TimeoutError):
                 await asyncio.sleep(0.05)
@@ -229,6 +240,9 @@ class SupervisorHost:
             target = await self.spawn(operation["python_executable"], environment)
             operation["target_pid"] = target.process.pid
             await self.ready(target)
+            runtime = getattr(target, "observability", None) or {}
+            if runtime.get("error"):
+                raise RuntimeError(runtime["error"])
             operation.update(status="preparing", target_version=target.version)
             await xo.wait_for(
                 self.gateway.prepare_supervisor_switch(final=False), STARTUP_TIMEOUT

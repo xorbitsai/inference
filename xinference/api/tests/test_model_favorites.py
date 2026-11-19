@@ -465,12 +465,12 @@ def test_invalid_authenticated_owner_cannot_access_anonymous_favorites(tmp_path,
     assert store.list(None) == ["anonymous-only"]
 
 
+@pytest.mark.usefixtures("isolated_system_settings")
 @pytest.mark.parametrize("custom", [False, True])
 def test_real_api_constructor_initializes_favorites_provider(
     monkeypatch, tmp_path, custom
 ):
     from xinference.api import restful_api
-    from xinference.core import system_settings_store
 
     monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: custom)
     selected_auth = object()
@@ -507,10 +507,6 @@ def test_real_api_constructor_initializes_favorites_provider(
     monkeypatch.setattr(
         restful_api, "XINFERENCE_MONITOR_CONFIG_DB_PATH", str(tmp_path / "monitor.db")
     )
-    monkeypatch.setattr(
-        restful_api, "XINFERENCE_SYSTEM_SETTINGS_PATH", str(tmp_path / "settings.json")
-    )
-    monkeypatch.setattr(system_settings_store, "_store", None)
     api = restful_api.RESTfulAPI("127.0.0.1:1", "127.0.0.1", 0)
     if custom:
         assert api._model_favorites_store is provider.return_value
@@ -522,6 +518,7 @@ def test_real_api_constructor_initializes_favorites_provider(
         assert api._model_favorites_store._path == str(tmp_path / "auth.db")
 
 
+@pytest.mark.usefixtures("isolated_system_settings")
 @pytest.mark.parametrize(
     "authenticated,custom_path", [(False, False), (True, False), (True, True)]
 )
@@ -529,7 +526,6 @@ def test_api_favorites_reuse_the_selected_database_without_enabling_auth(
     monkeypatch, tmp_path, authenticated, custom_path
 ):
     from xinference.api import restful_api
-    from xinference.core import system_settings_store
 
     configured = tmp_path / "configured-auth.db"
     selected = tmp_path / "selected-auth.db" if custom_path else configured
@@ -541,10 +537,8 @@ def test_api_favorites_reuse_the_selected_database_without_enabling_auth(
         "XINFERENCE_AUTH_DB_PATH": configured,
         "XINFERENCE_LAUNCH_HISTORY_DB_PATH": tmp_path / "history.db",
         "XINFERENCE_MONITOR_CONFIG_DB_PATH": tmp_path / "monitor.db",
-        "XINFERENCE_SYSTEM_SETTINGS_PATH": tmp_path / "settings.json",
     }.items():
         monkeypatch.setattr(restful_api, name, str(path))
-    monkeypatch.setattr(system_settings_store, "_store", None)
     if custom_path:
         monkeypatch.setattr(
             extensions,

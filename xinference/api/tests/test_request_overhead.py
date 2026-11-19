@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import asyncio
 import ipaddress
 import subprocess
@@ -23,6 +24,7 @@ import pytest
 from fastapi import APIRouter, FastAPI, Request, Response
 from starlette.responses import StreamingResponse
 
+from xinference import constants
 from xinference.api import restful_api
 from xinference.api.restful_api import RESTfulAPI
 
@@ -35,6 +37,7 @@ def api(monkeypatch):
     api._advanced_auth_service = None
     api._monitor_config_store = None
     api._system_settings_store = None
+    api._observability_settings_store = None
     api._host, api._port = "127.0.0.1", 0
     api._record_admin_audit = Mock()
     api._record_audit = Mock()
@@ -42,7 +45,7 @@ def api(monkeypatch):
     monkeypatch.setattr(restful_api, "Server", Mock())
     monkeypatch.setattr(restful_api, "mount_frontend", lambda *a: True)
     monkeypatch.setattr(restful_api, "is_metrics_disabled", lambda: True)
-    monkeypatch.setattr(restful_api, "XINFERENCE_ENABLE_OTEL", False)
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_OTEL", False)
     monkeypatch.setattr("xinference.api.routers.register_all_routes", lambda api: None)
     api.serve()
     return api

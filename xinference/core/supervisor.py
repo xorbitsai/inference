@@ -50,7 +50,6 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
-    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -1240,11 +1239,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     async def __post_create__(self):
         from ..extensions import get_extensions
+        from .observability_settings_store import ObservabilitySettingsStore
+
+        self._observability_runtime = (
+            ObservabilitySettingsStore._settings_from_environment(dict(os.environ))
+        )
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._uptime = time.time()
-        if XINFERENCE_ENABLE_OTEL:
+        from .. import constants as xinference_constants
+
+        if xinference_constants.XINFERENCE_ENABLE_OTEL:
             try:
                 from .otel import setup_otel
 
@@ -1419,6 +1425,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     def supervisor_upgrade_info(self):
         from .. import __version__
+        from .observability_settings_store import observability_runtime_state
         from .supervisor_upgrade import PROTOCOL_VERSION
 
         return {
@@ -1426,6 +1433,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             "pid": os.getpid(),
             "version": __version__,
             "ready": self._supervisor_prepared,
+            "observability": observability_runtime_state(self._observability_runtime),
         }
 
     async def pause_supervisor(self):
@@ -7733,6 +7741,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
         finally:
+            from .otel import shutdown_otel
+
+            await asyncio.to_thread(shutdown_otel)
             if control is not None:
                 await control.invoke("close")
 
