@@ -253,7 +253,23 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 "tokens; shorten text or resize the image."
             )
 
+    def _validate_request_options(self, kwargs: Dict[str, Any]) -> Optional[int]:
+        dimensions = kwargs.get("dimensions", self._kwargs.get("dimensions"))
+        self._validate_dimensions(dimensions)
+        if kwargs.get("return_sparse", False):
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed does not support sparse embeddings."
+            )
+        processing_kwargs = kwargs.get("processing_kwargs")
+        if processing_kwargs is not None and not isinstance(processing_kwargs, dict):
+            raise InvalidModelRequestError(
+                "Nemotron 3.5 Embed processing_kwargs must be an object or null."
+            )
+        return dimensions
+
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
+        # Validate before grouping: Python treats True and 1 as equal batch keys.
+        self._validate_request_options(kwargs)
         # Leave text and token arrays to the usual truncation and decoding path.
         if not isinstance(sentences, list) or not any(
             isinstance(item, dict) for item in sentences
@@ -266,12 +282,7 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
     def _create_embedding(self, sentences: Any, **kwargs: Any) -> Embedding:
         sentences = self._fix_langchain_openai_inputs(sentences)
         samples, prefix = normalize_inputs(sentences, **kwargs)
-        dimensions = kwargs.get("dimensions", self._kwargs.get("dimensions"))
-        self._validate_dimensions(dimensions)
-        if kwargs.get("return_sparse", False):
-            raise InvalidModelRequestError(
-                "Nemotron 3.5 Embed does not support sparse embeddings."
-            )
+        dimensions = self._validate_request_options(kwargs)
         _prepare_images(samples)
         vectors, counts = (
             self._encode_samples(samples, prefix, **kwargs) if samples else ([], [])
@@ -336,7 +347,7 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                 tokenize=True,
                 return_dict=True,
                 return_tensors="pt",
-                **kwargs.get("processing_kwargs", {}),
+                **(kwargs.get("processing_kwargs") or {}),
             )
             self._validate_context_length(features["input_ids"].shape[-1])
             features = features.to(self._model.device)

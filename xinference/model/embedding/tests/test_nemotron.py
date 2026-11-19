@@ -266,15 +266,40 @@ def test_transformers_rejects_expanded_input_over_context_limit():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["special-first", "valid-first"])
 @pytest.mark.parametrize(
-    "bad_input,options,error",
+    "special_input,options,valid_options,error",
     [
-        (["valid document", "overlong"], {}, "exceeds 32768"),
-        ("short", {"dimensions": 0}, "dimensions must"),
+        (["valid document", "overlong"], {}, {}, "exceeds 32768"),
+        ("short", {"dimensions": 0}, {}, "dimensions must"),
+        ("short", {"dimensions": True}, {"dimensions": 1}, "dimensions must"),
+        ("short", {"processing_kwargs": None}, {}, None),
+        ("short", {"processing_kwargs": []}, {}, "processing_kwargs must be an object"),
+        (
+            "short",
+            {"processing_kwargs": False},
+            {},
+            "processing_kwargs must be an object",
+        ),
+        (
+            "short",
+            {"processing_kwargs": "padding"},
+            {},
+            "processing_kwargs must be an object",
+        ),
+    ],
+    ids=[
+        "context",
+        "zero-dimensions",
+        "boolean-dimensions",
+        "null-options",
+        "list-options",
+        "boolean-options",
+        "string-options",
     ],
 )
 async def test_rest_embedding_validation_is_request_local(
-    monkeypatch, bad_input, options, error
+    monkeypatch, special_input, options, valid_options, error, reverse
 ):
     from xinference.api.restful_api import RESTfulAPI
 
@@ -302,34 +327,48 @@ async def test_rest_embedding_validation_is_request_local(
 
     monkeypatch.setattr(
         "xinference.api.restful_api.require_model",
-        AsyncMock(return_value=SimpleNamespace(create_embedding=create_embedding)),
+        AsyncMock(
+            return_value=SimpleNamespace(
+                uid=b"replica", create_embedding=create_embedding
+            )
+        ),
     )
     api = object.__new__(RESTfulAPI)
     api._set_trace_model = MagicMock()
     api._set_trace_model_type = MagicMock()
     api._check_model_access = MagicMock()
     api._get_supervisor_ref = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda _, error: error)
     api._report_error_event = AsyncMock()
     app = FastAPI()
     app.add_api_route("/v1/embeddings", api.create_embedding, methods=["POST"])
 
+    payloads = [
+        {"model": "nemotron", "input": special_input, **options},
+        {"model": "nemotron", "input": "short", **valid_options},
+    ]
+    if reverse:
+        payloads.reverse()
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        invalid, valid = await asyncio.gather(
-            client.post(
-                "/v1/embeddings",
-                json={"model": "nemotron", "input": bad_input, **options},
-            ),
-            client.post("/v1/embeddings", json={"model": "nemotron", "input": "short"}),
+        responses = await asyncio.gather(
+            *(client.post("/v1/embeddings", json=payload) for payload in payloads)
         )
 
-    assert invalid.status_code == 400, invalid.text
-    assert error in invalid.json()["detail"]
+    special, valid = reversed(responses) if reverse else responses
+    if error is None:
+        assert special.status_code == 200, special.text
+        assert special.json() == valid.json()
+    else:
+        assert special.status_code == 400, special.text
+        assert error in special.json()["detail"]
     assert valid.status_code == 200, valid.text
     result = valid.json()
     assert result["model"] == "nemotron"
-    assert result["data"][0]["embedding"] == pytest.approx([0.6, 0.8])
+    assert result["data"][0]["embedding"] == pytest.approx(
+        [1.0] if valid_options else [0.6, 0.8]
+    )
     assert result["data"][0]["index"] == 0
     assert result["usage"]["total_tokens"] == 1
 
