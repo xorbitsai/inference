@@ -655,6 +655,79 @@ async def test_failed_chat_releases_reservation(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_failed_chat_does_not_wait_for_stalled_reservation_release(monkeypatch):
+    import xoscar as xo
+    from xoscar.backends.context import IndigenActorContext
+    from xoscar.backends.message import CancelMessage, ResultMessage
+
+    cancellation_started = asyncio.Event()
+    unblock_replica = asyncio.Event()
+    release_task = None
+
+    class StalledContext(IndigenActorContext):
+        async def _call(self, address, message, **kwargs):
+            if isinstance(message, CancelMessage):
+                cancellation_started.set()
+                await unblock_replica.wait()
+                return ResultMessage(message.message_id, result=True)
+
+            async def reply():
+                await unblock_replica.wait()
+                return ResultMessage(message.message_id, result=None)
+
+            return asyncio.create_task(reply())
+
+    context = StalledContext()
+
+    async def release_chat_reservation(reservation_id: str) -> None:
+        nonlocal release_task
+        release_task = asyncio.current_task()
+        await context.send(
+            xo.ActorRef("stalled:1234", "model-rep0"),
+            ("release_chat_reservation", 0, (reservation_id,), {}),
+        )
+
+    error = RuntimeError("chat failed")
+    model = SimpleNamespace(
+        uid=b"model-rep0",
+        is_vllm_backend=AsyncMock(return_value=False),
+        chat=AsyncMock(side_effect=error),
+        release_chat_reservation=AsyncMock(side_effect=release_chat_reservation),
+    )
+    supervisor = SimpleNamespace(
+        get_chat_model=AsyncMock(return_value=(model, True)),
+        describe_model=AsyncMock(return_value={}),
+    )
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    api._get_model_last_error = AsyncMock(return_value=error)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    request = _Request(
+        {
+            "model": "model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "routing_key": "task",
+        }
+    )
+    task = asyncio.create_task(api.create_chat_completion(request))
+    try:
+        await asyncio.wait_for(cancellation_started.wait(), timeout=5)
+        done, _ = await asyncio.wait({task}, timeout=2)
+        assert task in done, "Chat cleanup waited for cancellation acknowledgment"
+        with pytest.raises(HTTPException) as caught:
+            task.result()
+        assert caught.value.status_code == 500
+        model.release_chat_reservation.assert_awaited_once_with(
+            model.chat.await_args.kwargs["_chat_reservation_id"]
+        )
+    finally:
+        unblock_replica.set()
+        await asyncio.gather(task, return_exceptions=True)
+        if release_task is not None:
+            await asyncio.gather(release_task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
 async def test_vllm_non_streaming_disconnect_releases_pending_reservation(monkeypatch):
     dispatched = asyncio.Event()
     cancelled = asyncio.Event()
