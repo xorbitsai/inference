@@ -1,4 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# CI: linux
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -128,4 +129,97 @@ async def test_ordinary_failure_still_releases_devices(monkeypatch):
         )
 
     worker.release_devices.assert_called_once_with(model_uid="m-rep0")
+    assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+@pytest.mark.asyncio
+async def test_cancel_dependency_install_reaches_uv():
+    from xinference.core.worker import LaunchInfo
+
+    worker = _make_worker()
+    worker._status_guard_ref = None
+    worker._cancel_download = lambda info: info.cancel_event.set()
+    manager = MagicMock()
+    launch_info = LaunchInfo(virtual_env_manager=manager)
+    worker._model_uid_launching_guard["m-rep0"] = launch_info
+
+    def cancel_install():
+        assert launch_info.cancel_event.is_set()
+
+    manager.cancel_install.side_effect = cancel_install
+    asyncio.get_running_loop().call_later(
+        0.25, worker._model_uid_launching_guard.pop, "m-rep0"
+    )
+    await worker.cancel_launch_model("m-rep0")
+    manager.cancel_install.assert_called_once_with()
+    assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+def test_cancelled_dependency_setup_skips_install():
+    from xinference.core.worker import WorkerActor
+
+    cancel_event = threading.Event()
+    cancel_event.set()
+    manager = MagicMock()
+    with pytest.raises(RuntimeError, match="Launch cancelled during dependency setup"):
+        WorkerActor._prepare_virtual_env(
+            manager, None, ["example"], None, cancel_event=cancel_event
+        )
+    manager.install_packages.assert_not_called()
+
+
+def test_cancel_while_waiting_for_environment_lock(tmp_path):
+    from xinference.core.worker import _exclusive_venv_path_lock
+
+    path = str(tmp_path / "env")
+    cancelled = threading.Event()
+    with _exclusive_venv_path_lock(path):
+        cancelled.set()
+        with pytest.raises(RuntimeError, match="Launch cancelled"):
+            with _exclusive_venv_path_lock(path, cancelled):
+                pytest.fail("cancelled waiter acquired the environment")
+
+
+@pytest.mark.asyncio
+async def test_cancel_creation_waiter_before_environment_write(tmp_path, monkeypatch):
+    from xinference.core import worker as module
+
+    worker = _make_worker()
+    entered = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def create(enabled, name, path, cancel_event):
+        loop.call_soon_threadsafe(entered.set)
+        return module.WorkerActor._create_virtual_env_manager(
+            enabled, name, path, cancel_event
+        )
+
+    worker._create_virtual_env_manager = create
+    factory = MagicMock()
+    monkeypatch.setattr("xoscar.virtualenv.get_virtual_env_manager", factory)
+    monkeypatch.setattr(module, "XINFERENCE_VIRTUAL_ENV_DIR", str(tmp_path))
+    import platform
+
+    env = tmp_path / "v4" / "m" / "default" / platform.python_version()
+    with module._exclusive_venv_path_lock(str(env)):
+        launch = asyncio.create_task(
+            worker.launch_builtin_model(
+                model_uid="m-rep0",
+                model_name="m",
+                model_size_in_billions=None,
+                model_format=None,
+                quantization=None,
+                model_engine=None,
+                enable_virtual_env=True,
+            )
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 2)
+            launch.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(launch, 2)
+        finally:
+            launch.cancel()
+            await asyncio.gather(launch, return_exceptions=True)
+    factory.assert_not_called()
     assert "m-rep0" not in worker._model_uid_launching_guard

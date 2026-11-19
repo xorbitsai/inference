@@ -101,7 +101,12 @@ from ..core.exceptions import (
 from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
 from ..core.rpc_context import actor_call, correlate_model_ref
-from ..core.supervisor import SupervisorActor
+from ..core.supervisor import (
+    InitialModelLaunchStopping,
+    LaunchDeletePreconditionFailed,
+    ModelAlreadyAbsent,
+    SupervisorActor,
+)
 from ..core.utils import CancelMixin
 from ..request_priority import CHAT_PRIORITY_HINT, is_interactive_priority_hint
 from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
@@ -2016,6 +2021,9 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def list_models(self) -> JSONResponse:
+        from .oauth2.advanced.audit import model_cache_revision, refresh_model_metadata
+
+        revision = model_cache_revision()
         try:
             supervisor_ref = await self._get_supervisor_ref()
             physical_models = await supervisor_ref.list_models()
@@ -2026,17 +2034,14 @@ class RESTfulAPI(CancelMixin):
                 models = physical_models
 
             model_list = []
+            refresh_cache = revision == model_cache_revision()
             for model_id, model_info in models.items():
-                self._uid_to_model_name[model_id] = model_info.get(
-                    "model_name", model_id
-                )
-                from .oauth2.advanced.audit import update_model_cache
-
-                update_model_cache(
-                    model_id,
-                    model_info.get("model_name", model_id),
-                    model_info.get("model_type", ""),
-                )
+                if refresh_cache:
+                    name = model_info.get("model_name", model_id)
+                    self._uid_to_model_name[model_id] = name
+                    refresh_model_metadata(
+                        model_id, name, model_info.get("model_type", "")
+                    )
                 model_list.append(
                     {
                         "id": model_id,
@@ -2454,6 +2459,8 @@ class RESTfulAPI(CancelMixin):
             await (await self._get_supervisor_ref()).cancel_launch_builtin_model(
                 model_uid
             )
+        except InitialModelLaunchStopping as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -2579,29 +2586,38 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def terminate_model(self, model_uid: str) -> JSONResponse:
+    def _evict_deleted_model(self, model_uid, launch_revision):
+        from .oauth2.advanced.audit import evict_model_cache, model_launch_revision
+
+        if model_launch_revision(model_uid) == launch_revision:
+            self._uid_to_model_name.pop(model_uid, None)
+            evict_model_cache(model_uid)
+
+    async def terminate_model(
+        self, model_uid: str, launch_id: Optional[str] = None
+    ) -> JSONResponse:
+        from .oauth2.advanced.audit import model_launch_revision
+
+        launch_revision = model_launch_revision(model_uid)
         try:
             assert self._app is not None
-            await (await self._get_supervisor_ref()).terminate_model(model_uid)
-            self._app.router.routes = [
-                route
-                for route in self._app.router.routes
-                if not (
-                    hasattr(route, "path")
-                    and isinstance(route.path, str)
-                    and route.path == "/" + model_uid
-                )
-            ]
+            await (await self._get_supervisor_ref()).terminate_model(
+                model_uid, launch_id=launch_id, require_launch_id=True
+            )
+        except LaunchDeletePreconditionFailed as exc:
+            raise HTTPException(status_code=412, detail=str(exc)) from exc
+        except ModelAlreadyAbsent:
+            # A previous DELETE may have timed out before background cleanup finished.
+            pass
+        except InitialModelLaunchStopping as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-        self._uid_to_model_name.pop(model_uid, None)
-        from .oauth2.advanced.audit import evict_model_cache
-
-        evict_model_cache(model_uid)
+        self._evict_deleted_model(model_uid, launch_revision)
         return JSONResponse(content=None)
 
     async def add_model_replica(
@@ -2707,25 +2723,16 @@ class RESTfulAPI(CancelMixin):
     async def terminate_model_replica(
         self, model_uid: str, replica_id: int
     ) -> JSONResponse:
+        from .oauth2.advanced.audit import model_launch_revision
+
+        launch_revision = model_launch_revision(model_uid)
         try:
             assert self._app is not None
             remaining_replicas = await (
                 await self._get_supervisor_ref()
             ).terminate_model_replica(model_uid, replica_id)
             if remaining_replicas == 0:
-                self._app.router.routes = [
-                    route
-                    for route in self._app.router.routes
-                    if not (
-                        hasattr(route, "path")
-                        and isinstance(route.path, str)
-                        and route.path == "/" + model_uid
-                    )
-                ]
-                self._uid_to_model_name.pop(model_uid, None)
-                from .oauth2.advanced.audit import evict_model_cache
-
-                evict_model_cache(model_uid)
+                self._evict_deleted_model(model_uid, launch_revision)
             return JSONResponse(content={"remaining_replicas": remaining_replicas})
         except ModelReloadInProgress as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

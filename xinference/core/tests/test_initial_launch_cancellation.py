@@ -10,7 +10,7 @@ import pytest
 
 from ..replica_config import DeviceConfig, ReplicaConfig
 from ..status_guard import InstanceInfo, StatusGuardActor
-from ..supervisor import InitialModelLaunch, SupervisorActor
+from ..supervisor import InitialModelLaunch, InitialModelLaunchStopping, SupervisorActor
 
 
 class _Worker:
@@ -81,6 +81,7 @@ def runtime():
                 "update_instance_info",
                 "update_replica_status",
                 "get_replica_statuses",
+                "remove_failed_instance_info",
             )
         }
     )
@@ -343,9 +344,6 @@ async def test_cancel_mixed_initial_readiness_drains_dispatch_and_all_replicas(
     assert guard.get_replica_statuses("demo")[0].status == "READY"
     with pytest.raises(ValueError, match="Initial launch"):
         await supervisor.add_model_replica("demo")
-    with pytest.raises(ValueError, match="Initial launch"):
-        await supervisor.terminate_model("demo")
-
     await asyncio.wait_for(supervisor.cancel_launch_builtin_model("demo"), 2)
     if wait_ready:
         with pytest.raises(RuntimeError, match="launch cancelled"):
@@ -453,3 +451,96 @@ async def test_cancel_rejects_scale_up_without_touching_established_replicas(run
         workers[1].release.set()
         await scale
     assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0, 1]
+
+
+@pytest.mark.asyncio
+async def test_delete_joins_timed_out_initial_launch_cancellation(runtime, monkeypatch):
+    supervisor, guard, workers, kwargs = runtime
+    from fastapi import HTTPException
+
+    from xinference.api.restful_api import RESTfulAPI
+
+    api = object.__new__(RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    routes = [SimpleNamespace(path="/metrics"), SimpleNamespace(path="/other")]
+    api._app = SimpleNamespace(router=SimpleNamespace(routes=routes))
+    api._uid_to_model_name = {"demo": "old"}
+    worker = workers[1]
+    worker.stage = "dispatch"
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_CANCEL_LAUNCH_TIMEOUT", 0.05
+    )
+    release_cleanup = asyncio.Event()
+    cancel = worker.cancel_launch_model
+
+    async def delayed_cancel(model_uid):
+        await release_cleanup.wait()
+        await cancel(model_uid)
+
+    worker.cancel_launch_model = AsyncMock(side_effect=delayed_cancel)
+    await supervisor._launch_builtin_model(**kwargs, wait_ready=False)
+    await asyncio.wait_for(worker.entered.wait(), 2)
+    operation = supervisor._initial_model_launches["demo"]
+    launch_id = (await supervisor.get_instance_info(None, "demo"))[0]["launch_id"]
+    with pytest.raises(HTTPException) as missing:
+        await api.terminate_model("demo")
+    assert missing.value.status_code == 412
+    try:
+        with pytest.raises(InitialModelLaunchStopping):
+            await asyncio.wait_for(supervisor.cancel_launch_builtin_model("demo"), 2)
+        cleanup = operation.cleanup_task
+        with pytest.raises(HTTPException) as exc:
+            await asyncio.wait_for(api.terminate_model("demo", launch_id), 2)
+        assert exc.value.status_code == 409
+        assert operation.cleanup_task is cleanup
+        assert not cleanup.done()
+        assert supervisor._initial_model_launches["demo"] is operation
+        assert guard.get_instance_info(None, "demo")
+        with pytest.raises(ValueError, match="already in the model list"):
+            await supervisor._launch_builtin_model(**kwargs)
+    finally:
+        release_cleanup.set()
+        if operation.cleanup_task is not None:
+            await asyncio.wait_for(asyncio.shield(operation.cleanup_task), 2)
+
+    worker.cancel_launch_model.assert_awaited_once()
+    assert not supervisor._initial_model_launches
+    assert not guard.get_instance_info(None, "demo")
+    evict = Mock()
+    monkeypatch.setattr("xinference.api.oauth2.advanced.audit.evict_model_cache", evict)
+    response = await api.terminate_model("demo", launch_id)
+    assert response.status_code == 200
+    assert [route.path for route in api._app.router.routes] == ["/metrics", "/other"]
+    assert "demo" not in api._uid_to_model_name
+    evict.assert_called_once_with("demo")
+    worker.stage = None
+    assert await supervisor._launch_builtin_model(**kwargs) == "demo"
+    api._uid_to_model_name["demo"] = "replacement"
+    with pytest.raises(HTTPException) as stale:
+        await api.terminate_model("demo", launch_id)
+    assert stale.value.status_code == 412
+    assert "demo" in supervisor._model_uid_to_replica_info
+    assert api._uid_to_model_name["demo"] == "replacement"
+    evict.assert_called_once_with("demo")
+    assert (await api.terminate_model("metrics")).status_code == 200
+    assert api._app.router.routes == routes
+
+
+@pytest.mark.asyncio
+async def test_delete_timeout_before_registration(runtime, monkeypatch):
+    supervisor, _, _, _ = runtime
+    launch = asyncio.create_task(asyncio.Event().wait())
+    operation = InitialModelLaunch(launch)
+    supervisor._initial_model_launches["demo"] = operation
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_CANCEL_LAUNCH_TIMEOUT", 0.02
+    )
+    try:
+        async with supervisor._get_model_replica_lock("demo"):
+            with pytest.raises(InitialModelLaunchStopping, match="not registered"):
+                await supervisor.terminate_model("demo")
+        assert operation.cleanup_task is None
+        assert not operation.delete_requested
+    finally:
+        launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)

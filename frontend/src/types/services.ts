@@ -182,6 +182,7 @@ export interface ModelInstanceInfo {
   instance_created_ts: number;
   replica_statuses: ReplicaItem[];
   can_cancel_launch?: boolean;
+  launch_id?: string;
 }
 
 export interface LaunchProgressReplica {
