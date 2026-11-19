@@ -74,7 +74,15 @@ def register_routes(api: "RESTfulAPI") -> None:
             raise HTTPException(
                 status_code=422, detail="Benchmarks require a running chat LLM"
             )
-        if body.input_tokens + body.output_tokens > model.get("context_length", 2**31):
+        try:
+            runtime_info = await supervisor.get_model_runtime_info(body.model_uid)
+            context_length = runtime_info["runtime_context_length"]
+        except (AttributeError, ValueError):
+            # Older supervisors may lack this RPC, or the UID may lack replicas.
+            context_length = None
+        if context_length is None:
+            context_length = model.get("context_length", 2**31)
+        if body.input_tokens + body.output_tokens > context_length:
             raise HTTPException(
                 status_code=422,
                 detail="Input and output exceed the model context length",
