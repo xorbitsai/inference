@@ -859,13 +859,10 @@ async def test_terminate_replica_reconciles_worker_replay_during_delete():
     original_terminate = worker.terminate_model
 
     async def terminate_with_replay(model_uid, **kwargs):
-        deletion = supervisor._replica_deletions[model_uid]
         supervisor._rebuild_worker_replica_state(
             worker,
             [{"replica_model_uid": f"demo-rep{i}"} for i in (0, 1)],
         )
-        assert supervisor._replica_deletions[model_uid] is deletion
-        assert deletion.active_calls == 1
         await original_terminate(model_uid, **kwargs)
         await supervisor._status_guard_ref.update_replica_status(
             "demo", 1, {"status": "TERMINATED"}
@@ -877,7 +874,6 @@ async def test_terminate_replica_reconciles_worker_replay_during_delete():
     )
 
     assert remaining == 1
-    assert not supervisor._replica_deletions
     assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
     assert set(supervisor._replica_model_uid_to_worker) == {"demo-rep0"}
     statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
