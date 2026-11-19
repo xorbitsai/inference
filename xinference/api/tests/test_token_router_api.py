@@ -7,8 +7,9 @@ import threading
 import time
 from copy import deepcopy
 from pathlib import Path
-from types import MethodType
-from typing import TYPE_CHECKING, cast
+from types import MethodType, SimpleNamespace
+from typing import TYPE_CHECKING, Optional, Union, cast
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -26,6 +27,7 @@ from xinference.core.router_orchestration import RouterOrchestrationController
 from xinference.core.router_registry import RouterRuntimeRegistry
 from xinference.core.supervisor import SupervisorActor
 from xinference.core.tokenizer_asset_registry import TokenizerAssetRegistry
+from xinference.core.utils import build_replica_model_uid
 
 if TYPE_CHECKING:
     from xinference.api.restful_api import RESTfulAPI
@@ -735,6 +737,72 @@ async def test_validation_checks_running_backend_type_and_context(tmp_path) -> N
     assert any(
         "long backend model is not running" in error for error in result["errors"]
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "runtime_context,configured_context,expected_context",
+    [
+        pytest.param(32768, 40960, 32768, id="confirmed"),
+        pytest.param(None, 40960, None, id="unknown"),
+        pytest.param(
+            AttributeError("get_runtime_context_length"),
+            40961,
+            40960,
+            id="older-worker",
+        ),
+    ],
+)
+async def test_validation_uses_running_backend_context(
+    tmp_path: Path,
+    runtime_context: Union[int, None, AttributeError],
+    configured_context: int,
+    expected_context: Optional[int],
+) -> None:
+    supervisor = make_supervisor(tmp_path)
+    list_models = supervisor.list_models
+
+    async def list_models_with_context() -> dict:
+        models = await list_models()
+        models["short-model"]["context_length"] = 40960
+        return models
+
+    supervisor.list_models = list_models_with_context
+    supervisor._model_uid_to_replica_info = {
+        "short-model": SimpleNamespace(active_replica_ids=[0])
+    }
+    get_runtime_context_length = AsyncMock(return_value=runtime_context)
+    if isinstance(runtime_context, AttributeError):
+        get_runtime_context_length.side_effect = runtime_context
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("short-model", 0): SimpleNamespace(
+            get_model=AsyncMock(
+                return_value=SimpleNamespace(
+                    get_runtime_context_length=get_runtime_context_length
+                )
+            )
+        )
+    }
+
+    payload = router_payload()
+    payload["backends"]["short"]["max_context_tokens"] = configured_context
+    payload["routing"]["short_threshold_tokens"] = 32768
+    app = create_app(supervisor)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        assert (await client.post("/v1/token_routers", json=payload)).status_code == 201
+        response = await client.post("/v1/token_routers/router-a/validate")
+
+    assert response.status_code == 200
+    result = response.json()
+    expected_errors = []
+    if expected_context is not None:
+        expected_errors.append(
+            f"short max_context_tokens {configured_context} exceeds "
+            f"backend context_length {expected_context}: short-model"
+        )
+    assert result["errors"] == expected_errors
+    assert result["valid"] is (not expected_errors)
 
 
 @pytest.mark.asyncio
