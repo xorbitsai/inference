@@ -40,6 +40,7 @@ from ..nemotron import (
     check_nemotron_dependencies,
     nemotron_messages,
     prepare_nemotron_request,
+    validate_nemotron_rerank_options,
 )
 from ..utils import is_qwen3_reranker, preprocess_sentence
 
@@ -484,10 +485,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 documents, query, batch_offsets=batch_offsets, **kwargs
             )
         if self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
-            if max_chunks_per_doc is not None:
-                raise ValueError(
-                    "rerank hasn't support `max_chunks_per_doc` parameter."
-                )
+            validate_nemotron_rerank_options(max_chunks_per_doc)
             return self._rerank_nemotron(documents, query, return_len, **kwargs)
         assert self._model is not None
         if max_chunks_per_doc is not None:
@@ -802,6 +800,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
             if is_nemotron:
                 try:
+                    validate_nemotron_rerank_options(
+                        extra_kwargs.get("max_chunks_per_doc")
+                    )
                     documents = self._prepare_nemotron_batch_documents(
                         documents, query, extra_kwargs.get("instruction")
                     )

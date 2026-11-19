@@ -16,7 +16,7 @@
 import importlib
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from packaging.version import Version
 
@@ -24,6 +24,11 @@ from ..llm import media
 from ..utils import check_dependency_available, virtual_env_allows_missing_engine
 
 NEMOTRON_RERANK_MODEL_NAME = "Nemotron-3.5-Rerank-8B"
+
+
+def validate_nemotron_rerank_options(max_chunks_per_doc: Optional[int]) -> None:
+    if max_chunks_per_doc is not None:
+        raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
 
 
 def check_nemotron_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:

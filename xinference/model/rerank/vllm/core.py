@@ -23,6 +23,7 @@ from ..nemotron import (
     NEMOTRON_RERANK_MODEL_NAME,
     check_nemotron_dependencies,
     nemotron_messages,
+    validate_nemotron_rerank_options,
 )
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
@@ -185,8 +186,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         """
         query_list, documents = self._prepare_pairs(documents, query, **kwargs)
         is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
-        if is_nemotron and max_chunks_per_doc is not None:
-            raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
+        if is_nemotron:
+            validate_nemotron_rerank_options(max_chunks_per_doc)
         load = getattr(self, "_pooling_load", None)
         is_multimodal = self.model_family.model_name.startswith("Qwen3-VL-Reranker")
         with (
@@ -664,6 +665,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
             if is_nemotron:
                 try:
+                    validate_nemotron_rerank_options(
+                        extra_kwargs.get("max_chunks_per_doc")
+                    )
                     documents = self._prepare_nemotron_batch_documents(documents, query)
                 except Exception as error:
                     results_with_index.append((i, BatchRequestError(error)))

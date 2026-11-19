@@ -481,6 +481,48 @@ async def test_media_failure_isolated_in_shared_rerank_batch(
     assert score.call_args.args[1] == ["good"]
 
 
+@pytest.mark.parametrize(
+    "cls",
+    [SentenceTransformerRerankModel, NemotronTransformersRerankModel, VLLMRerankModel],
+)
+async def test_max_chunks_per_doc_failure_isolated_in_shared_rerank_batch(
+    cls, monkeypatch
+):
+    model = make_model(cls)
+    model.batch_size = 4
+    model.batch_interval = 0
+    model._model = Mock()
+    prepare = Mock(
+        side_effect=lambda documents, *_: [
+            SimpleNamespace(original=document) for document in documents
+        ]
+    )
+    monkeypatch.setattr(model, "_prepare_nemotron_batch_documents", prepare)
+    scores = (
+        [SimpleNamespace(outputs=SimpleNamespace(score=-1.0), prompt_token_ids=[1])]
+        if cls is VLLMRerankModel
+        else [-1.0]
+    )
+    score = Mock(return_value=scores)
+    monkeypatch.setattr(model, "_rerank_nemotron", score)
+
+    failed, valid = await asyncio.gather(
+        model.rerank(["discard this"], "bad", None, 1, True, False),
+        model.rerank(["keep this"], "good", None, None, True, False),
+        return_exceptions=True,
+    )
+
+    assert isinstance(failed, ValueError)
+    assert "max_chunks_per_doc" in str(failed)
+    assert isinstance(valid, dict), valid
+    assert valid["results"] == [
+        {"index": 0, "relevance_score": -1.0, "document": {"text": "keep this"}}
+    ]
+    prepare.assert_called_once()
+    assert prepare.call_args.args[:2] == (["keep this"], "good")
+    score.assert_called_once()
+
+
 def test_vllm_load_uses_mean_pooling_without_activation(monkeypatch):
     llm = Mock()
     install_fake_vllm(monkeypatch, LLM=llm)
