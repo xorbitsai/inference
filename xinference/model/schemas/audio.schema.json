@@ -135,16 +135,72 @@
         "default_transcription_config": {
           "type": "object",
           "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "model_specs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spec"
+          },
+          "minItems": 1
         }
       },
       "required": [
         "model_name",
         "model_family",
         "model_ability",
-        "multilingual",
-        "model_src"
+        "multilingual"
       ],
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "model_src"
+          ]
+        },
+        {
+          "required": [
+            "model_specs"
+          ]
+        }
+      ]
+    },
+    "spec": {
+      "type": "object",
+      "properties": {
+        "model_src": {
+          "$ref": "#/$defs/record/properties/model_src"
+        },
+        "engine": {
+          "$ref": "#/$defs/record/properties/engine"
+        },
+        "model_format": {
+          "$ref": "#/$defs/record/properties/model_format"
+        },
+        "cache_name": {
+          "$ref": "#/$defs/record/properties/cache_name"
+        },
+        "quantization": {
+          "$ref": "#/$defs/record/properties/quantization"
+        },
+        "model_file_name": {
+          "$ref": "#/$defs/record/properties/model_file_name"
+        },
+        "default_model_config": {
+          "$ref": "#/$defs/record/properties/default_model_config"
+        },
+        "default_transcription_config": {
+          "$ref": "#/$defs/record/properties/default_transcription_config"
+        },
+        "cache_config": {
+          "$ref": "common.schema.json#/$defs/cacheConfig"
+        }
+      },
+      "required": [
+        "model_src",
+        "engine",
+        "model_format"
+      ],
+      "additionalProperties": false
     }
   }
 }

@@ -25,7 +25,7 @@ import pytest
 from .... import constants
 from ....core.exceptions import InvalidAudioInputError, InvalidModelRequestError
 from ...cache_manager import CacheManager
-from .. import engine
+from .. import engine, load_model_family_from_json
 from ..core import create_audio_model_instance, match_audio
 from ..engine_family import AUDIO_ENGINES
 from ..zonos3_mini import Zonos3MiniModel
@@ -69,6 +69,29 @@ def test_catalog_and_dispatch(
     )
     assert isinstance(model, model_class)
     assert model.model_family.model_engine == backend
+
+
+def test_shared_catalog_packages_are_filtered_by_engine(monkeypatch):
+    from xoscar.virtualenv.core import filter_requirements
+
+    monkeypatch.setattr("xinference.model.audio._need_filter", lambda _: False)
+    families = {}
+    load_model_family_from_json("models", families)
+    specs = families[MODEL]
+    assert len(specs) == 8
+
+    for spec in specs:
+        packages = filter_requirements(
+            spec.virtualenv.packages, engine=spec.engine.lower()
+        )
+        assert "soundfile>=0.13.1" in packages
+        assert any(pkg.startswith("transformers") for pkg in packages) == (
+            spec.engine == "transformers"
+        )
+        assert ("torchaudio===2.11.0" in packages) == (spec.engine == "SGLang-Omni")
+        assert any(pkg.startswith("sglang-omni @ ") for pkg in packages) == (
+            spec.engine == "SGLang-Omni"
+        )
 
 
 def test_default_engine():
