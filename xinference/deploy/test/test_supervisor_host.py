@@ -533,3 +533,38 @@ async def test_supervisor_process_replacement_retains_routes(
     finally:
         await host.stop()
         await worker_pool.stop()
+
+
+@pytest.mark.asyncio
+async def test_startup_timeout_does_not_bound_live_handoff(tmp_path, monkeypatch):
+    from .. import supervisor_host
+
+    async def slow_switch(final=True):
+        await asyncio.sleep(0.15)
+
+    monkeypatch.setattr(supervisor_host, "STARTUP_TIMEOUT", 0.05)
+    source = SimpleNamespace(
+        process=SimpleNamespace(pid=1),
+        ref=AsyncMock(),
+        executable=sys.executable,
+        environment={},
+        version="4.1.0",
+    )
+    target = SimpleNamespace(
+        process=SimpleNamespace(pid=2), ref=AsyncMock(), version="4.1.0"
+    )
+    host = SupervisorHost({"supervisor_address": "host:1"}, tmp_path, MagicMock())
+    host.active = source
+    host.spawn, host.ready = AsyncMock(return_value=target), AsyncMock()
+    host.stop_child = AsyncMock()
+    host.gateway = SimpleNamespace(
+        prepare_supervisor_switch=slow_switch,
+        release_supervisor=AsyncMock(),
+        select_supervisor=AsyncMock(),
+        drain_supervisor_reads=AsyncMock(),
+    )
+    operation = host.create()
+    await host.operation_task
+    result = host.handle("supervisor-get", {"operation_id": operation["operation_id"]})
+    assert result["status"] == "succeeded", result.get("error")
+    assert host.active is target

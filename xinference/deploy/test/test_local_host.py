@@ -749,18 +749,18 @@ def test_startup_timeout_is_configurable():
     code = (
         "from xinference.deploy import api_host, local_host, supervisor_host\n"
         "print(api_host.STARTUP_TIMEOUT, local_host.STARTUP_TIMEOUT,"
-        " supervisor_host.STARTUP_TIMEOUT)\n"
+        " supervisor_host.STARTUP_TIMEOUT, api_host.HANDOFF_TIMEOUT)\n"
     )
     environment = {**os.environ, "XINFERENCE_STARTUP_TIMEOUT": "600"}
     output = subprocess.check_output(
         [sys.executable, "-c", code], env=environment, text=True
     )
-    assert output.split() == ["600.0"] * 3
+    assert output.split() == ["600.0"] * 3 + ["120"]
     environment.pop("XINFERENCE_STARTUP_TIMEOUT")
     output = subprocess.check_output(
         [sys.executable, "-c", code], env=environment, text=True
     )
-    assert output.split() == ["120"] * 3
+    assert output.split() == ["120"] * 4
 
 
 @pytest.mark.asyncio

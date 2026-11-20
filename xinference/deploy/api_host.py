@@ -37,6 +37,9 @@ if TYPE_CHECKING:
 
 API_HOST_ENV = "XINFERENCE_API_HOST"
 STARTUP_TIMEOUT = XINFERENCE_STARTUP_TIMEOUT
+# Live replacement and drain deadlines stay fixed; only readiness waits follow
+# XINFERENCE_STARTUP_TIMEOUT.
+HANDOFF_TIMEOUT = 120
 DIAGNOSTIC_LIMIT = 8192
 
 
@@ -191,12 +194,12 @@ class APIProcess:
         self.writer.write(json.dumps({"command": command}).encode() + b"\n")
         await self.writer.drain()
 
-    async def wait(self, event: asyncio.Event) -> None:
+    async def wait(self, event: asyncio.Event, timeout: Optional[float] = None) -> None:
         pending = asyncio.create_task(event.wait())
         try:
             done, _ = await asyncio.wait(
                 {pending, self.exited},
-                timeout=STARTUP_TIMEOUT,
+                timeout=STARTUP_TIMEOUT if timeout is None else timeout,
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if pending in done and self.process.poll() is None:
@@ -459,7 +462,7 @@ class APIHost:
             operation["status"] = "draining"
             try:
                 await source.send("drain")
-                await source.wait(source.draining)
+                await source.wait(source.draining, HANDOFF_TIMEOUT)
             except (ConnectionError, RuntimeError):
                 # Control EOF also starts draining, including on Windows where
                 # Popen.terminate() would immediately cancel active requests.
