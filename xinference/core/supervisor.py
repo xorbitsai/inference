@@ -50,6 +50,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
+    XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -6889,9 +6890,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def get_model(
-        self, model_uid: str, routing_key: Optional[str] = None
+        self,
+        model_uid: str,
+        routing_key: Optional[str] = None,
+        *,
+        for_inference: bool = True,
     ) -> xo.ActorRefType["ModelActor"]:
-        model, _ = await self._select_model(model_uid, routing_key)
+        model, _ = await self._select_model(
+            model_uid, routing_key, for_inference=for_inference
+        )
         return model
 
     @log_async(logger=logger, ignore_kwargs=["routing_request"])
@@ -6939,12 +6946,31 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
         raise RealtimeError("endpoint_unavailable", "Model is not ready", 1013)
 
+    async def _is_replica_stopping(self, uid: str) -> bool:
+        """Whether the worker routed for ``uid`` reports it as stopping or stopped.
+
+        Only the worker's own answer counts: a failed or unanswered read is not.
+        The call is direct: ``actor_call`` would add a metadata keyword that
+        ``WorkerActor.get_model_status`` does not accept.
+        """
+        try:
+            route = self._replica_model_uid_to_worker[uid]
+            worker = route[0] if isinstance(route, (list, tuple)) else route
+            status = await xo.wait_for(
+                worker.get_model_status(uid), XINFERENCE_GET_MODEL_RPC_TIMEOUT
+            )
+        except Exception:
+            return False
+        return getattr(status, "model_state", None) in ("stopping", "stopped")
+
     async def _select_model(
         self,
         model_uid: str,
         routing_key: Optional[str],
         reservation_id: Optional[str] = None,
         routing_request: Optional[dict] = None,
+        *,
+        for_inference: bool = True,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
@@ -6961,13 +6987,49 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        if routing_key is not None or (
-            routing_request is not None and len(replica_info.active_replica_ids) > 1
+        if for_inference and (
+            routing_key is not None
+            or (
+                routing_request is not None and len(replica_info.active_replica_ids) > 1
+            )
         ):
             return await self._get_affinity_model(
                 model_uid, replica_info, routing_key, reservation_id, routing_request
             )
         state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        if not for_inference:
+            # One full cycle preserves the next turn for every iterator holder.
+            candidates = list(
+                itertools.islice(
+                    replica_info.scheduler, len(replica_info.active_replica_ids)
+                )
+            )
+            if state is not None:
+                candidates = sorted(candidates, key=state.should_avoid)
+                candidates = [r for r in candidates if r not in state.draining]
+            last_error: Exception = ModelNotReadyError(
+                f"Model {model_uid} has no available replica"
+            )
+            stopping: Optional[Exception] = None
+            has_sibling = len(candidates) > 1
+            for replica_id in candidates:
+                uid = build_replica_model_uid(model_uid, replica_id)
+                try:
+                    model = await self._get_replica_model(model_uid, replica_id)
+                except ModelNotReadyError as exc:
+                    last_error = exc
+                except Exception as exc:
+                    # A sole candidate keeps the ordinary lookup timeout.
+                    is_stopping = has_sibling and await self._is_replica_stopping(uid)
+                    if uid not in self._replica_model_uid_to_worker:
+                        continue
+                    if not is_stopping:
+                        raise
+                    stopping = stopping or exc
+                else:
+                    if uid in self._replica_model_uid_to_worker:
+                        return model, False
+            raise stopping if stopping is not None else last_error
         first = next(replica_info.scheduler)
         if state is None:
             return await self._get_replica_model(model_uid, first), False

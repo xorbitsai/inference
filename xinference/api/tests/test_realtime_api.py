@@ -14,7 +14,7 @@
 
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from itertools import cycle
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock
 import aiohttp
 import pytest
 from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from ...core.realtime.protocol import RealtimeError
@@ -33,6 +34,7 @@ from ...core.tests.test_realtime_runtime import (
     wait_empty,
 )
 from ..routers.realtime import register_routes
+from .test_audio_capabilities import replicated_audio
 
 
 @asynccontextmanager
@@ -112,6 +114,32 @@ async def test_gateway_common_protocol(task_name):
         await wait_empty(service.runtime)
         service.supervisor.get_model.assert_awaited_once_with("fake")
         service.actor.get_realtime_endpoint.assert_awaited_once()
+
+
+async def test_capabilities_then_connect_uses_both_replicas():
+    async with replicated_audio() as audio:
+        register_routes(audio.api)
+        app = FastAPI()
+        app.include_router(audio.api._router)
+
+        def connect():
+            with TestClient(app) as client, ExitStack() as connections:
+                for _ in range(2):
+                    response = client.get("/v1/models/custom/audio/capabilities")
+                    assert response.status_code == 200
+                    assert response.json() == audio.capabilities
+                    ws = connections.enter_context(
+                        client.websocket_connect("/v1/models/custom/realtime")
+                    )
+                    ws.send_json(CONFIG)
+                    event = ws.receive_json()
+                    assert event["event"] == "session.started", event
+                assert [runtime.active_count for runtime in audio.runtimes] == [1, 1]
+
+        # Keep the backend runtimes' event loop running while TestClient blocks.
+        await asyncio.wait_for(asyncio.to_thread(connect), 10)
+        for runtime in audio.runtimes:
+            await wait_empty(runtime)
 
 
 async def test_autoscaled_realtime_skips_full_or_draining_replica():

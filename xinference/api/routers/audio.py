@@ -21,7 +21,10 @@ def register_routes(api: "RESTfulAPI") -> None:
     async def capabilities(request: Request, model_uid: str) -> JSONResponse:
         api._check_model_access(request, model_uid, "audio")
         model = await require_model(
-            api._get_supervisor_ref, model_uid, api._report_error_event
+            api._get_supervisor_ref,
+            model_uid,
+            api._report_error_event,
+            for_inference=False,
         )
         return JSONResponse(content=await model.get_audio_capabilities())
 
