@@ -377,19 +377,54 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             return EmbeddingRequestOutput.from_base(output)
 
         load = self._pooling_load
+        context_error = None
         with load.native_request() if load is not None else nullcontext():
             tasks = [asyncio.create_task(encode(i, p)) for i, p in enumerate(prompts)]
             try:
                 outputs = await asyncio.gather(*tasks)
+            except Exception as exc:
+                # vLLM rejects an overlong input with an engine exception type
+                # the API process may not import, which it then reports as a
+                # 500. Replace it before it crosses the actor boundary.
+                context_error = self._normalize_context_error(exc)
+                if context_error is None:
+                    raise
             finally:
                 # Cancelling encode also aborts its request in vLLM.
                 for task in tasks:
                     if not task.done():
                         task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
+        # Raise outside the handler so the vLLM exception is not kept as
+        # __context__ on the actor-serialized replacement.
+        if context_error is not None:
+            raise context_error
         # vLLM owns the worker's GPU allocations. Avoid collecting the actor's
         # Python heap every few requests while native inference is in flight.
         return self._format_embedding_outputs(outputs, model_uid)
+
+    @staticmethod
+    def _normalize_context_error(exc: Exception) -> Optional[Exception]:
+        """Return an engine-free context-length error for a vLLM rejection."""
+        from ...llm.context_length import (
+            ContextLengthExceeded,
+            classify_vllm_context_error,
+        )
+
+        if isinstance(exc, ContextLengthExceeded):
+            return None
+        parsed = classify_vllm_context_error(exc)
+        if parsed is None:
+            return None
+        input_tokens, max_model_len = parsed
+        # vLLM's renderer stops counting at max_model_len + 1 ("at least").
+        return ContextLengthExceeded(
+            f"Embedding input uses at least {input_tokens} tokens, exceeding "
+            f"max_model_len={max_model_len}",
+            input_tokens=input_tokens,
+            max_model_len=max_model_len,
+            diagnostic_code="VLLM_PROMPT_LENGTH_REJECTED",
+        )
 
     def _format_embedding_outputs(
         self, outputs: List[Any], model_uid: Optional[str]

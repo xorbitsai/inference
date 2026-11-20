@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import base64
 import json
 import struct
@@ -19,8 +21,10 @@ from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from xinference.api import restful_api
+from xinference.model.llm.context_length import ContextLengthExceeded
 
 
 async def _create_embedding(
@@ -86,3 +90,29 @@ async def test_create_embedding_base64_keeps_sparse_embeddings():
     body, _ = await _create_embedding([sparse], "base64")
 
     assert body["data"][0]["embedding"] == sparse
+
+
+@pytest.mark.asyncio
+async def test_create_embedding_context_length_error_is_400():
+    api = MagicMock()
+    api._report_error_event = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, e: e)
+    api.handle_request_limit_error = restful_api.RESTfulAPI.handle_request_limit_error
+    model = MagicMock(uid="replica-uid")
+    model.create_embedding = AsyncMock(
+        side_effect=ContextLengthExceeded(
+            "Embedding input uses at least 32769 tokens, exceeding "
+            "max_model_len=32768",
+            input_tokens=32769,
+            max_model_len=32768,
+        )
+    )
+    request = MagicMock()
+    request.json = AsyncMock(return_value={"model": "embed-model", "input": "x"})
+
+    with patch.object(restful_api, "require_model", AsyncMock(return_value=model)):
+        with pytest.raises(HTTPException) as raised:
+            await restful_api.RESTfulAPI.create_embedding(api, request)
+
+    assert raised.value.status_code == 400
+    assert "max_model_len=32768" in raised.value.detail
