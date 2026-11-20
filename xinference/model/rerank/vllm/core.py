@@ -6,6 +6,7 @@ import os
 import uuid
 from collections import defaultdict
 from contextlib import nullcontext
+from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
 from xoscar import extensible
@@ -14,10 +15,16 @@ from ....core.replica_load import EngineLoad
 from ....device_utils import empty_cache, is_vacc_available
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import dependency_import_guard, make_hashable
-from ...batch import BatchMixin
+from ...batch import BatchMixin, BatchRequestError
 from ...utils import check_dependency_available
 from ...vllm_load import VLLMPoolingLoad
 from ..core import RerankModel, RerankModelFamilyV2, RerankSpecV1
+from ..nemotron import (
+    NEMOTRON_RERANK_MODEL_NAME,
+    check_nemotron_dependencies,
+    nemotron_messages,
+    validate_nemotron_rerank_options,
+)
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
 QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
@@ -25,6 +32,12 @@ QWEN3_VL_RERANK_TEMPLATE_PATH = os.path.join(
 )
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "Yuanbao"]
+
+
+@dataclass(frozen=True)
+class _PreparedNemotronPrompt:
+    original: Any
+    prompt: dict[str, Any]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
@@ -61,6 +74,17 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         self._kwargs.pop("batch_interval", None)
 
         model_name = self.model_family.model_name
+        is_nemotron = model_name == NEMOTRON_RERANK_MODEL_NAME
+        if is_nemotron:
+            if Version(vllm_version) < Version("0.32.0"):
+                raise ValueError("Nemotron reranker requires vllm>=0.32.0")
+            self._kwargs["runner"] = "pooling"
+            self._kwargs.setdefault("dtype", "bfloat16")
+            self._kwargs.setdefault("max_model_len", self.model_family.max_tokens)
+            self._kwargs.setdefault("limit_mm_per_prompt", {"image": 1})
+            pooler_config = dict(self._kwargs.get("pooler_config") or {})
+            pooler_config.update(seq_pooling_type="MEAN", use_activation=False)
+            self._kwargs["pooler_config"] = pooler_config
         is_qwen3_vl_reranker = model_name.startswith("Qwen3-VL-Reranker")
         if model_name in {
             "Qwen3-Reranker-0.6B",
@@ -100,6 +124,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             engine_version >= Version("0.19.0")
             and not on_vacc
             and not is_qwen3_vl_reranker
+            and not is_nemotron
         ):
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.v1.engine.async_llm import AsyncLLM
@@ -160,6 +185,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             Rerank: The reranked results.
         """
         query_list, documents = self._prepare_pairs(documents, query, **kwargs)
+        is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
+        if is_nemotron:
+            validate_nemotron_rerank_options(max_chunks_per_doc)
         load = getattr(self, "_pooling_load", None)
         is_multimodal = self.model_family.model_name.startswith("Qwen3-VL-Reranker")
         with (
@@ -169,7 +197,14 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             if load is not None
             else nullcontext(False)
         ) as progress:
-            outputs = self._score_pairs(query_list, documents, is_multimodal, progress)
+            if is_nemotron:
+                outputs = self._rerank_nemotron(
+                    documents, query_list, progress=progress
+                )
+            else:
+                outputs = self._score_pairs(
+                    query_list, documents, is_multimodal, progress
+                )
         self._clean_cache_if_needed()
         return outputs
 
@@ -202,6 +237,69 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             outputs = self._model.score(query_list, documents, **score_kwargs)
         return outputs
+
+    def _build_nemotron_prompt(self, query: Any, document: Any) -> dict[str, Any]:
+        messages = nemotron_messages(query, document)
+        image = None
+        for block in messages[1]["content"]:
+            if block["type"] == "image":
+                image = block.pop("image")
+        prompt = {
+            "prompt": self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+        }
+        if image is not None:
+            prompt["multi_modal_data"] = {"image": image}
+        return prompt
+
+    def _prepare_nemotron_batch_documents(
+        self, documents: List[Any], query: Any
+    ) -> List[_PreparedNemotronPrompt]:
+        prepared = []
+        for document in documents:
+            prompt = self._build_nemotron_prompt(query, document)
+            # Use encode()'s renderer and tokenization defaults. Rendering
+            # expands image placeholders. Use the separate processor-only
+            # cache since these inputs aren't sent to the engine.
+            (rendered,) = self._model.renderer.render_cmpl([prompt], skip_mm_cache=True)
+            token_count = len(rendered["prompt_token_ids"])
+            max_model_len = self._model.model_config.max_model_len
+            if token_count > max_model_len:
+                raise ValueError(
+                    f"Nemotron reranker input uses {token_count} tokens, exceeding "
+                    f"vLLM max_model_len={max_model_len}; shorten the text or resize the image"
+                )
+            prepared.append(_PreparedNemotronPrompt(document, prompt))
+        return prepared
+
+    def _rerank_nemotron(
+        self, documents: List[Any], queries: List[Any], *, progress: Any = False
+    ) -> List[Any]:
+        from vllm.outputs import ScoringRequestOutput
+
+        if len(queries) != len(documents):
+            raise ValueError(
+                "Nemotron reranker query and documents must have equal length"
+            )
+        inputs = [
+            (
+                document.prompt
+                if isinstance(document, _PreparedNemotronPrompt)
+                else self._build_nemotron_prompt(query, document)
+            )
+            for query, document in zip(queries, documents)
+        ]
+        if not inputs:
+            return []
+        # score()/rerank() can misrender this checkpoint's image placeholders.
+        # Use the model card's raw classification path for every modality.
+        outputs = self._model.encode(inputs, pooling_task="classify", use_tqdm=progress)
+        if len(outputs) != len(inputs):
+            raise RuntimeError("Nemotron reranker must return one score per document")
+        return [ScoringRequestOutput.from_base(output) for output in outputs]
 
     def _prepare_pairs(
         self, documents: List[Any], query: Union[Any, List[Any]], **kwargs
@@ -549,6 +647,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
 
     @rerank.batch  # type: ignore
     def rerank(self, args_list, kwargs_list):
+        is_nemotron = self.model_family.model_name == NEMOTRON_RERANK_MODEL_NAME
+        results_with_index = []
         grouped = defaultdict(
             lambda: {
                 "documents": [],
@@ -563,6 +663,15 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
 
             documents, query, extra_kwargs = self._extract_rerank_kwargs(args, kwargs)
+            if is_nemotron:
+                try:
+                    validate_nemotron_rerank_options(
+                        extra_kwargs.get("max_chunks_per_doc")
+                    )
+                    documents = self._prepare_nemotron_batch_documents(documents, query)
+                except Exception as error:
+                    results_with_index.append((i, BatchRequestError(error)))
+                    continue
 
             key = make_hashable(extra_kwargs)
             group = grouped[key]
@@ -574,8 +683,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             group["documents"].extend(documents)
             group["query"].extend([query] * documents_size)
             group["indices"].append(i)  # remember original position
-
-        results_with_index = []
 
         # 2. Process each group separately
         for key, group in grouped.items():
@@ -593,6 +700,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 tmp_documents = group["documents"][offset : offset + n]
+                if is_nemotron:
+                    tmp_documents = [doc.original for doc in tmp_documents]
                 data = score_list[offset : offset + n]
                 scores = map(lambda scoreoutput: scoreoutput.outputs.score, data)
                 tmp_documents = list(map(lambda doc: Document(text=doc), tmp_documents))
@@ -711,6 +820,10 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == NEMOTRON_RERANK_MODEL_NAME:
+            if model_spec.model_format != "pytorch":
+                return False, "vLLM rerank engine only supports pytorch format"
+            return check_nemotron_dependencies("vllm")
         if model_family.model_name.startswith("Qwen3-VL-Reranker"):
             # In virtualenv mode vLLM (and a compatible version) can be
             # installed on demand, so only the missing-library / old-version

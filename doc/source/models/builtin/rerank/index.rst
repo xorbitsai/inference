@@ -33,6 +33,8 @@ The following is a list of built-in rerank models in Xinference:
   
    minicpm-reranker
   
+   nemotron-3.5-rerank-8b
+
    qwen3-reranker-0.6b
   
    qwen3-reranker-4b
