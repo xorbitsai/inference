@@ -224,3 +224,14 @@ msgstr ""
 #~ msgid "Learn from an example demonstrating how to use embed API via LangChain"
 #~ msgstr "LangChain을 통해 임베딩 API를 사용하는 방법을 예제 하나로 배워보세요."
 
+#: models/model_abilities/embed.rst:69
+msgid ""
+"When vLLM or llama.cpp rejects an embedding input for exceeding its context "
+"limit, the API returns HTTP 400 for that request. If synchronous vLLM leaves"
+" work queued after a rejection, the existing engine error response applies. "
+"Engines can still truncate inputs according to their own defaults."
+msgstr ""
+"vLLM 또는 llama.cpp가 컨텍스트 한도를 초과한 임베딩 입력을 거부하면 API는 해당 요청에 HTTP 400을 반환합니다. 동기"
+" vLLM이 거부 후에도 작업을 대기열에 남겨 두면 기존 엔진 오류 응답이 적용됩니다. 엔진은 각자의 기본 설정에 따라 입력을 잘라낼 수"
+" 있습니다."
+

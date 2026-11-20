@@ -179,6 +179,50 @@ _RENDERER_CONTEXT_ERROR = (
 )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unfinished", [False, True])
+async def test_sync_context_rejection_in_shared_batch(make_model, unfinished):
+    family = SimpleNamespace(model_name="bge-m3", model_specs=[None])
+    model = VLLMEmbeddingModel("replica", "/model", family, batch_interval=0.05)
+    engine_error = ValueError(_RENDERER_CONTEXT_ERROR)
+    batches = []
+
+    def embed(prompts, **kwargs):
+        batches.append(prompts)
+        if "overlong" in prompts:
+            raise engine_error
+        return [output(prompt) for prompt in prompts]
+
+    model._model = SimpleNamespace(
+        embed=embed,
+        llm_engine=SimpleNamespace(has_unfinished_requests=lambda: unfinished),
+    )
+    try:
+        invalid, valid = await asyncio.gather(
+            model.create_embedding(["overlong", "ok"], model_uid="public"),
+            model.create_embedding(["abc", "de"], model_uid="public"),
+            return_exceptions=True,
+        )
+    finally:
+        task = model._process_batch_task
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    assert sorted(batches[0]) == ["abc", "de", "ok", "overlong"]
+    if unfinished:
+        assert invalid is engine_error and valid is engine_error
+        assert len(batches) == 1
+    else:
+        assert isinstance(invalid, ContextLengthExceeded)
+        assert invalid.input_tokens == 32769 and invalid.max_model_len == 32768
+        assert invalid.__context__ is None
+        assert sorted(batches[1:]) == [["abc", "de"], ["overlong", "ok"]]
+        assert valid["model"] == "public"
+        assert [item["index"] for item in valid["data"]] == [0, 1]
+        assert [item["embedding"] for item in valid["data"]] == [[3.0], [2.0]]
+        assert valid["usage"]["prompt_tokens"] == 5
+
+
 @pytest.fixture
 def vllm_validation_error(monkeypatch):
     """A vLLM exception type importable only in the model process."""

@@ -66,6 +66,11 @@ to cap the token length of each input before encoding:
 * a positive integer ``N``: truncate each input to at most ``N`` tokens.
 * ``-1``: truncate to the model's own maximum input length.
 
+When vLLM or llama.cpp rejects an embedding input for exceeding its context
+limit, the API returns HTTP 400 for that request. If synchronous vLLM leaves
+work queued after a rejection, the existing engine error response applies.
+Engines can still truncate inputs according to their own defaults.
+
 .. code-block:: bash
 
     curl -X 'POST' \

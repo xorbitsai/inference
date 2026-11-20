@@ -28,6 +28,7 @@ from ....utils import dependency_import_guard
 from ..._llamacpp import configure_gpu_layers
 from ...batch import BatchMixin
 from ...llama_cpp_load import LlamaCppSchedulerLoad
+from ...llm.context_length import ContextLengthExceeded
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -72,6 +73,17 @@ def _get_error_payload(response: Any) -> Optional[Any]:
         return response["error"]
     if response.get("code"):
         return response
+    return None
+
+
+def _context_length_error(error: Any) -> Optional[ContextLengthExceeded]:
+    if isinstance(error, dict) and error.get("type") == "exceed_context_size_error":
+        return ContextLengthExceeded(
+            _error_message(error),
+            input_tokens=error.get("n_prompt_tokens"),
+            max_model_len=error.get("n_ctx"),
+            diagnostic_code="LLAMA_CPP_PROMPT_LENGTH_REJECTED",
+        )
     return None
 
 
@@ -239,6 +251,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                 result = self._llm.handle_embeddings(data)
             error = _get_error_payload(result)
             if error:
+                if context_error := _context_length_error(error):
+                    raise context_error
                 raise RuntimeError(_error_message(error))
             result["model_replica"] = self._model_uid
             return Embedding(**result)
@@ -259,6 +273,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
         r = q.get()
         if type(r) is _Error:
+            if context_error := _context_length_error(r.msg):
+                raise context_error
             raise Exception(_error_message(r.msg))
         r["model_replica"] = self._model_uid
         return Embedding(**r)  # type: ignore

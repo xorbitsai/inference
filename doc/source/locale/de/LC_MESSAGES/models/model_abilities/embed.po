@@ -249,3 +249,16 @@ msgstr ""
 #~ " Sie die Embedding-API über LangChain"
 #~ " verwenden."
 
+#: models/model_abilities/embed.rst:69
+msgid ""
+"When vLLM or llama.cpp rejects an embedding input for exceeding its context "
+"limit, the API returns HTTP 400 for that request. If synchronous vLLM leaves"
+" work queued after a rejection, the existing engine error response applies. "
+"Engines can still truncate inputs according to their own defaults."
+msgstr ""
+"Wenn vLLM oder llama.cpp eine Embedding-Eingabe wegen Überschreitung der "
+"Kontextgrenze ablehnt, gibt die API für diese Anfrage HTTP 400 zurück. "
+"Bleiben nach einer Ablehnung durch synchrones vLLM Aufträge in der "
+"Warteschlange, gilt die bisherige Fehlerantwort der Engine. Engines können "
+"Eingaben weiterhin gemäß ihren eigenen Voreinstellungen kürzen."
+

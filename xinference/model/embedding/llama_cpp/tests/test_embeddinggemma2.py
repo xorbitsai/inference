@@ -14,6 +14,7 @@
 
 # CI: linux
 
+import asyncio
 import copy
 import math
 import os
@@ -25,6 +26,7 @@ import pytest
 
 from xinference.model.utils import virtualenv_discovery_var
 
+from ....llm.context_length import ContextLengthExceeded
 from ... import generate_engine_config_by_model_name
 from ...cache_manager import EmbeddingCacheManager
 from ...embed_family import match_embedding
@@ -312,3 +314,46 @@ def test_other_gguf_models_keep_generic_adapter(fake_xllamacpp):
     assert params.pooling_type == 3
     assert params.n_parallel >= 1
     assert not hasattr(params, "embd_normalize")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("report_load", [False, True])
+async def test_context_rejection_isolated_from_concurrent_request(report_load):
+    model = _make_model(batch_interval=0.05)
+    if report_load:
+        model.enable_engine_load_reporting()
+
+    response = model._llm.handle_embeddings.return_value
+
+    def handle_embeddings(request):
+        if "overlong" in str(request["input"]):
+            return {
+                "error": {
+                    "code": 400,
+                    "type": "exceed_context_size_error",
+                    "message": "request (257 tokens) exceeds the available context size (256 tokens)",
+                    "n_prompt_tokens": 257,
+                    "n_ctx": 256,
+                }
+            }
+        return copy.deepcopy(response)
+
+    model._llm.handle_embeddings.side_effect = handle_embeddings
+    try:
+        invalid, valid = await asyncio.gather(
+            model.create_embedding("overlong", model_uid="public"),
+            model.create_embedding("valid", model_uid="public"),
+            return_exceptions=True,
+        )
+    finally:
+        task = model._process_batch_task
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    calls = model._llm.handle_embeddings.call_args_list
+    assert [len(call.args[0]["input"]) for call in calls] == [2, 1, 1]
+    assert isinstance(invalid, ContextLengthExceeded)
+    assert (invalid.input_tokens, invalid.max_model_len) == (257, 256)
+    assert valid["model"] == "public"
+    assert valid["usage"]["prompt_tokens"] == 10
+    assert valid["data"][0]["index"] == 0

@@ -19,7 +19,7 @@ import logging
 import os
 import time
 from abc import abstractmethod
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import (
     Annotated,
     Any,
@@ -46,7 +46,9 @@ from ..._compat import (
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingUsage
 from ...utils import make_hashable
+from ..batch import BatchRequestError
 from ..core import VirtualEnvSettings
+from ..llm.context_length import ContextLengthExceeded
 from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
 
@@ -463,7 +465,9 @@ class EmbeddingModel(abc.ABC):
         results_with_index = []
 
         # 2. Process each group separately
-        for key, group in grouped.items():
+        pending_groups = deque(grouped.values())
+        while pending_groups:
+            group = pending_groups.popleft()
             sentences = group["sentences"]
             kwargs = group["kwargs"]
             offsets = group["offsets"]
@@ -477,7 +481,24 @@ class EmbeddingModel(abc.ABC):
             if truncate_prompt_tokens is not None:
                 sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
 
-            embedding_list = self._create_embedding(sentences, **kwargs)
+            try:
+                embedding_list = self._create_embedding(sentences, **kwargs)
+            except ContextLengthExceeded as exc:
+                if len(indices) == 1:
+                    results_with_index.append((indices[0], BatchRequestError(exc)))
+                else:
+                    # The engine rejected a merged group. Retry each caller's
+                    # inputs together to identify which request exceeded its limit.
+                    pending_groups.extend(
+                        {
+                            "sentences": sentences[offset : offset + count],
+                            "offsets": [(0, count)],
+                            "kwargs": kwargs,
+                            "indices": [index],
+                        }
+                        for (offset, count), index in zip(offsets, indices)
+                    )
+                continue
             usage = embedding_list.get("usage", {})
             token_counts = (
                 embedding_list.token_counts

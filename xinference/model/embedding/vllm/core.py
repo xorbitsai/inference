@@ -25,6 +25,7 @@ from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ....utils import dependency_import_guard, dependency_import_message
 from ...batch import BatchMixin
+from ...llm.context_length import ContextLengthExceeded, classify_vllm_context_error
 from ...utils import check_dependency_available
 from ...vllm_load import VLLMPoolingLoad
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -271,11 +272,22 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def _embed_sync(self, prompts: Any, use_tqdm: bool = False, **kwargs):
         load = getattr(self, "_pooling_load", None)
-        if load is None:
-            return self._model.embed(prompts, use_tqdm=use_tqdm, **kwargs)
-        count = len(prompts) if isinstance(prompts, list) else 1
-        with load.sync_request(count) as progress:
-            return self._model.embed(prompts, use_tqdm=progress, **kwargs)
+        try:
+            if load is None:
+                return self._model.embed(prompts, use_tqdm=use_tqdm, **kwargs)
+            count = len(prompts) if isinstance(prompts, list) else 1
+            with load.sync_request(count) as progress:
+                return self._model.embed(prompts, use_tqdm=progress, **kwargs)
+        except Exception as exc:
+            context_error = self._normalize_context_error(exc)
+            # Older vLLM versions can keep prompts queued after a partial
+            # admission failure. A retry could return those prompts' outputs.
+            if (
+                context_error is None
+                or self._model.llm_engine.has_unfinished_requests()
+            ):
+                raise
+        raise context_error
 
     def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
         sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
@@ -404,13 +416,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         return self._format_embedding_outputs(outputs, model_uid)
 
     @staticmethod
-    def _normalize_context_error(exc: Exception) -> Optional[Exception]:
+    def _normalize_context_error(exc: Exception) -> Optional[ContextLengthExceeded]:
         """Return an engine-free context-length error for a vLLM rejection."""
-        from ...llm.context_length import (
-            ContextLengthExceeded,
-            classify_vllm_context_error,
-        )
-
         if isinstance(exc, ContextLengthExceeded):
             return None
         parsed = classify_vllm_context_error(exc)
