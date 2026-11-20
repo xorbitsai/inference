@@ -213,3 +213,13 @@ msgstr ""
 #~ msgid "Learn from an example demonstrating how to use embed API via LangChain"
 #~ msgstr "從一個範例中學習如何透過 LangChain 使用嵌入 API"
 
+#: models/model_abilities/embed.rst:69
+msgid ""
+"When vLLM or llama.cpp rejects an embedding input for exceeding its context "
+"limit, the API returns HTTP 400 for that request. If synchronous vLLM leaves"
+" work queued after a rejection, the existing engine error response applies. "
+"Engines can still truncate inputs according to their own defaults."
+msgstr ""
+"當 vLLM 或 llama.cpp 因嵌入輸入超過上下文上限而拒絕請求時，API 對該請求傳回 HTTP 400。如果同步 vLLM "
+"在拒絕後仍有工作留在佇列中，則沿用引擎原有的錯誤回應。各引擎仍可依自身預設設定截斷輸入。"
+
