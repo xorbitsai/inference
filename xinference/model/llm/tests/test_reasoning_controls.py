@@ -19,16 +19,25 @@ def family(name):
 
 @pytest.mark.parametrize(
     "value,expected",
-    [(1, 1), (100, 100), ("none", "none"), ("low", 50), ("high", 75), ("max", 100)],
+    [
+        (1, 1),
+        (100, 100),
+        ("none", "none"),
+        ("low", 50),
+        ("medium", 62),
+        ("high", 75),
+        ("max", 100),
+    ],
 )
-def test_deepseek_native_effort(value, expected):
-    capability = family("DeepSeek-V4.1-Flash-1017").get_reasoning_effort()
+@pytest.mark.parametrize("name", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+def test_deepseek_native_effort(name, value, expected):
+    capability = family(name).get_reasoning_effort()
     config = normalize_reasoning_controls({"reasoning_effort": value}, capability)
     assert config == {"chat_template_kwargs": {"reasoning_effort": expected}}
 
 
 @pytest.mark.parametrize(
-    "value", [True, False, 0, 101, 1.5, "75", "medium", [], {}, None]
+    "value", [True, False, 0, 101, 1.5, "75", "minimal", "xhigh", [], {}, None]
 )
 def test_invalid_deepseek_effort(value):
     with pytest.raises(ValueError, match="Invalid reasoning_effort"):
@@ -52,10 +61,28 @@ def test_glm_effort_reaches_official_template(value):
     assert f"Reasoning Effort: {value.capitalize()}" in prompt
 
 
-def test_no_silent_glm_medium_fallback():
-    with pytest.raises(ValueError, match="low, high, max"):
+def test_glm_medium_is_a_declared_alias_for_high():
+    # OpenAI clients send "medium" by default. GLM-5.3 has no medium level, so
+    # the capability declares where it goes instead of the template's silent
+    # fallback to Max for unknown names.
+    model = family("glm-5.3")
+    capability = model.get_reasoning_effort()
+    assert capability.dict()["aliases"] == {"medium": "high"}
+    config = normalize_reasoning_controls({"reasoning_effort": "medium"}, capability)
+    assert config == {"chat_template_kwargs": {"reasoning_effort": "high"}}
+    prompt = ChatModelMixin()._build_from_raw_template(
+        [{"role": "user", "content": "hello"}],
+        model.chat_template,
+        **config["chat_template_kwargs"],
+    )
+    assert "Reasoning Effort: High" in prompt
+
+
+@pytest.mark.parametrize("value", ["minimal", "xhigh", "Medium", 50])
+def test_no_silent_glm_fallback_for_undeclared_effort(value):
+    with pytest.raises(ValueError, match="low, medium, high, max"):
         normalize_reasoning_controls(
-            {"reasoning_effort": "medium"}, family("glm-5.3").get_reasoning_effort()
+            {"reasoning_effort": value}, family("glm-5.3").get_reasoning_effort()
         )
 
 
@@ -112,6 +139,7 @@ def test_custom_family_inherits_or_declares_effort():
     custom.reasoning_effort = None
     assert custom.to_description()["reasoning_effort"]["values"] == [
         "low",
+        "medium",
         "high",
         "max",
     ]
@@ -255,11 +283,28 @@ def test_budget_is_only_enforced_on_pd_decode(engine, native):
         {"values": ["high"], "aliases": {"high": 50}},
         {"values": ["high"], "integer_range": [1, 100], "aliases": {"medium": 50}},
         {"values": ["high"], "integer_range": [1, 100], "aliases": {"high": 101}},
+        {"values": ["high"], "integer_range": [1, 100], "aliases": {"high": True}},
+        {"values": ["medium", "high"], "aliases": {"medium": "max"}},
+        {"values": ["high"], "aliases": {"high": "high"}},
+        {
+            "values": ["low", "medium", "high"],
+            "aliases": {"low": "medium", "medium": "high"},
+        },
+        {"values": ["medium", "high"], "aliases": {"medium": ""}},
     ],
 )
 def test_invalid_capability_declarations(capability):
     with pytest.raises(ValueError):
         ReasoningEffortConfig.parse_obj(capability)
+
+
+def test_name_alias_declaration_round_trips():
+    capability = ReasoningEffortConfig.parse_obj(
+        {"values": ["low", "medium", "high"], "aliases": {"medium": "high"}}
+    )
+    assert capability.normalize("medium", "reasoning_effort") == "high"
+    assert capability.normalize("low", "reasoning_effort") == "low"
+    assert ReasoningEffortConfig.parse_obj(capability.dict()) == capability
 
 
 def test_effort_capabilities_are_version_specific():

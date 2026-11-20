@@ -3504,7 +3504,12 @@ async def test_anthropic_models_include_original_fields(
     "name,effort,expected",
     [
         ("glm-5.3", "high", "high"),
+        # OpenAI clients send "medium" by default; it resolves through the
+        # declared alias instead of failing with HTTP 400.
+        ("glm-5.3", "medium", "high"),
         ("DeepSeek-V4.1-Flash-1017", "high", 75),
+        ("DeepSeek-V4.1-Flash-1017", "medium", 62),
+        ("DeepSeek-V4.1-Flash", "medium", 62),
         ("DeepSeek-V4.1-Flash-1017", 37, 37),
     ],
 )
@@ -3542,7 +3547,7 @@ async def test_glm_invalid_effort_fails_before_stream(monkeypatch, stream):
                 {
                     "model": "test",
                     "messages": [{"role": "user", "content": "hi"}],
-                    "reasoning_effort": "medium",
+                    "reasoning_effort": "xhigh",
                     "stream": stream,
                 }
             )

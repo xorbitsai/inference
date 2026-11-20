@@ -158,11 +158,13 @@ runtime support. Leave a control at its default to omit the parameter; when
 setting a token budget, choose a larger positive output-token limit. The model
 details API exposes runtime budget support as ``supports_thinking_budget``.
 
-GLM-5.3 accepts ``low``, ``high``, and ``max``; it has no ``medium`` level.
-DeepSeek-V4.1-Flash-1017 accepts integers from 1 to 100, or ``low`` (50),
-``high`` (75), and ``max`` (100). These numbers express effort, not token counts.
-Undeclared effort support returns HTTP 501. Invalid values or conflicting
-request-level and template-level values return HTTP 400.
+GLM-5.3 accepts ``low``, ``high``, and ``max``. It has no medium level, so
+``medium``, the OpenAI default, is declared as an alias of ``high``.
+DeepSeek-V4.1-Flash and DeepSeek-V4.1-Flash-1017 accept integers from 1 to 100,
+or ``low`` (50), ``medium`` (62), ``high`` (75), and ``max`` (100). These numbers
+express effort, not token counts. Undeclared effort support returns HTTP 501.
+Invalid values or conflicting request-level and template-level values return
+HTTP 400.
 
 .. code-block:: python
 
@@ -193,8 +195,10 @@ OpenAI thinking budgets.
    )
 
 Custom model registrations can declare ``reasoning_effort`` with a ``values``
-list, an optional inclusive ``integer_range``, and optional numeric ``aliases``.
-Only declare values consumed by the actual template or encoder. Models derived
+list, an optional inclusive ``integer_range``, and optional ``aliases``. An alias
+maps a declared name to an integer in ``integer_range``, or to another declared
+name that is not itself an alias (for example ``{"medium": "high"}``). Only
+declare values consumed by the actual template or encoder. Models derived
 from a registered ``model_family`` inherit its declaration unless they supply
 their own.
 

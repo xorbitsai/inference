@@ -258,7 +258,7 @@
           "properties": {
             "values": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
             "integer_range": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "minItems": 2, "maxItems": 2},
-            "aliases": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}}
+            "aliases": {"type": "object", "additionalProperties": {"oneOf": [{"type": "integer", "minimum": 1}, {"type": "string", "minLength": 1}]}}
           },
           "required": ["values"],
           "additionalProperties": false
