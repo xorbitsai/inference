@@ -498,16 +498,22 @@ def main():
             model_name, {**model, 'engine_specs': []}
         )
 
-        for spec in model.get('model_specs', [model]):
-            model_src = spec['model_src']
-            source = model_src.get('huggingface') or model_src.get('modelscope')
-            rendered_model['engine_specs'].append(
-                {
-                    'engine': spec.get('engine', model.get('engine')),
-                    'quantization': spec.get('quantization', model.get('quantization')),
-                    'model_id': source['model_id'] if source else None,
-                }
-            )
+        # Process model_src for template compatibility while retaining one
+        # specification per engine under the canonical model name.
+        model_src = _extract_primary_model_src(model)
+        model_id = None
+        if model_src:
+            if 'huggingface' in model_src:
+                model_id = model_src['huggingface']['model_id']
+            elif 'modelscope' in model_src:
+                model_id = model_src['modelscope']['model_id']
+        rendered_model['engine_specs'].append(
+            {
+                'engine': model.get('engine'),
+                'quantization': model.get('quantization'),
+                'model_id': model_id,
+            }
+        )
 
     sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
     output_dir = './models/builtin/audio'

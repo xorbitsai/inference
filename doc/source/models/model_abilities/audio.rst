@@ -91,8 +91,16 @@ runtime with ``--model-engine``:
   computers with Apple silicon.
 * ``Audio8-TTS-Realistic-0.6b`` uses ``transformers`` on CPU or CUDA by default.
   Linux with NVIDIA GPUs also supports ``SGLang-Omni``.
-* ``ZONOS3-Mini`` supports ``transformers``, ``SGLang-Omni``, ``MLX`` and
-  ``GGML``. See :ref:`zonos3_mini_speech` for runtime requirements.
+* ``ZONOS3-Mini`` uses ``transformers`` by default on CPU or CUDA.
+  ``SGLang-Omni`` requires Linux with NVIDIA CUDA 13 and Python 3.11 or 3.12.
+  For ``MLX`` on Apple silicon, install
+  `zonos3-mlx-server <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/mlx>`_.
+  For ``GGML``, build
+  `zonos3-server <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/ggml>`_.
+  Put the executable on the worker's ``PATH`` or specify its path with
+  ``XINFERENCE_ZONOS3_MLX_SERVER_PATH`` or ``XINFERENCE_ZONOS3_GGML_SERVER_PATH``.
+  MLX and GGML require FFmpeg for voice cloning with ``prompt_speech``.
+  SGLang-Omni, MLX and GGML support PCM streaming.
 
 For example:
 
@@ -458,72 +466,6 @@ uses the normal built-in trust policy when downloaded through Xinference.
         prompt_text="The exact transcript of the reference recording.",
     )
     Path("audio8-clone.wav").write_bytes(cloned_audio)
-
-
-.. _zonos3_mini_speech:
-
-ZONOS3-Mini Usage
-~~~~~~~~~~~~~~~~~
-
-``ZONOS3-Mini`` synthesizes 44.1 kHz mono speech in 43 languages. Use a release
-voice such as the default ``Savannah`` or ``Meilin``, or upload audio as
-``prompt_speech`` for voice cloning. Reference audio takes priority over the
-selected voice.
-Leave ``prompt_text`` unset and keep ``speed=1.0``.
-
-* ``transformers`` is the default engine and uses Zyphra's
-  ``ZONOS3-Mini-hf`` checkpoint on CPU (FP32) or CUDA (BF16). It requires
-  Transformers 4.57 or newer. Explicit local checkpoint paths require
-  ``XINFERENCE_TRUST_REMOTE_CODE=1`` on the worker.
-* ``SGLang-Omni`` runs the original checkpoint on a single NVIDIA CUDA GPU.
-  Use Linux, Python 3.11 or 3.12, and the CUDA 13 stack pinned in the model
-  virtual environment. Language is inferred from the text.
-* ``MLX`` runs the original GGUF weights on Apple Silicon. Clone the
-  `Zyphra runtime repository <https://github.com/Zyphra/ZONOS3-Mini>`_ with its
-  submodules and run ``uv sync --locked --package zonos3-mlx``. Set
-  ``XINFERENCE_ZONOS3_MLX_SERVER_PATH`` on the worker to the resulting
-  ``.venv/bin/zonos3-mlx-server``, or put the executable on its ``PATH``.
-* ``GGML`` runs the original GGUF weights on CPU or an accelerator enabled
-  in the `Zyphra ggml build <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/ggml>`_.
-  Build the ``zonos3-server`` target and set
-  ``XINFERENCE_ZONOS3_GGML_SERVER_PATH`` on the worker to its path, or put
-  it on ``PATH``.
-
-Weights are available from Hugging Face (``main``) and ModelScope
-(``master``). Set ``XINFERENCE_MODEL_SRC=modelscope`` on the worker to
-prefer ModelScope. The native server executables are installed separately
-from the Xinference model virtual environment. Install FFmpeg for voice
-cloning with MLX or GGML.
-
-.. code-block:: bash
-
-    xinference launch --model-name ZONOS3-Mini --model-type audio --model-engine transformers --enable-virtual-env
-    xinference launch --model-name ZONOS3-Mini --model-type audio --model-engine SGLang-Omni --enable-virtual-env
-    xinference launch --model-name ZONOS3-Mini --model-type audio --model-engine MLX --enable-virtual-env
-    xinference launch --model-name ZONOS3-Mini --model-type audio --model-engine GGML --n-gpu none --enable-virtual-env
-
-All engines return MP3, WAV, FLAC, OGG/Vorbis or signed 16-bit little-endian
-PCM. ``SGLang-Omni``, ``MLX`` and ``GGML`` also support streaming with
-``stream=True`` and ``response_format="pcm"``. For language selection
-on Transformers, MLX and GGML, pass a code such as ``en_us`` or ``cmn``.
-Sampling parameters include ``seed``, ``temperature``, ``top_k``, ``top_p`` and
-``max_new_tokens``. The token limit counts codec frames for this model.
-
-.. code-block:: python
-
-    from pathlib import Path
-    from xinference.client import Client
-
-    model = Client("http://localhost:9997").get_model("<MODEL_UID>")
-    audio = model.speech("Hello from ZONOS3-Mini.", voice="Savannah", response_format="wav")
-    Path("zonos3.wav").write_bytes(audio)
-
-    clone = model.speech(
-        "This sentence uses the reference voice.",
-        response_format="wav",
-        prompt_speech=Path("reference.wav").read_bytes(),
-    )
-    Path("zonos3-clone.wav").write_bytes(clone)
 
 
 .. _breeze_tts_2_speech:

@@ -71,7 +71,7 @@ def test_catalog_and_dispatch(
     assert model.model_family.model_engine == backend
 
 
-def test_shared_catalog_packages_are_filtered_by_engine(monkeypatch):
+def test_catalog_packages_are_filtered_by_engine(monkeypatch):
     from xoscar.virtualenv.core import filter_requirements
 
     monkeypatch.setattr("xinference.model.audio._need_filter", lambda _: False)

@@ -56,6 +56,19 @@
       "ur"
     ],
     "updated_at": 1795132800,
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Zyphra/ZONOS3-Mini-hf",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Zyphra/ZONOS3-Mini-hf",
+        "model_revision": "master",
+        "cache_name": "ZONOS3-Mini-modelscope"
+      }
+    },
     "virtualenv": {
       "packages": [
         "numpy>=1.26",
@@ -65,105 +78,280 @@
         "transformers>=4.57,<6 ; #engine# == \"transformers\"",
         "zyphra-textnorm>=0.3.1 ; #engine# == \"transformers\"",
         "torch>=2.5 ; #engine# == \"transformers\"",
-        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "ZONOS3-Mini",
+    "model_family": "zonos3_mini",
+    "model_description": "Zyphra ZONOS3-Mini synthesizes 44.1 kHz mono speech in 43 languages with 27 preset voices and zero-shot voice cloning from a reference audio clip.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "en",
+      "fr",
+      "es",
+      "de",
+      "it",
+      "pt",
+      "nl",
+      "pl",
+      "ru",
+      "sv",
+      "tr",
+      "uk",
+      "cs",
+      "da",
+      "fi",
+      "el",
+      "hu",
+      "no",
+      "ro",
+      "sk",
+      "bg",
+      "zh",
+      "ja",
+      "ko",
+      "ar",
+      "he",
+      "vi",
+      "id",
+      "th",
+      "tl",
+      "ms",
+      "ka",
+      "hi",
+      "bn",
+      "ta",
+      "te",
+      "mr",
+      "gu",
+      "kn",
+      "ml",
+      "pa",
+      "or",
+      "ur"
+    ],
+    "updated_at": 1795132800,
+    "engine": "SGLang-Omni",
+    "model_format": "pytorch",
+    "cache_name": "ZONOS3-Mini-SGLang-Omni",
+    "cache_config": {
+      "allow_patterns": [
+        "lm/zonos3_mini/model.pth",
+        "lm/zonos3_mini/params.json",
+        "lm/zonos3_mini/tokenizer/superbpe8192.json",
+        "autoencoder/generator.pt",
+        "autoencoder/heads/full_mr/step_0050000.pt",
+        "autoencoder/teacher/config.json",
+        "autoencoder/teacher/model.safetensors",
+        "registries/codec_registry.json",
+        "registries/silence_frame_*.json",
+        "gguf/voices/*/*.codes.npy"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "master",
+        "cache_name": "ZONOS3-Mini-SGLang-Omni-modelscope"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "numpy>=1.26",
+        "soundfile>=0.13.1",
+        "httpx>=0.27",
+        "#system_numpy#",
         "sglang-omni @ https://github.com/sgl-project/sglang-omni/archive/65f23ccc11d27957ee68b171643c95e42ff80237.zip ; #engine# == \"sglang-omni\"",
         "torchaudio===2.11.0 ; #engine# == \"sglang-omni\""
       ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "ZONOS3-Mini",
+    "model_family": "zonos3_mini",
+    "model_description": "Zyphra ZONOS3-Mini synthesizes 44.1 kHz mono speech in 43 languages with 27 preset voices and zero-shot voice cloning from a reference audio clip.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "en",
+      "fr",
+      "es",
+      "de",
+      "it",
+      "pt",
+      "nl",
+      "pl",
+      "ru",
+      "sv",
+      "tr",
+      "uk",
+      "cs",
+      "da",
+      "fi",
+      "el",
+      "hu",
+      "no",
+      "ro",
+      "sk",
+      "bg",
+      "zh",
+      "ja",
+      "ko",
+      "ar",
+      "he",
+      "vi",
+      "id",
+      "th",
+      "tl",
+      "ms",
+      "ka",
+      "hi",
+      "bn",
+      "ta",
+      "te",
+      "mr",
+      "gu",
+      "kn",
+      "ml",
+      "pa",
+      "or",
+      "ur"
+    ],
+    "updated_at": 1795132800,
+    "engine": "MLX",
+    "model_format": "gguf",
+    "cache_name": "ZONOS3-Mini-MLX",
+    "cache_config": {
+      "allow_patterns": [
+        "gguf/backbone-ptq.gguf",
+        "gguf/zac-keep2.gguf",
+        "gguf/spk-encoder.gguf",
+        "gguf/voices/*/*.embedding.npy"
+      ]
     },
-    "model_specs": [
-      {
-        "engine": "transformers",
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "Zyphra/ZONOS3-Mini-hf",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "Zyphra/ZONOS3-Mini-hf",
-            "model_revision": "master",
-            "cache_name": "ZONOS3-Mini-modelscope"
-          }
-        }
+    "model_src": {
+      "huggingface": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "main"
       },
-      {
-        "engine": "SGLang-Omni",
-        "model_format": "pytorch",
-        "cache_name": "ZONOS3-Mini-SGLang-Omni",
-        "cache_config": {
-          "allow_patterns": [
-            "lm/zonos3_mini/model.pth",
-            "lm/zonos3_mini/params.json",
-            "lm/zonos3_mini/tokenizer/superbpe8192.json",
-            "autoencoder/generator.pt",
-            "autoencoder/heads/full_mr/step_0050000.pt",
-            "autoencoder/teacher/config.json",
-            "autoencoder/teacher/model.safetensors",
-            "registries/codec_registry.json",
-            "registries/silence_frame_*.json",
-            "gguf/voices/*/*.codes.npy"
-          ]
-        },
-        "model_src": {
-          "huggingface": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "master",
-            "cache_name": "ZONOS3-Mini-SGLang-Omni-modelscope"
-          }
-        }
-      },
-      {
-        "engine": "MLX",
-        "model_format": "gguf",
-        "cache_name": "ZONOS3-Mini-MLX",
-        "cache_config": {
-          "allow_patterns": [
-            "gguf/backbone-ptq.gguf",
-            "gguf/zac-keep2.gguf",
-            "gguf/spk-encoder.gguf",
-            "gguf/voices/*/*.embedding.npy"
-          ]
-        },
-        "model_src": {
-          "huggingface": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "master",
-            "cache_name": "ZONOS3-Mini-MLX-modelscope"
-          }
-        }
-      },
-      {
-        "engine": "GGML",
-        "model_format": "gguf",
-        "cache_name": "ZONOS3-Mini-GGML",
-        "cache_config": {
-          "allow_patterns": [
-            "gguf/backbone-ptq.gguf",
-            "gguf/zac-keep2.gguf",
-            "gguf/spk-encoder.gguf",
-            "gguf/voices/*/*.embedding.npy"
-          ]
-        },
-        "model_src": {
-          "huggingface": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "main"
-          },
-          "modelscope": {
-            "model_id": "Zyphra/ZONOS3-Mini",
-            "model_revision": "master",
-            "cache_name": "ZONOS3-Mini-GGML-modelscope"
-          }
-        }
+      "modelscope": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "master",
+        "cache_name": "ZONOS3-Mini-MLX-modelscope"
       }
-    ]
+    },
+    "virtualenv": {
+      "packages": [
+        "numpy>=1.26",
+        "soundfile>=0.13.1",
+        "httpx>=0.27",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "ZONOS3-Mini",
+    "model_family": "zonos3_mini",
+    "model_description": "Zyphra ZONOS3-Mini synthesizes 44.1 kHz mono speech in 43 languages with 27 preset voices and zero-shot voice cloning from a reference audio clip.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "en",
+      "fr",
+      "es",
+      "de",
+      "it",
+      "pt",
+      "nl",
+      "pl",
+      "ru",
+      "sv",
+      "tr",
+      "uk",
+      "cs",
+      "da",
+      "fi",
+      "el",
+      "hu",
+      "no",
+      "ro",
+      "sk",
+      "bg",
+      "zh",
+      "ja",
+      "ko",
+      "ar",
+      "he",
+      "vi",
+      "id",
+      "th",
+      "tl",
+      "ms",
+      "ka",
+      "hi",
+      "bn",
+      "ta",
+      "te",
+      "mr",
+      "gu",
+      "kn",
+      "ml",
+      "pa",
+      "or",
+      "ur"
+    ],
+    "updated_at": 1795132800,
+    "engine": "GGML",
+    "model_format": "gguf",
+    "cache_name": "ZONOS3-Mini-GGML",
+    "cache_config": {
+      "allow_patterns": [
+        "gguf/backbone-ptq.gguf",
+        "gguf/zac-keep2.gguf",
+        "gguf/spk-encoder.gguf",
+        "gguf/voices/*/*.embedding.npy"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Zyphra/ZONOS3-Mini",
+        "model_revision": "master",
+        "cache_name": "ZONOS3-Mini-GGML-modelscope"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "numpy>=1.26",
+        "soundfile>=0.13.1",
+        "httpx>=0.27",
+        "#system_numpy#"
+      ]
+    }
   }
 ]
