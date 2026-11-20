@@ -50,3 +50,77 @@ msgid ""
 "We can try Rerank API out either via cURL, OpenAI Client, or Xinference's "
 "python client:"
 msgstr "我們可以透過cURL、OpenAI Client或Xinference來嘗試使用Rerank API："
+
+#: ../../source/models/model_abilities/rerank.rst:107
+msgid "Multimodal reranking with Nemotron-3.5-Rerank-8B"
+msgstr "使用 Nemotron-3.5-Rerank-8B 進行多模態重新排序"
+
+#: ../../source/models/model_abilities/rerank.rst:109
+msgid ""
+"``Nemotron-3.5-Rerank-8B`` scores text queries against text documents, "
+"single images, or combined image-text documents. Its context limit is "
+"32,768 tokens, including image tokens. Scores are raw relevance logits; "
+"higher is better. Image queries, video, and multiple images in one "
+"document are unsupported."
+msgstr ""
+"``Nemotron-3.5-Rerank-8B`` 根據文字查詢，對純文字文件、單張圖片或圖文混合文件評估相關性。上下文上限為 32,768 個"
+" token，包含圖片 token。分數是原始相關性 logits，分數越高代表越相關。模型不支援圖片查詢、影片或在同一份文件中使用多張圖片。"
+
+#: ../../source/models/model_abilities/rerank.rst:114
+msgid ""
+"Launch with one of ``sentence_transformers``, ``transformers``, or "
+"``vllm``::"
+msgstr "使用 ``sentence_transformers``、 ``transformers`` 或 ``vllm`` 啟動模型 ::"
+
+#: ../../source/models/model_abilities/rerank.rst:119
+msgid ""
+"The model virtualenv settings pin the validated backend versions: "
+"``sentence-transformers[image]==6.1.0`` with ``transformers==5.20.0`` for"
+" Sentence Transformers, ``transformers==5.20.0`` for native Transformers,"
+" and ``vllm==0.32.0`` with ``transformers==5.19.0`` for vLLM. Use "
+"separate virtual environments for these backends. Model virtualenv "
+"settings install their respective dependencies automatically."
+msgstr ""
+"模型的虛擬環境設定會鎖定已驗證的後端版本。Sentence Transformers 使用 ``sentence-"
+"transformers[image]==6.1.0`` 和 ``transformers==5.20.0``，原生 Transformers "
+"使用 ``transformers==5.20.0``，vLLM 使用 ``vllm==0.32.0`` 和 "
+"``transformers==5.19.0``。請為各後端使用獨立的虛擬環境。模型會依照虛擬環境設定自動安裝對應的相依套件。"
+
+#: ../../source/models/model_abilities/rerank.rst:126
+msgid ""
+"Hugging Face uses ``nvidia/Nemotron-3.5-Rerank-8B-BF16`` at revision "
+"``main``; ModelScope uses ``nv-community/Nemotron-3.5-Rerank-8B-BF16`` at"
+" revision ``master``. Select the download hub with ``--download_hub "
+"huggingface`` or ``--download_hub modelscope`` when launching."
+msgstr ""
+"Hugging Face 使用 ``nvidia/Nemotron-3.5-Rerank-8B-BF16`` 的 ``main`` "
+"修訂版本。ModelScope 使用 ``nv-community/Nemotron-3.5-Rerank-8B-BF16`` 的 "
+"``master`` 修訂版本。啟動時可用 ``--download_hub huggingface`` 或 ``--download_hub "
+"modelscope`` 選擇下載來源。"
+
+#: ../../source/models/model_abilities/rerank.rst:131
+msgid "Use the returned model UID in the standard rerank endpoint::"
+msgstr "將傳回的模型 UID 傳給標準的重新排序端點 ::"
+
+#: ../../source/models/model_abilities/rerank.rst:147
+msgid ""
+"Images can be HTTP(S) URLs or base64 data URLs. OpenAI-style content "
+"dictionaries with ``text`` and ``image_url`` blocks are also accepted. "
+"HTTP(S) downloads follow Xinference's media policy, including redirect "
+"checks, a timeout, and a size limit. Private addresses are blocked by "
+"default. Returned documents retain their original input structure. The "
+"vLLM adapter renders the checkpoint's query/document template and uses "
+"classification pooling, preserving its image placeholders and raw logits."
+msgstr ""
+"圖片可使用 HTTP(S) URL 或 Base64 資料 URL，也接受包含 ``text`` 和 ``image_url`` 區塊的 "
+"OpenAI 格式字典。HTTP(S) 下載遵循 Xinference "
+"的媒體政策，包括重新導向檢查、逾時和大小限制。預設會封鎖私人位址。傳回的文件保留原始輸入結構。vLLM "
+"介面會渲染模型檢查點中的查詢和文件範本，使用分類池化，並保留圖片預留位置與原始 logits。"
+
+#: ../../source/models/model_abilities/rerank.rst:155
+msgid ""
+"See the `official model card <https://huggingface.co/nvidia/Nemotron-3.5"
+"-Rerank-8B-BF16>`_ for runtime examples."
+msgstr ""
+"執行範例請參閱 `官方模型卡 <https://huggingface.co/nvidia/Nemotron-3.5-Rerank-8B-"
+"BF16>`_。"

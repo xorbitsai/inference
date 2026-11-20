@@ -50,3 +50,80 @@ msgid ""
 "We can try Rerank API out either via cURL, OpenAI Client, or Xinference's "
 "python client:"
 msgstr "cURL, OpenAI Client 또는 Xinference를 통해 Rerank API를 사용해 볼 수 있습니다:"
+
+#: ../../source/models/model_abilities/rerank.rst:107
+msgid "Multimodal reranking with Nemotron-3.5-Rerank-8B"
+msgstr "Nemotron-3.5-Rerank-8B를 사용한 멀티모달 재정렬"
+
+#: ../../source/models/model_abilities/rerank.rst:109
+msgid ""
+"``Nemotron-3.5-Rerank-8B`` scores text queries against text documents, "
+"single images, or combined image-text documents. Its context limit is "
+"32,768 tokens, including image tokens. Scores are raw relevance logits; "
+"higher is better. Image queries, video, and multiple images in one "
+"document are unsupported."
+msgstr ""
+"``Nemotron-3.5-Rerank-8B`` 는 텍스트 쿼리에 대해 텍스트 문서, 단일 이미지 또는 이미지와 텍스트를 결합한 "
+"문서의 관련성을 점수로 평가합니다. 컨텍스트 한도는 이미지 토큰을 포함해 32,768토큰입니다. 점수는 변환하지 않은 관련성 "
+"로짓이며, 점수가 높을수록 관련성이 높습니다. 이미지 쿼리, 동영상, 문서 한 개에 포함된 여러 이미지는 지원하지 않습니다."
+
+#: ../../source/models/model_abilities/rerank.rst:114
+msgid ""
+"Launch with one of ``sentence_transformers``, ``transformers``, or "
+"``vllm``::"
+msgstr "``sentence_transformers``, ``transformers``, ``vllm`` 중 하나로 모델을 실행합니다 ::"
+
+#: ../../source/models/model_abilities/rerank.rst:119
+msgid ""
+"The model virtualenv settings pin the validated backend versions: "
+"``sentence-transformers[image]==6.1.0`` with ``transformers==5.20.0`` for"
+" Sentence Transformers, ``transformers==5.20.0`` for native Transformers,"
+" and ``vllm==0.32.0`` with ``transformers==5.19.0`` for vLLM. Use "
+"separate virtual environments for these backends. Model virtualenv "
+"settings install their respective dependencies automatically."
+msgstr ""
+"모델의 가상 환경 설정은 검증된 백엔드 버전을 고정합니다. Sentence Transformers에는 ``sentence-"
+"transformers[image]==6.1.0`` 과 ``transformers==5.20.0`` 을, 네이티브 "
+"Transformers에는 ``transformers==5.20.0`` 을, vLLM에는 ``vllm==0.32.0`` 과 "
+"``transformers==5.19.0`` 을 사용합니다. 백엔드마다 별도의 가상 환경을 사용하세요. 각 백엔드에 필요한 종속성은"
+" 모델의 가상 환경 설정에 따라 자동으로 설치됩니다."
+
+#: ../../source/models/model_abilities/rerank.rst:126
+msgid ""
+"Hugging Face uses ``nvidia/Nemotron-3.5-Rerank-8B-BF16`` at revision "
+"``main``; ModelScope uses ``nv-community/Nemotron-3.5-Rerank-8B-BF16`` at"
+" revision ``master``. Select the download hub with ``--download_hub "
+"huggingface`` or ``--download_hub modelscope`` when launching."
+msgstr ""
+"Hugging Face에서는 ``nvidia/Nemotron-3.5-Rerank-8B-BF16`` 의 ``main`` 리비전을 "
+"사용합니다. ModelScope에서는 ``nv-community/Nemotron-3.5-Rerank-8B-BF16`` 의 "
+"``master`` 리비전을 사용합니다. 모델 실행 시 ``--download_hub huggingface`` 또는 "
+"``--download_hub modelscope`` 로 다운로드 소스를 선택하세요."
+
+#: ../../source/models/model_abilities/rerank.rst:131
+msgid "Use the returned model UID in the standard rerank endpoint::"
+msgstr "반환된 모델 UID를 표준 재정렬 엔드포인트에 지정합니다 ::"
+
+#: ../../source/models/model_abilities/rerank.rst:147
+msgid ""
+"Images can be HTTP(S) URLs or base64 data URLs. OpenAI-style content "
+"dictionaries with ``text`` and ``image_url`` blocks are also accepted. "
+"HTTP(S) downloads follow Xinference's media policy, including redirect "
+"checks, a timeout, and a size limit. Private addresses are blocked by "
+"default. Returned documents retain their original input structure. The "
+"vLLM adapter renders the checkpoint's query/document template and uses "
+"classification pooling, preserving its image placeholders and raw logits."
+msgstr ""
+"이미지는 HTTP(S) URL 또는 Base64 데이터 URL로 지정할 수 있습니다. ``text`` 와 ``image_url`` "
+"블록을 포함한 OpenAI 형식의 콘텐츠 딕셔너리도 사용할 수 있습니다. HTTP(S) 다운로드에는 리디렉션 검사, 타임아웃, 크기"
+" 제한이 포함된 Xinference의 미디어 정책이 적용됩니다. 사설 주소는 기본적으로 차단됩니다. 반환되는 문서는 원래 입력 "
+"구조를 유지합니다. vLLM 어댑터는 체크포인트의 쿼리 및 문서 템플릿을 렌더링하고 분류 풀링을 사용하여 이미지 자리 표시자와 변환"
+" 전 로짓을 보존합니다."
+
+#: ../../source/models/model_abilities/rerank.rst:155
+msgid ""
+"See the `official model card <https://huggingface.co/nvidia/Nemotron-3.5"
+"-Rerank-8B-BF16>`_ for runtime examples."
+msgstr ""
+"실행 예제는 `공식 모델 카드 <https://huggingface.co/nvidia/Nemotron-3.5-Rerank-8B-"
+"BF16>`_ 를 참고하세요."
