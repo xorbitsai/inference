@@ -2209,7 +2209,11 @@ class RESTfulAPI(CancelMixin):
         self, model_uid: str, request: Request
     ) -> JSONResponse:
         self._check_model_access(request, model_uid, "LLM")
-        session = self._cache_session_tag(request, await request.json(), control=True)
+        try:
+            raw_body = await request.json()
+        except ValueError:
+            raise HTTPException(400, "Request body must be valid JSON") from None
+        session = self._cache_session_tag(request, raw_body, control=True)
         supervisor = await self._get_supervisor_ref()
         try:
             accepted = await asyncio.wait_for(
