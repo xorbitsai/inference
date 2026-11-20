@@ -33,6 +33,18 @@ PARSERS = {
         '<｜DSML｜parameter name="location" string="true">Beijing'
         "</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜tool_calls>",
     ),
+    "deepseek-v3.2-plain": (
+        DeepseekV3_2ToolParser,
+        '<function_calls><invoke name="get_weather">'
+        '<parameter name="location" string="true">Beijing'
+        "</parameter></invoke></function_calls>",
+    ),
+    "deepseek-v4-plain": (
+        DeepseekV4ToolParser,
+        '<tool_calls><invoke name="get_weather">'
+        '<parameter name="location" string="true">Beijing'
+        "</parameter></invoke></tool_calls>",
+    ),
     "glm5": (
         Glm5ToolParser,
         "<tool_call>get_weather<arg_key>location</arg_key>"
@@ -95,3 +107,29 @@ def test_streaming_keeps_text_before_a_split_tool_call_tag(parser_name):
         content, tool_calls = _stream(parser_cls(), chunks)
         assert content == prefix, chunks
         assert tool_calls == [("get_weather", {"location": "Beijing"})], chunks
+
+
+@pytest.mark.parametrize("parser_name", PARSERS)
+def test_streaming_keeps_text_around_tool_calls(parser_name):
+    parser_cls, first = PARSERS[parser_name]
+    second = first.replace("Beijing", "Paris")
+    text = "A " + first + " B " + second + " C <tag> D"
+    expected_calls = [
+        ("get_weather", {"location": "Beijing"}),
+        ("get_weather", {"location": "Paris"}),
+    ]
+    for chunks in _splits(text):
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert tool_calls == expected_calls, chunks
+        assert content == "A  B  C <tag> D", chunks
+
+
+@pytest.mark.parametrize("parser_name", ["deepseek-v3.2", "deepseek-v4"])
+def test_streaming_text_may_mention_the_other_format(parser_name):
+    parser_cls, tool_call = PARSERS[parser_name]
+    wrapper = "function_calls" if parser_name == "deepseek-v3.2" else "tool_calls"
+    text = f"{tool_call} Use <{wrapper}> tags next time."
+    for chunks in _splits(text):
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert content == f" Use <{wrapper}> tags next time.", chunks
+        assert len(tool_calls) == 1, chunks

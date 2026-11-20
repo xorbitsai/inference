@@ -177,6 +177,12 @@ class DeepseekV3_1ToolParser(ToolParser):
 
             # New pattern check
             if new_pattern_start in current_text:
+                # Text outside the tool calls block is content, even when it
+                # shares a chunk with a marker
+                content = self._text_outside_blocks(
+                    current_text, delta_text, new_pattern_start, "<｜tool▁calls▁end｜>"
+                )
+                content_events = [(content, None, None)] if content else []
                 # Calculate tool calls in previous and current text to detect new completions
                 full_previous_text = "".join(previous_text)
                 # Every match ends with the call end token, so the number of
@@ -188,7 +194,7 @@ class DeepseekV3_1ToolParser(ToolParser):
                     )
                     == -1
                 ):
-                    return None
+                    return content_events[0] if content_events else None
                 previous_tool_calls = self.new_tool_calls_regex.findall(
                     full_previous_text
                 )
@@ -206,6 +212,7 @@ class DeepseekV3_1ToolParser(ToolParser):
                         continue
                     new_tool_calls.append((None, name, arguments))
 
+                new_tool_calls = content_events + new_tool_calls
                 if new_tool_calls:
                     return (
                         new_tool_calls[0]
