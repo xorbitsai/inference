@@ -1,7 +1,7 @@
 [
   {
     "model_name": "glm-5.3",
-    "reasoning_effort": {"values": ["low", "high", "max"]},
+    "reasoning_effort": {"values": ["low", "medium", "high", "max"], "aliases": {"medium": "high"}},
     "model_description": "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks.",
     "context_length": 1048576,
     "model_lang": [
