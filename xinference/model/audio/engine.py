@@ -43,6 +43,10 @@ from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
 from .yue2 import YuE2Model, _ensure_vendored_source_path
+from .zonos3_mini_ggml import GGMLZonos3MiniModel
+from .zonos3_mini_mlx import MLXZonos3MiniModel
+from .zonos3_mini_sglang import SGLangOmniZonos3MiniModel
+from .zonos3_mini_transformers import TransformersZonos3MiniModel
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -517,14 +521,68 @@ class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
         )
 
 
+class _Zonos3MiniAudioEngine(AudioEngineModel):
+    engine_name: str
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(model_family) and _is_engine(
+            model_family, cls.engine_name
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "zonos3_mini"
+
+
+class TransformersZonos3MiniAudioModel(
+    TransformersZonos3MiniModel, _Zonos3MiniAudioEngine
+):
+    engine_name = "transformers"
+    required_libs = ("torch", "transformers", "soundfile", "numpy")
+
+
+class SGLangOmniZonos3MiniAudioModel(SGLangOmniZonos3MiniModel, _Zonos3MiniAudioEngine):
+    engine_name = "SGLang-Omni"
+    required_libs = ("torch", "sglang", "sglang_omni", "soundfile", "numpy")
+
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if platform.system() != "Linux" or not has_cuda_device():
+            return False, "ZONOS3-Mini SGLang-Omni requires Linux with NVIDIA CUDA."
+        return True
+
+
+class MLXZonos3MiniAudioModel(MLXZonos3MiniModel, _Zonos3MiniAudioEngine):
+    engine_name = "MLX"
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.check_host() is True and super().match(model_family)
+
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if platform.system() != "Darwin" or platform.machine() != "arm64":
+            return False, "ZONOS3-Mini MLX requires Apple Silicon."
+        return True
+
+
+class GGMLZonos3MiniAudioModel(GGMLZonos3MiniModel, _Zonos3MiniAudioEngine):
+    engine_name = "GGML"
+
+
 def register_builtin_audio_engines() -> None:
     # the first registered engine is the default one for a model
     SUPPORTED_ENGINES["transformers"] = [
         TransformersQwen3ASRAudioModel,
         TransformersWhisperAudioModel,
         TransformersAudio8TTSAudioModel,
+        TransformersZonos3MiniAudioModel,
     ]
-    SUPPORTED_ENGINES["SGLang-Omni"] = [SGLangOmniAudio8TTSAudioModel]
+    SUPPORTED_ENGINES["SGLang-Omni"] = [
+        SGLangOmniAudio8TTSAudioModel,
+        SGLangOmniZonos3MiniAudioModel,
+    ]
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchAceStepAudioModel,
         PyTorchYuE2AudioModel,
@@ -548,5 +606,7 @@ def register_builtin_audio_engines() -> None:
         MLXAudioSTTEngineModel,
         MLXAudioTTSEngineModel,
         MLXMiniMaxMusic3AudioModel,
+        MLXZonos3MiniAudioModel,
     ]
+    SUPPORTED_ENGINES["GGML"] = [GGMLZonos3MiniAudioModel]
     SUPPORTED_ENGINES["diffusers"] = [DiffusersMiniMaxMusic3AudioModel]

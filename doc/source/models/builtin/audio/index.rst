@@ -139,3 +139,5 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny.en
 
    yue2-3b
+
+   zonos3-mini
