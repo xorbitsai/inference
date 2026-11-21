@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Binary, Download, ImageIcon, LoaderCircle, Sparkles } from 'lucide-react';
 
 import ReactMarkdown from '@/components/ui/markdown-renderer';
@@ -217,6 +217,17 @@ function BlobMediaPreview({
 function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
   const { t } = useI18n();
   const [downloadUrl, setDownloadUrl] = useState<string>();
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !result.playbackStream) return;
+
+    audio.srcObject = result.playbackStream;
+    return () => {
+      audio.srcObject = null;
+    };
+  }, [result.playbackStream]);
 
   useEffect(() => {
     if (!result.file) {
@@ -229,17 +240,19 @@ function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
     return () => URL.revokeObjectURL(objectUrl);
   }, [result.file]);
 
-  const audioUrl = result.playbackUrl || downloadUrl;
-  const waitingForCompletePlayback = result.streaming && !result.playbackUrl;
+  const audioUrl = result.playbackStream ? undefined : result.playbackUrl || downloadUrl;
+  const hasLivePlayback = Boolean(result.playbackUrl || result.playbackStream);
+  const waitingForCompletePlayback = result.streaming && !hasLivePlayback;
 
   return (
     <div className="grid w-full max-w-full gap-3">
-      {audioUrl ? (
+      {audioUrl || result.playbackStream ? (
         <audio
-          key={audioUrl}
+          key={audioUrl || 'pcm-stream'}
+          ref={audioRef}
           src={audioUrl}
           controls
-          autoPlay={Boolean(result.playbackUrl)}
+          autoPlay={hasLivePlayback}
           preload="auto"
           className="h-10 w-full"
           onClick={(event) => event.stopPropagation()}

@@ -21,8 +21,9 @@ const ModelAbility = {
   Text2audioEmotionControl: 'text2audio_emotion_control',
 };
 
-function fieldsFor(abilities, promptSpeech = []) {
+function fieldsFor(abilities, model = {}, values = {}) {
   const mocks = {
+    react: { ...require('react'), useEffect: () => {} },
     '@/constants': { ModelAbility },
     '@/contexts/i18n-context': {
       useI18n: () => ({
@@ -30,9 +31,10 @@ function fieldsFor(abilities, promptSpeech = []) {
       }),
     },
     '@/hooks/use-form': {
-      useWatch: (name) => (name === 'prompt_speech' ? promptSpeech : undefined),
+      useWatch: (name) => values[name],
     },
     '../emotion-vector-utils': { isIndexTTSEmotionModel: () => false },
+    '../speech-options': require('../speech-options.ts'),
   };
   const compiledModule = { exports: {} };
   runInThisContext(`(function(require, module, exports) { ${outputText}\n})`)(
@@ -49,7 +51,12 @@ function fieldsFor(abilities, promptSpeech = []) {
   );
   const tree = compiledModule.exports.SpeechPanel({
     form: {},
-    model: { model_name: 'generic-tts', model_family: 'generic', model_ability: abilities },
+    model: {
+      model_name: 'generic-tts',
+      model_family: 'generic',
+      model_ability: abilities,
+      ...model,
+    },
   });
   const fields = {};
   function visit(node) {
@@ -90,4 +97,55 @@ test('music description remains required', () => {
 
 test('ordinary TTS does not gain an instruction field', () => {
   assert.equal(fieldsFor(['text2audio']).instruct, undefined);
+});
+
+test('ZONOS3-Mini offers only engine-compatible speech controls', (t) => {
+  const previousWindow = globalThis.window;
+  t.after(() => {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  });
+  globalThis.window = {
+    AudioContext: class {
+      createMediaStreamDestination() {}
+    },
+    HTMLMediaElement: class {
+      get srcObject() {
+        return null;
+      }
+    },
+  };
+
+  for (const engine of ['transformers', 'SGLang-Omni', 'MLX', 'GGML']) {
+    const model = {
+      model_family: 'zonos3_mini',
+      model_engine: engine,
+      model_lang: ['en', 'zh'],
+    };
+    const controls = (response_format) =>
+      fieldsFor(['text2audio', ModelAbility.Text2audioVoiceCloning], model, { response_format });
+    const pcm = controls('pcm');
+    assert.equal(Boolean(pcm.stream), engine !== 'transformers');
+    assert.equal(Boolean(pcm.language), engine !== 'SGLang-Omni');
+    assert.equal(pcm.prompt_text, undefined);
+    assert.equal(pcm.speed, undefined);
+    assert.ok(pcm.prompt_speech);
+    assert.equal(
+      pcm.response_format.children.props.options.some(({ value }) => value === 'pcm'),
+      engine !== 'transformers'
+    );
+    assert.equal(controls('mp3').stream, undefined);
+  }
+
+  delete globalThis.window.AudioContext;
+  const fallback = fieldsFor(
+    ['text2audio'],
+    { model_name: 'ZONOS3-Mini', model_engine: 'GGML' },
+    { response_format: 'pcm' }
+  );
+  assert.equal(fallback.stream, undefined);
+  assert.equal(
+    fallback.response_format.children.props.options.some(({ value }) => value === 'pcm'),
+    false
+  );
 });

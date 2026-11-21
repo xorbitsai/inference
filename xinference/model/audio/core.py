@@ -404,6 +404,23 @@ def create_audio_model_instance(
         else:
             Audio8TTSModel._check_model_trust(model_spec)
 
+    if model_spec.model_family == "zonos3_mini":
+        if audio_cls is None:
+            raise ValueError(f"Unsupported ZONOS3-Mini engine: {model_engine}.")
+        if not cache_only:
+            check_host = getattr(audio_cls, "check_host", None)
+            if check_host is not None:
+                host_result = check_host()
+                if host_result is not True:
+                    raise ValueError(host_result[1])
+        if model_engine == "transformers":
+            from .zonos3_mini_transformers import TransformersZonos3MiniModel
+
+            if model_path is not None or getattr(model_spec, "model_uri", None):
+                model_spec = model_spec.copy(deep=True)
+                model_spec.is_builtin = False
+            TransformersZonos3MiniModel.check_model_trust(model_spec)
+
     if model_path is None:
         cache_manager = CacheManager(model_spec)
         model_path = cache_manager.cache()
