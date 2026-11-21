@@ -6424,6 +6424,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if new_replica_id not in replica_info.active_replica_ids:
             replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
+        # The id can be one a dead worker took down; it is serving again.
+        self._unexpected_down_replicas.pop((model_uid, new_replica_id), None)
 
         # ---- 11. Update status guard ---------------------------------------------
         # Note: update_replica_status does NOT bump instance_info.replica, so we
@@ -8199,6 +8201,19 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        # A replayed replica is running again (e.g. the worker was evicted by
+        # the health check and came back): clear its worker-failure marker so
+        # the unexpected-termination gauge stops reporting it as down.
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if (
+                state.get("n_worker", 1) == 1
+                and isinstance(replica_model_uid, str)
+                and replica_model_uid in self._replica_model_uid_to_worker
+            ):
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is not None:
+                    self._unexpected_down_replicas.pop(parsed, None)
         for row in normalized:
             policy = row.get("replica_autoscaling", row.get("embedding_autoscaling"))
             uid = row.get("model_uid")
