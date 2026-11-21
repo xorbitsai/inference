@@ -719,6 +719,23 @@ async def test_scale_up_default_replica_uid_uses_new_replica_id():
 
 
 @pytest.mark.asyncio
+async def test_scale_up_reusing_dead_replica_id_clears_unexpected_down_marker():
+    launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    # Replica 1 went down with a dead worker; only replica 0 is still active.
+    supervisor._unexpected_down_replicas = {("demo", 1): "demo"}
+    config = ReplicaConfig(
+        devices=[DeviceConfig(worker_ip=worker.address, n_gpu="auto")]
+    )
+
+    result = await supervisor.add_model_replica("demo", config)
+
+    assert result["replica_id"] == 1
+    assert supervisor._unexpected_down_replicas == {}
+
+
+@pytest.mark.asyncio
 async def test_scale_up_rejects_duplicate_replica_uid():
     launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
     worker = _FakeScaleWorker("worker-0:9978", launch_args)
