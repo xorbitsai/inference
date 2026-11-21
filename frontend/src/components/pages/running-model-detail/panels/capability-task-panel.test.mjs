@@ -85,6 +85,214 @@ function mountTestDom(t) {
   return { dom, root };
 }
 
+function enablePcmPlayback(
+  window,
+  AudioContext = class {
+    createMediaStreamDestination() {}
+  }
+) {
+  window.AudioContext = AudioContext;
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'srcObject', { configurable: true });
+}
+
+test('switching ZONOS3-Mini formats and engines clears unavailable streaming', async (t) => {
+  const { dom, root } = mountTestDom(t);
+  const { Form } = require('@/components/ui/form');
+  const { I18nProvider } = require('@/contexts/i18n-context');
+  const { createForm } = require('@/hooks/use-form');
+  const { SpeechPanel } = require('./form-panels.tsx');
+  enablePcmPlayback(dom.window);
+
+  const model = { model_name: 'ZONOS3-Mini', model_ability: ['text2audio'], model_lang: ['en'] };
+  const form = createForm();
+  const initialValues = { response_format: 'mp3', stream: false };
+  const render = (model_engine) =>
+    act(async () => {
+      root.render(
+        React.createElement(
+          I18nProvider,
+          null,
+          React.createElement(
+            Form,
+            { form, initialValues },
+            React.createElement(SpeechPanel, { form, model: { ...model, model_engine } })
+          )
+        )
+      );
+    });
+  const set = (name, value) => act(async () => form.setFieldValue(name, value));
+  const streaming = () => document.querySelector('[role="switch"]');
+
+  await render('GGML');
+  assert.equal(streaming(), null);
+  await set('response_format', 'pcm');
+  assert.ok(streaming());
+  await set('stream', true);
+  assert.equal(streaming().getAttribute('aria-checked'), 'true');
+  await set('response_format', 'wav');
+  assert.equal(streaming(), null);
+  assert.notEqual(form.getFieldValue('stream'), true);
+
+  await set('response_format', 'pcm');
+  assert.equal(streaming().getAttribute('aria-checked'), 'false');
+  await set('stream', true);
+  await render('transformers');
+  assert.equal(streaming(), null);
+  assert.notEqual(form.getFieldValue('stream'), true);
+  assert.equal(form.getFieldValue('response_format'), 'mp3');
+});
+
+test('ZONOS3-Mini JSON and upload requests omit engine-incompatible values', (t) => {
+  const { dom } = mountTestDom(t);
+  const previousCssLoader = require.extensions['.css'];
+  require.extensions['.css'] = () => {};
+  t.after(() => {
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+  });
+  const { CAPABILITY_CONFIGS } = require('../capability-config.tsx');
+  enablePcmPlayback(dom.window);
+  const { transformValues } = CAPABILITY_CONFIGS.text2audio;
+  const values = {
+    input: 'test',
+    response_format: 'pcm',
+    stream: true,
+    language: 'zh',
+    prompt_text: 'stale transcript',
+    speed: 2,
+    seed: 17,
+  };
+  for (const engine of ['transformers', 'SGLang-Omni', 'MLX', 'GGML']) {
+    const model = {
+      model_name: 'ZONOS3-Mini',
+      model_ability: ['text2audio', 'text2audio_voice_cloning'],
+      model_engine: engine,
+    };
+    const { response_format, stream, speed, kwargs } = transformValues({
+      modelUid: 'tts',
+      model,
+      values,
+    });
+    assert.equal(response_format, engine === 'transformers' ? 'mp3' : 'pcm');
+    assert.equal(stream, engine !== 'transformers');
+    assert.equal(speed, 1);
+    const expectedKwargs = engine === 'SGLang-Omni' ? { seed: 17 } : { seed: 17, language: 'zh' };
+    assert.deepEqual(JSON.parse(kwargs), expectedKwargs);
+
+    const upload = transformValues({
+      modelUid: 'tts',
+      model,
+      values: { ...values, prompt_speech: [{ file: new File(['sample'], 'reference.wav') }] },
+    });
+    assert.equal(upload.get('response_format'), response_format);
+    assert.equal(upload.get('stream'), String(stream));
+    assert.equal(upload.get('speed'), '1');
+    assert.equal(upload.get('prompt_speech').name, 'reference.wav');
+    assert.deepEqual(JSON.parse(upload.get('kwargs')), expectedKwargs);
+
+    const wav = transformValues({
+      modelUid: 'tts',
+      model,
+      values: { ...values, response_format: 'wav' },
+    });
+    assert.equal(wav.stream, false);
+  }
+
+  delete dom.window.AudioContext;
+  const fallback = transformValues({
+    modelUid: 'tts',
+    model: { model_name: 'ZONOS3-Mini', model_ability: ['text2audio'], model_engine: 'MLX' },
+    values,
+  });
+  assert.equal(fallback.stream, false);
+  assert.equal(fallback.response_format, 'mp3');
+});
+
+test('ZONOS3-Mini PCM chunks play live and produce a 44.1 kHz mono 16-bit WAV', async (t) => {
+  const { dom } = mountTestDom(t);
+  const { AudioStreamSession } = require('../audio-stream.ts');
+  const sources = [];
+  const buffers = [];
+  const mediaStream = { getTracks: () => [{ stop: () => {} }] };
+  let closed = false;
+  let started = false;
+  enablePcmPlayback(
+    dom.window,
+    class {
+      currentTime = 0;
+      async resume() {
+        started = true;
+      }
+      async close() {
+        closed = true;
+      }
+      createMediaStreamDestination() {
+        return { stream: mediaStream };
+      }
+      createBuffer(channels, sampleCount, rate) {
+        const samples = new Float32Array(sampleCount);
+        buffers.push({ channels, samples, rate });
+        return { duration: sampleCount / rate, getChannelData: () => samples };
+      }
+      createBufferSource() {
+        const source = {
+          connect() {},
+          disconnect() {},
+          start(time) {
+            this.time = time;
+          },
+        };
+        sources.push(source);
+        return source;
+      }
+    }
+  );
+
+  const session = new AudioStreamSession('pcm', 44100);
+  assert.equal(session.result().playbackStream, mediaStream);
+  assert.equal(started, true);
+  const samples = Uint8Array.of(0, 128, 0, 64, 255, 127);
+  let controller;
+  const input = new ReadableStream({
+    start: (streamController) => {
+      controller = streamController;
+    },
+  });
+  const wavPromise = session.consume(input);
+  controller.enqueue(samples.slice(0, 3));
+  await Promise.resolve();
+  assert.deepEqual(Array.from(buffers[0].samples), [-1]);
+  controller.enqueue(samples.slice(3));
+  controller.close();
+
+  const wav = await wavPromise;
+  assert.equal(wav.type, 'audio/wav');
+  assert.deepEqual(
+    buffers.map((buffer) => [buffer.channels, buffer.rate]),
+    [
+      [1, 44100],
+      [1, 44100],
+    ]
+  );
+  assert.deepEqual(Array.from(buffers[1].samples), [0.5, 32767 / 32768]);
+  assert.equal(sources[1].time, sources[0].time + 1 / 44100);
+  assert.equal(session.result().playbackStream, mediaStream);
+  sources[0].onended();
+  assert.equal(closed, false);
+  sources[1].onended();
+  assert.equal(closed, true);
+  assert.equal(session.result().playbackStream, undefined);
+
+  const file = Buffer.from(await wav.arrayBuffer());
+  assert.equal(file.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(file.toString('ascii', 8, 12), 'WAVE');
+  assert.equal(file.readUInt16LE(22), 1);
+  assert.equal(file.readUInt32LE(24), 44100);
+  assert.equal(file.readUInt16LE(34), 16);
+  assert.equal(file.readUInt32LE(40), samples.length);
+  assert.deepEqual(file.subarray(44), Buffer.from(samples));
+});
+
 test('a custom Lightning checkpoint requires steps while Lightning is enabled', async (t) => {
   const { dom, root } = mountTestDom(t);
   const { Form } = require('@/components/ui/form');

@@ -91,7 +91,7 @@ def sglang_model(monkeypatch, tmp_path):
         path.touch()
     voice_codes = tmp_path / "gguf/voices/English/Savannah_en-American_F_1.codes.npy"
     voice_codes.parent.mkdir(parents=True)
-    np.save(voice_codes, np.arange(10).reshape(10, 1))
+    np.save(voice_codes, np.arange(30).reshape(3, 10))
     model = SGLangOmniZonos3MiniModel("uid", str(tmp_path), SimpleNamespace())
     try:
         yield model, events
@@ -99,18 +99,23 @@ def sglang_model(monkeypatch, tmp_path):
         model.stop()
 
 
-def test_sglang_uses_local_checkpoint_and_preset_codes(sglang_model, tmp_path):
+@pytest.mark.parametrize("stream", [False, True])
+def test_sglang_uses_local_checkpoint_and_preset_codes(sglang_model, tmp_path, stream):
     model, events = sglang_model
     model.load()
     config = events[0][1]
     assert config.model_path == str(tmp_path)
     assert [stage.gpu for stage in config.stages] == [2, 2, 2]
-    assert model.speech("hello", "alloy", "pcm", seed=42) == b"\xff?\x01\xc0"
-    request = events[1][1]
-    assert request.params == {"seed": 42, "stream": False}
+    output = model.speech("hello", "alloy", "pcm", seed=42, stream=stream)
+    assert (list(output) if stream else [output]) == [b"\xff?\x01\xc0"]
+    event, request = events[1]
+    assert event == ("stream" if stream else "submit")
+    assert request.params == {"seed": 42, "stream": stream}
     assert request.inputs == {
         "text": "hello",
-        "references": [{"vq_codes": [[code] for code in range(10)]}],
+        "references": [
+            {"vq_codes": [[code, code + 10, code + 20] for code in range(10)]}
+        ],
     }
     model.stop()
     assert events[-1][0] == "stop"

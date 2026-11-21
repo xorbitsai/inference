@@ -173,7 +173,8 @@ class SGLangOmniZonos3MiniModel(Zonos3MiniModel):
                 raise ValueError(
                     f"ZONOS3-Mini preset audio codes are missing for {voice}."
                 )
-            reference = {"vq_codes": np.load(codes, allow_pickle=False).tolist()}
+            # The preset files are frame-major, while Omni expects codebook-major.
+            reference = {"vq_codes": np.load(codes, allow_pickle=False).T.tolist()}
         else:
             reference = {"audio_path": str(reference_path)}
 

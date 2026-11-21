@@ -91,16 +91,10 @@ runtime with ``--model-engine``:
   computers with Apple silicon.
 * ``Audio8-TTS-Realistic-0.6b`` uses ``transformers`` on CPU or CUDA by default.
   Linux with NVIDIA GPUs also supports ``SGLang-Omni``.
-* ``ZONOS3-Mini`` uses ``transformers`` by default on CPU or CUDA.
-  ``SGLang-Omni`` requires Linux with NVIDIA CUDA 13 and Python 3.11 or 3.12.
-  For ``MLX`` on Apple silicon, install
-  `zonos3-mlx-server <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/mlx>`_.
-  For ``GGML``, build
-  `zonos3-server <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/ggml>`_.
-  Put the executable on the worker's ``PATH`` or specify its path with
-  ``XINFERENCE_ZONOS3_MLX_SERVER_PATH`` or ``XINFERENCE_ZONOS3_GGML_SERVER_PATH``.
-  MLX and GGML require FFmpeg for voice cloning with ``prompt_speech``.
-  SGLang-Omni, MLX and GGML support PCM streaming.
+* :ref:`ZONOS3-Mini <models_builtin_zonos3-mini>`
+
+  * `MLX (zonos3-mlx-server) <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/mlx>`_
+  * `GGML (zonos3-server) <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/ggml>`_
 
 For example:
 
