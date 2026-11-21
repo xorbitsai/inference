@@ -618,3 +618,11 @@ msgstr "XINFERENCE_FLEXIBLE_LAUNCHERS"
 #: ../../source/getting_started/environments.rst
 msgid "The shipped Flexible launchers remain available. Permit additional launchers by listing their exact dotted names in this comma-separated variable before starting workers. Allowlisted launchers execute Python code with worker privileges; add only trusted implementations."
 msgstr "I launcher Flexible inclusi restano disponibili. Per consentire launcher aggiuntivi, elencarne i nomi qualificati esatti, separati da virgole, in questa variabile prima di avviare i worker. I launcher consentiti eseguono codice Python con i privilegi del worker; aggiungere solo implementazioni attendibili."
+
+#: ../../source/getting_started/environments.rst
+msgid "XINFERENCE_STARTUP_TIMEOUT"
+msgstr "XINFERENCE_STARTUP_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst
+msgid "How long (seconds) Xinference waits for the local cluster, Supervisor or API process to start before startup fails. Increase it when cold starts are slow, for example on the first run of a large Docker image. Default value is 120."
+msgstr "Tempo (in secondi) che Xinference attende per l'avvio del cluster locale, del Supervisor o del processo API prima che l'avvio non riesca. Aumentarlo quando gli avvii a freddo sono lenti, ad esempio alla prima esecuzione di un'immagine Docker di grandi dimensioni. Il valore predefinito è 120."

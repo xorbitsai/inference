@@ -119,6 +119,13 @@ Health check timeout (seconds) at Xinference startup. The supervisor also
 counts a worker as missing a check once its last report is older than this.
 Default value is 10.
 
+XINFERENCE_STARTUP_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+How long (seconds) Xinference waits for the local cluster, Supervisor or API
+process to start before startup fails. Increase it when cold starts are slow,
+for example on the first run of a large Docker image.
+Default value is 120.
+
 XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Maximum age in seconds of the last valid per-model GPU-memory snapshot retained

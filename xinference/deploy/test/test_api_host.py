@@ -791,3 +791,44 @@ cmdline.supervisor.main(args=["--host", "127.0.0.1", "--port", "0"], standalone_
     assert result.returncode == 0, result.stdout + result.stderr
     assert "baseline reset verified" in result.stdout
     assert not path.exists()
+
+
+@pytest.mark.asyncio
+async def test_startup_timeout_does_not_bound_api_drain(tmp_path, monkeypatch):
+    from .. import api_host
+
+    monkeypatch.setattr(api_host, "STARTUP_TIMEOUT", 0.05)
+    host = APIHost(
+        MagicMock(), {}, SystemSettingsStore(str(tmp_path / "settings.json"))
+    )
+    exited = asyncio.get_running_loop().create_future()
+    source = api_host.APIProcess(
+        "source",
+        MagicMock(**{"poll.return_value": None}),
+        sys.executable,
+        {},
+        APIDiagnostics(),
+        exited,
+        writer=MagicMock(),
+    )
+
+    async def drain(command):
+        async def finish():
+            await asyncio.sleep(0.15)
+            source.draining.set()
+            await asyncio.sleep(0)
+            exited.set_result(0)
+
+        asyncio.get_running_loop().create_task(finish())
+
+    source.send = drain
+    target = MagicMock(observability={})
+    target.wait, target.send = AsyncMock(), AsyncMock()
+    host.active = source
+    host.spawn = AsyncMock(return_value=target)
+    operation = {"requested_executable": None, "python_executable": sys.executable}
+    await host.replace(operation)
+    assert operation["status"] == "succeeded", operation.get("error")
+    assert host.active is target
+    # A drain wait that timed out would fall back to closing the control link.
+    source.writer.close.assert_not_called()

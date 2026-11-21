@@ -19,7 +19,13 @@ import xoscar as xo
 
 from ..core.supervisor_upgrade import PROTOCOL_VERSION, SupervisorGateway
 from ..core.worker_relaunch import validate_relaunch_options
-from .api_host import API_HOST_ENV, STARTUP_TIMEOUT, APIDiagnostics, _wait_process
+from .api_host import (
+    API_HOST_ENV,
+    HANDOFF_TIMEOUT,
+    STARTUP_TIMEOUT,
+    APIDiagnostics,
+    _wait_process,
+)
 from .process_host import start_process
 
 logger = logging.getLogger(__name__)
@@ -245,16 +251,16 @@ class SupervisorHost:
                 raise RuntimeError(runtime["error"])
             operation.update(status="preparing", target_version=target.version)
             await xo.wait_for(
-                self.gateway.prepare_supervisor_switch(final=False), STARTUP_TIMEOUT
+                self.gateway.prepare_supervisor_switch(final=False), HANDOFF_TIMEOUT
             )
-            await xo.wait_for(source.ref.pause_supervisor(), STARTUP_TIMEOUT)
-            await xo.wait_for(self.gateway.prepare_supervisor_switch(), STARTUP_TIMEOUT)
+            await xo.wait_for(source.ref.pause_supervisor(), HANDOFF_TIMEOUT)
+            await xo.wait_for(self.gateway.prepare_supervisor_switch(), HANDOFF_TIMEOUT)
             snapshot = await xo.wait_for(
-                source.ref.get_supervisor_snapshot(), STARTUP_TIMEOUT
+                source.ref.get_supervisor_snapshot(), HANDOFF_TIMEOUT
             )
-            await xo.wait_for(target.ref.restore_supervisor(snapshot), STARTUP_TIMEOUT)
+            await xo.wait_for(target.ref.restore_supervisor(snapshot), HANDOFF_TIMEOUT)
             await xo.wait_for(
-                target.ref.prepare_supervisor_activation(), STARTUP_TIMEOUT
+                target.ref.prepare_supervisor_activation(), HANDOFF_TIMEOUT
             )
             operation["status"] = "switching"
             await self.gateway.select_supervisor(target.ref)
