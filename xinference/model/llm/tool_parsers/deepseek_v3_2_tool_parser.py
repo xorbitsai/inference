@@ -199,6 +199,8 @@ class DeepseekV3_2ToolParser(ToolParser):
                 f"{self._DSML}function_calls>" if dsml else "<function_calls>",
                 f"</{self._DSML[1:]}function_calls>" if dsml else "</function_calls>",
                 self.tool_call_start_tokens,
+                call_start="<｜DSML｜invoke" if dsml else "<invoke",
+                call_end=invoke_close,
             )
             if (
                 current_text.find(

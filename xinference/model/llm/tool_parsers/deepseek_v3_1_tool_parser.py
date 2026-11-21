@@ -180,7 +180,12 @@ class DeepseekV3_1ToolParser(ToolParser):
                 # Text outside the tool calls block is content, even when it
                 # shares a chunk with a marker
                 content = self._text_outside_blocks(
-                    current_text, delta_text, new_pattern_start, "<｜tool▁calls▁end｜>"
+                    current_text,
+                    delta_text,
+                    new_pattern_start,
+                    "<｜tool▁calls▁end｜>",
+                    call_start="<｜tool▁sep｜>",
+                    call_end="<｜tool▁call▁end｜>",
                 )
                 content_events = [(content, None, None)] if content else []
                 # Calculate tool calls in previous and current text to detect new completions

@@ -116,6 +116,8 @@ class ToolParser:
         start: str,
         end: str,
         held_markers: Optional[Iterable[str]] = None,
+        call_start: Optional[str] = None,
+        call_end: Optional[str] = None,
     ) -> Optional[str]:
         """
         Return the plain text this chunk adds outside ``start``...``end``
@@ -126,6 +128,11 @@ class ToolParser:
         the start of a marker (``held_markers``, default ``start``) is held
         back, as in ``_plain_text_delta``, and nothing is returned while a block
         is still open.
+
+        ``end`` only closes a block outside a call. When ``call_start`` and
+        ``call_end`` are given, a call that has started is skipped up to its
+        ``call_end``, so an ``end`` marker written inside a tool argument does
+        not close the block.
         """
         markers = tuple(held_markers or (start,))
         previous_length = len(current_text) - len(delta_text)
@@ -136,7 +143,9 @@ class ToolParser:
         position = 0
         while (block := current_text.find(start, position)) != -1:
             parts.append(current_text[max(position, floor) : block])
-            body_end = current_text.find(end, block + len(start))
+            body_end = self._block_end(
+                current_text, block + len(start), end, call_start, call_end
+            )
             if body_end == -1:
                 return "".join(parts) or None
             position = body_end + len(end)
@@ -145,3 +154,28 @@ class ToolParser:
         )
         parts.append(current_text[max(position, floor) : content_end])
         return "".join(parts) or None
+
+    @staticmethod
+    def _block_end(
+        text: str,
+        position: int,
+        end: str,
+        call_start: Optional[str],
+        call_end: Optional[str],
+    ) -> int:
+        """
+        Return the index of the ``end`` marker that closes the block whose body
+        starts at ``position``, or -1 while it is still open. Text between a
+        ``call_start`` and its ``call_end`` is never searched for ``end``.
+        """
+        while True:
+            closing = text.find(end, position)
+            if not call_start or not call_end:
+                return closing
+            opening = text.find(call_start, position)
+            if opening == -1 or (closing != -1 and closing < opening):
+                return closing
+            call_close = text.find(call_end, opening + len(call_start))
+            if call_close == -1:
+                return -1
+            position = call_close + len(call_end)

@@ -133,3 +133,25 @@ def test_streaming_text_may_mention_the_other_format(parser_name):
         content, tool_calls = _stream(parser_cls(), chunks)
         assert content == f" Use <{wrapper}> tags next time.", chunks
         assert len(tool_calls) == 1, chunks
+
+
+# The marker that closes the tool calls block of each format.
+WRAPPER_END = {
+    "deepseek-v3.1": "<｜tool▁calls▁end｜>",
+    "deepseek-v3.2": "</｜DSML｜function_calls>",
+    "deepseek-v4": "</｜DSML｜tool_calls>",
+    "deepseek-v3.2-plain": "</function_calls>",
+    "deepseek-v4-plain": "</tool_calls>",
+}
+
+
+@pytest.mark.parametrize("parser_name", WRAPPER_END)
+def test_streaming_ignores_block_end_marker_inside_an_argument(parser_name):
+    parser_cls, tool_call = PARSERS[parser_name]
+    marker = WRAPPER_END[parser_name]
+    value = f"example = {marker}; print(example)"
+    text = "A " + tool_call.replace("Beijing", value) + " B"
+    for chunks in _splits(text):
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert tool_calls == [("get_weather", {"location": value})], chunks
+        assert content == "A  B", chunks
