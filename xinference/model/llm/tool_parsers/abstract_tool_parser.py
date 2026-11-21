@@ -108,3 +108,40 @@ class ToolParser:
         start = len(previous_text) - self._partial_marker_length(previous_text, markers)
         end = len(current_text) - self._partial_marker_length(current_text, markers)
         return current_text[start:end] or None
+
+    def _text_outside_blocks(
+        self,
+        current_text: str,
+        delta_text: str,
+        start: str,
+        end: str,
+        held_markers: Optional[Iterable[str]] = None,
+    ) -> Optional[str]:
+        """
+        Return the plain text this chunk adds outside ``start``...``end``
+        blocks, or None when there is none.
+
+        Text before a block, between blocks and after the last one is content,
+        even when it shares a chunk with a marker. A trailing piece that may be
+        the start of a marker (``held_markers``, default ``start``) is held
+        back, as in ``_plain_text_delta``, and nothing is returned while a block
+        is still open.
+        """
+        markers = tuple(held_markers or (start,))
+        previous_length = len(current_text) - len(delta_text)
+        floor = previous_length - self._partial_marker_length(
+            current_text[:previous_length], markers
+        )
+        parts = []
+        position = 0
+        while (block := current_text.find(start, position)) != -1:
+            parts.append(current_text[max(position, floor) : block])
+            body_end = current_text.find(end, block + len(start))
+            if body_end == -1:
+                return "".join(parts) or None
+            position = body_end + len(end)
+        content_end = len(current_text) - self._partial_marker_length(
+            current_text, markers
+        )
+        parts.append(current_text[max(position, floor) : content_end])
+        return "".join(parts) or None

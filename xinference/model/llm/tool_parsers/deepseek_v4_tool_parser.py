@@ -191,14 +191,23 @@ class DeepseekV4ToolParser(ToolParser):
             # Every invoke ends with its closing tag, so none can complete in
             # this delta unless the tag does. Skip the regex scan until then.
             invoke_close = f"</{self._DSML[1:]}invoke>" if dsml else "</invoke>"
+            # Text outside the tool call blocks is content, even when it
+            # shares a chunk with a marker.
+            content = self._text_outside_blocks(
+                current_text,
+                delta_text,
+                f"{self._DSML}tool_calls>" if dsml else "<tool_calls>",
+                f"</{self._DSML[1:]}tool_calls>" if dsml else "</tool_calls>",
+                self.tool_call_start_tokens,
+            )
             if (
                 current_text.find(
                     invoke_close, max(previous_length - len(invoke_close) + 1, 0)
                 )
                 == -1
             ):
-                return None
-            results: List[ToolCall] = []
+                return (content, None, None) if content else None
+            results: List[ToolCall] = [(content, None, None)] if content else []
             for invoke in invoke_regex.finditer(current_text):
                 if invoke.end() > previous_length:
                     invoke_name, invoke_body = invoke.groups()
