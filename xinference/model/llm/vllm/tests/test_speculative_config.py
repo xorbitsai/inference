@@ -224,3 +224,20 @@ def test_regular_model_keeps_block_size_16_default(
     )._sanitize_model_config({})
 
     assert model_config["block_size"] == 16
+
+
+@pytest.mark.parametrize(
+    "architecture",
+    ["DeepseekV3ForCausalLM", "DeepseekV32ForCausalLM", "GlmMoeDsaForCausalLM"],
+)
+def test_mla_model_lets_vllm_choose_block_size(monkeypatch, tmp_path, architecture):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: False)
+    model = _model_for_config(architecture, model_path=tmp_path)
+
+    # A block size of 16 rules out every sparse MLA attention backend in vLLM
+    # and the preferred dense MLA ones, so leave the choice to vLLM.
+    assert "block_size" not in model._sanitize_model_config({})
+    assert model._sanitize_model_config({"block_size": 64})["block_size"] == 64

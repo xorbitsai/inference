@@ -2063,7 +2063,18 @@ class VLLMModel(WeightCachedModel, LLM):
             default_block_size = 16
         # V4.1 has a different sparse-attention cache layout; let vLLM choose
         # its block size rather than inheriting the generic or V4 defaults.
-        if "DeepseekV41ForCausalLM" not in architectures:
+        # vLLM treats an explicit block size of 16 as a hard constraint, which
+        # rules out every sparse MLA backend (DeepSeek-V3.2, GLM-5) and the
+        # preferred dense MLA backends (DeepSeek-V3/R1), so leave it to vLLM.
+        if not any(
+            arch in architectures
+            for arch in (
+                "DeepseekV41ForCausalLM",
+                "DeepseekV3ForCausalLM",
+                "DeepseekV32ForCausalLM",
+                "GlmMoeDsaForCausalLM",
+            )
+        ):
             model_config.setdefault("block_size", default_block_size)
         if VLLM_VERSION < version.parse("0.18.0"):
             model_config.setdefault("swap_space", 4)
