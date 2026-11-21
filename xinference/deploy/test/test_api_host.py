@@ -821,7 +821,7 @@ async def test_startup_timeout_does_not_bound_api_drain(tmp_path, monkeypatch):
         asyncio.get_running_loop().create_task(finish())
 
     source.send = drain
-    target = MagicMock()
+    target = MagicMock(observability={})
     target.wait, target.send = AsyncMock(), AsyncMock()
     host.active = source
     host.spawn = AsyncMock(return_value=target)
