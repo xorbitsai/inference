@@ -792,8 +792,35 @@ def tiny_nemotron_checkpoint(tmp_path_factory):
         ({"return_attention_mask": False}, "return_attention_mask"),
         ({"text_kwargs": {"return_attention_mask": False}}, "return_attention_mask"),
         ({"text_kwargs": {"padding": "invalid"}}, "PaddingStrategy"),
+        ({"text_kwargs": None}, "processing_kwargs.text_kwargs must be an object"),
+        ({"images_kwargs": []}, "processing_kwargs.images_kwargs must be an object"),
+        (
+            {"audio_kwargs": "invalid"},
+            "processing_kwargs.audio_kwargs must be an object",
+        ),
+        ({"videos_kwargs": False}, "processing_kwargs.videos_kwargs must be an object"),
+        ({"common_kwargs": None}, "processing_kwargs.common_kwargs must be an object"),
+        (
+            {"processor_kwargs": True},
+            "processing_kwargs.processor_kwargs must be an object",
+        ),
+        (
+            {"processor_kwargs": {"text_kwargs": None}},
+            "processing_kwargs.processor_kwargs.text_kwargs must be an object",
+        ),
     ],
-    ids=["flat-mask", "nested-mask", "invalid-padding"],
+    ids=[
+        "flat-mask",
+        "nested-mask",
+        "invalid-padding",
+        "null-text-options",
+        "list-image-options",
+        "string-audio-options",
+        "boolean-video-options",
+        "null-common-options",
+        "boolean-processor-options",
+        "wrapped-null-text-options",
+    ],
 )
 async def test_rest_transformers_processor_options_are_request_local(
     tiny_nemotron_checkpoint, monkeypatch, processing_kwargs, error, reverse

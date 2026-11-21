@@ -41,6 +41,13 @@ _EXIF_ORIENTATION = 0x0112
 _TRANSFORMERS_CHAT_TEMPLATE_RESERVED = frozenset(
     {"self", "conversation", "tokenize", "return_dict", "return_tensors"}
 )
+_TRANSFORMERS_PROCESSOR_OPTION_GROUPS = (
+    "audio_kwargs",
+    "common_kwargs",
+    "images_kwargs",
+    "text_kwargs",
+    "videos_kwargs",
+)
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
@@ -278,6 +285,21 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                     + ", ".join(sorted(reserved))
                     + "."
                 )
+            processor_kwargs = processing_kwargs.get("processor_kwargs")
+            if processor_kwargs is not None and not isinstance(processor_kwargs, dict):
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed processing_kwargs.processor_kwargs "
+                    "must be an object or null."
+                )
+            for path, options in (
+                ("processing_kwargs", processing_kwargs),
+                ("processing_kwargs.processor_kwargs", processor_kwargs or {}),
+            ):
+                for group in _TRANSFORMERS_PROCESSOR_OPTION_GROUPS:
+                    if group in options and not isinstance(options[group], dict):
+                        raise InvalidModelRequestError(
+                            f"Nemotron 3.5 Embed {path}.{group} must be an object."
+                        )
         return dimensions
 
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
