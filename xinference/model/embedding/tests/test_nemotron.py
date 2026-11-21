@@ -50,10 +50,11 @@ CLASSES = (
 def make_model(
     cls=nemotron.TransformersNemotronEmbeddingModel,
     name="Nemotron-3.5-Embed-1B-BF16",
+    model_path="/unused",
     **kwargs,
 ):
     model = cls(
-        "replica", "/unused", match_embedding(name, "pytorch", "none"), **kwargs
+        "replica", model_path, match_embedding(name, "pytorch", "none"), **kwargs
     )
     model._clean_cache_if_needed = MagicMock()
     return model
@@ -265,6 +266,32 @@ def test_transformers_rejects_expanded_input_over_context_limit():
     model._model.assert_not_called()
 
 
+def make_embedding_app(model, monkeypatch):
+    from xinference.api.restful_api import RESTfulAPI
+
+    async def create_embedding(*args, **kwargs):
+        return json.dumps(await model.create_embedding(*args, **kwargs))
+
+    monkeypatch.setattr(
+        "xinference.api.restful_api.require_model",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                uid=b"replica", create_embedding=create_embedding
+            )
+        ),
+    )
+    api = object.__new__(RESTfulAPI)
+    api._set_trace_model = MagicMock()
+    api._set_trace_model_type = MagicMock()
+    api._check_model_access = MagicMock()
+    api._get_supervisor_ref = AsyncMock()
+    api._get_model_last_error = AsyncMock(side_effect=lambda _, error: error)
+    api._report_error_event = AsyncMock()
+    app = FastAPI()
+    app.add_api_route("/v1/embeddings", api.create_embedding, methods=["POST"])
+    return app
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reverse", [False, True], ids=["special-first", "valid-first"])
 @pytest.mark.parametrize(
@@ -321,8 +348,6 @@ def test_transformers_rejects_expanded_input_over_context_limit():
 async def test_rest_embedding_validation_is_request_local(
     monkeypatch, special_input, options, valid_options, error, reverse
 ):
-    from xinference.api.restful_api import RESTfulAPI
-
     model = make_model(batch_size=3, batch_interval=0.05)
     model._processor = MagicMock()
     model._model = MagicMock(device="cpu", dtype=torch.float32)
@@ -341,27 +366,7 @@ async def test_rest_embedding_validation_is_request_local(
         )
 
     model._processor.apply_chat_template.side_effect = preprocess
-
-    async def create_embedding(*args, **kwargs):
-        return json.dumps(await model.create_embedding(*args, **kwargs))
-
-    monkeypatch.setattr(
-        "xinference.api.restful_api.require_model",
-        AsyncMock(
-            return_value=SimpleNamespace(
-                uid=b"replica", create_embedding=create_embedding
-            )
-        ),
-    )
-    api = object.__new__(RESTfulAPI)
-    api._set_trace_model = MagicMock()
-    api._set_trace_model_type = MagicMock()
-    api._check_model_access = MagicMock()
-    api._get_supervisor_ref = AsyncMock()
-    api._get_model_last_error = AsyncMock(side_effect=lambda _, error: error)
-    api._report_error_event = AsyncMock()
-    app = FastAPI()
-    app.add_api_route("/v1/embeddings", api.create_embedding, methods=["POST"])
+    app = make_embedding_app(model, monkeypatch)
 
     payloads = [
         {"model": "nemotron", "input": special_input, **options},
@@ -655,11 +660,12 @@ def test_load_uses_official_entry_points(monkeypatch, cls, start_method):
         assert vllm.LLM.call_args.kwargs["pooler_config"]["pooling_type"] == "MEAN"
 
 
-def test_native_transformers_and_sentence_transformers_agree(tmp_path):
+@pytest.fixture(scope="module")
+def tiny_nemotron_checkpoint(tmp_path_factory):
     transformers = pytest.importorskip("transformers", minversion="5.20.0")
-    pytest.importorskip("sentence_transformers", minversion="6.1.0")
     from tokenizers import Tokenizer, models, pre_tokenizers
 
+    tmp_path = tmp_path_factory.mktemp("tiny-nemotron")
     vocab = {
         token: index
         for index, token in enumerate(
@@ -775,6 +781,62 @@ def test_native_transformers_and_sentence_transformers_agree(tmp_path):
         path = tmp_path / name
         path.parent.mkdir(exist_ok=True)
         path.write_text(json.dumps(value))
+    return tmp_path
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["invalid-first", "valid-first"])
+@pytest.mark.parametrize(
+    "processing_kwargs,error",
+    [
+        ({"return_attention_mask": False}, "return_attention_mask"),
+        ({"text_kwargs": {"return_attention_mask": False}}, "return_attention_mask"),
+        ({"text_kwargs": {"padding": "invalid"}}, "PaddingStrategy"),
+    ],
+    ids=["flat-mask", "nested-mask", "invalid-padding"],
+)
+async def test_rest_transformers_processor_options_are_request_local(
+    tiny_nemotron_checkpoint, monkeypatch, processing_kwargs, error, reverse
+):
+    model = make_model(
+        model_path=str(tiny_nemotron_checkpoint),
+        device="cpu",
+        torch_dtype="float32",
+        batch_size=3,
+        batch_interval=0.05,
+    )
+    model.load()
+    app = make_embedding_app(model, monkeypatch)
+    payloads = [
+        {
+            "model": "nemotron",
+            "input": "caption",
+            "processing_kwargs": processing_kwargs,
+        },
+        {"model": "nemotron", "input": "document"},
+    ]
+    if reverse:
+        payloads.reverse()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        responses = await asyncio.gather(
+            *(client.post("/v1/embeddings", json=payload) for payload in payloads)
+        )
+
+    invalid, valid = reversed(responses) if reverse else responses
+    assert (invalid.status_code, valid.status_code) == (400, 200), (
+        invalid.text,
+        valid.text,
+    )
+    assert error in invalid.json()["detail"]
+    result = valid.json()
+    assert len(result["data"][0]["embedding"]) == 32
+    assert result["usage"]["total_tokens"] > 0
+
+
+def test_native_transformers_and_sentence_transformers_agree(tiny_nemotron_checkpoint):
+    pytest.importorskip("sentence_transformers", minversion="6.1.0")
     inputs = [
         "document",
         {"image": Image.new("RGB", (56, 56))},
@@ -785,7 +847,13 @@ def test_native_transformers_and_sentence_transformers_agree(tmp_path):
     for cls in CLASSES[:2]:
         family = match_embedding("Nemotron-3.5-Embed-1B-BF16", "pytorch", "none")
         family.dimensions = 32
-        model = cls("tiny", str(tmp_path), family, device="cpu", torch_dtype="float32")
+        model = cls(
+            "tiny",
+            str(tiny_nemotron_checkpoint),
+            family,
+            device="cpu",
+            torch_dtype="float32",
+        )
         model.load()
         result = model._create_embedding(inputs, dimensions=16)
         assert len(result["data"]) == 3

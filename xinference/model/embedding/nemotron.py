@@ -354,15 +354,28 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
         vectors, counts = [], []
+        processing_kwargs = kwargs.get("processing_kwargs") or {}
         for sample in samples:
-            features = self._processor.apply_chat_template(
-                make_messages(sample, prefix),
-                tokenize=True,
-                return_dict=True,
-                return_tensors="pt",
-                **(kwargs.get("processing_kwargs") or {}),
-            )
+            messages = make_messages(sample, prefix)
+            try:
+                features = self._processor.apply_chat_template(
+                    messages,
+                    tokenize=True,
+                    return_dict=True,
+                    return_tensors="pt",
+                    **processing_kwargs,
+                )
+            except (TypeError, ValueError) as exc:
+                if not processing_kwargs:
+                    raise
+                raise InvalidModelRequestError(
+                    f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
+                ) from exc
             self._validate_context_length(features["input_ids"].shape[-1])
+            if features.get("attention_mask") is None:
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed requires return_attention_mask=True."
+                )
             features = features.to(self._model.device)
             if "pixel_values" in features:
                 features["pixel_values"] = features["pixel_values"].to(
