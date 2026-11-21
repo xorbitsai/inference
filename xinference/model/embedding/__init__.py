@@ -205,6 +205,11 @@ def _install():
     from .flag.core import FlagEmbeddingModel
     from .llama_cpp.core import XllamaCppEmbeddingModel
     from .llama_cpp.embeddinggemma2 import XllamaCppEmbeddingGemma2Model
+    from .nemotron import (
+        SentenceTransformerNemotronEmbeddingModel,
+        TransformersNemotronEmbeddingModel,
+        VLLMNemotronEmbeddingModel,
+    )
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
@@ -214,8 +219,14 @@ def _install():
     # Specific modality-aware adapters take precedence over the generic text path.
     if SentenceTransformerEmbeddingGemma2Model not in SENTENCE_TRANSFORMER_CLASSES:
         SENTENCE_TRANSFORMER_CLASSES.insert(0, SentenceTransformerEmbeddingGemma2Model)
+    if SentenceTransformerNemotronEmbeddingModel not in SENTENCE_TRANSFORMER_CLASSES:
+        SENTENCE_TRANSFORMER_CLASSES.insert(
+            0, SentenceTransformerNemotronEmbeddingModel
+        )
     extend_classes_once(FLAG_EMBEDDER_CLASSES, [FlagEmbeddingModel])
     extend_classes_once(VLLM_CLASSES, [VLLMEmbeddingModel])
+    if VLLMNemotronEmbeddingModel not in VLLM_CLASSES:
+        VLLM_CLASSES.insert(0, VLLMNemotronEmbeddingModel)
     extend_classes_once(
         LLAMA_CPP_CLASSES,
         [XllamaCppEmbeddingModel, XllamaCppEmbeddingGemma2Model],
@@ -225,7 +236,10 @@ def _install():
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
-    SUPPORTED_ENGINES["transformers"] = [TransformersEmbeddingGemma2Model]
+    SUPPORTED_ENGINES["transformers"] = [
+        TransformersEmbeddingGemma2Model,
+        TransformersNemotronEmbeddingModel,
+    ]
 
     # Distribution-specific engines are appended after the built-ins.
     _run_engine_registration_hooks(MODEL_TYPE_EMBEDDING, SUPPORTED_ENGINES)
