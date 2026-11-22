@@ -39,6 +39,7 @@ class _NativeSpeechModel(NativeAsyncAudioModel):
             SimpleNamespace(to_description=lambda: {"model_type": "audio"}),
         )
         self.started = asyncio.Event()
+        self.first_audio_ready = asyncio.Event()
         self.next_waiting = asyncio.Event()
         self.aborting = asyncio.Event()
         self.abort_ack = asyncio.Event()
@@ -51,6 +52,7 @@ class _NativeSpeechModel(NativeAsyncAudioModel):
 
     async def generate(self, **kwargs):
         self.started.set()
+        await self.first_audio_ready.wait()
         yield b"first-audio"
         self.next_waiting.set()
         await self.released.wait()
@@ -88,13 +90,16 @@ class _NativeSpeechActor(ModelActor):
     async def record_metrics(self, *args, **kwargs):
         pass
 
-    async def prepare(self):
+    async def prepare(self, block_first_audio=False):
         await self.load()
         await self.wait_for_load()
+        if not block_first_audio:
+            self._model.first_audio_ready.set()
 
     def observations(self):
         return {
             "serve_count": self._serve_count,
+            "started": self._model.started.is_set(),
             "aborting": self._model.aborting.is_set(),
             "next_waiting": self._model.next_waiting.is_set(),
             "requests": len(self._model._requests),
@@ -103,6 +108,7 @@ class _NativeSpeechActor(ModelActor):
     def allow_abort(self):
         self._model.abort_ack.set()
         self._model.released.set()
+        self._model.first_audio_ready.set()
 
 
 class _InvalidAudioActor(xo.StatelessActor):
@@ -165,6 +171,59 @@ async def test_speech_cleanup_releases_admission_when_remote_close_fails():
     )
     with pytest.raises(RuntimeError, match="abort failed"):
         await restful_api_module._close_speech_stream(model, iterator)
+    model.decrease_serve_count.assert_awaited_once()
+
+
+async def test_speech_http_pcm_remains_binary_across_heartbeat_interval(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    import httpx
+    from fastapi import FastAPI, Request
+
+    first_chunk, second_chunk = b"\x01\x00", b"\xfe\xff\x03\x00"
+    ping_interval = 0.02
+
+    async def model_speech(**kwargs):
+        async def chunks():
+            yield first_chunk
+            await asyncio.sleep(6 * ping_interval)
+            yield second_chunk
+
+        return chunks()
+
+    model = SimpleNamespace(speech=model_speech, decrease_serve_count=AsyncMock())
+    monkeypatch.setattr(
+        restful_api_module, "require_model", AsyncMock(return_value=model)
+    )
+    monkeypatch.setattr(
+        restful_api_module, "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS", ping_interval
+    )
+    app = FastAPI()
+
+    @app.post("/v1/audio/speech")
+    async def speech(request: Request):
+        return await RESTfulAPI.create_speech(
+            cast(RESTfulAPI, _API()), request, None, None
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://test"
+    ) as client:
+        response = await asyncio.wait_for(
+            client.post(
+                "/v1/audio/speech",
+                json={
+                    "model": "tts",
+                    "input": "Hello",
+                    "response_format": "pcm",
+                    "stream": True,
+                },
+            ),
+            timeout=5,
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert response.content == first_chunk + second_chunk
     model.decrease_serve_count.assert_awaited_once()
 
 
@@ -419,13 +478,17 @@ async def test_speech_stream_failure_reports_model_origin_and_runs_cleanup(monke
     assert calls["decrease"] == 1
 
 
-@pytest.mark.parametrize("disconnect_during_send", [False, True])
+@pytest.mark.parametrize(
+    "disconnect_phase", ["before_audio", "between_chunks", "send", "send_error"]
+)
 async def test_native_tts_http_disconnect_holds_slot_until_remote_abort(
-    monkeypatch, disconnect_during_send
+    monkeypatch, disconnect_phase
 ):
     import json
 
     from fastapi import FastAPI, Request
+
+    from ..streaming_outcome import StreamState, get_stream_outcome_reporter
 
     pool = await xo.create_actor_pool(
         f"127.0.0.1:{xo.utils.get_next_port()}", n_process=1
@@ -437,16 +500,18 @@ async def test_native_tts_http_disconnect_holds_slot_until_remote_abort(
             allocate_strategy=xo.allocate_strategy.ProcessIndex(1),
             uid="native-speech",
         )
-        await actor.prepare()
+        await actor.prepare(block_first_audio=disconnect_phase == "before_audio")
         monkeypatch.setattr(
             restful_api_module,
             "require_model",
             lambda *args: asyncio.sleep(0, result=actor),
         )
         app = FastAPI()
+        reporters = []
 
         @app.post("/v1/audio/speech")
         async def speech(request: Request):
+            reporters.append(get_stream_outcome_reporter(request))
             return await RESTfulAPI.create_speech(
                 cast(RESTfulAPI, _API()), request, None, None
             )
@@ -474,12 +539,21 @@ async def test_native_tts_http_disconnect_holds_slot_until_remote_abort(
         async def send(message):
             if message["type"] == "http.response.body" and message.get("body"):
                 first.set()
-                if disconnect_during_send:
+                if disconnect_phase == "send":
                     await asyncio.Event().wait()
+                if disconnect_phase == "send_error":
+                    raise BrokenPipeError("Client closed the connection")
 
         scope = {
             "type": "http",
-            "asgi": {"version": "3.0"},
+            "asgi": {
+                "version": "3.0",
+                "spec_version": (
+                    "2.4"
+                    if disconnect_phase in {"before_audio", "send_error"}
+                    else "2.0"
+                ),
+            },
             "http_version": "1.1",
             "method": "POST",
             "path": "/v1/audio/speech",
@@ -492,14 +566,23 @@ async def test_native_tts_http_disconnect_holds_slot_until_remote_abort(
         }
         response_task = asyncio.create_task(app(scope, receive, send))
         try:
-            await asyncio.wait_for(first.wait(), 5)
-            if not disconnect_during_send:
+            if disconnect_phase == "before_audio":
+                for _ in range(100):
+                    if (await actor.observations())["started"]:
+                        break
+                    await asyncio.sleep(0.01)
+                assert (await actor.observations())["started"]
+                assert not first.is_set()
+            else:
+                await asyncio.wait_for(first.wait(), 5)
+            if disconnect_phase == "between_chunks":
                 for _ in range(100):
                     if (await actor.observations())["next_waiting"]:
                         break
                     await asyncio.sleep(0.01)
                 assert (await actor.observations())["next_waiting"]
-            disconnected.set()
+            if disconnect_phase != "send_error":
+                disconnected.set()
             for _ in range(100):
                 state = await actor.observations()
                 if state["aborting"] or state["serve_count"] == 0:
@@ -510,6 +593,7 @@ async def test_native_tts_http_disconnect_holds_slot_until_remote_abort(
                 await actor.speech("next", "ryan", "pcm", 1.0, True)
             await actor.allow_abort()
             await asyncio.wait_for(response_task, 5)
+            assert reporters[0].outcome.state is StreamState.CLIENT_DISCONNECTED
             for _ in range(100):
                 state = await actor.observations()
                 if state["serve_count"] == 0 and state["requests"] == 0:

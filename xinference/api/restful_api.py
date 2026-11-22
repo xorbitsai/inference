@@ -65,6 +65,7 @@ from PIL import Image
 from sse_starlette.sse import EventSourceResponse
 from starlette.background import BackgroundTask
 from starlette.responses import PlainTextResponse, StreamingResponse
+from starlette.types import Message, Receive, Scope, Send
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -710,6 +711,71 @@ async def _close_speech_stream(model, iterator) -> None:
                     raise
     if cancellation is not None:
         raise cancellation
+
+
+class _SpeechStreamResponse(StreamingResponse):
+    """Send raw speech bytes and release the model when streaming stops."""
+
+    def __init__(self, request: Request, model: Any, iterator: AsyncIterator[bytes]):
+        self._request = request
+        self._model = model
+        self._iterator = iterator
+        self._released = False
+        super().__init__(
+            self._stream_audio(),
+            media_type="application/octet-stream",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
+
+    async def _release(self) -> None:
+        if not self._released:
+            self._released = True
+            await _close_speech_stream(self._model, self._iterator)
+
+    async def _stream_audio(self) -> AsyncIterator[bytes]:
+        try:
+            async for chunk in observe_stream(
+                self._iterator,
+                get_stream_outcome_reporter(self._request),
+                failure_origin=FailureOrigin.MODEL_GENERATOR,
+            ):
+                yield chunk
+        finally:
+            await self._release()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            async with anyio.create_task_group() as group:
+
+                def disconnect() -> None:
+                    report_client_disconnect(self._request)
+                    group.cancel_scope.cancel()
+
+                async def send_audio(message: Message) -> None:
+                    try:
+                        await send(message)
+                    except OSError:
+                        disconnect()
+                        await anyio.lowlevel.checkpoint()
+
+                async def stream() -> None:
+                    await self.stream_response(send_audio)
+                    group.cancel_scope.cancel()
+
+                group.start_soon(stream)
+                # Listen even when the ASGI server can signal disconnects on send.
+                # A model can be waiting to produce its first chunk.
+                await self.listen_for_disconnect(receive)
+                disconnect()
+        finally:
+            with anyio.CancelScope(shield=True):
+                try:
+                    await _close_async_iterator(self.body_iterator)
+                finally:
+                    # Closing an unstarted generator does not run its finally.
+                    await self._release()
+        if self.background is not None:
+            await self.background()
 
 
 def _guard_speech_stream_failure(request: Request, response: Response) -> Response:
@@ -4429,39 +4495,7 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             if body.stream:
-                cleanup_task: Optional[asyncio.Task[None]] = None
-
-                async def release_speech():
-                    nonlocal cleanup_task
-                    if cleanup_task is None:
-                        cleanup_task = asyncio.create_task(
-                            _close_speech_stream(model, out)
-                        )
-                    await asyncio.shield(cleanup_task)
-
-                async def stream_results():
-                    try:
-                        async for item in observe_stream(
-                            out,
-                            get_stream_outcome_reporter(request),
-                            failure_origin=FailureOrigin.MODEL_GENERATOR,
-                        ):
-                            yield item
-                    finally:
-                        await release_speech()
-
-                response = EventSourceResponse(
-                    media_type="application/octet-stream",
-                    content=stream_results(),
-                    ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
-                )
-
-                async def disconnected(message):
-                    report_client_disconnect(request)
-                    await release_speech()
-
-                _observe_sse_disconnect(response, disconnected)
-                return response
+                return _SpeechStreamResponse(request, model, out)
             else:
                 return Response(
                     media_type=_audio_response_media_type(body.response_format),
