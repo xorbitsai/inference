@@ -241,3 +241,43 @@ def test_mla_model_lets_vllm_choose_block_size(monkeypatch, tmp_path, architectu
     # and the preferred dense MLA ones, so leave the choice to vLLM.
     assert "block_size" not in model._sanitize_model_config({})
     assert model._sanitize_model_config({"block_size": 64})["block_size"] == 64
+
+
+@pytest.mark.parametrize(
+    "architecture",
+    ["DeepseekV3ForCausalLM", "DeepseekV32ForCausalLM", "GlmMoeDsaForCausalLM"],
+)
+@pytest.mark.parametrize(
+    ("attr", "kv_sharing_config"),
+    [
+        ("_xavier_config", {"role": "prefill", "gpu_cache_bytes": 0}),
+        ("_xavier_config", {"role": "decode", "gpu_cache_bytes": 0}),
+        ("_xavier_config", {"role": "hybrid", "block_tracker_uid": "tracker"}),
+        ("_nixl_config", {"role": "decode"}),
+    ],
+)
+def test_mla_replicas_sharing_kv_get_a_common_block_size(
+    monkeypatch, tmp_path, architecture, attr, kv_sharing_config
+):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: False)
+    model = _model_for_config(architecture, model_path=tmp_path)
+    setattr(model, attr, kv_sharing_config)
+
+    # vLLM's own choice differs between GPUs (16 on Hopper with FlashAttention
+    # MLA, 32 on Blackwell with FlashInfer MLA), which breaks KV handoff.
+    assert model._sanitize_model_config({})["block_size"] == 64
+    assert model._sanitize_model_config({"block_size": 32})["block_size"] == 32
+
+
+def test_mla_replicas_sharing_kv_keep_npu_default_block_size(monkeypatch, tmp_path):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: True)
+    model = _model_for_config("DeepseekV3ForCausalLM", model_path=tmp_path)
+    model._xavier_config = {"role": "prefill", "gpu_cache_bytes": 0}
+
+    assert model._sanitize_model_config({})["block_size"] == 16
