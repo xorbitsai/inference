@@ -534,6 +534,18 @@ def test_sentence_transformers_preserves_input_order_and_counts_and_removes_hook
         model._create_embedding("x")
     assert encoder.register_forward_pre_hook.return_value.remove.call_count == 3
 
+    forward_error = ValueError("forward failure")
+
+    def fail_forward(samples, **kwargs):
+        encode(samples, **kwargs)
+        raise forward_error
+
+    encoder.encode.side_effect = fail_forward
+    with pytest.raises(ValueError) as exc:
+        model._create_embedding("x", processing_kwargs={"text": {"padding": True}})
+    assert exc.value is forward_error
+    assert encoder.register_forward_pre_hook.return_value.remove.call_count == 4
+
 
 def mock_vllm_pooling(monkeypatch):
     class VLLMValidationError(Exception):
@@ -825,7 +837,21 @@ def tiny_nemotron_checkpoint(tmp_path_factory):
 async def test_rest_transformers_processor_options_are_request_local(
     tiny_nemotron_checkpoint, monkeypatch, processing_kwargs, error, reverse
 ):
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        CLASSES[0],
+        processing_kwargs,
+        error,
+        reverse,
+    )
+
+
+async def check_rest_processor_options(
+    tiny_nemotron_checkpoint, monkeypatch, model_cls, processing_kwargs, error, reverse
+):
     model = make_model(
+        model_cls,
         model_path=str(tiny_nemotron_checkpoint),
         device="cpu",
         torch_dtype="float32",
@@ -851,15 +877,56 @@ async def test_rest_transformers_processor_options_are_request_local(
             *(client.post("/v1/embeddings", json=payload) for payload in payloads)
         )
 
-    invalid, valid = reversed(responses) if reverse else responses
-    assert (invalid.status_code, valid.status_code) == (400, 200), (
-        invalid.text,
-        valid.text,
+    special, plain = reversed(responses) if reverse else responses
+    assert (special.status_code, plain.status_code) == (400 if error else 200, 200), (
+        special.text,
+        plain.text,
     )
-    assert error in invalid.json()["detail"]
-    result = valid.json()
-    assert len(result["data"][0]["embedding"]) == 32
-    assert result["usage"]["total_tokens"] > 0
+    if error:
+        assert error in special.json()["detail"]
+    successful = [plain] if error else [special, plain]
+    for response in successful:
+        result = response.json()
+        assert len(result["data"][0]["embedding"]) == 32
+        assert result["usage"]["total_tokens"] > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["special-first", "plain-first"])
+@pytest.mark.parametrize(
+    "processing_kwargs,error",
+    [
+        ({"text": True}, "processing_kwargs.text must be an object"),
+        ({"text": {"padding": "invalid"}}, "PaddingStrategy"),
+        ({"text": {"return_attention_mask": False}}, "return_attention_mask"),
+        ({"text": {"padding": "longest"}}, None),
+        (
+            {"chat_template": {"text_kwargs": None}},
+            "processing_kwargs.chat_template.text_kwargs must be an object",
+        ),
+        ({"common": {"return_tensors": "np"}}, "return_tensors"),
+    ],
+    ids=[
+        "boolean-text",
+        "invalid-padding",
+        "no-mask",
+        "valid-padding",
+        "null-template-text",
+        "numpy-mask",
+    ],
+)
+async def test_rest_sentence_transformers_processor_options_are_request_local(
+    tiny_nemotron_checkpoint, monkeypatch, processing_kwargs, error, reverse
+):
+    pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        CLASSES[1],
+        processing_kwargs,
+        error,
+        reverse,
+    )
 
 
 def test_native_transformers_and_sentence_transformers_agree(tiny_nemotron_checkpoint):

@@ -48,6 +48,24 @@ _TRANSFORMERS_PROCESSOR_OPTION_GROUPS = (
     "text_kwargs",
     "videos_kwargs",
 )
+_SENTENCE_TRANSFORMERS_PROCESSOR_OPTION_GROUPS = (
+    "audio",
+    "chat_template",
+    "common",
+    "image",
+    "text",
+    "video",
+)
+
+
+def _validate_processor_option_groups(
+    options: Dict[str, Any], groups: Tuple[str, ...], path: str
+) -> None:
+    for group in groups:
+        if group in options and not isinstance(options[group], dict):
+            raise InvalidModelRequestError(
+                f"Nemotron 3.5 Embed {path}.{group} must be an object."
+            )
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
@@ -295,11 +313,21 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 ("processing_kwargs", processing_kwargs),
                 ("processing_kwargs.processor_kwargs", processor_kwargs or {}),
             ):
-                for group in _TRANSFORMERS_PROCESSOR_OPTION_GROUPS:
-                    if group in options and not isinstance(options[group], dict):
-                        raise InvalidModelRequestError(
-                            f"Nemotron 3.5 Embed {path}.{group} must be an object."
-                        )
+                _validate_processor_option_groups(
+                    options, _TRANSFORMERS_PROCESSOR_OPTION_GROUPS, path
+                )
+        elif self.engine == "sentence_transformers" and processing_kwargs:
+            _validate_processor_option_groups(
+                processing_kwargs,
+                _SENTENCE_TRANSFORMERS_PROCESSOR_OPTION_GROUPS,
+                "processing_kwargs",
+            )
+            # Sentence Transformers forwards template options to Transformers.
+            _validate_processor_option_groups(
+                processing_kwargs.get("chat_template", {}),
+                _TRANSFORMERS_PROCESSOR_OPTION_GROUPS,
+                "processing_kwargs.chat_template",
+            )
         return dimensions
 
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
@@ -439,9 +467,18 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
         vectors, counts = [], []
+        processing_kwargs = kwargs.get("processing_kwargs")
+        forward_started = False
 
         def count_tokens(module: Any, args: Tuple[Any, ...]) -> None:
-            mask = args[0]["attention_mask"]
+            nonlocal forward_started
+            forward_started = True
+            mask = args[0].get("attention_mask")
+            if not isinstance(mask, torch.Tensor):
+                raise InvalidModelRequestError(
+                    "Nemotron 3.5 Embed requires a PyTorch attention mask. "
+                    "Use return_attention_mask=True and return_tensors='pt'."
+                )
             self._validate_context_length(mask.shape[-1])
             counts.append(int(mask.sum().item()))
 
@@ -450,16 +487,25 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
             # The model card uses batch_size=1 for mixed image/text documents.
             # Each forward then supplies the exact token count for its input.
             for sample in samples:
-                with torch.inference_mode():
-                    vector = self._model.encode(
-                        [sample],
-                        prompt_name="query" if prefix == "query:" else "document",
-                        batch_size=1,
-                        convert_to_tensor=True,
-                        convert_to_numpy=False,
-                        show_progress_bar=False,
-                        processing_kwargs=kwargs.get("processing_kwargs"),
-                    )
+                forward_started = False
+                try:
+                    with torch.inference_mode():
+                        vector = self._model.encode(
+                            [sample],
+                            prompt_name="query" if prefix == "query:" else "document",
+                            batch_size=1,
+                            convert_to_tensor=True,
+                            convert_to_numpy=False,
+                            show_progress_bar=False,
+                            processing_kwargs=processing_kwargs,
+                        )
+                except (TypeError, ValueError) as exc:
+                    # encode() includes inference as well as preprocessing.
+                    if forward_started or not processing_kwargs:
+                        raise
+                    raise InvalidModelRequestError(
+                        f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
+                    ) from exc
                 vectors.append(vector[0])
         finally:
             hook.remove()
