@@ -1,0 +1,46 @@
+# Translations for the Oruk Fourier 2B audio model.
+# Distributed under the same license as Xinference.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-22 17:50+0000\n"
+"PO-Revision-Date: 2026-11-22 17:50+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: it\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:5
+msgid "Oruk-Fourier-2B"
+msgstr "Oruk-Fourier-2B"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:7
+msgid "**Model Name:** Oruk-Fourier-2B"
+msgstr "**Nome del modello:** Oruk-Fourier-2B"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:8
+msgid "**Model Family:** qwen3_asr"
+msgstr "**Famiglia di modelli:** qwen3_asr"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:9
+msgid "**Abilities:** ['audio2text']"
+msgstr "**Funzionalità:** ['audio2text']"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:10
+msgid "**Multilingual:** False"
+msgstr "**Multilingue:** No"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:13
+msgid "Specifications"
+msgstr "Specifiche"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:15
+msgid "**Model ID:** oruk/oruk-fourier-2b"
+msgstr "**ID del modello:** oruk/oruk-fourier-2b"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "Eseguire il seguente comando per avviare il modello::"
