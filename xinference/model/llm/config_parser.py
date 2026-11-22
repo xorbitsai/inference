@@ -306,8 +306,17 @@ def _infer_quantization(config: Dict[str, Any], model_format: str) -> str:
                 pass
         quant_method = quant_config.get("quant_method") or quant_config.get("method")
         if isinstance(quant_method, str) and quant_method:
-            if "gptq" in quant_method.lower():
+            lowered = quant_method.lower()
+            if "gptq" in lowered:
                 return "Int4"
+            # FP8 and bitsandbytes configs carry no "bits" key.
+            if "fp8" in lowered:
+                return "FP8"
+            if "bnb" in lowered or "bitsandbytes" in lowered:
+                if quant_config.get("load_in_4bit"):
+                    return "4-bit"
+                if quant_config.get("load_in_8bit"):
+                    return "8-bit"
     quant = config.get("quantization")
     if isinstance(quant, str) and quant:
         return quant

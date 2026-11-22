@@ -133,3 +133,46 @@ def test_huggingface_cache_root_requires_unambiguous_snapshot(tmp_path):
 
     with pytest.raises(ValueError, match="Multiple Hugging Face snapshots"):
         _resolve_config_and_dir(str(cache_root))
+
+
+@pytest.mark.parametrize(
+    "quantization_config, model_format, quantization",
+    [
+        (
+            {
+                "quant_method": "fp8",
+                "activation_scheme": "dynamic",
+                "weight_block_size": [128, 128],
+            },
+            "fp8",
+            "FP8",
+        ),
+        (
+            {"quant_method": "bitsandbytes", "load_in_4bit": True},
+            "bnb",
+            "4-bit",
+        ),
+        (
+            {"quant_method": "bitsandbytes", "load_in_8bit": True},
+            "bnb",
+            "8-bit",
+        ),
+    ],
+)
+def test_auto_register_quantization_without_bits(
+    tmp_path, quantization_config, model_format, quantization
+):
+    model_dir = tmp_path / "quantized-model"
+    _write_config(
+        model_dir,
+        {
+            "max_position_embeddings": 4096,
+            "model_size_in_billions": 8,
+            "quantization_config": quantization_config,
+        },
+    )
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert result["model_specs"][0]["model_format"] == model_format
+    assert result["model_specs"][0]["quantization"] == quantization
