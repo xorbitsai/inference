@@ -254,12 +254,21 @@ def test_lost_gpu_is_left_out_of_gpu_info(monkeypatch, caplog, visible):
         pynvml, "nvmlDeviceGetUtilizationRates", lambda handle: SimpleNamespace(gpu=37)
     )
 
+    monkeypatch.setattr(device_utils, "_unqueryable_device_ids", set())
+
     info = device_utils.get_gpu_info()
+    device_utils.get_gpu_info()
 
     # The other GPUs keep their info, under their own keys.
     assert sorted(info) == ["gpu-0", "gpu-2"]
     assert info["gpu-2"]["free_memory_mib"] == 6144
-    assert "Skipping GPU 1" in caplog.text
+    # Warned once, not on every poll.
+    skip_warnings = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and "Skipping GPU 1" in r.getMessage()
+    ]
+    assert len(skip_warnings) == 1
 
 
 def test_nvml_memory_v2_used_when_v1_is_unsupported(monkeypatch):
