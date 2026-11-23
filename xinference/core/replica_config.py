@@ -280,3 +280,26 @@ def validate_pd_replica_configs(
                 "Cross-engine MLX PD requires MLX on one role and NVIDIA on the other"
             )
     return True
+
+
+def resolve_pd_block_size(configs: List[ReplicaConfig], kwargs: Dict[str, Any]) -> None:
+    """Give every vLLM P/D replica the same KV ``block_size``.
+
+    Prefill and decode exchange KV blocks page by page, so their page layouts
+    must match. Each replica merges its ``engine_config`` over the shared launch
+    options independently, so a size set on one role alone would otherwise
+    leave the other role on the engine default. Resolve it once here: share a
+    single explicit size with every replica and reject conflicting sizes.
+    """
+    sizes = []
+    for cfg in configs:
+        size = cfg.engine_config.get("block_size", kwargs.get("block_size"))
+        if size is not None and size not in sizes:
+            sizes.append(size)
+    if len(sizes) > 1:
+        raise ValueError(
+            "Prefill and decode replicas must use the same block_size, got "
+            + ", ".join(str(size) for size in sizes)
+        )
+    if sizes:
+        kwargs["block_size"] = sizes[0]
