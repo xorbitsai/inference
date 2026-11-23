@@ -225,6 +225,43 @@ def test_unsupported_nvml_memory_preserves_gpu_status(
     assert "Fail to get GPU info" not in caplog.text
 
 
+@pytest.mark.parametrize("visible", [None, "0,1,2"])
+def test_lost_gpu_is_left_out_of_gpu_info(monkeypatch, caplog, visible):
+    mib = 1024**2
+    memory = SimpleNamespace(total=8192 * mib, used=2048 * mib, free=6144 * mib)
+
+    def get_handle(index):
+        if index == 1:
+            raise pynvml.NVMLError(pynvml.NVML_ERROR_GPU_IS_LOST)
+        return index
+
+    if visible is None:
+        monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+    else:
+        monkeypatch.setenv("CUDA_VISIBLE_DEVICES", visible)
+    monkeypatch.setattr(
+        device_utils,
+        "_find_device",
+        lambda: SimpleNamespace(get_gpu_info_fn=device_utils.get_nvidia_gpu_info),
+    )
+    monkeypatch.setattr(pynvml, "nvmlInit", lambda: None)
+    monkeypatch.setattr(pynvml, "nvmlShutdown", lambda: None)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetCount", lambda: 3)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetHandleByIndex", get_handle)
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetName", lambda handle: "NVIDIA H100")
+    monkeypatch.setattr(pynvml, "nvmlDeviceGetMemoryInfo", lambda *args: memory)
+    monkeypatch.setattr(
+        pynvml, "nvmlDeviceGetUtilizationRates", lambda handle: SimpleNamespace(gpu=37)
+    )
+
+    info = device_utils.get_gpu_info()
+
+    # The other GPUs keep their info, under their own keys.
+    assert sorted(info) == ["gpu-0", "gpu-2"]
+    assert info["gpu-2"]["free_memory_mib"] == 6144
+    assert "Skipping GPU 1" in caplog.text
+
+
 def test_nvml_memory_v2_used_when_v1_is_unsupported(monkeypatch):
     mib = 1024**2
     memory = SimpleNamespace(total=8192 * mib, used=2048 * mib, free=6144 * mib)

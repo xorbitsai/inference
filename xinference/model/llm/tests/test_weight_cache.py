@@ -77,6 +77,70 @@ def test_cached_memory_counts_only_daemon_tree(monkeypatch):
     nvml.nvmlShutdown.assert_called_once()
 
 
+class _FakeNVMLError(Exception):
+    def __init__(self, value):
+        super().__init__(f"NVML error {value}")
+        self.value = value
+
+
+def _nvml_with_failing_gpu(error_value):
+    def get_handle(index):
+        if index == 1:
+            raise _FakeNVMLError(error_value)
+        return index
+
+    return SimpleNamespace(
+        NVMLError=_FakeNVMLError,
+        NVML_ERROR_NO_PERMISSION=4,
+        NVML_ERROR_GPU_IS_LOST=15,
+        NVML_ERROR_UNKNOWN=999,
+        NVML_ERROR_RESET_REQUIRED=16,
+        NVML_ERROR_INSUFFICIENT_POWER=8,
+        NVML_ERROR_IRQ_ISSUE=11,
+        nvmlInit=MagicMock(),
+        nvmlShutdown=MagicMock(),
+        nvmlDeviceGetCount=lambda: 3,
+        nvmlDeviceGetHandleByIndex=get_handle,
+        nvmlDeviceGetComputeRunningProcesses=lambda index: [
+            SimpleNamespace(pid=10, usedGpuMemory=100 * (index + 1)),
+        ],
+        nvmlDeviceGetMemoryInfo_v2=lambda handle: SimpleNamespace(total=1000, free=100),
+    )
+
+
+@pytest.mark.parametrize("error_value", [15, 999, 16, 8, 11])
+def test_gpu_memory_snapshot_skips_a_gpu_that_cannot_be_queried(
+    monkeypatch, error_value
+):
+    from ..weight_cache import _gpu_memory_snapshot
+
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip=None))
+    )
+    nvml = _nvml_with_failing_gpu(error_value)
+    monkeypatch.setitem(sys.modules, "pynvml", nvml)
+
+    snapshot = _gpu_memory_snapshot()
+
+    assert sorted(snapshot) == [0, 2]
+    assert snapshot[2] == (1000, 100, {10: 300})
+    nvml.nvmlShutdown.assert_called_once()
+
+
+def test_gpu_memory_snapshot_still_fails_on_other_nvml_errors(monkeypatch):
+    from ..weight_cache import _gpu_memory_snapshot
+
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip=None))
+    )
+    nvml = _nvml_with_failing_gpu(4)  # NVML_ERROR_NO_PERMISSION
+    monkeypatch.setitem(sys.modules, "pynvml", nvml)
+
+    with pytest.raises(_FakeNVMLError):
+        _gpu_memory_snapshot()
+    nvml.nvmlShutdown.assert_called_once()
+
+
 def test_cached_memory_rocm_records(monkeypatch):
     monkeypatch.setitem(
         sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip="7"))

@@ -288,6 +288,18 @@ def _get_gcu_mem_info(gpu_id: int) -> Dict[str, float]:
 # ---------------------------------------------------------------------------
 
 
+def _get_gpu_info_or_skip(
+    get_mem_info_fn: Callable[[int], Dict], device_id: int
+) -> Optional[Dict]:
+    # One device that cannot be queried, for example a GPU that has fallen off
+    # the bus, is left out instead of hiding every other device's info.
+    try:
+        return get_mem_info_fn(device_id)
+    except Exception as e:
+        logger.warning("Skipping GPU %d: failed to get its info: %s", device_id, e)
+        return None
+
+
 def _collect_gpu_info_with_env(
     env_name: str,
     device_count_fn: Callable[[], int],
@@ -305,16 +317,20 @@ def _collect_gpu_info_with_env(
 
         if not env_val:
             for i in range(device_count):
-                res[f"gpu-{i}"] = get_mem_info_fn(i)
+                info = _get_gpu_info_or_skip(get_mem_info_fn, i)
+                if info is not None:
+                    res[f"gpu-{i}"] = info
         else:
             ids = env_val.split(",")
             for logical_id, id_str in enumerate(ids):
                 try:
                     physical_id = int(id_str.strip())
-                    if 0 <= physical_id < device_count:
-                        res[f"gpu-{logical_id}"] = get_mem_info_fn(physical_id)
                 except ValueError:
                     continue
+                if 0 <= physical_id < device_count:
+                    info = _get_gpu_info_or_skip(get_mem_info_fn, physical_id)
+                    if info is not None:
+                        res[f"gpu-{logical_id}"] = info
 
         return res
     except Exception as e:

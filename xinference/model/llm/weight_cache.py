@@ -44,6 +44,27 @@ def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
     }
 
 
+def _gpu_cannot_be_queried(pynvml, error) -> bool:
+    """Whether an NVML error is specific to one GPU that cannot be queried.
+
+    The GPU has fallen off the bus (often reported as an unknown error), needs a
+    reset, lacks power, or has an interrupt problem. Other errors concern the
+    driver or the call, not one GPU.
+    """
+    codes = {
+        getattr(pynvml, name, None)
+        for name in (
+            "NVML_ERROR_GPU_IS_LOST",
+            "NVML_ERROR_UNKNOWN",
+            "NVML_ERROR_RESET_REQUIRED",
+            "NVML_ERROR_INSUFFICIENT_POWER",
+            "NVML_ERROR_IRQ_ISSUE",
+        )
+    }
+    codes.discard(None)
+    return getattr(error, "value", None) in codes
+
+
 def _gpu_memory_snapshot():
     """Total/free bytes and process ownership, without allocating GPU memory."""
     import torch
@@ -75,15 +96,28 @@ def _gpu_memory_snapshot():
         pynvml.nvmlInit()
         try:
             for index in range(pynvml.nvmlDeviceGetCount()):
-                handle = pynvml.nvmlDeviceGetHandleByIndex(index)
-                processes = {
-                    process.pid: process.usedGpuMemory
-                    for process in pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
-                }
                 try:
-                    memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
-                except (pynvml.NVMLError, AttributeError):
-                    memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+                    processes = {
+                        process.pid: process.usedGpuMemory
+                        for process in pynvml.nvmlDeviceGetComputeRunningProcesses(
+                            handle
+                        )
+                    }
+                    try:
+                        memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+                    except (pynvml.NVMLError, AttributeError):
+                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                except pynvml.NVMLError as e:
+                    if not _gpu_cannot_be_queried(pynvml, e):
+                        raise
+                    # The snapshot covers every GPU on the host, so one that
+                    # cannot be queried (for example one that has fallen off the
+                    # bus) must not fail it for the GPUs the model uses.
+                    logger.warning(
+                        "Skipping GPU %d in the memory snapshot: %s", index, e
+                    )
+                    continue
                 devices[index] = (memory.total, memory.free, processes)
         finally:
             pynvml.nvmlShutdown()
