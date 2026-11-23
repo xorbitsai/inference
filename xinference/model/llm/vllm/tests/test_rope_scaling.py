@@ -79,8 +79,8 @@ def _model(path: Path, *, multimodal: bool = False):
 def versions(monkeypatch):
     from .. import core
 
-    def set_versions(transformers="5.22.2", *, patch_rope=False):
-        monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.34.0"))
+    def set_versions(transformers="5.22.2", *, patch_rope=False, vllm="0.34.0"):
+        monkeypatch.setattr(core, "VLLM_VERSION", version.parse(vllm))
         monkeypatch.setattr(
             core, "_get_transformers_version", lambda: version.parse(transformers)
         )
@@ -166,8 +166,13 @@ def test_rope_scaling_merges_checkpoint_caller_and_explicit_fields(
     assert (overrides, scaling) == original
 
 
-def test_rope_scaling_resolves_separate_checkpoint_text_config(tmp_path, versions):
-    versions()
+@pytest.mark.parametrize(
+    ("vllm", "transformers"), [("0.34.0", "5.22.2"), ("0.10.2", "4.57.6")]
+)
+def test_rope_scaling_resolves_separate_checkpoint_text_config(
+    tmp_path, versions, vllm, transformers
+):
+    versions(transformers, vllm=vllm)
     weights = _write_checkpoint(
         tmp_path / "weights", dict(QWEN3_CONFIG, rope_theta=700000)
     )
@@ -194,12 +199,17 @@ def test_rope_scaling_resolves_separate_checkpoint_text_config(tmp_path, version
         "vision_config": {"out_hidden_size": 64},
         "text_config": dict(UNRELATED_OVERRIDE),
     }
+    if vllm == "0.10.2":
+        overrides = dict(UNRELATED_OVERRIDE)
 
     result = _model(weights, multimodal=True)._sanitize_model_config(
         dict(hf_config_path=config_path, rope_scaling=SCALING, hf_overrides=overrides)
     )
 
     assert result["hf_config_path"] == config_path
+    if vllm == "0.10.2":
+        assert result["hf_overrides"] == {**overrides, "rope_scaling": SCALING}
+        return
     assert result["hf_overrides"] == {
         "vision_config": {"out_hidden_size": 64},
         "text_config": {
@@ -207,6 +217,23 @@ def test_rope_scaling_resolves_separate_checkpoint_text_config(tmp_path, version
             "rope_parameters": {**mrope, **SCALING},
         },
     }
+
+
+def test_rope_scaling_preserves_mllama_text_config_on_legacy_vllm(tmp_path, versions):
+    from transformers import MllamaConfig, PretrainedConfig
+
+    versions("4.57.6", vllm="0.10.2")
+    config = MllamaConfig(
+        text_config={"num_hidden_layers": 2, "cross_attention_layers": [1]}
+    )
+    model = _model(_write_checkpoint(tmp_path, config.to_dict()), multimodal=True)
+    scaling = {"rope_type": "linear", "factor": 2.0}
+    overrides = model._sanitize_model_config({"rope_scaling": scaling})["hf_overrides"]
+
+    config.update(overrides)
+    assert isinstance(config.text_config, PretrainedConfig)
+    config.update({"text_config": {"rope_scaling": scaling}})
+    assert isinstance(config.text_config, dict)
 
 
 def test_rope_scaling_leaves_per_layer_maps_to_vllm(tmp_path, versions):

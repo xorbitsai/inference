@@ -2025,6 +2025,9 @@ class VLLMModel(WeightCachedModel, LLM):
             saved = _read_checkpoint_config(self.model_family, "vllm", path)
         text = saved.get("text_config") if isinstance(saved, dict) else None
         nested = isinstance(text, dict)
+        if nested and (VLLM_VERSION is None or VLLM_VERSION < version.parse("0.11.1")):
+            overrides["rope_scaling"] = scaling
+            return
         target = overrides.get("text_config", {}) if nested else overrides
         if not isinstance(saved, dict) or not saved or not isinstance(target, dict):
             overrides["rope_scaling"] = scaling
