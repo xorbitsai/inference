@@ -56,6 +56,7 @@ import {
   uploadList,
 } from './utils';
 import { parseScalarSeed } from './seed-utils';
+import { getSpeechOptions } from './speech-options';
 import { validateDocumentFile } from './document-upload-utils';
 
 function appendKwargsIfPresent(formData: FormData, kwargs: Record<string, unknown>) {
@@ -911,18 +912,22 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
       const promptSpeech = supportsVoiceCloning ? firstUpload(values, 'prompt_speech') : undefined;
       const kwargs: Record<string, unknown> = {};
-      const promptText = stringValue(values.prompt_text).trim();
       const language = stringValue(values.language).trim();
       const instruct = stringValue(values.instruct).trim();
       const seed = parseScalarSeed(values.seed);
-      const responseFormat = stringValue(values.response_format).trim().toLowerCase() || 'mp3';
-      const stream = booleanValue(values.stream);
+      const { acceptsLanguage, canStream, isZonos3, responseFormat } = getSpeechOptions(
+        model,
+        values.response_format
+      );
+      const promptText = isZonos3 ? '' : stringValue(values.prompt_text).trim();
+      const speed = isZonos3 ? 1 : numberValue(values.speed, 1);
+      const stream = canStream && booleanValue(values.stream);
 
       if (seed !== undefined) {
         kwargs.seed = seed;
       }
 
-      if (language) {
+      if (acceptsLanguage && language) {
         kwargs.language = language;
       }
 
@@ -953,7 +958,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         formData.append('model', modelUid);
         formData.append('input', stringValue(values.input));
         formData.append('voice', stringValue(values.voice));
-        formData.append('speed', String(numberValue(values.speed, 1)));
+        formData.append('speed', String(speed));
         formData.append('response_format', responseFormat);
         formData.append('stream', String(stream));
         formData.append('prompt_speech', promptSpeech.file);
@@ -965,7 +970,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           model: modelUid,
           input: stringValue(values.input),
           voice: values.voice || undefined,
-          speed: numberValue(values.speed, 1),
+          speed,
           response_format: responseFormat,
           stream,
         },
