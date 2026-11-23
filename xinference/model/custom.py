@@ -18,12 +18,20 @@ import logging
 import os
 import threading
 import warnings
-from typing import TYPE_CHECKING, Dict, List, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Type
 
 if TYPE_CHECKING:
     from .core import CacheableModelSpec
 
 logger = logging.getLogger(__name__)
+
+
+def flatten_builtin_families(builtin_models: Dict[str, Any]) -> List[Any]:
+    """Families of a ``{model_name: family or [families]}`` built-in table."""
+    families: List[Any] = []
+    for value in builtin_models.values():
+        families.extend(value if isinstance(value, list) else [value])
+    return families
 
 
 class ModelRegistry:
@@ -53,8 +61,41 @@ class ModelRegistry:
         if model_uri and not is_valid_model_uri(model_uri):
             raise ValueError(f"Invalid model URI {model_uri}.")
 
+    def get_builtin_model_families(self) -> List[Any]:
+        """Built-in families whose cache directories custom models must not reuse."""
+        return []
+
+    def get_cache_dirs(self, model_spec: Any) -> Set[str]:
+        """Cache directories of a model, computed without creating them."""
+        return set()
+
     def check_cache_identity(self, model_spec: "CacheableModelSpec"):
         """Raise ValueError if the model would share a cache with another model."""
+        from .llm.custom import _volume_ignores_case
+
+        # Cache directory names replace "." with "_" (and may use a
+        # ``cache_name``), so distinct model names can map to one directory.
+        wanted = self.get_cache_dirs(model_spec)
+        if not wanted:
+            return
+        # Keep case-only variants apart only when the cache parent supplies
+        # evidence that its entries are case-sensitive.
+        ignores_case = _volume_ignores_case(min(wanted))
+
+        def key(path: str) -> str:
+            return path.casefold() if ignores_case else path
+
+        wanted_keys = {key(path) for path in wanted}
+        for family in [*self.get_builtin_model_families(), *self.models]:
+            shared = {
+                path for path in self.get_cache_dirs(family) if key(path) in wanted_keys
+            }
+            if shared:
+                raise ValueError(
+                    f"Model name conflicts with existing model {family.model_name}: "
+                    f"{model_spec.model_name} would use the same cache directory, "
+                    f"{os.path.basename(min(shared))}."
+                )
 
     def add_ud_model(self, model_spec):
         self.models.append(model_spec)

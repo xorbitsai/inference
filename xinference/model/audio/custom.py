@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 
 from ..._compat import (
     ROOT_KEY,
@@ -81,6 +81,17 @@ class AudioModelRegistry(ModelRegistry):
         super().__init__()
         self.models = UD_AUDIOS
         self.builtin_models = list(BUILTIN_AUDIO_MODELS.keys())
+
+    def get_builtin_model_families(self) -> List[Any]:
+        from ..custom import flatten_builtin_families
+        from . import BUILTIN_AUDIO_MODELS
+
+        return flatten_builtin_families(BUILTIN_AUDIO_MODELS)
+
+    def get_cache_dirs(self, model_family: Any) -> Set[str]:
+        from ..cache_manager import CacheManager
+
+        return {CacheManager.get_cache_dir_for_family(model_family)}
 
 
 def get_user_defined_audios() -> List[CustomAudioModelFamilyV2]:

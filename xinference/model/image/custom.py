@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional, Set
 
 from ..._compat import Literal
 from ..custom import ModelRegistry
@@ -41,6 +41,17 @@ class ImageModelRegistry(ModelRegistry):
         super().__init__()
         self.models = UD_IMAGES
         self.builtin_models = list(BUILTIN_IMAGE_MODELS.keys())
+
+    def get_builtin_model_families(self) -> List[Any]:
+        from ..custom import flatten_builtin_families
+        from .core import BUILTIN_IMAGE_MODELS
+
+        return flatten_builtin_families(BUILTIN_IMAGE_MODELS)
+
+    def get_cache_dirs(self, model_family: Any) -> Set[str]:
+        from .cache_manager import ImageCacheManager
+
+        return {ImageCacheManager.get_cache_dir_for_family(model_family)}
 
 
 def get_user_defined_images() -> List[ImageModelFamilyV2]:
