@@ -2543,6 +2543,41 @@ async def test_supervisor_add_worker_without_stored_instance_uses_defaults(
     assert instance_info.replica == 1
 
 
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_after_eviction_clears_unexpected_down_marker(
+    monkeypatch,
+):
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={uid: {"model_uid": uid, "address": "worker-1"} for uid in replica_uids},
+    )
+
+    async def fake_actor_ref(address, uid):
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    states = [_reconnect_replica_state(uid) for uid in replica_uids]
+    await supervisor.add_worker("worker-1", replica_states=states)
+
+    # The health check declares the worker dead after a long network blip.
+    assert await supervisor._remove_dead_worker(
+        "worker-1", supervisor._worker_address_to_worker["worker-1"]
+    )
+    assert set(supervisor._unexpected_down_replicas) == {
+        ("model-a", 0),
+        ("model-a", 1),
+    }
+
+    # It comes back with only rep0 still running and re-registers.
+    await supervisor.add_worker("worker-1", replica_states=states[:1])
+
+    assert supervisor._replica_model_uid_to_worker["model-a-rep0"] is worker_ref
+    assert set(supervisor._unexpected_down_replicas) == {("model-a", 1)}
+
+
 def test_prepare_virtual_env_without_engine_vars():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)

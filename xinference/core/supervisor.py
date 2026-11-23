@@ -385,6 +385,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        # Scale-up replicas (base_model_uid, replica_index) still in
+        # launch/wait_for_load; inventory replay must not clear their markers.
+        self._replicas_loading: Set[Tuple[str, int]] = set()
         self._async_launch_tasks: Set[asyncio.Task] = set()
         self._initial_model_launches: Dict[str, InitialModelLaunch] = {}
         # Active download-only operations, used only for dispatch cancellation.
@@ -6367,6 +6370,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._workers_launching[worker_address] = (
             self._workers_launching.get(worker_address, 0) + 1
         )
+        self._replicas_loading.add((model_uid, new_replica_id))
         try:
             await target_worker_ref.launch_builtin_model(**modified_args)
             await target_worker_ref.wait_for_load(new_replica_uid)
@@ -6405,6 +6409,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
             raise
         finally:
+            self._replicas_loading.discard((model_uid, new_replica_id))
             current = self._workers_launching.get(worker_address, 1) - 1
             if current <= 0:
                 self._workers_launching.pop(worker_address, None)
@@ -6424,6 +6429,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if new_replica_id not in replica_info.active_replica_ids:
             replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
+        # The id can be one a dead worker took down; it is serving again.
+        self._unexpected_down_replicas.pop((model_uid, new_replica_id), None)
 
         # ---- 11. Update status guard ---------------------------------------------
         # Note: update_replica_status does NOT bump instance_info.replica, so we
@@ -8199,6 +8206,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        # A replayed replica is running again (e.g. the worker was evicted by
+        # the health check and came back): clear its worker-failure marker so
+        # the unexpected-termination gauge stops reporting it as down. A
+        # scale-up replica can be reported before its load finishes; that
+        # launch clears the marker itself once wait_for_load() succeeds.
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if (
+                state.get("n_worker", 1) == 1
+                and isinstance(replica_model_uid, str)
+                and replica_model_uid in self._replica_model_uid_to_worker
+            ):
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is not None and parsed not in self._replicas_loading:
+                    self._unexpected_down_replicas.pop(parsed, None)
         for row in normalized:
             policy = row.get("replica_autoscaling", row.get("embedding_autoscaling"))
             uid = row.get("model_uid")
