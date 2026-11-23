@@ -92,7 +92,8 @@ async def probe(args, key: str) -> Dict[str, Any]:
                     args.url,
                     headers=headers,
                     heartbeat=25,
-                    max_msg_size=2097152,
+                    # aiohttp treats max_msg_size as an exclusive limit.
+                    max_msg_size=2097152 + 1,
                     compress=0,
                 ) as ws:
                     stamp("connected")
