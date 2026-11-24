@@ -34,6 +34,10 @@ def flatten_builtin_families(builtin_models: Dict[str, Any]) -> List[Any]:
     return families
 
 
+# Model types whose caches live side by side in ``XINFERENCE_CACHE_DIR/v2``.
+CACHE_SHARING_MODEL_TYPES = ("llm", "embedding", "rerank", "image", "audio")
+
+
 class ModelRegistry:
     model_type = "unknown"
 
@@ -86,16 +90,34 @@ class ModelRegistry:
             return path.casefold() if ignores_case else path
 
         wanted_keys = {key(path) for path in wanted}
-        for family in [*self.get_builtin_model_families(), *self.models]:
-            shared = {
-                path for path in self.get_cache_dirs(family) if key(path) in wanted_keys
-            }
-            if shared:
-                raise ValueError(
-                    f"Model name conflicts with existing model {family.model_name}: "
-                    f"{model_spec.model_name} would use the same cache directory, "
-                    f"{os.path.basename(min(shared))}."
-                )
+        # Every model type below caches under the same directory, so a model of
+        # one type must not take the cache directory of a model of another.
+        for model_type in CACHE_SHARING_MODEL_TYPES:
+            registry = (
+                self
+                if model_type == self.model_type
+                else RegistryManager.get_registry(model_type)
+            )
+            # Other registries are read without their locks: taking them while
+            # holding ours could deadlock two concurrent registrations.
+            families = [*registry.get_builtin_model_families(), *list(registry.models)]
+            for family in families:
+                shared = {
+                    path
+                    for path in registry.get_cache_dirs(family)
+                    if key(path) in wanted_keys
+                }
+                if shared:
+                    existing = (
+                        "existing model"
+                        if registry.model_type == self.model_type
+                        else f"existing {registry.model_type} model"
+                    )
+                    raise ValueError(
+                        f"Model name conflicts with {existing} {family.model_name}: "
+                        f"{model_spec.model_name} would use the same cache directory, "
+                        f"{os.path.basename(min(shared))}."
+                    )
 
     def add_ud_model(self, model_spec):
         self.models.append(model_spec)

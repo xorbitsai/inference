@@ -53,6 +53,15 @@ class ImageModelRegistry(ModelRegistry):
 
         return {ImageCacheManager.get_cache_dir_for_family(model_family)}
 
+    def remove_ud_model_files(self, model_spec):
+        from .cache_manager import ImageCacheManager
+
+        # The cache link is named by ImageCacheManager (it may carry a
+        # model_format/quantization suffix), so remove that one and not the
+        # base CacheManager path, which can belong to another model.
+        cache_manager = ImageCacheManager(model_spec)
+        cache_manager.unregister_custom_model(self.model_type)
+
 
 def get_user_defined_images() -> List[ImageModelFamilyV2]:
     from ..custom import RegistryManager

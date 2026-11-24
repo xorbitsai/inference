@@ -14,6 +14,8 @@
 
 """Custom models must not reuse the cache directory of another model."""
 
+import os
+
 import pytest
 
 from ... import constants
@@ -176,3 +178,57 @@ def test_custom_model_with_its_own_cache_directory_is_accepted(
     _, twin = make("MY-CUSTOM-MODEL", isolated_cache_home)
     with pytest.raises(ValueError, match="my-custom-model.*same cache directory"):
         registry.check_cache_identity(twin)
+
+
+def test_custom_model_cannot_share_a_cache_directory_with_another_model_type(
+    isolated_cache_home, monkeypatch
+):
+    _volume_ignores_case(monkeypatch, False)
+    image_registry, image = _image("sample.v1", isolated_cache_home)
+    audio_registry, audio = _audio("sample_v1", isolated_cache_home)
+
+    image_registry.register(image, persist=False)
+    try:
+        # Image and audio models both cache under v2/, both here as "sample_v1".
+        with pytest.raises(
+            ValueError, match="existing image model sample.v1.*same cache directory"
+        ):
+            audio_registry.register(audio, persist=False)
+        assert audio not in audio_registry.get_custom_models()
+    finally:
+        image_registry.unregister("sample.v1", remove_file=False)
+
+
+def test_unregistering_a_custom_image_removes_only_its_own_cache_link(
+    isolated_cache_home, monkeypatch
+):
+    from ..image.cache_manager import ImageCacheManager
+
+    _volume_ignores_case(monkeypatch, False)
+    registry, first = _image("sample.v1", isolated_cache_home)
+    _, second = _image("sample_v1", isolated_cache_home)
+    second.model_format = "pytorch"
+
+    registry.register(first, persist=True)
+    registry.register(second, persist=True)
+    try:
+        links = [
+            ImageCacheManager(family).get_cache_dir() for family in (first, second)
+        ]
+        assert [os.path.basename(link) for link in links] == [
+            "sample_v1",
+            "sample_v1-pytorch",
+        ]
+        for link in links:
+            try:
+                os.symlink(isolated_cache_home, link, target_is_directory=True)
+            except OSError as e:  # e.g. Windows without symlink privilege
+                pytest.skip(f"cannot create symlinks: {e}")
+
+        registry.unregister("sample_v1")
+
+        assert os.path.islink(links[0])
+        assert not os.path.lexists(links[1])
+    finally:
+        registry.unregister("sample.v1", raise_error=False)
+        registry.unregister("sample_v1", raise_error=False)
