@@ -125,7 +125,7 @@ def _gpu_memory_snapshot():
 
 
 def _cached_memory_fraction(
-    pid: int, baseline: Optional[Dict[int, Set[int]]] = None
+    pid: int, baseline: Optional[Dict[int, Set[int]]] = None, ranks: int = 1
 ) -> float:
     """Largest per-device reservation owned by the daemon, including its ranks.
 
@@ -135,14 +135,18 @@ def _cached_memory_fraction(
     import psutil
 
     pids = {pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))}
+    snapshot = _gpu_process_memory()
     fractions = []
-    for index, (total, processes) in _gpu_process_memory().items():
+    for index, (total, processes) in snapshot.items():
         owners = pids
         if baseline is not None:
             # Driver PIDs may belong to the host namespace. Snapshot before
             # preload, then count new driver PIDs before any engine is started.
             # Concurrent new processes conservatively increase the reservation.
-            owners = set(processes) - baseline.get(index, set())
+            # A GPU missing from either snapshot has no PID delta.
+            if index not in baseline:
+                continue
+            owners = set(processes) - baseline[index]
         used = sum(
             memory
             for process, memory in processes.items()
@@ -150,7 +154,14 @@ def _cached_memory_fraction(
         )
         if used:
             fractions.append(used / total)
-    if not fractions or not all(0 < value < 1 for value in fractions):
+    # When the snapshots cover different GPUs, one the daemon's ranks use may be
+    # among the unmeasured ones.
+    unmeasured = baseline is not None and set(baseline) != set(snapshot)
+    if (
+        not fractions
+        or not all(0 < value < 1 for value in fractions)
+        or (unmeasured and len(fractions) < ranks)
+    ):
         raise RuntimeError(
             "Cannot account for the weight cache daemon's GPU memory. "
             "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
@@ -385,7 +396,7 @@ class WeightCacheDaemon:
                         self._ready_paths = list(self.directory.glob("*.ready"))
                         if baseline is not None:
                             self._memory_fraction = _cached_memory_fraction(
-                                self.process.pid, baseline
+                                self.process.pid, baseline, ranks
                             )
                         return
                 time.sleep(0.1)
