@@ -17,6 +17,7 @@
 import asyncio
 import base64
 import os
+import re
 import sys
 import threading
 from contextlib import contextmanager
@@ -49,6 +50,7 @@ def registry(monkeypatch, tmp_path):
         "num_outputs_per_prompt",
         "save_output",
         "output_path",
+        "output_file_name",
         "output_mode",
         "return_frames",
         "seed",
@@ -487,6 +489,9 @@ async def test_sglang_preserves_h3_fields_and_audio_file(
         duration_seconds=124 / 24,
     )
     assert "unsupported_option" not in params and "guidance_scale_2" not in params
+    # An opaque name: SGLang would otherwise name (and log) the file after
+    # the prompt.
+    assert re.fullmatch(r"[0-9a-f]{32}", params["output_file_name"])
     assert params["use_lightning"] is use_lightning
     assert params["num_inference_steps"] == (4 if use_lightning else 50)
     assert params["flow_shift"] == (6 if use_lightning else 12)
