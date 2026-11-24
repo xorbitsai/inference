@@ -225,6 +225,7 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, Union[str, int, float]]:
             total=mem_info.total,
             used=mem_info.used,
             free=mem_info.free,
+            used_memory_mib=mem_info.used / 1024**2,
             free_memory_mib=mem_info.free / 1024**2,
             total_memory_mib=mem_info.total / 1024**2,
         )
@@ -253,6 +254,7 @@ def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int, float]]:
         "total": total,
         "used": used,
         "free": total - used,
+        "used_memory_mib": used / 1024**2,
         "free_memory_mib": (total - used) / 1024**2,
         "total_memory_mib": total / 1024**2,
         "util": 0,
@@ -441,6 +443,7 @@ def get_npu_info() -> Dict:
                         "total": total,
                         "used": used,
                         "free": total - used,
+                        "used_memory_mib": used,
                         "free_memory_mib": total - used,
                         "total_memory_mib": total,
                         "device_index": len(all_devices),
@@ -653,8 +656,9 @@ def gpu_count():
 def get_gpu_info() -> Dict:
     """Return backend device information.
 
-    Optional ``free_memory_mib`` is a measured, normalized memory value. Its
-    absence means unknown; legacy ``free`` may have backend-specific units or
+    Optional ``total_memory_mib``, ``used_memory_mib`` and
+    ``free_memory_mib`` are measured, normalized memory values. Their
+    absence means unknown; legacy counters may have backend-specific units or
     sentinel values. ``device_index`` maps composite device keys to scheduling
     indices when provided by the backend.
     """

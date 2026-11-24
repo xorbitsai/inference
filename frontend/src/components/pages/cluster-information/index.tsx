@@ -318,11 +318,16 @@ export default function ClusterInfoPage({
               <div className="grid grid-cols-1 divide-y">
                 {controls.map((n) => (
                   <div
-                    key={n.ip_address}
+                    key={n.node_type === 'Router' ? n.node_id : n.ip_address}
                     className="grid items-center gap-6 p-5 lg:grid-cols-[1.5fr_1fr_1fr]"
                   >
                     <div>
                       <p className="font-mono text-sm font-medium">{n.ip_address}</p>
+                      {n.node_type === 'Router' && n.node_id !== n.ip_address && (
+                        <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                          {n.node_id}
+                        </p>
+                      )}
                       <p className="mt-1.5 text-xs text-muted-foreground">
                         {n.software_version || clusterVersion.version || '—'}
                       </p>

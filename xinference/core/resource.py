@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import psutil
 
@@ -37,6 +37,11 @@ class GPUStatus:
     mem_used: float
     mem_usage: float
     gpu_util: float
+    # Explicit byte measurements for per-device API fields; legacy counters retain
+    # their backend-specific units for existing consumers.
+    mem_total_bytes: Optional[float] = None
+    mem_free_bytes: Optional[float] = None
+    mem_used_bytes: Optional[float] = None
 
 
 def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
@@ -59,6 +64,21 @@ def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
             mem_free=gpu_info["free"],
             mem_usage=mem_usage,
             gpu_util=gpu_info["util"],
+            mem_total_bytes=(
+                gpu_info["total_memory_mib"] * 1024**2
+                if "total_memory_mib" in gpu_info
+                else None
+            ),
+            mem_free_bytes=(
+                gpu_info["free_memory_mib"] * 1024**2
+                if "free_memory_mib" in gpu_info
+                else None
+            ),
+            mem_used_bytes=(
+                gpu_info["used_memory_mib"] * 1024**2
+                if "used_memory_mib" in gpu_info
+                else None
+            ),
         )
 
     return node_resource  # type: ignore

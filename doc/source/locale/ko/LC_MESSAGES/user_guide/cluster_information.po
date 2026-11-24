@@ -10,13 +10,13 @@ msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nod
 msgstr "**클러스터 정보** 를 열어 Worker, Supervisor, Router 노드를 확인합니다. 노드 주소나 GPU 모델로 Worker를 검색하고 GPU 그리드 및 목록 보기를 전환할 수 있습니다."
 
 #: ../source/user_guide/cluster_information.rst:8
-msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Missing readings are shown as unavailable."
-msgstr "GPU 그리드는 넓은 화면에서 행당 최대 4개, 페이지당 최대 2행의 카드를 표시하며 좁은 화면에서는 행당 2개를 표시합니다. 화살표로 나머지 장치를 확인하고 카드를 선택하여 GPU 모델과 사용 중인 메모리, 전체 메모리, 사용 가능한 메모리를 확인합니다. 각 카드에는 GPU 사용률과 메모리 사용량이 표시되며 진행률 막대는 90%를 초과하면 빨간색이 됩니다. 수집되지 않은 지표는 사용 불가로 표시됩니다."
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Null or non-finite readings are shown as unavailable; backend zero sentinels can still appear as 0% utilization."
+msgstr "GPU 그리드는 넓은 화면에서 행당 최대 4개, 페이지당 최대 2행의 카드를 표시하며 좁은 화면에서는 행당 2개를 표시합니다. 화살표로 나머지 장치를 확인하고 카드를 선택하여 GPU 모델과 사용 중인 메모리, 전체 메모리, 사용 가능한 메모리를 확인합니다. 각 카드에는 GPU 사용률과 메모리 사용량이 표시되며 진행률 막대는 90%를 초과하면 빨간색이 됩니다. null 또는 유한하지 않은 지표는 사용 불가로 표시됩니다. 다만 백엔드가 누락된 지표를 0으로 나타내면 GPU 사용률이 0%로 표시될 수 있습니다."
 
 #: ../source/user_guide/cluster_information.rst:10
 msgid "Detailed cluster API"
 msgstr "클러스터 상세 API"
 
 #: ../source/user_guide/cluster_information.rst:13
-msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; unavailable readings are ``null``. Compact responses keep their existing structure."
-msgstr "``GET /v1/cluster/info?detailed=true`` 는 각 Worker의 ``gpus`` 배열을 반환합니다. 각 장치는 ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available`` 을 보고합니다. 사용률은 백분율이며 메모리 값은 바이트 단위입니다. 수집되지 않은 지표는 ``null`` 입니다. 간략 응답은 기존 구조를 유지합니다."
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; missing or unsupported readings can be ``null`` or backend-specific numeric sentinels. NVIDIA may report zero for unavailable memory or unsupported utilization; a client cannot distinguish the latter sentinel from measured 0% utilization. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` 는 각 Worker의 ``gpus`` 배열을 반환합니다. 각 장치는 ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available`` 을 보고합니다. 사용률은 백분율이며 메모리 값은 바이트 단위입니다. 누락되거나 지원되지 않는 지표는 ``null`` 또는 백엔드별 숫자 표식으로 표시될 수 있습니다. NVIDIA는 수집할 수 없는 메모리나 지원되지 않는 사용률에 0을 반환할 수 있으며, 클라이언트는 후자의 0을 실제 측정된 0% 사용률과 구분할 수 없습니다. 간략 응답은 기존 구조를 유지합니다."

@@ -10,13 +10,13 @@ msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nod
 msgstr "開啟 **叢集資訊**，查看 Worker、Supervisor 與 Router 節點。可依節點位址或 GPU 型號搜尋 Worker，並切換 GPU 網格與清單檢視。"
 
 #: ../source/user_guide/cluster_information.rst:8
-msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Missing readings are shown as unavailable."
-msgstr "寬螢幕下 GPU 網格每列最多四張卡、每頁最多兩列；窄螢幕下每列兩張卡。使用左右箭頭查看其餘裝置，選取卡片可查看 GPU 型號及已用、總計與可用顯存。每張卡顯示 GPU 使用率與顯存占用，進度列超過 90% 時會變為紅色。缺少的指標顯示為無法取得。"
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Null or non-finite readings are shown as unavailable; backend zero sentinels can still appear as 0% utilization."
+msgstr "寬螢幕下 GPU 網格每列最多四張卡、每頁最多兩列；窄螢幕下每列兩張卡。使用左右箭頭查看其餘裝置，選取卡片可查看 GPU 型號及已用、總計與可用顯存。每張卡顯示 GPU 使用率與顯存占用，進度列超過 90% 時會變為紅色。空值或非有限數值顯示為無法取得；後端以零表示缺少的指標時，GPU 使用率仍可能顯示為 0%。"
 
 #: ../source/user_guide/cluster_information.rst:10
 msgid "Detailed cluster API"
 msgstr "叢集詳細資訊介面"
 
 #: ../source/user_guide/cluster_information.rst:13
-msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; unavailable readings are ``null``. Compact responses keep their existing structure."
-msgstr "``GET /v1/cluster/info?detailed=true`` 為每個 Worker 傳回 ``gpus`` 陣列。每個裝置包含 ``index``、``name``、``utilization``、``memory_used``、``memory_total`` 與 ``memory_available``。使用率以百分比表示，顯存以位元組為單位；無法取得的指標為 ``null``。簡略回應保留原有結構。"
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; missing or unsupported readings can be ``null`` or backend-specific numeric sentinels. NVIDIA may report zero for unavailable memory or unsupported utilization; a client cannot distinguish the latter sentinel from measured 0% utilization. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` 為每個 Worker 傳回 ``gpus`` 陣列。每個裝置包含 ``index``、``name``、``utilization``、``memory_used``、``memory_total`` 與 ``memory_available``。使用率以百分比表示，顯存以位元組為單位；缺少或不受支援的指標可能為 ``null``，也可能使用後端特定的數值占位。NVIDIA 可能以零表示無法取得的顯存或不受支援的使用率；用戶端無法區分後一種零值與實際測得的 0% 使用率。簡略回應保留原有結構。"

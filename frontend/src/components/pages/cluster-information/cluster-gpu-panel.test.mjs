@@ -103,6 +103,14 @@ test('unknown GPU memory stays unknown and zero load remains zero', () => {
 test('page refresh stays in the page header and node categories switch independently', async () => {
   let calls = 0;
   let serviceCompletion;
+  const routerNodes = ['router-alpha', 'router-beta'].map((node_id) => ({
+    ...worker(0),
+    node_type: 'Router',
+    node_id,
+    ip_address: 'shared-router-host',
+    online: true,
+    connectivity_status: 'online',
+  }));
   Module._load = function (name, ...args) {
     if (name === '@/contexts/i18n-context') return { useI18n: () => ({ t: (key) => key }) };
     if (name === '@/contexts/global-context')
@@ -123,6 +131,7 @@ test('page refresh stays in the page header and node categories switch independe
             return [
               { ...worker(16), node_type: 'Worker' },
               { ...worker(0), node_type: 'Supervisor', ip_address: 'control-alpha' },
+              ...routerNodes,
             ];
           },
         },
@@ -161,6 +170,38 @@ test('page refresh stays in the page header and node categories switch independe
   assert.ok(!host.textContent.includes('worker-alpha'));
   await React.act(async () => refresh.click());
   assert.equal(calls, 2);
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  try {
+    await React.act(async () => tabs[2].click());
+  } finally {
+    console.error = originalError;
+  }
+  assert.deepEqual(errors, [], 'same-host Router Agents must have unique React keys');
+  const nodeRow = (id) =>
+    Array.from(host.querySelectorAll('p')).find((p) => p.textContent === id).parentElement
+      .parentElement;
+  const alpha = nodeRow('router-alpha');
+  const beta = nodeRow('router-beta');
+  assert.notEqual(alpha, beta);
+  for (const row of [alpha, beta]) assert.ok(row.textContent.includes('shared-router-host'));
+  await React.act(async () =>
+    root.render(
+      React.createElement(Page, {
+        dataSource: {
+          nodes: [...routerNodes].reverse(),
+          loaded: true,
+          updating: false,
+          failed: false,
+          updatedAt: '12:00',
+          refresh: () => {},
+        },
+      })
+    )
+  );
+  assert.equal(nodeRow('router-alpha'), alpha, 'Router identity survives reordered snapshots');
+  assert.equal(nodeRow('router-beta'), beta);
   let externalRefreshes = 0;
   await React.act(async () =>
     root.render(

@@ -550,3 +550,97 @@ async def test_cluster_per_gpu_metrics(count):
         }
     compact = await supervisor.get_cluster_device_info(detailed=False)
     assert all("gpus" not in item for item in compact)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["ascend", "nvidia"])
+async def test_collected_device_memory_is_projected_in_bytes(monkeypatch, backend):
+    mib = 1024**2
+    used_mib, total_mib = 8192, 65536
+    free_mib = total_mib - used_mib
+    if backend == "ascend":
+        import subprocess
+
+        def npu_smi(command, **kwargs):
+            assert command == ["npu-smi", "info"]
+            return SimpleNamespace(
+                stdout=(
+                    "| 0 Ascend 910B | OK | 0 |\n"
+                    "| 0 | 0000:01:00.0 | 8192 / 65536 |\n"
+                )
+            )
+
+        monkeypatch.delenv("ASCEND_RT_VISIBLE_DEVICES", raising=False)
+        monkeypatch.setattr(subprocess, "run", npu_smi)
+        collect = device_utils.get_npu_info
+        index = "gpu-0-0"
+        name = "Ascend 910B"
+        legacy_scale = 1
+    else:
+        # Reserved memory means total - free is not necessarily used memory.
+        free_mib -= 4096
+        monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+        monkeypatch.setattr(pynvml, "nvmlInit", lambda: None)
+        monkeypatch.setattr(pynvml, "nvmlShutdown", lambda: None)
+        monkeypatch.setattr(pynvml, "nvmlDeviceGetCount", lambda: 1)
+        monkeypatch.setattr(pynvml, "nvmlDeviceGetHandleByIndex", lambda index: index)
+        monkeypatch.setattr(pynvml, "nvmlDeviceGetName", lambda handle: "NVIDIA H100")
+        monkeypatch.setattr(
+            pynvml,
+            "nvmlDeviceGetMemoryInfo",
+            lambda handle: SimpleNamespace(
+                total=total_mib * mib, used=used_mib * mib, free=free_mib * mib
+            ),
+        )
+        monkeypatch.setattr(
+            pynvml,
+            "nvmlDeviceGetUtilizationRates",
+            lambda handle: SimpleNamespace(gpu=0),
+        )
+        collect = device_utils.get_nvidia_gpu_info
+        index = "gpu-0"
+        name = "NVIDIA H100"
+        legacy_scale = mib
+    monkeypatch.setattr(
+        device_utils,
+        "_find_device",
+        lambda: SimpleNamespace(get_gpu_info_fn=collect),
+    )
+    status = gather_node_info()
+    gpu = status[index]
+    assert isinstance(gpu, GPUStatus)
+    assert (gpu.mem_used, gpu.mem_total, gpu.mem_free) == (
+        used_mib * legacy_scale,
+        total_mib * legacy_scale,
+        free_mib * legacy_scale,
+    )
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker": WorkerStatus(
+                update_time=0, failure_remaining_count=3, status=status
+            )
+        },
+    )
+    detailed = await supervisor.get_cluster_device_info(detailed=True)
+    worker = next(item for item in detailed if item["node_type"] == "Worker")
+    assert worker["gpus"] == [
+        {
+            "index": index,
+            "name": name,
+            "utilization": 0,
+            "memory_used": used_mib * mib,
+            "memory_total": total_mib * mib,
+            "memory_available": free_mib * mib,
+        }
+    ]
+    assert worker["gpu_vram_total"] == total_mib * legacy_scale
+    assert worker["gpu_vram_available"] == free_mib * legacy_scale
+    compact = await supervisor.get_cluster_device_info(detailed=False)
+    assert next(item for item in compact if item["node_type"] == "Worker") == {
+        "node_type": "Worker",
+        "ip_address": "worker",
+        "gpu_count": 1,
+        "gpu_vram_total": f"{int(total_mib * legacy_scale / mib)}MiB",
+    }
+    assert all("gpus" not in item for item in compact)
