@@ -47,6 +47,7 @@ for (const count of [0, 1, 2, 4, 8, 12, 16])
     await React.act(async () =>
       root.render(React.createElement(Panel, { workers: [worker(count)] }))
     );
+    if (count === 0) assert.ok(host.textContent.includes('clusterInfo.deviceUnavailable'));
     const visited = new Set();
     const previous = host.querySelector('[aria-label="clusterInfo.previousDevices"]');
     if (previous) assert.equal(previous.disabled, true);
@@ -81,6 +82,7 @@ for (const count of [0, 1, 2, 4, 8, 12, 16])
     const list = host.querySelector('[aria-label="clusterInfo.listView"]');
     await React.act(async () => list.click());
     assert.equal(list.getAttribute('aria-pressed'), 'true');
+    assert.ok(!host.textContent.includes('clusterInfo.selectDevice'));
     assert.equal(host.querySelectorAll('[role="meter"]').length, count * 2);
     const input = host.querySelector('input');
     await React.act(async () => {
@@ -103,6 +105,7 @@ test('unknown GPU memory stays unknown and zero load remains zero', () => {
 test('page refresh stays in the page header and node categories switch independently', async () => {
   let calls = 0;
   let serviceCompletion;
+  let workerOperations = [];
   const routerNodes = ['router-alpha', 'router-beta'].map((node_id) => ({
     ...worker(0),
     node_type: 'Router',
@@ -110,6 +113,7 @@ test('page refresh stays in the page header and node categories switch independe
     ip_address: 'shared-router-host',
     online: true,
     connectivity_status: 'online',
+    software_version: node_id === 'router-alpha' ? '4.1' : '',
   }));
   Module._load = function (name, ...args) {
     if (name === '@/contexts/i18n-context') return { useI18n: () => ({ t: (key) => key }) };
@@ -138,7 +142,7 @@ test('page refresh stays in the page header and node categories switch independe
       };
     if (name === '../worker-relaunch')
       return {
-        useWorkerRelaunches: () => ({ operations: [], busyAddresses: new Set() }),
+        useWorkerRelaunches: () => ({ operations: workerOperations, busyAddresses: new Set() }),
         WorkerRelaunchDialog: () => null,
         WorkerRelaunchHistory: () => null,
       };
@@ -163,10 +167,10 @@ test('page refresh stays in the page header and node categories switch independe
   assert.ok(host.querySelector('h1').parentElement.parentElement.contains(refresh));
   assert.ok(host.textContent.includes('worker-alpha'));
   assert.ok(host.querySelector('[data-service-controls]'));
-  assert.equal(host.querySelector('[data-service-controls]').closest('details'), null);
   const tabs = host.querySelectorAll('[role="tab"]');
   await React.act(async () => tabs[1].click());
   assert.ok(host.textContent.includes('control-alpha'));
+  assert.ok(host.textContent.includes('4.2'), 'Supervisor rows may use the cluster version');
   assert.ok(!host.textContent.includes('worker-alpha'));
   await React.act(async () => refresh.click());
   assert.equal(calls, 2);
@@ -185,6 +189,12 @@ test('page refresh stays in the page header and node categories switch independe
   const alpha = nodeRow('router-alpha');
   const beta = nodeRow('router-beta');
   assert.notEqual(alpha, beta);
+  assert.ok(alpha.textContent.includes('4.1'));
+  assert.ok(beta.textContent.includes('—'));
+  assert.ok(
+    !beta.textContent.includes('4.2'),
+    'unknown Router versions must not inherit the Supervisor version'
+  );
   for (const row of [alpha, beta]) assert.ok(row.textContent.includes('shared-router-host'));
   await React.act(async () =>
     root.render(
@@ -227,11 +237,42 @@ test('page refresh stays in the page header and node categories switch independe
   await React.act(async () => host.querySelectorAll('[role="tab"]')[0].click());
   assert.ok(host.textContent.includes('worker license'));
   assert.ok(host.textContent.includes('gpu-1 license'));
+  assert.ok(
+    host.querySelector('[aria-label="GPU-0"] span.h-1'),
+    'decorations keep the utilization indicator'
+  );
   await React.act(async () => refresh.click());
   assert.equal(externalRefreshes, 1);
   await React.act(async () => serviceCompletion());
   assert.equal(externalRefreshes, 2);
 
+  const source = {
+    nodes: [],
+    loaded: true,
+    updating: false,
+    failed: false,
+    updatedAt: '12:01',
+    refresh: () => externalRefreshes++,
+  };
+  const transition = async (status) => {
+    workerOperations = [{ operation_id: 'worker-one', source_worker: 'worker-alpha', status }];
+    await React.act(async () => root.render(React.createElement(Page, { dataSource: source })));
+  };
+  await transition('starting');
+  assert.equal(externalRefreshes, 2);
+  await transition('succeeded');
+  assert.equal(externalRefreshes, 3, 'Worker completion refreshes the active data source');
+  await transition('succeeded');
+  assert.equal(externalRefreshes, 3, 'the same completed operation must not refresh twice');
+  await transition('starting');
+  await transition('failed');
+  assert.equal(externalRefreshes, 4, 'failed Worker operations also refresh the active source');
+  await React.act(async () => host.querySelectorAll('[role="tab"]')[1].click());
+  assert.ok(host.textContent.includes('clusterInfo.noSupervisors'));
+  assert.ok(!host.textContent.includes('clusterInfo.noRouterInstances'));
+  await React.act(async () => host.querySelectorAll('[role="tab"]')[2].click());
+  assert.ok(host.textContent.includes('clusterInfo.noRouterInstances'));
+  assert.ok(!host.textContent.includes('clusterInfo.noSupervisors'));
   assert.equal(calls, 2);
 
   await React.act(async () => root.unmount());
@@ -356,4 +397,72 @@ test('operation completion refreshes once for success or failure and ignores his
   assert.equal(latest, 1);
   await React.act(async () => root.unmount());
   host.remove();
+});
+
+test('resizing preserves the first visible GPU range on an intermediate page', async () => {
+  let resize;
+  const media = {
+    matches: false,
+    addEventListener: (_, fn) => {
+      resize = fn;
+    },
+    removeEventListener: () => {},
+  };
+  window.matchMedia = () => media;
+  const host = document.body.appendChild(document.createElement('div'));
+  const root = createRoot(host);
+  try {
+    await React.act(async () => root.render(React.createElement(Panel, { workers: [worker(16)] })));
+    await React.act(async () =>
+      host.querySelector('[aria-label="clusterInfo.nextDevices"]').click()
+    );
+    assert.ok(host.querySelector('[aria-label="GPU-4"]'));
+    assert.ok(!host.querySelector('[aria-label="GPU-0"]'));
+    await React.act(async () => {
+      media.matches = true;
+      resize();
+    });
+    for (const i of [4, 5, 6, 7]) assert.ok(host.querySelector('[aria-label="GPU-' + i + '"]'));
+    assert.equal(host.querySelectorAll('button[aria-label^="GPU-"]').length, 8);
+    assert.equal(
+      host.querySelector('[aria-pressed="true"][aria-label^="GPU-"]').getAttribute('aria-label'),
+      'GPU-4'
+    );
+    await React.act(async () => {
+      media.matches = false;
+      resize();
+    });
+    assert.ok(host.querySelector('[aria-label="GPU-4"]'));
+    assert.ok(!host.querySelector('[aria-label="GPU-0"]'));
+  } finally {
+    await React.act(async () => root.unmount());
+    host.remove();
+    delete window.matchMedia;
+  }
+});
+
+test('unknown per-device memory never appears as a measured placeholder capacity', async () => {
+  const value = worker(1);
+  Object.assign(value.gpus[0], { memory_used: null, memory_total: null, memory_available: null });
+  const host = document.body.appendChild(document.createElement('div'));
+  const root = createRoot(host);
+  await React.act(async () => root.render(React.createElement(Panel, { workers: [value] })));
+  const card = host.querySelector('[aria-label="GPU-0"]');
+  assert.equal(card.querySelectorAll('[role="meter"]')[1].hasAttribute('aria-valuenow'), false);
+  assert.ok(host.textContent.includes('clusterInfo.unavailable'));
+  assert.ok(!host.textContent.includes('1 B'));
+  await React.act(async () => root.unmount());
+  host.remove();
+});
+
+test('shared resource percentages preserve unknown and zero readings and clamp bounds', () => {
+  const { usagePercent, availableUsagePercent } = require('./utils.ts');
+  assert.equal(usagePercent(null, 100), null);
+  assert.equal(usagePercent(1, 0), null);
+  assert.equal(usagePercent(Infinity, 100), null);
+  assert.equal(usagePercent(0, 100), 0);
+  assert.equal(usagePercent(-10, 100), 0);
+  assert.equal(usagePercent(200, 100), 100);
+  assert.equal(availableUsagePercent(100, 75), 25);
+  assert.equal(availableUsagePercent(100, null), null);
 });

@@ -1401,8 +1401,7 @@ const ko = {
     noWorkers: '사용 가능한 워커 노드 없음',
     devices: 'GPU 장치',
     deviceUnavailable:
-      '이 서버는 GPU별 지표를 보고하지 않습니다. 노드 전체 정보는 계속 표시됩니다.',
-    noGpu: '이 노드에는 GPU 장치가 없습니다',
+      '장치별 지표가 보고되지 않았습니다. 노드 요약 정보는 계속 확인할 수 있습니다.',
     gpuModel: 'GPU 모델',
     infrastructure: '제어 노드 및 서비스 관리',
     serviceRelaunch: {
@@ -1503,6 +1502,7 @@ const ko = {
     routerPythonVersion: 'Python 버전',
     routerPlatform: '플랫폼',
     noRouterInstances: '온라인 Router 노드가 없습니다.',
+    noSupervisors: '보고된 Supervisor 노드가 없습니다.',
   },
   userManagement: {
     pageDescription: 'Xinference 클러스터에 접근할 수 있는 사용자를 관리합니다.',

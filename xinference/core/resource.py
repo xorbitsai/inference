@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import psutil
 
@@ -44,6 +44,11 @@ class GPUStatus:
     mem_used_bytes: Optional[float] = None
 
 
+def _mib_to_bytes(gpu_info: Dict[str, Any], key: str) -> Optional[float]:
+    value = gpu_info.get(key)
+    return value * 1024**2 if value is not None else None
+
+
 def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
     node_resource = dict()
     mem_info = psutil.virtual_memory()
@@ -64,21 +69,9 @@ def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
             mem_free=gpu_info["free"],
             mem_usage=mem_usage,
             gpu_util=gpu_info["util"],
-            mem_total_bytes=(
-                gpu_info["total_memory_mib"] * 1024**2
-                if "total_memory_mib" in gpu_info
-                else None
-            ),
-            mem_free_bytes=(
-                gpu_info["free_memory_mib"] * 1024**2
-                if "free_memory_mib" in gpu_info
-                else None
-            ),
-            mem_used_bytes=(
-                gpu_info["used_memory_mib"] * 1024**2
-                if "used_memory_mib" in gpu_info
-                else None
-            ),
+            mem_total_bytes=_mib_to_bytes(gpu_info, "total_memory_mib"),
+            mem_free_bytes=_mib_to_bytes(gpu_info, "free_memory_mib"),
+            mem_used_bytes=_mib_to_bytes(gpu_info, "used_memory_mib"),
         )
 
     return node_resource  # type: ignore

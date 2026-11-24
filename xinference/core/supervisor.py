@@ -1966,21 +1966,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         "index": str(index),
                         "name": gpu.name,
                         "utilization": gpu.gpu_util,
-                        "memory_used": (
-                            gpu.mem_used_bytes
-                            if gpu.mem_used_bytes is not None
-                            else gpu.mem_used
-                        ),
-                        "memory_total": (
-                            gpu.mem_total_bytes
-                            if gpu.mem_total_bytes is not None
-                            else gpu.mem_total
-                        ),
-                        "memory_available": (
-                            gpu.mem_free_bytes
-                            if gpu.mem_free_bytes is not None
-                            else gpu.mem_free
-                        ),
+                        "memory_used": gpu.mem_used_bytes,
+                        "memory_total": gpu.mem_total_bytes,
+                        "memory_available": gpu.mem_free_bytes,
                     }
                     for index, gpu in worker_status.status.items()
                     if isinstance(gpu, GPUStatus)

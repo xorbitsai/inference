@@ -1369,8 +1369,7 @@ const zhTW = {
     noMatches: '沒有符合條件的工作節點',
     noWorkers: '暫無工作節點',
     devices: 'GPU 裝置',
-    deviceUnavailable: '目前伺服器尚未回報逐卡指標，仍可查看節點總體資料。',
-    noGpu: '此節點沒有 GPU 裝置',
+    deviceUnavailable: '尚未回報逐卡指標，仍可查看節點彙總資訊。',
     gpuModel: 'GPU 型號',
     infrastructure: '控制節點與服務管理',
     serviceRelaunch: {
@@ -1468,6 +1467,7 @@ const zhTW = {
     routerPythonVersion: 'Python 版本',
     routerPlatform: '作業系統與架構',
     noRouterInstances: '當前沒有線上路由節點。',
+    noSupervisors: '尚無主管節點資訊。',
   },
   login: {
     welcome: '歡迎回來',

@@ -12,6 +12,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { createRelaunchRequestId } from '@/lib/relaunch-request-id';
 import request from '@/lib/request';
+import { isOperationFinished } from '@/lib/operation-status';
 
 import { useOperationCompletion } from '@/hooks/use-operation-completion';
 
@@ -42,10 +43,6 @@ const SERVICES = {
   supervisor: { start: '/v1/supervisor/relaunch', history: '/v1/supervisor-relaunches' },
 };
 
-function finished(job: ServiceRelaunchOperation): boolean {
-  return job.status === 'succeeded' || job.status === 'failed';
-}
-
 function errorMessage(error: unknown): string {
   if (isAxiosError(error)) {
     const detail = error.response?.data?.detail;
@@ -74,7 +71,7 @@ function useServiceRelaunches(service: Service) {
           setError('');
           setRetrying(false);
           setAvailable(true);
-          again = data.some((job) => !finished(job));
+          again = data.some((job) => !isOperationFinished(job.status));
         }
       } catch (err) {
         if (active) {
@@ -102,7 +99,7 @@ function useServiceRelaunches(service: Service) {
     operations,
     error,
     retrying,
-    canStart: available && !operations.some((job) => !finished(job)),
+    canStart: available && !operations.some((job) => !isOperationFinished(job.status)),
     refresh: () => setRevision((value) => value + 1),
     addOperation: (job: ServiceRelaunchOperation) => {
       setOperations((current) => [

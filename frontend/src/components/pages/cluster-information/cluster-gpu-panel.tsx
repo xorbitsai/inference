@@ -5,15 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useI18n } from '@/contexts/i18n-context';
 import { formatFileSize } from '@/lib/utils';
+import { finite, availableUsagePercent, usagePercent } from './utils';
 import type { ClusterDecorations } from './types';
 import type { ClusterInfo, ClusterGPUInfo } from '@/types/services';
-const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 const display = (n: number | null) =>
   finite(n) ? Number(Math.max(0, Math.min(100, n)).toFixed(1)) + '%' : '—';
-export const memoryRate = (g: ClusterGPUInfo) =>
-  finite(g.memory_used) && finite(g.memory_total) && g.memory_total > 0
-    ? Math.max(0, Math.min(100, (g.memory_used / g.memory_total) * 100))
-    : null;
+export const memoryRate = (g: ClusterGPUInfo) => usagePercent(g.memory_used, g.memory_total);
 function Bar({ value, label }: { value: number | null; label: string }) {
   const safe = finite(value) ? Math.max(0, Math.min(100, value)) : null;
   return (
@@ -67,7 +64,7 @@ function DeviceMatrix({
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const devices = worker.gpus ?? [];
-  const [page, setPage] = useState(0);
+  const [firstVisible, setFirstVisible] = useState(0);
   const [columns, setColumns] = useState(4);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
@@ -79,12 +76,13 @@ function DeviceMatrix({
   }, []);
   const pageSize = columns * 2;
   const pageCount = Math.max(1, Math.ceil(devices.length / pageSize));
-  const activePage = Math.min(page, pageCount - 1);
+  const activePage = Math.min(Math.floor(firstVisible / pageSize), pageCount - 1);
   const pageDevices = devices.slice(activePage * pageSize, (activePage + 1) * pageSize);
   const current = pageDevices.find((g) => g.index === selected) ?? pageDevices[0];
   const movePage = (offset: number) => {
-    setPage(Math.max(0, Math.min(pageCount - 1, activePage + offset)));
-    setSelected(null);
+    const nextOffset = Math.max(0, Math.min(pageCount - 1, activePage + offset)) * pageSize;
+    setFirstVisible(nextOffset);
+    setSelected(devices[nextOffset]?.index ?? null);
   };
   const mem = (g: ClusterGPUInfo) =>
     memoryRate(g) === null
@@ -94,9 +92,7 @@ function DeviceMatrix({
     return (
       <div className="flex items-center gap-3 border-t bg-muted/15 px-5 py-8">
         <Cpu className="h-5 w-5 shrink-0 text-muted-foreground/50" />
-        <p className="text-xs text-muted-foreground">
-          {t(worker.gpu_count ? 'clusterInfo.deviceUnavailable' : 'clusterInfo.noGpu')}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('clusterInfo.deviceUnavailable')}</p>
       </div>
     );
   return (
@@ -109,9 +105,11 @@ function DeviceMatrix({
           </span>
         </span>
         <div className="flex items-center gap-3">
-          <span className="hidden text-[11px] text-muted-foreground sm:inline">
-            {t('clusterInfo.selectDevice')}
-          </span>
+          {!list && (
+            <span className="hidden text-[11px] text-muted-foreground sm:inline">
+              {t('clusterInfo.selectDevice')}
+            </span>
+          )}
           {!list && pageCount > 1 && (
             <div className="flex items-center gap-2">
               <span
@@ -197,20 +195,17 @@ function DeviceMatrix({
                       : 'border-border/70 bg-background hover:border-primary/30 hover:bg-muted/25')
                   }
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 pr-10">
                     <span className="font-mono text-[10px] font-medium text-muted-foreground">
                       {g.index.toUpperCase()}
                     </span>
-                    {!decorations?.gpuBadge && (
-                      <span
-                        className={
-                          'h-1 w-1 rounded-full ' +
-                          (finite(g.utilization) && g.utilization > 90
-                            ? 'bg-red-500'
-                            : 'bg-primary')
-                        }
-                      />
-                    )}
+                    <span
+                      aria-hidden="true"
+                      className={
+                        'h-1 w-1 shrink-0 rounded-full ' +
+                        (finite(g.utilization) && g.utilization > 90 ? 'bg-red-500' : 'bg-primary')
+                      }
+                    />
                   </div>
                   <p className="mb-2 mt-3 text-[22px] font-medium leading-none tracking-tight tabular-nums">
                     {display(g.utilization)}
@@ -336,11 +331,7 @@ export default function ClusterGpuPanel({
                 <p className="flex items-center gap-3">
                   <span className="text-muted-foreground">{t('clusterInfo.cpuUsage')}</span>
                   <span className="font-medium tabular-nums">
-                    {display(
-                      finite(w.cpu_count) && w.cpu_count > 0 && finite(w.cpu_available)
-                        ? (100 * (w.cpu_count - w.cpu_available)) / w.cpu_count
-                        : null
-                    )}
+                    {display(availableUsagePercent(w.cpu_count, w.cpu_available))}
                   </span>
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
@@ -351,11 +342,7 @@ export default function ClusterGpuPanel({
                 <p className="flex items-center gap-3">
                   <span className="text-muted-foreground">{t('clusterInfo.memoryInfo')}</span>
                   <span className="font-medium tabular-nums">
-                    {display(
-                      finite(w.mem_total) && w.mem_total > 0 && finite(w.mem_available)
-                        ? (100 * (w.mem_total - w.mem_available)) / w.mem_total
-                        : null
-                    )}
+                    {display(availableUsagePercent(w.mem_total, w.mem_available))}
                   </span>
                 </p>
                 <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">

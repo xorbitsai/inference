@@ -33,10 +33,10 @@ import {
   WorkerRelaunchDialog,
   WorkerRelaunchHistory,
 } from '../worker-relaunch';
+import { finite, availableUsagePercent } from './utils';
 import type { ClusterDataSource, ClusterDecorations } from './types';
 import type { ClusterInfo, ClusterInformationItem, RouterNodeClusterInfo } from '@/types/services';
 
-const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 export default function ClusterInfoPage({
   dataSource,
   decorations,
@@ -329,25 +329,19 @@ export default function ClusterInfoPage({
                         </p>
                       )}
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        {n.software_version || clusterVersion.version || '—'}
+                        {n.software_version ||
+                          (n.node_type === 'Supervisor' ? clusterVersion.version : '') ||
+                          '—'}
                       </p>
                     </div>
                     <ResourceMeter
                       label={t('clusterInfo.cpuUsage')}
-                      value={
-                        finite(n.cpu_count) && n.cpu_count > 0 && finite(n.cpu_available)
-                          ? (100 * (n.cpu_count - n.cpu_available)) / n.cpu_count
-                          : null
-                      }
+                      value={availableUsagePercent(n.cpu_count, n.cpu_available)}
                       detail={t('clusterInfo.cpuTotal') + ': ' + (n.cpu_count ?? '—')}
                     />
                     <ResourceMeter
                       label={t('clusterInfo.memoryInfo')}
-                      value={
-                        finite(n.mem_total) && n.mem_total > 0 && finite(n.mem_available)
-                          ? (100 * (n.mem_total - n.mem_available)) / n.mem_total
-                          : null
-                      }
+                      value={availableUsagePercent(n.mem_total, n.mem_available)}
                       detail={
                         finite(n.mem_used) && finite(n.mem_total)
                           ? formatFileSize(n.mem_used) + ' / ' + formatFileSize(n.mem_total)
@@ -358,7 +352,11 @@ export default function ClusterInfoPage({
                 ))}
                 {controls.length === 0 && (
                   <div className="py-16 text-center text-sm text-muted-foreground">
-                    {t('clusterInfo.noRouterInstances')}
+                    {t(
+                      active === 'Supervisor'
+                        ? 'clusterInfo.noSupervisors'
+                        : 'clusterInfo.noRouterInstances'
+                    )}
                   </div>
                 )}
               </div>

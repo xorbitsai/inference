@@ -1593,9 +1593,7 @@ const en = {
     noMatches: 'No matching workers',
     noWorkers: 'No workers available',
     devices: 'GPU devices',
-    deviceUnavailable:
-      'Per-device metrics are not reported by this server. Node aggregates remain available.',
-    noGpu: 'This node has no GPU devices',
+    deviceUnavailable: 'No per-device metrics reported. Node summaries remain available.',
     gpuModel: 'GPU model',
     infrastructure: 'Control nodes and service management',
     serviceRelaunch: {
@@ -1698,6 +1696,7 @@ const en = {
     routerPythonVersion: 'Python Version',
     routerPlatform: 'Platform',
     noRouterInstances: 'No online Router nodes.',
+    noSupervisors: 'No Supervisor nodes reported.',
   },
   userManagement: {
     pageDescription: 'Manage users who can access the Xinference cluster.',

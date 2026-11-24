@@ -1520,8 +1520,7 @@ const zh = {
     noMatches: '没有匹配的工作节点',
     noWorkers: '暂无工作节点',
     devices: 'GPU 设备',
-    deviceUnavailable: '当前服务尚未上报每卡指标，节点汇总信息仍可查看。',
-    noGpu: '此节点没有 GPU 设备',
+    deviceUnavailable: '暂未上报每卡指标，仍可查看节点汇总信息。',
     gpuModel: 'GPU 型号',
     infrastructure: '控制节点与服务管理',
     serviceRelaunch: {
@@ -1619,6 +1618,7 @@ const zh = {
     routerPythonVersion: 'Python 版本',
     routerPlatform: '操作系统与架构',
     noRouterInstances: '当前没有在线路由节点。',
+    noSupervisors: '暂无主管节点信息。',
   },
   login: {
     welcome: '欢迎回来',

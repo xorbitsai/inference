@@ -544,9 +544,9 @@ async def test_cluster_per_gpu_metrics(count):
             "index": f"gpu-{index}",
             "name": f"GPU-{index}",
             "utilization": index,
-            "memory_used": 600,
-            "memory_total": 1000,
-            "memory_available": 400,
+            "memory_used": None,
+            "memory_total": None,
+            "memory_available": None,
         }
     compact = await supervisor.get_cluster_device_info(detailed=False)
     assert all("gpus" not in item for item in compact)
@@ -644,3 +644,67 @@ async def test_collected_device_memory_is_projected_in_bytes(monkeypatch, backen
         "gpu_vram_total": f"{int(total_mib * legacy_scale / mib)}MiB",
     }
     assert all("gpus" not in item for item in compact)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["rocm", "torch", "gcu", "legacy-ascend"])
+async def test_device_memory_without_normalized_measurements_is_unknown(
+    monkeypatch, backend
+):
+    if backend == "rocm":
+        sample = device_utils._get_rocm_gpu_mem_info(0)
+    elif backend == "torch":
+        sample = device_utils._get_info_by_torch(0)
+    else:
+        sample = {
+            "name": backend,
+            "total": 65536,
+            "used": 8192,
+            "free": 57344,
+            "util": 0,
+        }
+    monkeypatch.setattr(
+        "xinference.core.resource.get_gpu_info", lambda: {"gpu-0": sample}
+    )
+    status = gather_node_info()
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker": WorkerStatus(
+                update_time=0, failure_remaining_count=3, status=status
+            )
+        },
+    )
+    detailed = await supervisor.get_cluster_device_info(detailed=True)
+    worker = next(item for item in detailed if item["node_type"] == "Worker")
+    assert worker["gpus"][0] == {
+        "index": "gpu-0",
+        "name": sample["name"],
+        "utilization": sample["util"],
+        "memory_used": None,
+        "memory_total": None,
+        "memory_available": None,
+    }
+    assert worker["gpu_vram_total"] == sample["total"]
+    assert worker["gpu_vram_available"] == sample["free"]
+
+
+@pytest.mark.asyncio
+async def test_device_memory_uses_independent_normalized_values_and_preserves_zero():
+    status = _build_worker_status(gpu_utils=[0])
+    gpu = status["gpu-0"]
+    assert isinstance(gpu, GPUStatus)
+    gpu.mem_total_bytes = 1000
+    gpu.mem_free_bytes = 0
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker": WorkerStatus(
+                update_time=0, failure_remaining_count=3, status=status
+            )
+        },
+    )
+    worker = (await supervisor.get_cluster_device_info(detailed=True))[1]
+    assert worker["gpus"][0]["memory_total"] == 1000
+    assert worker["gpus"][0]["memory_available"] == 0
+    assert worker["gpus"][0]["memory_used"] is None

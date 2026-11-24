@@ -1409,8 +1409,7 @@ const ja = {
     noWorkers: 'ワーカーノードがありません',
     devices: 'GPU デバイス',
     deviceUnavailable:
-      'このサーバーは GPU ごとの指標を報告していません。ノード全体の情報は表示できます。',
-    noGpu: 'このノードには GPU がありません',
+      'デバイスごとの指標は報告されていません。ノードの概要は引き続き確認できます。',
     gpuModel: 'GPU 型番',
     infrastructure: '制御ノードとサービス管理',
     serviceRelaunch: {
@@ -1513,6 +1512,7 @@ const ja = {
     routerPythonVersion: 'Python バージョン',
     routerPlatform: 'プラットフォーム',
     noRouterInstances: 'オンラインの Router ノードがありません。',
+    noSupervisors: 'Supervisor ノードの情報がありません。',
   },
   userManagement: {
     pageDescription: 'Xinference クラスターにアクセスできるユーザーを管理します。',
