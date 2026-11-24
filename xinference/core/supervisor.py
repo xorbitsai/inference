@@ -7046,16 +7046,19 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         start = ids.index(first)
         candidates = ids[start:] + ids[:start]
         if state is not None:
-            candidates = sorted(
-                (r for r in candidates if r not in state.draining),
-                key=state.should_avoid,
-            )
+            candidates = sorted(candidates, key=state.should_avoid)
         last_error = ModelNotReadyError(f"Model {model_uid} has no available replica")
         for replica_id in candidates:
+            # A replica can start draining while an earlier lookup is pending.
+            if state is not None and replica_id in state.draining:
+                continue
             try:
-                return await self._get_replica_model(model_uid, replica_id), False
+                model = await self._get_replica_model(model_uid, replica_id)
             except ModelNotReadyError as exc:
                 last_error = exc
+                continue
+            if state is None or replica_id not in state.draining:
+                return model, False
         raise last_error
 
     async def _rank_chat_replicas(
