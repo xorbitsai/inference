@@ -513,6 +513,65 @@ def _make_supervisor(workers, launch_args, replica_uid="demo-0"):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("replay", [False, True])
+@pytest.mark.parametrize("autoscaling", [False, True])
+async def test_inference_skips_loading_replica_during_launch(replay, autoscaling):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    ready_model = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+    runtime = WorkerActor.__new__(WorkerActor)
+    runtime._model_uid_to_model = {"demo-rep0": ready_model, "demo-rep1": object()}
+    runtime._model_uid_to_model_status = {
+        "demo-rep0": ModelStatus(model_state="ready"),
+        "demo-rep1": ModelStatus(model_state="loading"),
+    }
+    worker.get_model = AsyncMock(side_effect=runtime.get_model)
+    if autoscaling:
+        supervisor._replica_autoscalers["demo"] = SimpleNamespace(
+            draining=set(), should_avoid=lambda replica: False
+        )
+    loading, release = asyncio.Event(), asyncio.Event()
+
+    async def wait_for_load(model_uid):
+        if replay:
+            supervisor._rebuild_worker_replica_state(
+                worker,
+                [{"replica_model_uid": uid} for uid in runtime._model_uid_to_model],
+            )
+        loading.set()
+        await release.wait()
+        runtime._model_uid_to_model_status[model_uid].model_state = "ready"
+
+    worker.wait_for_load = wait_for_load
+    task = None
+    if replay:
+        # The public API rejects manual scaling on autoscaled deployments.
+        task = asyncio.create_task(supervisor._add_model_replica("demo"))
+        await asyncio.wait_for(loading.wait(), 2)
+    else:
+        # Initial launches publish all replica IDs before their loads complete.
+        supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(
+            2
+        )
+        supervisor._replica_model_uid_to_worker["demo-rep1"] = worker
+    try:
+        for _ in range(4):
+            assert await supervisor.get_model("demo") is ready_model
+        # Affinity and the metadata fallback must also preserve readiness.
+        assert await supervisor.get_model("demo", routing_key="session") is ready_model
+        assert await supervisor.get_model("demo", for_inference=False) is ready_model
+        runtime._model_uid_to_model_status["demo-rep0"].model_state = "loading"
+        worker.get_model.reset_mock()
+        with pytest.raises(ModelNotReadyError):
+            await supervisor.get_model("demo")
+        assert worker.get_model.await_count == 2
+    finally:
+        release.set()
+        if task is not None:
+            await asyncio.wait_for(task, 2)
+
+
+@pytest.mark.asyncio
 async def test_progress_includes_unrouted_replica_until_real_load_completion():
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
     supervisor = _make_supervisor([worker], worker.launch_args)

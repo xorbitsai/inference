@@ -7040,27 +7040,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         return model, False
             raise stopping if stopping is not None else last_error
         first = next(replica_info.scheduler)
-        if state is None:
-            return await self._get_replica_model(model_uid, first), False
-        if first not in state.draining and not state.should_avoid(first):
-            return await self._get_replica_model(model_uid, first), False
-
-        # Advance the round robin once per request, including when all
-        # replicas are congested and the preferred route is the fallback.
+        # Advance round robin once per request, and try each sibling at most
+        # once if the selected replica is still loading (including replay).
         ids = replica_info.active_replica_ids
         start = ids.index(first)
-        fallback = None if first in state.draining else first
-        for offset in range(1, len(ids)):
-            replica_id = ids[(start + offset) % len(ids)]
-            if replica_id in state.draining:
-                continue
-            if not state.should_avoid(replica_id):
+        candidates = ids[start:] + ids[:start]
+        if state is not None:
+            candidates = sorted(
+                (r for r in candidates if r not in state.draining),
+                key=state.should_avoid,
+            )
+        last_error = ModelNotReadyError(f"Model {model_uid} has no available replica")
+        for replica_id in candidates:
+            try:
                 return await self._get_replica_model(model_uid, replica_id), False
-            if fallback is None:
-                fallback = replica_id
-        if fallback is not None:
-            return await self._get_replica_model(model_uid, fallback), False
-        raise ModelNotReadyError(f"Model {model_uid} has no available replica")
+            except ModelNotReadyError as exc:
+                last_error = exc
+        raise last_error
 
     async def _rank_chat_replicas(
         self, model_uid: str, info: ReplicaInfo, preferred: int, request: dict
