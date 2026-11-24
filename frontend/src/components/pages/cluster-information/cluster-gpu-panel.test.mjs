@@ -12,6 +12,7 @@ Object.assign(globalThis, {
   Event: dom.window.Event,
   IS_REACT_ACT_ENVIRONMENT: true,
 });
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: dom.window.navigator });
 const Module = require('node:module');
 const load = Module._load;
 Module._load = function (name, ...args) {
@@ -246,6 +247,66 @@ test('page refresh stays in the page header and node categories switch independe
   await React.act(async () => serviceCompletion());
   assert.equal(externalRefreshes, 2);
 
+  const gib = 1024 ** 3;
+  const measured = {
+    ...worker(1),
+    node_type: 'Worker',
+    gpu_vram_total: 65536,
+    gpu_vram_available: 49152,
+    gpus: [
+      {
+        index: 'gpu-0-0',
+        name: 'Ascend 910B',
+        utilization: 0,
+        memory_used: 16 * gib,
+        memory_total: 64 * gib,
+        memory_available: 48 * gib,
+      },
+    ],
+  };
+  const renderSnapshot = async (nodes) =>
+    React.act(async () =>
+      root.render(
+        React.createElement(Page, {
+          dataSource: {
+            nodes,
+            loaded: true,
+            updating: false,
+            failed: false,
+            updatedAt: '12:00',
+            refresh: () => externalRefreshes++,
+          },
+        })
+      )
+    );
+  const tile = () =>
+    Array.from(host.querySelectorAll('p')).find((p) => p.textContent === 'clusterInfo.vramUsage')
+      .parentElement;
+  const { formatFileSize } = require('@/lib/utils');
+  await renderSnapshot([measured]);
+  assert.ok(
+    tile().textContent.includes(formatFileSize(16 * gib)),
+    'summary uses normalized per-device bytes'
+  );
+  assert.ok(tile().textContent.includes(formatFileSize(64 * gib)));
+  await renderSnapshot([
+    {
+      ...measured,
+      gpu_vram_total: 1,
+      gpu_vram_available: 1,
+      gpus: [{ ...measured.gpus[0], memory_total: null, memory_available: null }],
+    },
+  ]);
+  assert.ok(tile().textContent.includes('clusterInfo.unavailable'));
+  assert.ok(!tile().textContent.includes('1 B'), 'unknown measurements do not reuse placeholders');
+  const legacy = { ...measured, gpu_vram_total: 64 * gib, gpu_vram_available: 48 * gib };
+  delete legacy.gpus;
+  await renderSnapshot([legacy]);
+  assert.ok(
+    tile().textContent.includes(formatFileSize(16 * gib)),
+    'legacy-only servers retain their summary'
+  );
+
   const source = {
     nodes: [],
     loaded: true,
@@ -465,4 +526,41 @@ test('shared resource percentages preserve unknown and zero readings and clamp b
   assert.equal(usagePercent(200, 100), 100);
   assert.equal(availableUsagePercent(100, 75), 25);
   assert.equal(availableUsagePercent(100, null), null);
+});
+
+test('VRAM totals use device byte measurements and preserve unknown snapshots', () => {
+  const { vramSummary } = require('./utils.ts');
+  const gib = 1024 ** 3;
+  const measured = {
+    ...worker(1),
+    gpu_vram_total: 65536,
+    gpu_vram_available: 49152,
+    gpus: [{ ...worker(1).gpus[0], memory_total: 64 * gib, memory_available: 48 * gib }],
+  };
+  assert.deepEqual(vramSummary([measured]), { total: 64 * gib, used: 16 * gib });
+  for (const field of ['memory_total', 'memory_available']) {
+    const unknown = {
+      ...measured,
+      gpu_vram_total: 1,
+      gpu_vram_available: 1,
+      gpus: [{ ...measured.gpus[0], [field]: null }],
+    };
+    assert.equal(vramSummary([unknown]), null);
+    assert.equal(vramSummary([measured, unknown]), null, 'partial totals must stay unknown');
+  }
+  assert.equal(
+    vramSummary([{ ...measured, gpus: [] }]),
+    null,
+    'missing devices must not look like zero capacity'
+  );
+  const legacy = {
+    ...worker(2),
+    gpus: undefined,
+    gpu_vram_total: 32 * gib,
+    gpu_vram_available: 24 * gib,
+  };
+  assert.deepEqual(vramSummary([legacy]), { total: 32 * gib, used: 8 * gib });
+  assert.deepEqual(vramSummary([legacy, measured]), { total: 96 * gib, used: 24 * gib });
+  assert.equal(vramSummary([]), null);
+  assert.deepEqual(vramSummary([worker(0)]), { total: 0, used: 0 });
 });

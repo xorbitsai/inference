@@ -33,7 +33,7 @@ import {
   WorkerRelaunchDialog,
   WorkerRelaunchHistory,
 } from '../worker-relaunch';
-import { finite, availableUsagePercent } from './utils';
+import { finite, availableUsagePercent, vramSummary } from './utils';
 import type { ClusterDataSource, ClusterDecorations } from './types';
 import type { ClusterInfo, ClusterInformationItem, RouterNodeClusterInfo } from '@/types/services';
 
@@ -78,18 +78,7 @@ export default function ClusterInfoPage({
     reportedCount > 0 && reportedCount === gpuCount
       ? reporting.reduce((sum, n) => sum + n.gpu_utilization! * n.gpu_count, 0) / reportedCount
       : null;
-  const vramKnown =
-    workers.length > 0 &&
-    workers.every(
-      (n) =>
-        n.gpu_count === 0 ||
-        (finite(n.gpu_vram_total) && n.gpu_vram_total > 0 && finite(n.gpu_vram_available))
-    );
-  const vramTotal = workers.reduce((sum, n) => sum + (n.gpu_vram_total || 0), 0);
-  const vramUsed = workers.reduce(
-    (sum, n) => sum + Math.max(0, (n.gpu_vram_total || 0) - (n.gpu_vram_available || 0)),
-    0
-  );
+  const vram = vramSummary(workers);
   useEffect(() => {
     if (!globalReady || external) return;
     let cancelled = false;
@@ -173,11 +162,11 @@ export default function ClusterInfoPage({
     },
     {
       label: t('clusterInfo.vramUsage'),
-      value: vramKnown ? formatFileSize(vramUsed) : '—',
+      value: vram ? formatFileSize(vram.used) : '—',
       suffix: '',
       icon: Database,
-      detail: vramKnown
-        ? t('clusterInfo.capacity') + ' ' + formatFileSize(vramTotal)
+      detail: vram
+        ? t('clusterInfo.capacity') + ' ' + formatFileSize(vram.total)
         : t('clusterInfo.unavailable'),
     },
   ];
