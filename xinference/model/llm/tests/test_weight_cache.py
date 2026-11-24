@@ -437,6 +437,77 @@ def test_container_driver_pids_and_unknown_memory(monkeypatch):
         _cached_memory_fraction(os.getpid())
 
 
+def _start_with_snapshots(monkeypatch, snapshots, tp):
+    """Start a vLLM daemon whose two driver snapshots (before and after preload)
+    are given, and return it."""
+    snapshots = iter(snapshots)
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._gpu_process_memory",
+        lambda: next(snapshots),
+    )
+    daemon = WeightCacheDaemon(
+        "vllm", "/models/test", {"tensor_parallel_size": tp, "launch_timeout": 300}
+    )
+    process = MagicMock(pid=1234)
+    process.poll.return_value = None
+
+    def spawn(command, **kwargs):
+        for rank in range(tp):
+            (daemon.directory / f"gpu-{rank}.sock").touch()
+        return process
+
+    monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
+    monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", MagicMock())
+    monkeypatch.setattr("psutil.process_iter", lambda attrs: [])
+    monkeypatch.setattr(
+        "psutil.Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
+    )
+    daemon.start(timeout=1)
+    return daemon
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_unrelated_gpu_seen_only_after_preload_is_not_counted(monkeypatch):
+    # GPU 1 cannot be queried before preload; once it can, its unrelated 85%
+    # process must not count as the daemon's reservation.
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{0: (1000, {})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}],
+        tp=1,
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+@pytest.mark.parametrize(
+    "snapshots,tp",
+    [
+        # The daemon's GPU 0 was not measured before preload.
+        ([{1: (1000, {950: 850})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}], 1),
+        # One of two ranks' GPUs was not measured before preload.
+        (
+            [
+                {0: (1000, {}), 2: (1000, {})},
+                {0: (1000, {900: 300}), 1: (1000, {901: 300}), 2: (1000, {})},
+            ],
+            2,
+        ),
+    ],
+)
+def test_daemon_gpu_missing_from_a_snapshot_cannot_be_accounted(
+    monkeypatch, snapshots, tp
+):
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(monkeypatch, snapshots, tp)
+
+
 def test_reload_config_reads_committed_snapshot_during_engine_mutation():
     model = FakeCachedModel()
 
