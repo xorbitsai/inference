@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: es\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "Información del clúster"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "Abra **Información del clúster** para consultar los nodos Worker, Supervisor y Router. Busque Workers por dirección del nodo o modelo de GPU y alterne entre las vistas de cuadrícula y lista de GPU."
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Missing readings are shown as unavailable."
+msgstr "La cuadrícula muestra hasta cuatro tarjetas por fila y dos filas por página en pantallas anchas, o dos tarjetas por fila en pantallas estrechas. Use las flechas para ver los demás dispositivos y seleccione una tarjeta para consultar el modelo y la memoria GPU usada, total y disponible. Cada tarjeta muestra el uso de GPU y memoria; las barras se vuelven rojas al superar el 90%. Las mediciones ausentes se muestran como no disponibles."
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "API detallada del clúster"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; unavailable readings are ``null``. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` incluye una matriz ``gpus`` para cada Worker. Cada dispositivo informa de ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` y ``memory_available``. El uso se expresa como porcentaje y la memoria en bytes; las mediciones no disponibles son ``null``. Las respuestas compactas mantienen su estructura."

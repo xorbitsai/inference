@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: zh_TW\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "叢集資訊"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "開啟 **叢集資訊**，查看 Worker、Supervisor 與 Router 節點。可依節點位址或 GPU 型號搜尋 Worker，並切換 GPU 網格與清單檢視。"
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Missing readings are shown as unavailable."
+msgstr "寬螢幕下 GPU 網格每列最多四張卡、每頁最多兩列；窄螢幕下每列兩張卡。使用左右箭頭查看其餘裝置，選取卡片可查看 GPU 型號及已用、總計與可用顯存。每張卡顯示 GPU 使用率與顯存占用，進度列超過 90% 時會變為紅色。缺少的指標顯示為無法取得。"
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "叢集詳細資訊介面"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; unavailable readings are ``null``. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` 為每個 Worker 傳回 ``gpus`` 陣列。每個裝置包含 ``index``、``name``、``utilization``、``memory_used``、``memory_total`` 與 ``memory_available``。使用率以百分比表示，顯存以位元組為單位；無法取得的指標為 ``null``。簡略回應保留原有結構。"

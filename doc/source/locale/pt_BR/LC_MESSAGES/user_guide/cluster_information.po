@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: pt_BR\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "Informações do cluster"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "Abra **Informações do cluster** para consultar os nós Worker, Supervisor e Router. Pesquise Workers por endereço do nó ou modelo de GPU e alterne entre as visualizações em grade e lista de GPUs."
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Missing readings are shown as unavailable."
+msgstr "A grade mostra até quatro cartões por linha e duas linhas por página em telas largas, ou dois cartões por linha em telas estreitas. Use as setas para ver os demais dispositivos e selecione um cartão para consultar o modelo e a memória GPU utilizada, total e disponível. Cada cartão mostra a utilização da GPU e da memória; as barras ficam vermelhas acima de 90%. As leituras ausentes são exibidas como indisponíveis."
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "API detalhada do cluster"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` and ``memory_available``. Utilization is a percentage and memory values are in bytes; unavailable readings are ``null``. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` inclui uma matriz ``gpus`` para cada Worker. Cada dispositivo informa ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total`` e ``memory_available``. A utilização é uma porcentagem e a memória é expressa em bytes; leituras indisponíveis são ``null``. As respostas compactas mantêm a estrutura existente."

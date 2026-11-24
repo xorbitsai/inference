@@ -649,6 +649,6 @@ msgstr "``restore_worker(..., coordinators=...)`` 는 ``-rank0`` UID 목록이�
 msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
 msgstr "제공자는 콜백과 같은 작업에서 ``call()`` 을 직접 await해야 합니다. ``asyncio.wait_for``, ``asyncio.shield`` 등 작업을 만드는 래퍼는 지원하지 않습니다. 관리 작업이 일시 중지된 동안 로컬 포트 복원 메서드의 순서는 제공자가 관리합니다. Worker가 coordinator만 호스팅할 수 있으므로 명시적 coordinator UID는 복제본 필터링과 별도로 호출자가 선택합니다."
 
-#: ../source/user_guide/zero_downtime_upgrade.rst:178
-msgid "Cluster Information shows utilization and memory for each GPU, with up to eight cards per page and an optional list view. Resource data refreshes after API, Supervisor or Worker replacement finishes. Detailed GET /v1/cluster/info?detailed=true responses include a gpus array with device identifiers, names, utilization percentages and memory values in bytes. Missing readings remain unavailable; compact responses keep their existing structure."
-msgstr "클러스터 정보는 각 GPU의 사용률과 메모리를 페이지당 최대 8개의 카드 또는 목록으로 표시합니다. API, Supervisor 또는 Worker 교체가 끝나면 리소스 데이터가 새로고침됩니다. GET /v1/cluster/info?detailed=true 의 상세 응답에는 장치 식별자, 이름, 사용률 백분율 및 바이트 단위 메모리 값을 담은 gpus 배열이 포함됩니다. 수집되지 않은 지표는 사용 불가 상태로 유지되며 간략 응답은 기존 구조를 유지합니다."
+#: ../source/user_guide/zero_downtime_upgrade.rst:137
+msgid "After API, Supervisor or Worker replacement finishes, the Web UI refreshes cluster resource data. See :ref:`cluster_information` for GPU metrics and navigation."
+msgstr "API, Supervisor 또는 Worker 교체가 끝나면 Web UI가 클러스터 리소스 데이터를 새로고침합니다. GPU 지표와 화면 사용법은 :ref:`cluster_information` 를 참조하세요."
