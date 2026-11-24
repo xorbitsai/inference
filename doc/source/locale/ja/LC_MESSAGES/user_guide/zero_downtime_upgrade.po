@@ -653,3 +653,7 @@ msgstr "``restore_worker(..., coordinators=...)`` は ``-rank0`` UID のリス�
 
 msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
 msgstr "プロバイダーはコールバックと同じタスクで ``call()`` を直接 await する必要があります。``asyncio.wait_for`` や ``asyncio.shield`` などタスクを作るラッパーは非対応です。管理操作の停止中、ローカルポートの復元メソッドの順序はプロバイダーが管理します。Worker が coordinator のみを持つ場合があるため、明示的な coordinator UID はレプリカの絞り込みとは別に呼び出し元が選びます。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:178
+msgid "Cluster Information shows utilization and memory for each GPU, with up to eight cards per page and an optional list view. Resource data refreshes after API, Supervisor or Worker replacement finishes. Detailed GET /v1/cluster/info?detailed=true responses include a gpus array with device identifiers, names, utilization percentages and memory values in bytes. Missing readings remain unavailable; compact responses keep their existing structure."
+msgstr "クラスター情報には各 GPU の使用率とメモリが表示され、1 ページに最大 8 枚のカード、または一覧で確認できます。API、Supervisor、Worker の置き換えが終了するとリソース情報が更新されます。GET /v1/cluster/info?detailed=true の詳細レスポンスには、デバイス識別子、名前、使用率（パーセント）、メモリ量（バイト）を含む gpus 配列が追加されます。取得できない指標は利用不可のままとなり、簡易レスポンスの構造は変わりません。"

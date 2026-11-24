@@ -1961,6 +1961,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     info["mem_used"] = None
                     info["mem_available"] = None
                     info["mem_total"] = None
+                info["gpus"] = [
+                    {
+                        "index": str(index),
+                        "name": gpu.name,
+                        "utilization": gpu.gpu_util,
+                        "memory_used": gpu.mem_used,
+                        "memory_total": gpu.mem_total,
+                        "memory_available": gpu.mem_free,
+                    }
+                    for index, gpu in worker_status.status.items()
+                    if isinstance(gpu, GPUStatus)
+                ]
                 info["gpu_vram_total"] = vram_total
                 info["gpu_utilization"] = _get_average_gpu_utilization(
                     worker_status.status

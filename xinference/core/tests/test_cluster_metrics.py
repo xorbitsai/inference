@@ -521,3 +521,32 @@ def test_models_loaded_total_drops_a_type_with_no_loaded_models():
     metrics.update_cluster_metrics({}, {})
     with pytest.raises(KeyError):
         metrics.models_loaded_total.get(labels)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count", [0, 1, 2, 4, 8, 16])
+async def test_cluster_per_gpu_metrics(count):
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(gpu_utils=list(range(count))),
+            )
+        },
+    )
+    detailed = await supervisor.get_cluster_device_info(detailed=True)
+    worker = next(item for item in detailed if item["node_type"] == "Worker")
+    assert len(worker["gpus"]) == count
+    for index, gpu in enumerate(worker["gpus"]):
+        assert gpu == {
+            "index": f"gpu-{index}",
+            "name": f"GPU-{index}",
+            "utilization": index,
+            "memory_used": 600,
+            "memory_total": 1000,
+            "memory_available": 400,
+        }
+    compact = await supervisor.get_cluster_device_info(detailed=False)
+    assert all("gpus" not in item for item in compact)

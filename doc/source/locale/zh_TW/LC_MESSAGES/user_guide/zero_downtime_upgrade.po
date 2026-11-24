@@ -624,3 +624,7 @@ msgstr "``restore_worker(..., coordinators=...)`` 接受 ``-rank0`` UID 的串�
 
 msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
 msgstr "提供者必須在回呼所在任務中直接 await ``call()``；不支援 ``asyncio.wait_for``、``asyncio.shield`` 等建立任務的包裝。管理操作暫停期間，本機連接埠的還原方法由提供者負責排序。呼叫方應獨立於副本篩選選擇明確的 coordinator UID，因為 Worker 可能只承載 coordinator。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:178
+msgid "Cluster Information shows utilization and memory for each GPU, with up to eight cards per page and an optional list view. Resource data refreshes after API, Supervisor or Worker replacement finishes. Detailed GET /v1/cluster/info?detailed=true responses include a gpus array with device identifiers, names, utilization percentages and memory values in bytes. Missing readings remain unavailable; compact responses keep their existing structure."
+msgstr "叢集資訊顯示每張 GPU 的使用率與顯存，每頁最多顯示八張卡，並提供清單檢視。API、Supervisor 或 Worker 替換結束後，資源資料會自動重新整理。GET /v1/cluster/info?detailed=true 的詳細回應新增 gpus 陣列，包含裝置識別碼、名稱、使用率百分比及以位元組為單位的顯存資料。缺失指標維持無法取得的狀態；簡略回應保留原有結構。"

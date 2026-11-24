@@ -13,6 +13,8 @@ import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { createRelaunchRequestId } from '@/lib/relaunch-request-id';
 import request from '@/lib/request';
 
+import { useOperationCompletion } from '@/hooks/use-operation-completion';
+
 type Service = 'api' | 'supervisor';
 
 export interface ServiceRelaunchOperation {
@@ -112,9 +114,16 @@ function useServiceRelaunches(service: Service) {
   };
 }
 
-function ServiceRelaunchControl({ service }: { service: Service }) {
+function ServiceRelaunchControl({
+  service,
+  onCompleted,
+}: {
+  service: Service;
+  onCompleted?: () => void;
+}) {
   const { t } = useI18n();
   const state = useServiceRelaunches(service);
+  useOperationCompletion(state.operations, onCompleted);
   const [open, setOpen] = useState(false);
   const [python, setPython] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -252,14 +261,14 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   );
 }
 
-export function ServiceRelaunchPanel() {
+export function ServiceRelaunchPanel({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { globalReady } = useGlobal();
   const { isAdmin } = useMenuAuth();
   if (!globalReady || !isAdmin) return null;
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      <ServiceRelaunchControl service="api" />
-      <ServiceRelaunchControl service="supervisor" />
+      <ServiceRelaunchControl service="api" onCompleted={onCompleted} />
+      <ServiceRelaunchControl service="supervisor" onCompleted={onCompleted} />
     </div>
   );
 }

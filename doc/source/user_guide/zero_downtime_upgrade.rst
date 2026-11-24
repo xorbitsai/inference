@@ -134,6 +134,8 @@ Run the package source on the same machine as the service, or use an address rea
 API and Web UI
 --------------
 
+Cluster Information shows utilization and memory for each GPU, with up to eight cards per page and an optional list view. Resource data refreshes after API, Supervisor or Worker replacement finishes. Detailed GET /v1/cluster/info?detailed=true responses include a gpus array with device identifiers, names, utilization percentages and memory values in bytes. Missing readings remain unavailable; compact responses keep their existing structure.
+
 In **Cluster Information**, choose **Restart / upgrade API**, or run:
 
 .. code-block:: bash
