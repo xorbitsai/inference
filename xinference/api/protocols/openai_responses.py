@@ -449,6 +449,14 @@ def parse_responses_request(raw: Any) -> ResponsesRequest:
     for key in ("temperature", "top_p"):
         if raw.get(key) is not None:
             body[key] = raw[key]
+    reasoning = raw.get("reasoning")
+    effort = reasoning.get("effort") if isinstance(reasoning, dict) else None
+    if effort is not None:
+        if not isinstance(effort, str):
+            raise ResponsesProtocolError(
+                "reasoning.effort must be a string", param="reasoning.effort"
+            )
+        body["reasoning_effort"] = effort
     choice = None
     if tools:
         tools, choice = _apply_tool_choice(tools, raw.get("tool_choice"))

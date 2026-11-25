@@ -2,6 +2,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from types import MethodType
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -565,6 +566,46 @@ def make_chat_app(api):
         "/v1/chat/completions", api.create_chat_completion, methods=["POST"]
     )
     return app
+
+
+@pytest.mark.asyncio
+async def test_responses_virtual_model_forwards_reasoning_effort(monkeypatch):
+    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
+    supervisor = FakeSupervisor({"available": True, "endpoint": "http://router:10081"})
+    supervisor.get_model = AsyncMock()
+    supervisor.describe_model = AsyncMock()
+    api = make_rest_api(supervisor)
+    app = FastAPI()
+    app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
+
+    def upstream_handler(request):
+        assert request.url.path == "/v1/chat/completions"
+        body = json.loads(request.content)
+        assert body["model"] == "virtual-model"
+        assert body.get("reasoning_effort") == "high"
+        assert "chat_template_kwargs" not in body
+        return httpx.Response(200, json={"choices": []})
+
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(upstream_handler)) as upstream,
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client,
+    ):
+        api._token_router_client = upstream
+        response = await client.post(
+            "/v1/responses",
+            json={
+                "model": "virtual-model",
+                "input": "hello",
+                "reasoning": {"effort": "high"},
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert supervisor.resolved_model_uids == ["virtual-model"]
+    supervisor.get_model.assert_not_awaited()
+    supervisor.describe_model.assert_not_awaited()
 
 
 def make_anthropic_app(api):

@@ -16,6 +16,8 @@ from xinference.api.protocols.openai_responses import (
     responses_stream_events,
 )
 from xinference.api.restful_api import RESTfulAPI
+from xinference.core.exceptions import ModelNotReadyError
+from xinference.model.llm import BUILTIN_LLM_FAMILIES
 from xinference.model.llm.context_length import (
     CONTEXT_LENGTH_EXCEEDED_DETAIL,
     ContextLengthExceeded,
@@ -341,7 +343,7 @@ async def _aiter(items):
         yield item
 
 
-def _make_app(monkeypatch, model):
+def _make_app(monkeypatch, model, *, describe_model=None):
     api = RESTfulAPI.__new__(RESTfulAPI)
     api._advanced_auth_service = None
     api._uid_to_model_name = {}
@@ -350,8 +352,11 @@ def _make_app(monkeypatch, model):
         async def resolve_token_router_runtime(self, model_uid):
             return None
 
+    supervisor = FakeSupervisor()
+    supervisor.describe_model = describe_model
+
     async def get_supervisor_ref(_self):
-        return FakeSupervisor()
+        return supervisor
 
     async def fake_require_model(*args, **kwargs):
         return model
@@ -365,7 +370,7 @@ def _make_app(monkeypatch, model):
 
 
 class FakeModel:
-    uid = "m"
+    uid = b"m-rep0"
 
     def __init__(self):
         self.calls = []
@@ -373,7 +378,7 @@ class FakeModel:
         self.abort_request = AsyncMock(return_value="DONE")
 
     async def chat(self, messages, kwargs, raw_params=None, request_id=None):
-        self.calls.append((messages, kwargs))
+        self.calls.append((messages, kwargs, raw_params))
         if not kwargs.get("stream"):
             return json.dumps(
                 {
@@ -395,6 +400,121 @@ class FakeModel:
 
     async def decrease_serve_count(self):
         self.released += 1
+
+
+@pytest.fixture
+def responses_effort(monkeypatch):
+    model = FakeModel()
+    describe_model = AsyncMock()
+    app = _make_app(monkeypatch, model, describe_model=describe_model)
+
+    async def post(**fields):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            return await client.post(
+                "/v1/responses", json={"model": "m", "input": "ping", **fields}
+            )
+
+    return post, model, describe_model
+
+
+def _family_description(name):
+    return next(
+        f for f in BUILTIN_LLM_FAMILIES if f.model_name == name
+    ).to_description()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "family,effort,expected",
+    [
+        ("glm-5.3", "high", "high"),
+        ("glm-5.3", "medium", "high"),
+        ("DeepSeek-V4.1-Flash", "none", "none"),
+    ],
+)
+async def test_responses_declared_effort_reaches_model(
+    responses_effort, stream, family, effort, expected
+):
+    post, model, describe_model = responses_effort
+    describe_model.return_value = _family_description(family)
+    reasoning = {"effort": effort, "summary": "auto"}
+    response = await post(reasoning=reasoning, stream=stream)
+    assert response.status_code == 200, response.text
+    _, config, raw_params = model.calls[0]
+    for arguments in (config, raw_params):
+        assert arguments.get("chat_template_kwargs") == {"reasoning_effort": expected}
+        assert "reasoning_effort" not in arguments
+
+    if stream:
+        events = [
+            json.loads(line[6:])
+            for line in response.text.splitlines()
+            if line.startswith("data: ")
+        ]
+        assert events[-1]["type"] == "response.completed"
+        payload = events[-1]["response"]
+    else:
+        payload = response.json()
+    assert payload["reasoning"] == reasoning
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "family,effort,status",
+    [("glm-5.3", "xhigh", 400), ("qwen3", "high", 501), ("glm-5.3", 3, 400)],
+)
+async def test_responses_rejects_effort_before_generation(
+    responses_effort, family, effort, status
+):
+    post, model, describe_model = responses_effort
+    describe_model.return_value = _family_description(family)
+    response = await post(reasoning={"effort": effort}, stream=True)
+    assert response.status_code == status, response.text
+    assert response.headers["content-type"] == "application/json"
+    assert response.json()["error"]["param"] == "reasoning.effort"
+    assert not model.calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "fields", [{}, {"reasoning": {"effort": None}}, {"reasoning": {"summary": "auto"}}]
+)
+async def test_responses_without_effort_skips_description(responses_effort, fields):
+    post, model, describe_model = responses_effort
+    response = await post(**fields)
+    assert response.status_code == 200, response.text
+    if fields:
+        assert response.json()["reasoning"] == fields["reasoning"]
+    describe_model.assert_not_awaited()
+    _, config, raw_params = model.calls[0]
+    for arguments in (config, raw_params):
+        assert "chat_template_kwargs" not in arguments
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error,status,retry_after",
+    [
+        (ModelNotReadyError, 503, "30"),
+        (ValueError, 400, None),
+        (RuntimeError, 500, None),
+    ],
+)
+async def test_responses_effort_selected_replica_unavailable(
+    monkeypatch, responses_effort, error, status, retry_after
+):
+    post, model, describe_model = responses_effort
+    describe_model.side_effect = error("Replica description unavailable")
+    monkeypatch.setattr(RESTfulAPI, "_report_error_event", AsyncMock())
+    response = await post(reasoning={"effort": "high"}, stream=True)
+    assert response.status_code == status, response.text
+    assert response.headers.get("retry-after") == retry_after
+    assert response.json()["error"]["param"] is None
+    describe_model.assert_awaited_once_with("m", selected_replica_uid="m-rep0")
+    assert not model.calls
 
 
 @pytest.mark.asyncio
