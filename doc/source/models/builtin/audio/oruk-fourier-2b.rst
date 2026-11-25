@@ -14,6 +14,10 @@ Specifications
 
 - **Model ID:** oruk/oruk-fourier-2b
 
+.. note::
+
+   Requires Linux with an NVIDIA CUDA GPU (uses the ``vLLM`` engine).
+
 Execute the following command to launch the model::
 
-   xinference launch --model-name Oruk-Fourier-2B --model-type audio
+   xinference launch --model-name Oruk-Fourier-2B --model-type audio --model-engine vLLM

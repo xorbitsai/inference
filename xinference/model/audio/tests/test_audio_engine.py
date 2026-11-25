@@ -1067,3 +1067,152 @@ def test_native_audio_dependencies_do_not_pin_system_torch():
             old = filter_virtualenv_packages_by_markers(packages, old_engine, "12.8")
             assert sdk in old and "#system_torch#" in old
             assert not any(package.startswith("vllm") for package in old)
+
+
+@pytest.mark.parametrize(
+    ("system_name", "has_cuda"),
+    [
+        ("Linux", False),
+        ("Darwin", True),
+    ],
+)
+@pytest.mark.parametrize("model_engine", [None, "vLLM", "vllm"])
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("model_path", [None, "/fake/path"])
+def test_oruk_fourier_without_linux_cuda_is_rejected_before_download(
+    system_name, has_cuda, model_engine, enable_virtual_env, model_path
+):
+    with (
+        patch.object(engine_platform, "system", return_value=system_name),
+        patch.object(asr_vllm, "has_cuda_device", return_value=has_cuda),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "cache") as cache,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["Oruk-Fourier-2B"]:
+            generate_engine_config_by_model_name(model_spec)
+
+        assert "Oruk-Fourier-2B" not in AUDIO_ENGINES
+        with pytest.raises(
+            ValueError,
+            match=r"requires the vLLM engine on Linux with an NVIDIA CUDA device.*non-vLLM",
+        ):
+            create_audio_model_instance(
+                "uid",
+                "Oruk-Fourier-2B",
+                model_path=model_path,
+                model_engine=model_engine,
+                enable_virtual_env=enable_virtual_env,
+            )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_oruk_fourier_rejects_non_vllm_engine_without_cuda_before_download(
+    enable_virtual_env,
+):
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(asr_vllm, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "cache") as cache,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["Oruk-Fourier-2B"]:
+            generate_engine_config_by_model_name(model_spec)
+
+        with pytest.raises(
+            ValueError,
+            match=r"cannot be run on engine transformers.*vLLM.*Linux.*NVIDIA CUDA",
+        ):
+            create_audio_model_instance(
+                "uid",
+                "Oruk-Fourier-2B",
+                model_engine="transformers",
+                enable_virtual_env=enable_virtual_env,
+            )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize("model_engine", [None, "vLLM", "vllm"])
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_oruk_fourier_launches_with_vllm_on_linux_cuda(
+    linux_cuda_engines, model_engine, enable_virtual_env
+):
+    specs = BUILTIN_AUDIO_MODELS["Oruk-Fourier-2B"]
+    assert len(specs) == 1
+    assert specs[0].model_hub == "huggingface"
+    assert specs[0].model_id == "oruk/oruk-fourier-2b"
+    assert specs[0].model_revision == "8c2a8871f1304aa2f634da4fb95e24438c4945b9"
+    assert list(AUDIO_ENGINES["Oruk-Fourier-2B"]) == ["vLLM"]
+    assert set(get_supported_engines_for_model(specs)) == {"vLLM"}
+
+    with patch.object(
+        CacheManager, "cache", return_value="/fake/oruk-fourier-2b"
+    ) as cache:
+        model = create_audio_model_instance(
+            "uid",
+            "Oruk-Fourier-2B",
+            model_engine=model_engine,
+            enable_virtual_env=enable_virtual_env,
+        )
+
+    cache.assert_called_once_with()
+    assert isinstance(model, VLLMQwen3ASRAudioModel)
+    assert model.model_family.model_engine == "vLLM"
+    assert model.model_family.model_hub == "huggingface"
+    assert model.model_family.model_id == "oruk/oruk-fourier-2b"
+    assert (
+        model.model_family.model_revision == "8c2a8871f1304aa2f634da4fb95e24438c4945b9"
+    )
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_oruk_fourier_rejects_transformers_on_linux_cuda_before_download(
+    linux_cuda_engines, enable_virtual_env
+):
+    with patch.object(CacheManager, "cache") as cache:
+        with pytest.raises(ValueError, match="cannot be run on engine transformers"):
+            create_audio_model_instance(
+                "uid",
+                "Oruk-Fourier-2B",
+                model_engine="transformers",
+                enable_virtual_env=enable_virtual_env,
+            )
+    cache.assert_not_called()
+
+
+def test_oruk_fourier_engine_discovery_exposes_only_vllm(linux_cuda_engines):
+    with patch.object(
+        VLLMQwen3ASRAudioModel,
+        "check_lib",
+        return_value=(False, "Library 'vllm' is not installed"),
+    ):
+        params = get_engine_params_by_name_with_virtual_env(
+            "audio", "Oruk-Fourier-2B", enable_virtual_env=True
+        )
+
+    assert set(params) == {"vLLM"}
+    assert params["vLLM"][0]["model_format"] == "pytorch"
+    assert params["vLLM"][0]["virtualenv_required"] is True
+
+
+def test_qwen3_asr_vllm_virtualenv_rejects_non_cuda_host_before_download():
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(asr_vllm, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "cache") as cache,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["Qwen3-ASR-0.6B"]:
+            generate_engine_config_by_model_name(model_spec)
+
+        with pytest.raises(ValueError, match="Linux with an NVIDIA CUDA device"):
+            create_audio_model_instance(
+                "uid",
+                "Qwen3-ASR-0.6B",
+                model_engine="vLLM",
+                enable_virtual_env=True,
+            )
+    cache.assert_not_called()

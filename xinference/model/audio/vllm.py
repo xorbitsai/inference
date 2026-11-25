@@ -23,7 +23,7 @@ import time
 from collections import deque
 from contextlib import aclosing, suppress
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 
@@ -613,10 +613,17 @@ class VLLMQwen3ASRAudioModel(VLLMQwen3ASRModel, AudioEngineModel):
     replica_autoscaling = "native"
 
     @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if platform.system() != "Linux" or not has_cuda_device():
+            return (
+                False,
+                "vLLM audio engine requires Linux with an NVIDIA CUDA device.",
+            )
+        return True
+
+    @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        if platform.system() != "Linux":
-            return False
-        if not has_cuda_device():
+        if cls.check_host() is not True:
             return False
         return cls.is_model_family_supported(model_family)
 

@@ -41,6 +41,10 @@ msgstr "規格"
 msgid "**Model ID:** oruk/oruk-fourier-2b"
 msgstr "**模型 ID:** oruk/oruk-fourier-2b"
 
-#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:17
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:19
+msgid "Requires Linux with an NVIDIA CUDA GPU (uses the ``vLLM`` engine)."
+msgstr "需要配備 NVIDIA CUDA GPU 的 Linux 環境（使用 ``vLLM`` 引擎）。"
+
+#: ../../source/models/builtin/audio/oruk-fourier-2b.rst:21
 msgid "Execute the following command to launch the model::"
 msgstr "執行以下命令以啟動模型::"

@@ -37,6 +37,12 @@ class AudioEngineModel:
         return cls.match(model_family)
 
     @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        """Check non-installable host constraints before virtualenv fallback."""
+
+        return True
+
+    @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         for lib in cls.required_libs:
             if importlib.util.find_spec(lib) is None:
@@ -100,6 +106,19 @@ def check_engine_by_model_name_and_engine(
     )
 
 
+def _check_engine_host(
+    engine_class: Type[AudioEngineModel],
+    model_engine: str,
+) -> None:
+    host_result = engine_class.check_host()
+    if host_result is not True:
+        if isinstance(host_result, tuple) and len(host_result) >= 2:
+            raise ValueError(str(host_result[1]))
+        raise ValueError(
+            f"Engine {model_engine} is incompatible with the current host."
+        )
+
+
 def check_engine_by_model_name_and_engine_with_virtual_env(
     model_engine: str,
     model_name: str,
@@ -119,6 +138,7 @@ def check_engine_by_model_name_and_engine_with_virtual_env(
                     continue
                 for engine_class in engine_classes:
                     if engine_class.is_model_family_supported(model_family):
+                        _check_engine_host(engine_class, model_engine)
                         logger.warning(
                             "Bypassing engine compatibility checks for %s due to "
                             "virtualenv marker.",

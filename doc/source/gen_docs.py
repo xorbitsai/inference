@@ -523,6 +523,7 @@ def main():
     for model in sorted_models:
         engine_specs = model['engine_specs']
         engines = list(dict.fromkeys(spec['engine'] for spec in engine_specs))
+        model['launch_note'] = None
         if len(engines) > 1 and any(spec['quantization'] is not None for spec in engine_specs):
             model['specifications'] = '\n'.join(
                 f"- **{spec['engine']} ({spec['quantization'] or 'none'}) model ID:** {spec['model_id']}"
@@ -569,6 +570,15 @@ def main():
                     f"* ``{spec['engine']}``" for spec in engine_specs
                 )
             )
+        elif engines == ['vLLM']:
+            model['specifications'] = (
+                f"- **Model ID:** {engine_specs[0]['model_id']}"
+            )
+            model['launch_engine'] = 'vLLM'
+            model['launch_note'] = (
+                'Requires Linux with an NVIDIA CUDA GPU (uses the ``vLLM`` engine).'
+            )
+            model['available_engines_section'] = ''
         else:
             model['specifications'] = (
                 f"- **Model ID:** {engine_specs[0]['model_id']}"
