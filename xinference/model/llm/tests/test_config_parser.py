@@ -176,3 +176,52 @@ def test_auto_register_quantization_without_bits(
 
     assert result["model_specs"][0]["model_format"] == model_format
     assert result["model_specs"][0]["quantization"] == quantization
+
+
+@pytest.fixture
+def windows_default_encoding(monkeypatch):
+    # Text files opened without an encoding use the locale encoding, which is
+    # cp1252 or gbk on Windows. Reproduce that on every platform.
+    import builtins
+
+    from xinference.model.llm import config_parser
+
+    def _open(file, mode="r", *args, **kwargs):
+        if "b" not in mode and "encoding" not in kwargs and not args[1:2]:
+            kwargs["encoding"] = "cp1252"
+        return builtins.open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(config_parser, "open", _open, raising=False)
+
+
+def test_auto_register_reads_utf8_tokenizer_config(tmp_path, windows_default_encoding):
+    model_dir = tmp_path / "deepseek-r1-distill"
+    _write_config(
+        model_dir,
+        {"max_position_embeddings": 4096, "model_size_in_billions": 7},
+    )
+    template = "{{ '<｜begin▁of▁sentence｜>' + messages[0]['content'] }}"
+    (model_dir / "tokenizer_config.json").write_text(
+        json.dumps({"chat_template": template}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert "chat" in result["model_ability"]
+
+
+def test_auto_register_reads_utf8_chat_template_file(
+    tmp_path, windows_default_encoding
+):
+    model_dir = tmp_path / "deepseek-r1-distill"
+    _write_config(
+        model_dir,
+        {"max_position_embeddings": 4096, "model_size_in_billions": 7},
+    )
+    template = "{{ '<｜begin▁of▁sentence｜>' + messages[0]['content'] }}"
+    (model_dir / "chat_template.jinja").write_text(template, encoding="utf-8")
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert "chat" in result["model_ability"]

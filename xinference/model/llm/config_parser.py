@@ -101,7 +101,7 @@ def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
 
 def _load_json_file(path: str) -> Dict[str, Any]:
     path = _ensure_within_allowed_roots(path)
-    with open(path, "r") as file:
+    with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -117,7 +117,7 @@ def _load_chat_template_file(model_dir: str) -> Optional[str]:
     if not os.path.exists(chat_template_path):
         return None
     chat_template_path = _ensure_within_allowed_roots(chat_template_path)
-    with open(chat_template_path, "r") as file:
+    with open(chat_template_path, "r", encoding="utf-8") as file:
         content = file.read()
     return content.strip() if content else None
 
