@@ -437,7 +437,7 @@ def test_container_driver_pids_and_unknown_memory(monkeypatch):
         _cached_memory_fraction(os.getpid())
 
 
-def _start_with_snapshots(monkeypatch, snapshots, tp):
+def _start_with_snapshots(monkeypatch, snapshots, tp, environment=None):
     """Start a vLLM daemon whose two driver snapshots (before and after preload)
     are given, and return it."""
     snapshots = iter(snapshots)
@@ -462,7 +462,7 @@ def _start_with_snapshots(monkeypatch, snapshots, tp):
     monkeypatch.setattr(
         "psutil.Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
     )
-    daemon.start(timeout=1)
+    daemon.start(timeout=1, environment=environment)
     return daemon
 
 
@@ -806,3 +806,34 @@ def test_disabled_cache_does_not_probe_environment(auto_cache_model, monkeypatch
     model._prepare_weight_cache()
     probe.assert_not_called()
     daemon.start.assert_not_called()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_assigned_gpu_missing_from_baseline_is_not_masked(monkeypatch):
+    # The daemon's GPU 0 is missing before preload; an unrelated process that
+    # starts on GPU 1 meanwhile must not stand in for it.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{1: (1000, {})}, {0: (1000, {900: 700}), 1: (1000, {950: 200})}],
+            tp=1,
+            environment={"CUDA_VISIBLE_DEVICES": "0"},
+        )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_unassigned_gpu_missing_from_baseline_is_ignored(monkeypatch):
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{0: (1000, {})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}],
+        tp=1,
+        environment={"CUDA_VISIBLE_DEVICES": "0"},
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()
