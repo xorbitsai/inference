@@ -1102,6 +1102,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._gpu_memory_collection_fail_count = 0
 
         self._metrics_exporter_config = (metrics_exporter_host, metrics_exporter_port)
+        self._metrics_exporter_endpoint = None
         self._metrics_stop_event = threading.Event()
         self._metrics_started = False
         self._services_started = False
@@ -2065,6 +2066,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._metrics_thread.start()
             logger.info("Checking metrics export server...")
             host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
+            self._metrics_exporter_endpoint = (host, port)
             logger.info(
                 f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
             )
@@ -3089,6 +3091,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             "address": self.address,
             "gpu_devices": list(self._total_gpu_devices),
             "extensions": worker_extension_metadata(),
+            "metrics_exporter": self._metrics_exporter_endpoint,
+            "worker_id": os.environ.get("XINFERENCE_WORKER_NAME"),
         }
 
     async def _get_allowed_gpu_devices(self) -> Optional[List[int]]:

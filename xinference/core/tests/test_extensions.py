@@ -579,3 +579,57 @@ async def test_scale_up_allocation_failure_keeps_default_best_effort(monkeypatch
     supervisor._worker_address_to_worker = {worker.address: worker}
     assert (await supervisor._select_worker_for_scale_up(None))[0] is worker
     assert (await supervisor._select_worker_for_scale_up(1))[0] is worker
+
+
+@pytest.mark.asyncio
+async def test_named_worker_registration_rejects_duplicates_until_owner_leaves(
+    monkeypatch,
+):
+    import xoscar as xo
+
+    from xinference.core.supervisor import SupervisorActor
+
+    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+
+    install(monkeypatch)
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    old_address = "10.94.255.38:12001"
+    new_address = "10.94.255.38:12002"
+
+    def worker(address):
+        ref = DummyReplicaWorkerRef(address)
+        ref.get_extension_resources = AsyncMock(
+            return_value={
+                "address": address,
+                "gpu_devices": [],
+                "extensions": {"test": {}},
+                "worker_id": "worker-a",
+            }
+        )
+        return ref
+
+    owner = worker(old_address)
+    same_address_duplicate = worker(old_address)
+    replacement = worker(new_address)
+    monkeypatch.setattr(
+        xo,
+        "actor_ref",
+        AsyncMock(
+            side_effect=[owner, owner, replacement, same_address_duplicate, replacement]
+        ),
+    )
+    await supervisor.add_worker(old_address)
+    await supervisor.add_worker(old_address)
+    with pytest.raises(RuntimeError, match="already registered"):
+        await supervisor.add_worker(new_address)
+    await supervisor.add_worker(old_address)
+    assert supervisor._worker_address_to_worker[old_address] is same_address_duplicate
+    assert [row["address"] for row in supervisor.get_registered_worker_resources()] == [
+        old_address
+    ]
+    await supervisor.remove_worker(old_address)
+    await supervisor.add_worker(new_address)
+    assert [row["address"] for row in supervisor.get_registered_worker_resources()] == [
+        new_address
+    ]

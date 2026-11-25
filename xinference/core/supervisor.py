@@ -270,6 +270,10 @@ def model_service_address(owner):
     return selected_address(owner)
 
 
+class _WorkerNameConflict(RuntimeError):
+    pass
+
+
 class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
@@ -343,6 +347,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
         self._extension_worker_resources: Dict[str, Dict[str, Any]] = {}
+        self._pending_worker_names: Dict[str, str] = {}
         self._worker_metadata: Dict[str, Dict[str, Any]] = {}
         self._worker_metadata_generation: Dict[str, int] = {}
         self._worker_metadata_next_generation = 0
@@ -8076,6 +8081,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         from ..extensions import get_extensions
 
         expected = {extension.name for extension in get_extensions()}
+        reserved_name = None
         try:
             try:
                 resources = await worker_ref.get_extension_resources()
@@ -8092,6 +8098,27 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 resources = None
             if set((resources or {}).get("extensions", {})) != expected:
                 raise RuntimeError("Worker and supervisor extensions must match")
+            worker_id = (resources or {}).get("worker_id")
+            if worker_id:
+                owner = self._pending_worker_names.get(worker_id)
+                if owner is None:
+                    owner = next(
+                        (
+                            address
+                            for address, registered in self._extension_worker_resources.copy().items()
+                            if address != worker_address
+                            and address in self._worker_address_to_worker
+                            and registered.get("worker_id") == worker_id
+                        ),
+                        None,
+                    )
+                if owner is not None:
+                    raise _WorkerNameConflict(
+                        f"Worker name {worker_id!r} is already registered or being "
+                        f"registered at {owner}; refusing registration from {worker_address}"
+                    )
+                self._pending_worker_names[worker_id] = worker_address
+                reserved_name = worker_id
             control = getattr(self, "_controller_control", None)
             if control is not None:
                 worker_ref = await control.register(worker_ref)
@@ -8101,6 +8128,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             replica_states = await SupervisorActor._filter_worker_inventory(
                 self, worker_ref, replica_states
             )
+        except _WorkerNameConflict:
+            raise
         except Exception:
             # Rejected re-registration must not retain the old process's
             # registration or extension inventory at this address.
@@ -8108,6 +8137,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             self._extension_worker_resources.pop(worker_address, None)
             self._discard_worker_metadata(worker_address)
             raise
+        finally:
+            if reserved_name is not None:
+                self._pending_worker_names.pop(reserved_name, None)
         if resources is not None:
             self._extension_worker_resources[worker_address] = resources
         else:
@@ -8257,6 +8289,17 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     )
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
+
+    def get_registered_worker_resources(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                **resources,
+                "address": address,
+                "colocated": address == self._local_worker_address,
+            }
+            for address, resources in self._extension_worker_resources.copy().items()
+            if address in self._worker_address_to_worker
+        ]
 
     def get_worker_resource_policy(self, worker_address: str) -> List[int]:
         from ..extensions import filter_worker_resources
