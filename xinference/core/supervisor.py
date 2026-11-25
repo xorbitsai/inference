@@ -270,10 +270,6 @@ def model_service_address(owner):
     return selected_address(owner)
 
 
-class _WorkerNameConflict(RuntimeError):
-    pass
-
-
 class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
@@ -8113,7 +8109,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         None,
                     )
                 if owner is not None:
-                    raise _WorkerNameConflict(
+                    raise RuntimeError(
                         f"Worker name {worker_id!r} is already registered or being "
                         f"registered at {owner}; refusing registration from {worker_address}"
                     )
@@ -8128,8 +8124,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             replica_states = await SupervisorActor._filter_worker_inventory(
                 self, worker_ref, replica_states
             )
-        except _WorkerNameConflict:
-            raise
         except Exception:
             # Rejected re-registration must not retain the old process's
             # registration or extension inventory at this address.

@@ -2066,7 +2066,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._metrics_thread.start()
             logger.info("Checking metrics export server...")
             host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
-            self._metrics_exporter_endpoint = (host, port)
+            endpoint_host = host
+            if host in ("0.0.0.0", "::"):
+                endpoint_host = self.address.rsplit(":", 1)[0].strip("[]")
+            self._metrics_exporter_endpoint = (endpoint_host, port)
             logger.info(
                 f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
             )

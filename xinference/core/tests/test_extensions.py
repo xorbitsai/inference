@@ -633,3 +633,88 @@ async def test_named_worker_registration_rejects_duplicates_until_owner_leaves(
     assert [row["address"] for row in supervisor.get_registered_worker_resources()] == [
         new_address
     ]
+
+
+@pytest.mark.asyncio
+async def test_conflicting_rename_removes_stale_worker_registration(monkeypatch):
+    import xoscar as xo
+
+    from xinference.core.supervisor import SupervisorActor
+
+    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+
+    install(monkeypatch)
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    first_address = "127.0.0.1:12001"
+    second_address = "127.0.0.1:12002"
+
+    def worker(address, name):
+        ref = DummyReplicaWorkerRef(address)
+        ref.get_extension_resources = AsyncMock(
+            return_value={"extensions": {"test": {}}, "worker_id": name}
+        )
+        return ref
+
+    first = worker(first_address, "worker-a")
+    second = worker(second_address, "worker-b")
+    renamed = worker(first_address, "worker-b")
+    monkeypatch.setattr(
+        xo, "actor_ref", AsyncMock(side_effect=[first, second, renamed])
+    )
+    await supervisor.add_worker(first_address)
+    await supervisor.add_worker(second_address)
+
+    with pytest.raises(RuntimeError, match="already registered"):
+        await supervisor.add_worker(first_address)
+
+    assert supervisor._worker_address_to_worker == {second_address: second}
+    assert first_address not in supervisor._extension_worker_resources
+    (resources,) = supervisor.get_registered_worker_resources()
+    assert resources["address"] == second_address
+    assert resources["worker_id"] == "worker-b"
+
+
+@pytest.mark.parametrize(
+    "address, bind_host, expected_host",
+    [
+        ("192.0.2.1:12001", "0.0.0.0", "192.0.2.1"),
+        ("[2001:db8::1]:12001", "::", "2001:db8::1"),
+        ("192.0.2.1:12001", "192.0.2.2", "192.0.2.2"),
+    ],
+)
+def test_worker_advertises_metrics_endpoint(
+    monkeypatch, address, bind_host, expected_host
+):
+    from threading import Event
+
+    from xinference.core import worker as module
+
+    worker = SimpleNamespace(
+        address=address,
+        _metrics_started=False,
+        _metrics_exporter_config=(bind_host, 0),
+        _metrics_stop_event=Event(),
+        _total_gpu_devices=[],
+    )
+    monkeypatch.setattr(module, "is_metrics_disabled", lambda: False)
+    monkeypatch.setattr(module.threading, "Thread", Mock())
+    monkeypatch.setattr(
+        module,
+        "_wait_for_metrics_export_server",
+        lambda thread, queue: (bind_host, 12345),
+    )
+
+    module.WorkerActor._start_metrics_service(worker)
+
+    resources = module.WorkerActor.get_extension_resources(worker)
+    assert resources["metrics_exporter"] == (expected_host, 12345)
+
+
+def test_registered_worker_resources_can_be_read_without_control_session():
+    from xinference.core.supervisor import SupervisorActor
+
+    supervisor = SupervisorActor()
+    supervisor._controller_control = object()
+
+    assert supervisor.get_registered_worker_resources() == []
