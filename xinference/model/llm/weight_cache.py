@@ -124,8 +124,28 @@ def _gpu_memory_snapshot():
     return devices
 
 
+def _assigned_gpus(environment: Dict[str, str]) -> Optional[Set[int]]:
+    """GPU indices in the daemon's visible-devices variable, or None if unknown.
+
+    Integer entries are physical indices, as in `device_utils`. An unset
+    variable or a UUID entry leaves the assignment unknown.
+    """
+    from ...device_utils import get_available_device_env_name
+
+    value = environment.get(get_available_device_env_name() or "CUDA_VISIBLE_DEVICES")
+    if not value or not value.strip():
+        return None
+    try:
+        return {int(entry) for entry in value.split(",")}
+    except ValueError:
+        return None
+
+
 def _cached_memory_fraction(
-    pid: int, baseline: Optional[Dict[int, Set[int]]] = None, ranks: int = 1
+    pid: int,
+    baseline: Optional[Dict[int, Set[int]]] = None,
+    ranks: int = 1,
+    devices: Optional[Set[int]] = None,
 ) -> float:
     """Largest per-device reservation owned by the daemon, including its ranks.
 
@@ -154,14 +174,16 @@ def _cached_memory_fraction(
         )
         if used:
             fractions.append(used / total)
-    # When the snapshots cover different GPUs, one the daemon's ranks use may be
-    # among the unmeasured ones.
-    unmeasured = baseline is not None and set(baseline) != set(snapshot)
-    if (
-        not fractions
-        or not all(0 < value < 1 for value in fractions)
-        or (unmeasured and len(fractions) < ranks)
-    ):
+    unmeasured = False
+    if baseline is not None:
+        if devices is not None:
+            # Each GPU assigned to the daemon must be in both snapshots.
+            unmeasured = not devices <= set(baseline) & set(snapshot)
+        else:
+            # Unknown assignment: when the snapshots cover different GPUs, one
+            # the daemon's ranks use may be among the unmeasured ones.
+            unmeasured = set(baseline) != set(snapshot) and len(fractions) < ranks
+    if not fractions or not all(0 < value < 1 for value in fractions) or unmeasured:
         raise RuntimeError(
             "Cannot account for the weight cache daemon's GPU memory. "
             "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
@@ -396,7 +418,7 @@ class WeightCacheDaemon:
                         self._ready_paths = list(self.directory.glob("*.ready"))
                         if baseline is not None:
                             self._memory_fraction = _cached_memory_fraction(
-                                self.process.pid, baseline, ranks
+                                self.process.pid, baseline, ranks, _assigned_gpus(env)
                             )
                         return
                 time.sleep(0.1)
