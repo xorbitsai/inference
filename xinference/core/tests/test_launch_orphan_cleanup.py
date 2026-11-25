@@ -20,6 +20,7 @@ Tests cover:
 - _snapshot_gpu_free_ratio: pynvml unavailable / mock
 - _kill_orphan_gpu_pids: diff-only / no-new-pids
 - _wait_pids_dead: all-dead / timeout
+- _wait_vram_reclaim_after_terminate: shared GPU / replica exit / timeout
 """
 
 from unittest.mock import MagicMock, patch
@@ -273,3 +274,112 @@ async def test_kill_orphan_gpu_pids_model_uid_skips_other_model():
                 [0], set(), model_uid="test-model-1", grace=0.01
             )
             assert killed == []
+
+
+def _spawn_sleeper():
+    import subprocess
+    import sys
+
+    return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+
+
+def _stop(proc):
+    proc.kill()
+    proc.wait()
+
+
+@pytest.mark.asyncio
+async def test_wait_vram_reclaim_returns_at_once_on_shared_gpu():
+    """The replica has exited; the GPU stays below the ready ratio because
+    other processes use it. There is nothing left to wait for."""
+    import time
+
+    from xinference.core.worker import _wait_vram_reclaim_after_terminate
+
+    replica = _spawn_sleeper()
+    _stop(replica)
+
+    with patch(
+        "xinference.core.worker._snapshot_gpu_free_ratio", return_value=0.74
+    ) as mock_ratio:
+        _start = time.monotonic()
+        reclaimed = await _wait_vram_reclaim_after_terminate(
+            [0], {replica.pid}, model_uid="m-0", timeout=30, interval=0.05
+        )
+        _elapsed = time.monotonic() - _start
+
+    assert reclaimed is True
+    assert _elapsed < 1.0
+    assert mock_ratio.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_wait_vram_reclaim_waits_for_replica_exit():
+    """A replica process that is still alive is waited for, and the wait
+    ends when it exits even though the device-wide ratio stays low."""
+    from xinference.core.worker import _wait_vram_reclaim_after_terminate
+
+    replica = _spawn_sleeper()
+    polls = []
+
+    def _ratio(devices):
+        polls.append(devices)
+        if len(polls) == 3:
+            _stop(replica)
+        return 0.74
+
+    try:
+        with patch("xinference.core.worker._snapshot_gpu_free_ratio", _ratio):
+            reclaimed = await _wait_vram_reclaim_after_terminate(
+                [0], {replica.pid}, model_uid="m-0", timeout=30, interval=0.05
+            )
+    finally:
+        _stop(replica)
+
+    assert reclaimed is True
+    assert len(polls) == 3
+
+
+@pytest.mark.asyncio
+async def test_wait_vram_reclaim_stops_when_ratio_recovers():
+    from xinference.core.worker import _wait_vram_reclaim_after_terminate
+
+    replica = _spawn_sleeper()
+    ratios = iter([0.5, 0.6, 0.95])
+    try:
+        with patch(
+            "xinference.core.worker._snapshot_gpu_free_ratio",
+            side_effect=lambda devices: next(ratios),
+        ) as mock_ratio:
+            reclaimed = await _wait_vram_reclaim_after_terminate(
+                [0], {replica.pid}, model_uid="m-0", timeout=30, interval=0.05
+            )
+    finally:
+        _stop(replica)
+
+    assert reclaimed is True
+    assert mock_ratio.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_wait_vram_reclaim_times_out_while_replica_holds_vram():
+    """The bounded wait still covers a replica that does not exit."""
+    import time
+
+    from xinference.core.worker import _wait_vram_reclaim_after_terminate
+
+    replica = _spawn_sleeper()
+    try:
+        with patch(
+            "xinference.core.worker._snapshot_gpu_free_ratio", return_value=0.74
+        ):
+            _start = time.monotonic()
+            reclaimed = await _wait_vram_reclaim_after_terminate(
+                [0], {replica.pid}, model_uid="m-0", timeout=0.3, interval=0.05
+            )
+            _elapsed = time.monotonic() - _start
+    finally:
+        _stop(replica)
+
+    assert reclaimed is False
+    assert _elapsed >= 0.3
