@@ -1,0 +1,6 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ja_JP\n"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:137
+msgid "After API, Supervisor or Worker replacement finishes, the Web UI refreshes cluster resource data. See :ref:`cluster_information` for GPU metrics and navigation."
+msgstr "API、Supervisor、Worker の置き換えが終了すると、Web UI がクラスターのリソース情報を更新します。GPU の指標と画面操作については :ref:`cluster_information` を参照してください。"

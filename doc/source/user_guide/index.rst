@@ -26,6 +26,7 @@ User Guide
    :maxdepth: 2
    :caption: Operations and security
 
+   cluster_information
    Metrics <metrics>
    auth_system
    oidc_sso

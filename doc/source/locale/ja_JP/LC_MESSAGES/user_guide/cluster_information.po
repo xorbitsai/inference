@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ja_JP\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "クラスター情報"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "**クラスター情報** を開くと、Worker、Supervisor、Router の各ノードを確認できます。ノードのアドレスまたは GPU のモデル名で Worker を検索し、GPU のグリッド表示と一覧表示を切り替えられます。"
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Null or non-finite readings are shown as unavailable; backend zero sentinels can still appear as 0% utilization."
+msgstr "GPU グリッドは、広い画面では 1 行に最大 4 枚、1 ページに最大 2 行、狭い画面では 1 行に 2 枚のカードを表示します。矢印で他のデバイスを表示し、カードを選ぶと GPU のモデル名と使用中・合計・空きメモリを確認できます。各カードには GPU 使用率とメモリ使用量が表示され、プログレスバーは 90% を超えると赤くなります。null または非有限値の指標は利用不可として表示されます。ただし、バックエンドが欠測値をゼロで表す場合、GPU 使用率は 0% と表示されることがあります。"
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "クラスター詳細 API"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available``. ``index`` is an opaque device key (for example, ``\"gpu-0\"`` or ``\"gpu-0-0\"``), not a numeric ordinal. Utilization is a percentage and memory values are in bytes. Memory without explicitly normalized measurements is ``null``, including legacy Worker reports and backend placeholders. Some backends return zero for unsupported utilization, which cannot be distinguished from measured 0%. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` は各 Worker の ``gpus`` 配列を返します。各デバイスには ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available`` が含まれます。``index`` は内部形式を解釈しないデバイスの文字列キー（例：``\"gpu-0\"`` / ``\"gpu-0-0\"``）であり、数値の連番ではありません。使用率はパーセント、メモリ量はバイト単位です。明示的に正規化された測定値がないメモリ量は ``null`` となります。これには旧バージョンの Worker の報告値やバックエンドの仮の値も含まれます。一部のバックエンドは非対応の使用率をゼロで返すため、実測した 0% と区別できません。簡易レスポンスの構造は変わりません。"

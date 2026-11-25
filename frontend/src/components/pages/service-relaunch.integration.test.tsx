@@ -151,8 +151,10 @@ it('restores independent API and Supervisor progress after remounting', async ()
 });
 
 it('retains progress through a connection failure, recovers, then stops polling', async () => {
+  let completed = 0;
   jobs[paths[0]] = [{ operation_id: 'one', status: 'draining', created_at: 1 }];
-  await act(async () => root.render(<ServiceRelaunchPanel />));
+  await act(async () => root.render(<ServiceRelaunchPanel onCompleted={() => completed++} />));
+  assert.equal(completed, 0);
   failures[paths[0]].push(new Error('connection reset'));
   await tick();
   assert.match(host.textContent!, /reconnecting/);
@@ -164,9 +166,11 @@ it('retains progress through a connection failure, recovers, then stops polling'
   assert.doesNotMatch(host.textContent!, /reconnecting/);
   assert.match(host.textContent!, /succeeded/);
   assert.equal(trigger('api').disabled, false);
+  assert.equal(completed, 1);
   const count = gets.length;
   await tick();
   assert.equal(gets.length, count);
+  assert.equal(completed, 1);
 });
 
 it('disables an unsupported deployment without retrying forever and offers an explicit refresh', async () => {

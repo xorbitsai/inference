@@ -759,3 +759,7 @@ msgstr "``restore_worker(..., coordinators=...)`` accetta una lista o tupla di U
 
 msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
 msgstr "I provider devono attendere direttamente ``call()`` nel task del callback; i wrapper che creano task, come ``asyncio.wait_for`` e ``asyncio.shield``, non sono supportati. Il provider ordina i metodi di ripristino della porta locale mentre le operazioni di gestione sono sospese. Il chiamante seleziona gli UID espliciti dei coordinator separatamente dal filtro delle repliche, perché un Worker può ospitare solo un coordinator."
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:137
+msgid "After API, Supervisor or Worker replacement finishes, the Web UI refreshes cluster resource data. See :ref:`cluster_information` for GPU metrics and navigation."
+msgstr "Al termine della sostituzione di API, Supervisor o Worker, l’interfaccia Web aggiorna le risorse del cluster. Consultare :ref:`cluster_information` per le metriche GPU e la navigazione."

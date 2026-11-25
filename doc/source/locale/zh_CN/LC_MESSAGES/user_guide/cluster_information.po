@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: zh_CN\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "集群信息"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "打开 **集群信息**，查看 Worker、Supervisor 和 Router 节点。可按节点地址或 GPU 型号搜索 Worker，并切换 GPU 网格和列表视图。"
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Null or non-finite readings are shown as unavailable; backend zero sentinels can still appear as 0% utilization."
+msgstr "宽屏下 GPU 网格每行最多四张卡、每页最多两行；窄屏下每行两张卡。使用左右箭头查看其余设备，选择卡片可查看 GPU 型号及已用、总计和可用显存。每张卡展示 GPU 使用率和显存占用，进度条在超过 90% 时变为红色。空值或非有限数值显示为不可用；后端用零表示缺失指标时，GPU 使用率仍可能显示为 0%。"
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "集群详情接口"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available``. ``index`` is an opaque device key (for example, ``\"gpu-0\"`` or ``\"gpu-0-0\"``), not a numeric ordinal. Utilization is a percentage and memory values are in bytes. Memory without explicitly normalized measurements is ``null``, including legacy Worker reports and backend placeholders. Some backends return zero for unsupported utilization, which cannot be distinguished from measured 0%. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` 为每个 Worker 返回 ``gpus`` 数组。每个设备包含 ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available``。``index`` 是不应解析其内部格式的设备字符串标识（例如 ``\"gpu-0\"`` / ``\"gpu-0-0\"``），不是数字序号。使用率以百分比表示，显存以字节为单位。没有明确归一化测量值的显存返回 ``null``，包括旧版 Worker 的上报和后端占位值。部分后端以零表示不受支持的使用率，无法与实际测得的 0% 区分。简略响应保留原有结构。"

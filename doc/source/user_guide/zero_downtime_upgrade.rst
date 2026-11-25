@@ -134,6 +134,8 @@ Run the package source on the same machine as the service, or use an address rea
 API and Web UI
 --------------
 
+After API, Supervisor or Worker replacement finishes, the Web UI refreshes cluster resource data. See :ref:`cluster_information` for GPU metrics and navigation.
+
 In **Cluster Information**, choose **Restart / upgrade API**, or run:
 
 .. code-block:: bash
