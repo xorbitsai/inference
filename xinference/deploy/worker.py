@@ -185,6 +185,9 @@ def main(
             if result:
                 raise SystemExit(result)
             return
+        start_options: dict[str, Any] = {}
+        if replace_worker:
+            start_options["replace_worker"] = replace_worker
         asyncio.run(
             _start_worker(
                 address,
@@ -193,7 +196,7 @@ def main(
                 metrics_exporter_host,
                 metrics_exporter_port,
                 logging_conf,
-                replace_worker=replace_worker or None,
+                **start_options,
             )
         )
     except KeyboardInterrupt:
