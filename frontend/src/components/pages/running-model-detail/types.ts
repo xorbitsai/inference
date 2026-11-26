@@ -58,7 +58,7 @@ export interface CapabilityConfig {
     context: TransformContext
   ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
   responseType?: 'blob' | 'audio-stream';
-  codeExample?: CodeExampleConfig;
+  codeExample?: CodeExampleConfig | ((modelName?: string) => CodeExampleConfig);
 }
 
 export interface ChatSettings {

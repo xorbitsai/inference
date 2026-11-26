@@ -124,7 +124,9 @@ const ltx25DevDefaults = {
   guidance_scale: 3,
 };
 
-function getVideoInitialValueOverrides({ model_name }: TransformContext['model']) {
+function getVideoInitialValueOverrides({
+  model_name,
+}: Pick<TransformContext['model'], 'model_name'>) {
   if (isLtx25Distilled(model_name)) return ltx25DistilledDefaults;
   if (model_name === 'LTX-2.5-Dev') return ltx25DevDefaults;
   return undefined;
@@ -145,6 +147,20 @@ const videoKwargsExample = {
   guidance_scale: 7.5,
   seed: 11,
 };
+
+function getVideoKwargsExampleField(modelName?: string) {
+  const modelDefaults = modelName
+    ? getVideoInitialValueOverrides({ model_name: modelName })
+    : undefined;
+  return {
+    key: 'kwargs',
+    value: modelDefaults
+      ? buildGenerationKwargs({ ...modelDefaults, seed: videoKwargsExample.seed })
+      : videoKwargsExample,
+    stringify: true,
+    comment: 'Optional(other key/value)',
+  };
+}
 
 function commonImageBody(context: TransformContext, fallbackSize?: string) {
   const { modelUid, values } = context;
@@ -677,7 +693,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.text2video',
     icon: Video,
     requestApi: '/v1/video/generations',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'json',
       fields: [
@@ -688,14 +704,9 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           value: 'A cute little cat walking through a sunny garden',
         },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: videoDefaults,
     getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
@@ -709,7 +720,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.image2video',
     icon: Video,
     requestApi: '/v1/video/generations/image',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'form',
       fields: [
@@ -717,14 +728,9 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
         { key: 'prompt', required: true, value: 'Animate the scene with gentle camera movement' },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: { ...videoDefaults, image: [] },
     getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
@@ -744,7 +750,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.firstlastframe2video',
     icon: Video,
     requestApi: '/v1/video/generations/flf',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'form',
       fields: [
@@ -753,14 +759,9 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'last_frame', required: true, type: 'file', value: '/path/to/last-frame.png' },
         { key: 'prompt', required: true, value: 'Create a smooth transition between these frames' },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: { ...videoDefaults, first_frame: [], last_frame: [] },
     getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
