@@ -442,12 +442,13 @@ def _start_with_snapshots(
     monkeypatch, snapshots, tp, gpu_uuids=None, sockets=None, environment=None
 ):
     """Start a vLLM daemon whose two driver snapshots (before and after preload)
-    are given, and return it. `gpu_uuids` maps NVML index to UUID; `sockets` are
-    the UUIDs the daemon's ranks serve (named as vLLM names their sockets)."""
+    are given, and return it. `gpu_uuids` maps NVML index to UUID (None: no NVML,
+    as on ROCm); `sockets` are the UUIDs the daemon's ranks serve (named as vLLM
+    names their sockets)."""
     snapshots = iter(snapshots)
     monkeypatch.setattr(
         "xinference.model.llm.weight_cache._gpu_uuids",
-        lambda: dict(gpu_uuids or {}),
+        lambda: None if gpu_uuids is None else dict(gpu_uuids),
         raising=False,
     )
     monkeypatch.setattr(
@@ -870,3 +871,38 @@ def test_daemon_gpu_that_cannot_be_queried_is_not_accounted(monkeypatch):
             gpu_uuids={0: "GPU-model"},
             sockets=["GPU-model", "GPU-lost"],
         )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpu_without_a_uuid_is_not_accounted(monkeypatch):
+    # The daemon's only GPU (NVML 0) is missing before preload and its UUID
+    # cannot be read after it, so no socket matches; an unrelated process that
+    # starts on NVML 1 meanwhile must not be counted as the daemon's rank.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{1: (1000, {})}, {0: (1000, {900: 700}), 1: (1000, {950: 200})}],
+            tp=1,
+            gpu_uuids={1: "GPU-other"},
+            sockets=["GPU-model"],
+        )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpus_without_nvml_fall_back_to_counting(monkeypatch):
+    # On ROCm there are no NVML UUIDs to match vLLM's socket names against.
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{0: (1000, {})}, {0: (1000, {900: 300})}],
+        tp=1,
+        gpu_uuids=None,
+        sockets=["GPU-amd"],
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()
