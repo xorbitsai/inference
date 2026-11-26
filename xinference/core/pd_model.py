@@ -512,6 +512,13 @@ class PDModelActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):
+        if is_forced_tool_choice(generate_config):
+            return {
+                "error": {
+                    "status": 501,
+                    "message": "Forced tool choice is not supported for P/D models",
+                }
+            }
         if not self._decode_replicas:
             from .model import ModelNotReadyError
 

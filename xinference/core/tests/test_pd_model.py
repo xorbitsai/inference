@@ -1169,6 +1169,15 @@ async def test_cross_engine_router_releases_trt_source_owner(
 
 
 @pytest.mark.asyncio
+async def test_openai_forced_tools_preflight_rejects_pd(router):
+    actor, _, decode = router
+    decode.prepare_reasoning_request = AsyncMock()
+    result = await actor.prepare_reasoning_request({"tool_choice": "required"})
+    assert result["error"]["status"] == 501
+    decode.prepare_reasoning_request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("unsupported", [False, True])
 async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupported):
     actor, prefill, decode = router

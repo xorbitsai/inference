@@ -84,6 +84,7 @@ from ..media import materialize_messages_media, media_workspace, validate_messag
 from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
     convert_forced_completion,
+    is_deepseek_v41_forced_tool_choice,
     is_forced_tool_choice,
     prepare_forced_tools,
     single_tool_completion,
@@ -628,6 +629,46 @@ class VLLMModel(WeightCachedModel, LLM):
                         "disabled during thinking"
                     )
 
+    def _deepseek_v41_forces_tools(self, config: Dict) -> bool:
+        family = getattr(self, "model_family", None)
+        name = getattr(family, "model_family", None) or getattr(
+            family, "model_name", ""
+        )
+        return is_deepseek_v41_forced_tool_choice(config, name)
+
+    def _prepare_openai_forced_tool_config(self, config: Dict) -> Dict:
+        if config.get("_pd_kv_transfer_params") is not None:
+            raise NotImplementedError(
+                "Forced tool choice is not supported for P/D models"
+            )
+        context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+                config, getattr(self, "reasoning_parser", None)
+            )
+            or {}
+        )
+        if context.get("enable_thinking") and context.get("reasoning_effort") != "none":
+            raise ValueError(
+                "Forced tool choice requires disabling thinking for DeepSeek V4.1"
+            )
+        config = {
+            **config,
+            "chat_template_kwargs": {
+                **context,
+                "enable_thinking": False,
+                "thinking": False,
+            },
+        }
+        validate_forced_tool_choice(config)
+        self._validate_forced_tools(config)
+        return config
+
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        config = super().prepare_reasoning_request(config)
+        if self._deepseek_v41_forces_tools(config):
+            config = self._prepare_openai_forced_tool_config(config)
+        return config
+
     def _prepare_structured_reasoning_prompt(
         self, prompt: Union[str, dict], config: Dict, context: Dict
     ) -> Union[str, dict]:
@@ -735,7 +776,8 @@ class VLLMModel(WeightCachedModel, LLM):
         ):
             return None
         if (
-            config.get("lora_name")
+            self._deepseek_v41_forces_tools(config)
+            or config.get("lora_name")
             or config.get("add_special_tokens") is False
             or config.get("truncate_prompt_tokens") is not None
             or config.get("prompt_logprobs") is not None
@@ -784,14 +826,13 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         config = copy.deepcopy(config or {})
         messages = copy.deepcopy(messages)
-        # Render the same prompt async_chat would: only Anthropic requests use
-        # the constrained forced-tool prompt (_forced_tool_chat); OpenAI requests
-        # keep native tool rendering even for tool_choice="required", but still
-        # reject a forced choice without a matching declared tool before the
-        # choice is dropped below.
+        # Count the same constrained prompt that async_chat sends to the engine.
         anthropic = config.pop("_anthropic_request", False)
         if is_forced_tool_choice(config):
             if anthropic:
+                messages, config = prepare_forced_tools(messages, config)
+            elif self._deepseek_v41_forces_tools(config):
+                config = self._prepare_openai_forced_tool_config(config)
                 messages, config = prepare_forced_tools(messages, config)
             else:
                 validate_forced_tool_choice(config)
@@ -1028,8 +1069,11 @@ class VLLMModel(WeightCachedModel, LLM):
             "effective_max_tokens": effective_max_tokens,
         }
 
-    async def _forced_tool_chat(self, messages, config, request_id):
-        self._validate_forced_tools(config)
+    async def _forced_tool_chat(self, messages, config, request_id, *, anthropic=True):
+        if anthropic:
+            self._validate_forced_tools(config)
+        else:
+            config = self._prepare_openai_forced_tool_config(config)
         stream = config.get("stream", False)
         include_usage = (config.get("stream_options") or {}).get("include_usage", False)
         context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
@@ -1042,7 +1086,8 @@ class VLLMModel(WeightCachedModel, LLM):
             "chat_template_kwargs": {**context, "reasoning_content": True},
         }
         messages, config = prepare_forced_tools(messages, config)
-        config["_anthropic_request"] = True
+        if anthropic:
+            config["_anthropic_request"] = True
         config["stream"] = False
         completion = await self.async_chat(messages, config, request_id=request_id)  # type: ignore[attr-defined]
         completion = convert_forced_completion(completion)
@@ -3391,8 +3436,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config = dict(generate_config or {})
         continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
-        if anthropic and is_forced_tool_choice(generate_config):
-            return await self._forced_tool_chat(messages, generate_config, request_id)
+        if (anthropic and is_forced_tool_choice(generate_config)) or (
+            self._deepseek_v41_forces_tools(generate_config)
+        ):
+            return await self._forced_tool_chat(
+                messages, generate_config, request_id, anthropic=anthropic
+            )
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         self._normalize_tool_choice_for_prompt(generate_config)
@@ -4007,8 +4056,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         generate_config = dict(generate_config or {})
         continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
-        if anthropic and is_forced_tool_choice(generate_config):
-            return await self._forced_tool_chat(messages, generate_config, request_id)
+        if (anthropic and is_forced_tool_choice(generate_config)) or (
+            self._deepseek_v41_forces_tools(generate_config)
+        ):
+            return await self._forced_tool_chat(
+                messages, generate_config, request_id, anthropic=anthropic
+            )
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         self._normalize_tool_choice_for_prompt(generate_config)

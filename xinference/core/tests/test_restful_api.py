@@ -2020,6 +2020,138 @@ async def test_chat_completion_preflight_with_required_tool_choice(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "time"}}]
+)
+@pytest.mark.parametrize("thinking", [False, True])
+async def test_deepseek_v41_openai_forces_tool_choice(
+    monkeypatch, stream, choice, thinking
+):
+    from jsonschema import Draft202012Validator
+
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = None
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        assert messages[0]["role"] == "system"
+        assert not config["chat_template_kwargs"]["enable_thinking"]
+        assert not config.get("tools")
+        return {"prompt": "rendered"}, [], config["chat_template_kwargs"], config
+
+    backend._prepare_chat_inputs = prepare
+    name = "weather" if choice == "required" else "time"
+
+    async def generate(prompt, config, tools, request_id=None):
+        assert config["_require_structured_output"]
+        assert not config.get("_anthropic_request")
+        assert not config["stream"]
+        assert not tools
+        schema = config["response_format"]["json_schema"]["schema"]
+        validator = Draft202012Validator(schema)
+        arguments = {"city": "Paris"}
+        calls = [{"name": name, "arguments": arguments}]
+        assert not validator.is_valid([])
+        assert not validator.is_valid([{"name": "undeclared", "arguments": arguments}])
+        assert validator.is_valid([{"name": "weather", "arguments": arguments}]) == (
+            choice == "required"
+        )
+        validator.validate(calls)
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 15, "completion_tokens": 7, "total_tokens": 22},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+    backend.async_chat = lambda *args, **kwargs: method(backend, *args, **kwargs)
+
+    async def chat(messages, config, *, request_id, **kwargs):
+        result = await backend.async_chat(messages, config, request_id=request_id)
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "messages": [{"role": "user", "content": "Say hello in one word."}],
+            "stream": stream,
+            **({"stream_options": {"include_usage": True}} if stream else {}),
+            "enable_thinking": thinking,
+            "tool_choice": choice,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool_name,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"city": {"type": "string"}},
+                            "required": ["city"],
+                        },
+                    },
+                }
+                for tool_name in ("weather", "time")
+            ],
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    if thinking:
+        with pytest.raises(HTTPException, match="requires disabling thinking") as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == 400
+        model.chat.assert_not_awaited()
+        return
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    if stream:
+        frames = [item async for item in response.body_iterator]
+        assert frames[-1] == "[DONE]"
+        result = json.loads(frames[0])
+        assert json.loads(frames[1])["usage"]["total_tokens"] == 22
+    else:
+        result = json.loads(response.body)
+    answer = result["choices"][0]
+    assert answer["finish_reason"] == "tool_calls"
+    message = answer["delta" if stream else "message"]
+    assert not message["content"]
+    assert message["tool_calls"][0]["function"]["name"] == name
+    assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {
+        "city": "Paris"
+    }
+    backend.async_generate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tool_request",
     [

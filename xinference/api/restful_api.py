@@ -5766,6 +5766,7 @@ class RESTfulAPI(CancelMixin):
             has_reasoning_controls,
             normalize_reasoning_controls,
         )
+        from ..model.llm.tool_controls import is_deepseek_v41_forced_tool_choice
         from ..model.llm.utils import (
             DEEPSEEK_TOOL_CALL_FAMILY,
             GEMMA_TOOL_CALL_FAMILY,
@@ -5950,7 +5951,10 @@ class RESTfulAPI(CancelMixin):
                     media_counts,
                 )
 
-        if (
+        deepseek_forced_tools = is_vllm_backend and is_deepseek_v41_forced_tool_choice(
+            kwargs, model_family
+        )
+        if deepseek_forced_tools or (
             controls_requested
             and (kwargs.get("chat_template_kwargs") or {}).get("thinking_budget")
             is not None
