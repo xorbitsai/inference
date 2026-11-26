@@ -19,6 +19,7 @@ import copy
 import json
 import os
 import sys
+from base64 import b64encode
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from threading import Thread
@@ -264,6 +265,29 @@ def test_transformers_rejects_expanded_input_over_context_limit():
     with pytest.raises(InvalidModelRequestError, match="exceeds 32768"):
         model._create_embedding("long")
     model._model.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "model_cls,processing_kwargs",
+    [
+        (CLASSES[0], {"text_kwargs": {"padding": True}}),
+        (CLASSES[1], {"chat_template": {"add_generation_prompt": False}}),
+    ],
+)
+def test_checkpoint_chat_template_errors_remain_server_errors(
+    model_cls, processing_kwargs
+):
+    from jinja2 import TemplateSyntaxError
+
+    model = make_model(model_cls)
+    error = TemplateSyntaxError("Invalid checkpoint template", lineno=1)
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.side_effect = error
+    model._model = MagicMock()
+    model._model.encode.side_effect = error
+    with pytest.raises(TemplateSyntaxError) as exc:
+        model._create_embedding("document", processing_kwargs=processing_kwargs)
+    assert exc.value is error
 
 
 def make_embedding_app(model, monkeypatch):
@@ -848,7 +872,13 @@ async def test_rest_transformers_processor_options_are_request_local(
 
 
 async def check_rest_processor_options(
-    tiny_nemotron_checkpoint, monkeypatch, model_cls, processing_kwargs, error, reverse
+    tiny_nemotron_checkpoint,
+    monkeypatch,
+    model_cls,
+    processing_kwargs,
+    error,
+    reverse,
+    special_input="caption",
 ):
     model = make_model(
         model_cls,
@@ -863,7 +893,7 @@ async def check_rest_processor_options(
     payloads = [
         {
             "model": "nemotron",
-            "input": "caption",
+            "input": special_input,
             "processing_kwargs": processing_kwargs,
         },
         {"model": "nemotron", "input": "document"},
@@ -926,6 +956,48 @@ async def test_rest_sentence_transformers_processor_options_are_request_local(
         processing_kwargs,
         error,
         reverse,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["special-first", "plain-first"])
+@pytest.mark.parametrize(
+    "model_cls", CLASSES[:2], ids=["transformers", "sentence-transformers"]
+)
+@pytest.mark.parametrize(
+    "template,error",
+    [
+        ("{{", "chat_template"),
+        ("{{ raise_exception('template render failed') }}", "template render failed"),
+        (None, None),
+    ],
+    ids=["syntax-error", "render-error", "valid-template"],
+)
+async def test_rest_custom_chat_template_errors_are_request_local(
+    tiny_nemotron_checkpoint, monkeypatch, model_cls, template, error, reverse
+):
+    if template is None:
+        template = (tiny_nemotron_checkpoint / "chat_template.jinja").read_text()
+    processing_kwargs = {"chat_template": template}
+    special_input = "caption"
+    if model_cls is CLASSES[1]:
+        pytest.importorskip("sentence_transformers", minversion="6.1.0")
+        processing_kwargs = {"chat_template": processing_kwargs}
+        png = BytesIO()
+        Image.new("RGB", (56, 56)).save(png, format="PNG")
+        special_input = {
+            "text": "caption",
+            "image": "data:image/png;base64,"
+            + b64encode(png.getvalue()).decode("ascii"),
+        }
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        model_cls,
+        processing_kwargs,
+        error,
+        reverse,
+        special_input=special_input,
     )
 
 

@@ -403,6 +403,8 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
     def _encode_samples(
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
+        from jinja2 import TemplateError
+
         vectors, counts = [], []
         processing_kwargs = kwargs.get("processing_kwargs") or {}
         for sample in samples:
@@ -415,6 +417,12 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                     return_tensors="pt",
                     **processing_kwargs,
                 )
+            except TemplateError as exc:
+                if processing_kwargs.get("chat_template") is None:
+                    raise
+                raise InvalidModelRequestError(
+                    f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
+                ) from exc
             except (TypeError, ValueError) as exc:
                 if not processing_kwargs:
                     raise
@@ -466,8 +474,11 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
     def _encode_samples(
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
+        from jinja2 import TemplateError
+
         vectors, counts = [], []
         processing_kwargs = kwargs.get("processing_kwargs")
+        template_options = (processing_kwargs or {}).get("chat_template", {})
         forward_started = False
 
         def count_tokens(module: Any, args: Tuple[Any, ...]) -> None:
@@ -499,6 +510,12 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
                             show_progress_bar=False,
                             processing_kwargs=processing_kwargs,
                         )
+                except TemplateError as exc:
+                    if forward_started or template_options.get("chat_template") is None:
+                        raise
+                    raise InvalidModelRequestError(
+                        f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
+                    ) from exc
                 except (TypeError, ValueError) as exc:
                     # encode() includes inference as well as preprocessing.
                     if forward_started or not processing_kwargs:
