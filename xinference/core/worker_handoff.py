@@ -279,25 +279,33 @@ def local_process_namespace():
         return None
 
 
-def worker_handoff_process_exited(identity):
+def _worker_handoff_process_liveness(identity) -> Optional[bool]:
     if not isinstance(identity, (list, tuple)) or len(identity) != 4:
-        return False
+        return None
     boot_id, namespace, pid, started = identity
     if not isinstance(pid, int) or pid <= 0:
-        return False
+        return None
     if local_process_namespace() != (boot_id, namespace):
-        return False
+        return None
     try:
         process = psutil.Process(pid)
         return (
-            process.create_time() != started
-            or not process.is_running()
-            or process.status() == psutil.STATUS_ZOMBIE
+            process.create_time() == started
+            and process.is_running()
+            and process.status() != psutil.STATUS_ZOMBIE
         )
     except psutil.NoSuchProcess:
-        return True
-    except (psutil.Error, TypeError, ValueError):
         return False
+    except (psutil.Error, TypeError, ValueError):
+        return None
+
+
+def worker_handoff_process_exited(identity):
+    return _worker_handoff_process_liveness(identity) is False
+
+
+def worker_handoff_process_alive(identity):
+    return _worker_handoff_process_liveness(identity) is True
 
 
 class WorkerHandoffMixin:

@@ -75,6 +75,7 @@ READS = (
         "get_status",
         "get_workers_info",
         "get_registered_worker_resources",
+        "get_pending_worker_handoff",
         "get_supervisor_info",
         "record_metrics",
         "get_autostart_config",

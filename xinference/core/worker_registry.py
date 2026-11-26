@@ -458,15 +458,77 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 self._check_worker_name(state.get("worker_id"), target, source=source)
             registry.set_pending(source, dict(state, committed=True))
 
-    async def _remove_abandoned_committed_handoff(self, source, expected):
-        from .worker_handoff import worker_handoff_process_exited
+    def get_pending_worker_handoff(self, source):
+        state = self._ownership_registry().pending.get(source)
+        if state is None:
+            raise KeyError(source)
+        key = state["key"]
+        return {
+            "ticket": key[1],
+            "source": source,
+            "target": key[3],
+            "target_incarnation": key[6],
+            "target_process": state.get("target_process"),
+            "committed": state["committed"],
+        }
+
+    async def recover_confirmed_worker_handoff(
+        self, source, ticket, target_incarnation
+    ):
+        registry = self._ownership_registry()
+        state = registry.pending.get(source)
+        if (
+            state is None
+            or not state["committed"]
+            or state["key"][1] != ticket
+            or state["key"][6] != target_incarnation
+        ):
+            raise RuntimeError("No matching confirmed worker handoff")
+        if not await xo.wait_for(
+            self._remove_abandoned_committed_handoff(
+                source, state, operator_verified=True
+            ),
+            XINFERENCE_HEALTH_CHECK_TIMEOUT,
+        ):
+            raise RuntimeError("Worker handoff changed during recovery")
+        self._schedule_autostart()
+        return {"recovered": True}
+
+    async def _handoff_target_still_online(self, key):
+        from .worker import WorkerActor
+
+        async def probe():
+            worker = await xo.actor_ref(address=key[3], uid=WorkerActor.default_uid())
+            return await worker.worker_incarnation() == key[6]
+
+        try:
+            return await xo.wait_for(probe(), 5)
+        except (OSError, xo.ActorNotExist, xo.ServerClosed):
+            # Without positive evidence, recovery relies on the operator's
+            # verification of the exact process on the target host.
+            return False
+
+    async def _remove_abandoned_committed_handoff(
+        self, source, expected, *, operator_verified=False
+    ):
+        from .worker_handoff import (
+            worker_handoff_process_alive,
+            worker_handoff_process_exited,
+        )
 
         registry = self._ownership_registry()
         async with registry.lock(source):
             state = registry.pending.get(source)
             if state is not expected:
                 return False
-            if not worker_handoff_process_exited(state.get("target_process")):
+            identity = state.get("target_process")
+            key = state["key"]
+            if operator_verified:
+                if worker_handoff_process_alive(
+                    identity
+                ) or await self._handoff_target_still_online(key):
+                    raise RuntimeError("Original replacement Worker is still running")
+            elif not worker_handoff_process_exited(identity):
                 return False
             # The confirmed transfer made the original source retire. Remove
             # its stale routes before releasing the journaled reservation.
@@ -478,7 +540,12 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             self._extension_worker_resources.pop(source, None)
             self._discard_worker_metadata(source)
             self._clear_worker_model_gpu_memory(source)
-            registry.discard(source)
+            pending = dict(registry.pending)
+            del pending[source]
+            retired = dict(registry.retired)
+            for address, incarnation in ((source, key[5]), (key[3], key[6])):
+                retired[address] = retired.get(address, set()) | {incarnation}
+            registry.checkpoint(pending=pending, retired=retired)
             return True
 
     async def _try_remove_abandoned_committed_handoff(

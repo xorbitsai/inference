@@ -929,3 +929,90 @@ async def test_expired_handoff_journal_allows_named_worker_after_restart(
     monkeypatch.setattr(xo, "actor_ref", lookup)
     await supervisor.add_worker(fresh.address)
     assert supervisor._worker_address_to_worker == {fresh.address: fresh}
+
+
+@pytest.mark.asyncio
+async def test_operator_recovers_confirmed_handoff_from_another_host(
+    tmp_path, monkeypatch
+):
+    import xoscar as xo
+
+    from xinference.core import worker_handoff
+    from xinference.core.supervisor import SupervisorActor
+    from xinference.core.worker_registry import WorkerOwnership
+
+    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+
+    install(monkeypatch)
+    source, target, fresh_address = (
+        "192.0.2.1:12001",
+        "192.0.2.1:12002",
+        "192.0.2.1:12003",
+    )
+    key = (1, "ticket", source, target, "supervisor", "old", "new", 1)
+    registry = WorkerOwnership(tmp_path / "ownership.json")
+    registry.set_pending(
+        source,
+        {
+            "key": key,
+            "extensions": ["test"],
+            "worker_id": "worker-a",
+            "committed": True,
+            "deadline": 0,
+            "target_process": ["worker-boot", 123, 1, 1.0],
+        },
+    )
+    owner = SupervisorActor()
+    owner._status_guard_ref = DummyStatusGuardRef()
+    owner._worker_ownership = WorkerOwnership(registry.path)
+    owner._schedule_autostart = Mock()
+    monkeypatch.setattr(
+        worker_handoff, "local_process_namespace", lambda: ("supervisor-boot", 456)
+    )
+
+    fresh = DummyReplicaWorkerRef(fresh_address)
+    fresh.get_extension_resources = AsyncMock(
+        return_value={"extensions": {"test": {}}, "worker_id": "worker-a"}
+    )
+    original = SimpleNamespace(worker_incarnation=AsyncMock(return_value="new"))
+    target_online = True
+
+    async def lookup(address, uid):
+        if address == target:
+            if not target_online:
+                raise ConnectionRefusedError
+            return original
+        return fresh
+
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    await owner._check_abandoned_worker_handoffs()
+    with pytest.raises(RuntimeError, match="already registered"):
+        await owner.add_worker(fresh_address)
+
+    with pytest.raises(RuntimeError, match="No matching"):
+        await owner.recover_confirmed_worker_handoff(source, "wrong", "new")
+    with pytest.raises(RuntimeError, match="No matching"):
+        await owner.recover_confirmed_worker_handoff(source, "ticket", "wrong")
+
+    details = owner.get_pending_worker_handoff(source)
+    assert details["target"] == target
+    with pytest.raises(RuntimeError, match="still running"):
+        await owner.recover_confirmed_worker_handoff(source, "ticket", "new")
+    assert source in WorkerOwnership(registry.path).pending
+    owner._schedule_autostart.assert_not_called()
+
+    target_online = False
+    assert await owner.recover_confirmed_worker_handoff(
+        source, details["ticket"], details["target_incarnation"]
+    ) == {"recovered": True}
+    restored = WorkerOwnership(registry.path)
+    assert source not in restored.pending
+    assert restored.retired[target] == {"new"}
+    with pytest.raises(RuntimeError, match="No matching worker reservation"):
+        await owner.commit_worker_handoff(
+            SimpleNamespace(
+                source=source, target=target, ticket="ticket", transfer_key=key
+            )
+        )
+    await owner.add_worker(fresh_address)
+    assert owner._worker_address_to_worker[fresh_address] is fresh
