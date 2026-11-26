@@ -34,6 +34,7 @@
     },
     "cache_config": {
       "ignore_patterns": [
+        "prompt_enhancer/*",
         "transformer/*",
         "diffusion_decoder/*",
         "latent_upsampler/*",

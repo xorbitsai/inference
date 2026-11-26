@@ -104,12 +104,12 @@ On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also sup
 The ``MLX`` engine uses `Blaizzy/mlx-video
 <https://github.com/Blaizzy/mlx-video>`_ and is available on Apple Silicon with
 Python 3.11 or newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the
-LTX-2/LTX-2.3 distilled and dev models listed above. The LTX models are MLX-only
-in Xinference.
+LTX-2/LTX-2.3 distilled and dev models listed above. LTX-2 and LTX-2.3 are
+MLX-only in Xinference.
 
 Wan2.1's official checkpoints are converted to the native MLX layout on first
 load and the converted copy is reused by later launches. This first launch
-therefore needs additional time and disk space. Wan2.2 and LTX use
+therefore needs additional time and disk space. Wan2.2 and the MLX LTX models use
 pre-converted checkpoints.
 
 The Web UI obtains the engines supported by each model from the engine query
@@ -256,8 +256,8 @@ LTX-2.5 generation has the following constraints:
   degrading quality. Because classifier-free guidance is disabled in this
   configuration, ``negative_prompt`` is ignored; it is effective with
   ``LTX-2.5-Dev``.
-* Prompt enhancement is disabled because the official Diffusers model pack does
-  not include the separate prompt-enhancer model.
+* Prompt enhancement is not supported. Xinference skips the prompt-enhancer
+  weights when downloading and loading the model.
 * Image conditions use the official LTX-2.5 compression behavior (CRF 18 by
   default). Pass ``image_crf=0`` to explicitly disable recompression.
 

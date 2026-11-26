@@ -69,7 +69,15 @@ function audioFileName(modelName: string, blob: Blob) {
 const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTaskPanelProps>(
   ({ config, model, modelUid }, ref) => {
     const { t } = useI18n();
-    const form = useMemo(() => createForm(), []);
+    const overrides = config.getInitialValueOverrides?.(model);
+    // Changing initialValues alone does not replace mounted field values.
+    const { form, modelDefaults } = useMemo(
+      () => ({ form: createForm(), modelDefaults: overrides }),
+      [overrides]
+    );
+    const initialValues = modelDefaults
+      ? { ...config.initialValues, ...modelDefaults }
+      : config.initialValues;
     const runTokenRef = useRef(0);
     const activeRequestRef = useRef<
       { modelUid: string; requestId: string; runToken: number } | undefined
@@ -459,8 +467,8 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
             form={form}
             initialValues={
               model.lightning_inference_steps !== undefined
-                ? { ...config.initialValues, use_lightning: true, num_inference_steps: '' }
-                : config.initialValues
+                ? { ...initialValues, use_lightning: true, num_inference_steps: '' }
+                : initialValues
             }
             onFinish={submit}
             className="flex-1 min-h-0 flex flex-col"

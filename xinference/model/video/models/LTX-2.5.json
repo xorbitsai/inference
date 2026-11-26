@@ -33,6 +33,7 @@
     },
     "cache_config": {
       "ignore_patterns": [
+        "prompt_enhancer/*",
         "transformer_full/*",
         "diffusion_decoder/*",
         "connectors/diffusion_pytorch_model.safetensors",

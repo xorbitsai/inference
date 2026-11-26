@@ -125,6 +125,7 @@ def test_specs_only_reference_official_bf16_sources() -> None:
             "ltx-2.5-22b-distilled-lora-450-bf16.safetensors"
             in spec["cache_config"]["ignore_patterns"]
         )
+        assert "prompt_enhancer/*" in spec["cache_config"]["ignore_patterns"]
 
     distilled = next(spec for spec in specs if spec["model_name"] == "LTX-2.5")
     assert (
@@ -490,7 +491,7 @@ def test_muxes_each_audio_track_and_cleans_base64_files(
 
 
 def test_loads_distilled_and_dev_from_expected_components(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     import torch
 
@@ -498,6 +499,16 @@ def test_loads_distilled_and_dev_from_expected_components(
 
     monkeypatch.setattr(torch, "__version__", "2.7.0")
     monkeypatch.setattr(ltx2, "get_available_device", lambda: "cuda")
+
+    (tmp_path / "model_index.json").write_text(
+        json.dumps(
+            {
+                "_class_name": "LTX2Pipeline",
+                "prompt_enhancer": ["transformers", "Gemma4ForConditionalGeneration"],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     pipeline_calls: List[Dict[str, Any]] = []
     transformer_calls: List[Dict[str, Any]] = []
@@ -512,6 +523,10 @@ def test_loads_distilled_and_dev_from_expected_components(
 
         @classmethod
         def from_pretrained(cls, model_path: str, **kwargs: Any) -> "FakePipeline":
+            with (Path(model_path) / "model_index.json").open(encoding="utf-8") as f:
+                index = json.load(f)
+            if kwargs.get("prompt_enhancer", index["prompt_enhancer"]) is not None:
+                pytest.fail("the declared ModelScope prompt enhancer must not load")
             pipeline_calls.append({"model_path": model_path, **kwargs})
             return cls()
 
@@ -542,15 +557,19 @@ def test_loads_distilled_and_dev_from_expected_components(
     setattr(diffusers_module, "FlowMatchEulerDiscreteScheduler", FakeScheduler)
     monkeypatch.setitem(sys.modules, "diffusers", diffusers_module)
 
-    distilled = _model()
+    distilled = LTX2VideoModel(
+        "ltx-test", str(tmp_path), _model_spec("LTX-2.5", "modelscope")
+    )
     distilled.load()
-    assert pipeline_calls[0]["model_path"] == "/tmp/official-ltx-2.5"
+    assert pipeline_calls[0]["model_path"] == str(tmp_path)
     assert pipeline_calls[0]["dtype"] is torch.bfloat16
     assert pipeline_calls[0]["local_files_only"] is True
     assert pipeline_calls[0]["use_safetensors"] is True
     assert distilled._model.offload_device == "cuda"
 
-    dev = _model("LTX-2.5-Dev")
+    dev = LTX2VideoModel(
+        "ltx-dev-test", str(tmp_path), _model_spec("LTX-2.5-Dev", "modelscope")
+    )
     dev.load()
     assert transformer_calls[0]["subfolder"] == "transformer_full"
     assert pipeline_calls[1]["transformer"] is not None

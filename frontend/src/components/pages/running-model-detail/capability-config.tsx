@@ -49,6 +49,7 @@ import {
   fileToDataUrl,
   firstUpload,
   formatOCRPrompt,
+  isLtx25Distilled,
   numberValue,
   parseJsonObject,
   sizeFromValues,
@@ -107,6 +108,27 @@ const videoDefaults = {
   guidance_scale: 7.5,
   seed: -1,
 };
+
+const ltx25DistilledDefaults = {
+  width: 960,
+  height: 544,
+  num_frames: 121,
+  fps: 24,
+  num_inference_steps: undefined,
+  guidance_scale: undefined,
+};
+
+const ltx25DevDefaults = {
+  ...ltx25DistilledDefaults,
+  num_inference_steps: 30,
+  guidance_scale: 3,
+};
+
+function getVideoInitialValueOverrides({ model_name }: TransformContext['model']) {
+  if (isLtx25Distilled(model_name)) return ltx25DistilledDefaults;
+  if (model_name === 'LTX-2.5-Dev') return ltx25DevDefaults;
+  return undefined;
+}
 
 const imageKwargsExample = {
   guidance_scale: 7.5,
@@ -174,9 +196,17 @@ function buildMediaKwargs(
   return kwargs;
 }
 
+function buildVideoKwargs(context: TransformContext) {
+  const kwargs = buildMediaKwargs(context);
+  if (isLtx25Distilled(context.model.model_name)) {
+    delete kwargs.num_inference_steps;
+    delete kwargs.guidance_scale;
+  }
+  return kwargs;
+}
+
 function commonVideoBody(context: TransformContext) {
   const { modelUid, values } = context;
-  const kwargs = buildMediaKwargs(context);
 
   return withKwargsIfPresent(
     {
@@ -184,18 +214,17 @@ function commonVideoBody(context: TransformContext) {
       prompt: stringValue(values.prompt),
       negative_prompt: stringValue(values.negative_prompt) || undefined,
     },
-    kwargs
+    buildVideoKwargs(context)
   );
 }
 
 function appendCommonVideoFormData(formData: FormData, context: TransformContext) {
   const { modelUid, values } = context;
-  const kwargs = buildMediaKwargs(context);
 
   formData.append('model', modelUid);
   appendIfPresent(formData, 'prompt', values.prompt);
   appendIfPresent(formData, 'negative_prompt', values.negative_prompt);
-  appendKwargsIfPresent(formData, kwargs);
+  appendKwargsIfPresent(formData, buildVideoKwargs(context));
 }
 
 async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | 'video') {
@@ -668,6 +697,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: videoDefaults,
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: TextToVideoPanel,
     resultPanel: ResultPanels.Universal,
@@ -696,6 +726,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: { ...videoDefaults, image: [] },
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: ImageToVideoPanel,
     resultPanel: ResultPanels.Universal,
@@ -731,6 +762,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: { ...videoDefaults, first_frame: [], last_frame: [] },
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: FirstLastFrameVideoPanel,
     resultPanel: ResultPanels.Universal,

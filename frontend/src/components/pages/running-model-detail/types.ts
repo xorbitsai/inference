@@ -46,6 +46,8 @@ export interface CapabilityConfig {
   icon: LucideIcon;
   requestApi: string;
   initialValues?: FormValues;
+  /** Return stable overrides so the form resets only when its model defaults change. */
+  getInitialValueOverrides?: (model: RunningModelDetail) => FormValues | undefined;
   showProgress?: boolean;
   stream?: boolean;
   submitLabel?: string;

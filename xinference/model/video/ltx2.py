@@ -276,6 +276,8 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
             "use_safetensors": True,
         }
         load_kwargs.update(kwargs)
+        # The ModelScope snapshot declares this optional, unused component.
+        load_kwargs["prompt_enhancer"] = None
 
         if self._variant == self._DEV:
             transformer_kwargs = {
