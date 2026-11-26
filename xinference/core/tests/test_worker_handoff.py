@@ -339,6 +339,8 @@ async def test_handoff_preserves_model_and_fences_old_owner(runtime):
     model = await old.install_model()
     value, pid, _ = await model.add(5)
     old_incarnation = await old.incarnation()
+    assert await old.worker_handoff_protocol() == 1
+    assert await supervisor.worker_handoff_protocol() == 1
     assert await new.replace_worker(old.address)
     assert await model.add(1) == (value + 1, pid, new.address)
     assert await supervisor.inspect_workers() == [new.address]
@@ -352,6 +354,34 @@ async def test_handoff_preserves_model_and_fences_old_owner(runtime):
     assert await new.replace_worker(old.address)  # Acknowledgement is idempotent.
     other = await new.install_model("another-rep0")
     assert (await other.add(1))[0] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("restart", [False, True])
+async def test_v1_handoff_confirms_transfer_after_reservation_expires(
+    runtime, monkeypatch, restart
+):
+    _, supervisor, (old, new) = runtime
+    model = await old.install_model()
+    confirm = HandoffSupervisor.confirm_worker_handoff
+
+    async def expire_before_confirm(owner, source, ticket):
+        registry = owner._ownership_registry()
+        record = registry.pending.get(source)
+        if record is not None:
+            record["deadline"] = 0
+            if restart and not record.get("recovered"):
+                registry.checkpoint()
+                owner._worker_ownership = WorkerOwnership(registry.path)
+                owner._worker_address_to_worker.pop(source)
+        await confirm(owner, source, ticket)
+
+    monkeypatch.setattr(
+        HandoffSupervisor, "confirm_worker_handoff", expire_before_confirm
+    )
+    assert await new.replace_worker(old.address)
+    assert await supervisor.inspect_workers() == [new.address]
+    assert (await model.add(1))[2] == new.address
 
 
 @pytest.mark.asyncio

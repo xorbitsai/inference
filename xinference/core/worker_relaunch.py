@@ -451,6 +451,7 @@ class WorkerRelaunchLauncher:
                 supervisor_endpoint=worker._supervisor_endpoint,
                 metrics_exporter_host=worker._metrics_exporter_config[0],
                 metrics_exporter_port=worker._metrics_exporter_config[1],
+                colocated_metrics=getattr(worker, "_colocated_metrics", False),
                 logging_conf=getattr(worker, "_worker_logging_conf", None),
                 replace_worker=worker.address,
                 relaunch_operation_id=operation_id,

@@ -77,6 +77,8 @@ def test_worker_relaunch_routes_require_admin_scope(authenticated):
     for path in (
         "/v1/workers/{worker_address}/relaunch",
         "/v1/workers/{worker_address}/updates",
+        "/v1/workers/{worker_address}/handoff",
+        "/v1/workers/{worker_address}/handoff/recover",
         "/v1/worker-relaunches",
         "/v1/worker-relaunches/{operation_id}",
     ):
@@ -131,3 +133,28 @@ async def test_unavailable_journal_returns_service_error_on_every_route():
             response = await client.request(method, path)
             assert response.status_code == 503
             assert "journal" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_handoff_recovery_requires_operator_verification():
+    supervisor = MagicMock()
+    supervisor.recover_confirmed_worker_handoff = AsyncMock(
+        return_value={"recovered": True}
+    )
+    api = MagicMock()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    request = admin.WorkerHandoffRecoveryRequest(
+        ticket="ticket", target_incarnation="incarnation"
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await admin.recover_confirmed_worker_handoff("worker:1234", request, api)
+    assert error.value.status_code == 400
+    supervisor.recover_confirmed_worker_handoff.assert_not_awaited()
+
+    request.target_exit_verified = True
+    response = await admin.recover_confirmed_worker_handoff("worker:1234", request, api)
+    assert response.status_code == 200
+    supervisor.recover_confirmed_worker_handoff.assert_awaited_once_with(
+        "worker:1234", "ticket", "incarnation"
+    )

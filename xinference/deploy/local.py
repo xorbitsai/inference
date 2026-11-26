@@ -90,6 +90,7 @@ async def _start_local_cluster(
             metrics_exporter_host=metrics_exporter_host,
             metrics_exporter_port=metrics_exporter_port,
             logging_conf=logging_conf,
+            colocated_metrics=True,
         )
         if worker_address is not None:
             await register_worker_host()

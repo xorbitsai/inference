@@ -25,6 +25,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+import psutil
 import xoscar as xo
 
 from ..constants import is_metrics_disabled
@@ -266,6 +267,45 @@ def pool_transfer_received(pool, snapshot):
         addresses <= set(received)
         for received in getattr(pool, "_completed_handoffs", {}).values()
     )
+
+
+def local_process_namespace():
+    # A PID is meaningful only in the same Linux boot and PID namespace.
+    try:
+        with open("/proc/sys/kernel/random/boot_id") as file:
+            boot_id = file.read().strip()
+        return boot_id, os.stat("/proc/self/ns/pid").st_ino
+    except OSError:
+        return None
+
+
+def _worker_handoff_process_liveness(identity) -> Optional[bool]:
+    if not isinstance(identity, (list, tuple)) or len(identity) != 4:
+        return None
+    boot_id, namespace, pid, started = identity
+    if not isinstance(pid, int) or pid <= 0:
+        return None
+    if local_process_namespace() != (boot_id, namespace):
+        return None
+    try:
+        process = psutil.Process(pid)
+        return (
+            process.create_time() == started
+            and process.is_running()
+            and process.status() != psutil.STATUS_ZOMBIE
+        )
+    except psutil.NoSuchProcess:
+        return False
+    except (psutil.Error, TypeError, ValueError):
+        return None
+
+
+def worker_handoff_process_exited(identity):
+    return _worker_handoff_process_liveness(identity) is False
+
+
+def worker_handoff_process_alive(identity):
+    return _worker_handoff_process_liveness(identity) is True
 
 
 class WorkerHandoffMixin:
@@ -602,6 +642,27 @@ class WorkerHandoffMixin:
                 incoming["committed"]
                 or pool_transfer_received(self._main_pool, incoming["snapshot"])
             )
+        )
+
+    def worker_handoff_process_identity(self, incarnation):
+        if incarnation != self._incarnation:
+            return None
+        namespace = local_process_namespace()
+        if namespace is None:
+            return None
+        return [*namespace, os.getpid(), psutil.Process().create_time()]
+
+    def worker_handoff_in_progress(self, transfer_key):
+        incoming = self._incoming_handoff
+        if incoming is None or incoming.get("done"):
+            return False
+        snapshot = incoming["snapshot"]
+        if snapshot is not None:
+            return snapshot.transfer_key == transfer_key
+        return (
+            incoming["ticket"] == transfer_key[1]
+            and incoming["source"] == transfer_key[2]
+            and self._incarnation == transfer_key[6]
         )
 
     def worker_replacement_safe_to_stop(self):
