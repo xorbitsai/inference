@@ -733,13 +733,16 @@ def test_registered_worker_resources_can_be_read_without_control_session():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scenario", ["reconnect", "target_reused", "source_replaced"])
+@pytest.mark.parametrize(
+    "scenario", ["reconnect", "cold_reconnect", "target_reused", "source_replaced"]
+)
 async def test_handoff_rejects_third_party_worker_name_before_rerouting(
-    monkeypatch, scenario
+    tmp_path, monkeypatch, scenario
 ):
     import xoscar as xo
 
     from xinference.core.supervisor import SupervisorActor
+    from xinference.core.worker_registry import WorkerOwnership
 
     from .test_worker import (
         DummyReplicaWorkerRef,
@@ -749,6 +752,8 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
 
     install(monkeypatch)
     supervisor = SupervisorActor()
+    journal = tmp_path / "ownership.json"
+    supervisor._worker_ownership = WorkerOwnership(journal)
     supervisor._status_guard_ref = DummyStatusGuardRef()
     workers = {}
     for address, name in (
@@ -794,7 +799,7 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
     workers["target"].get_extension_resources.return_value["worker_id"] = "worker-a"
     await supervisor.prepare_worker_handoff(snapshot, 10)
     registry = supervisor._ownership_registry()
-    if scenario != "reconnect":
+    if scenario in {"source_replaced", "target_reused"}:
         registry.pending["source"]["deadline"] = 0
 
     if scenario == "source_replaced":
@@ -844,6 +849,17 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         await supervisor.commit_worker_handoff(replacement)
         assert supervisor._worker_address_to_worker["target"] is workers["target"]
     else:
+        if scenario == "cold_reconnect":
+            supervisor = SupervisorActor()
+            supervisor._status_guard_ref = DummyStatusGuardRef()
+            supervisor._worker_ownership = WorkerOwnership(journal)
+            assert not supervisor._worker_address_to_worker
+            assert not supervisor._extension_worker_resources
+            workers["other"].get_extension_resources.return_value[
+                "worker_id"
+            ] = "worker-a"
+            with pytest.raises(RuntimeError, match="already registered"):
+                await supervisor.add_worker("other")
         with pytest.raises(RuntimeError, match="source incarnation changed"):
             await supervisor.add_worker("source", incarnation="different")
         await supervisor.add_worker(
@@ -932,12 +948,16 @@ async def test_expired_handoff_journal_allows_named_worker_after_restart(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("target_unavailable", ["refused", "timeout"])
 async def test_operator_recovers_confirmed_handoff_from_another_host(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, target_unavailable
 ):
+    import asyncio
+
     import xoscar as xo
 
-    from xinference.core import worker_handoff
+    from xinference.api.routers import admin
+    from xinference.core import worker_handoff, worker_registry
     from xinference.core.supervisor import SupervisorActor
     from xinference.core.worker_registry import WorkerOwnership
 
@@ -976,10 +996,13 @@ async def test_operator_recovers_confirmed_handoff_from_another_host(
     )
     original = SimpleNamespace(worker_incarnation=AsyncMock(return_value="new"))
     target_online = True
+    monkeypatch.setattr(worker_registry, "XINFERENCE_HEALTH_CHECK_TIMEOUT", 1)
 
     async def lookup(address, uid):
         if address == target:
             if not target_online:
+                if target_unavailable == "timeout":
+                    await asyncio.Event().wait()
                 raise ConnectionRefusedError
             return original
         return fresh
@@ -1002,9 +1025,14 @@ async def test_operator_recovers_confirmed_handoff_from_another_host(
     owner._schedule_autostart.assert_not_called()
 
     target_online = False
-    assert await owner.recover_confirmed_worker_handoff(
-        source, details["ticket"], details["target_incarnation"]
-    ) == {"recovered": True}
+    api = SimpleNamespace(_get_supervisor_ref=AsyncMock(return_value=owner))
+    request = admin.WorkerHandoffRecoveryRequest(
+        ticket=details["ticket"],
+        target_incarnation=details["target_incarnation"],
+        target_exit_verified=True,
+    )
+    response = await admin.recover_confirmed_worker_handoff(source, request, api)
+    assert response.status_code == 200
     restored = WorkerOwnership(registry.path)
     assert source not in restored.pending
     assert restored.retired[target] == {"new"}

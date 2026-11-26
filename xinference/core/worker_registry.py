@@ -306,12 +306,17 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     and registry.protected(other_source)
                 ):
                     registered = self._extension_worker_resources.get(address, {})
-                    if (
-                        other_source == address
-                        and address in self._worker_address_to_worker
-                        and registered.get("worker_id") == worker_id
-                    ):
-                        continue
+                    if source is None and other_source == address:
+                        # Registration has already verified the handoff source
+                        # incarnation under this address's ownership lock.
+                        if (
+                            address in self._worker_address_to_worker
+                            and registered.get("worker_id") == worker_id
+                        ) or (
+                            state.get("recovered")
+                            and address not in self._worker_address_to_worker
+                        ):
+                            continue
                     owner = state["key"][3]
                     break
         if owner is None:
@@ -501,9 +506,11 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             worker = await xo.actor_ref(address=key[3], uid=WorkerActor.default_uid())
             return await worker.worker_incarnation() == key[6]
 
+        # Leave part of the recovery deadline for route and journal cleanup.
+        probe_timeout = min(5, XINFERENCE_HEALTH_CHECK_TIMEOUT / 2)
         try:
-            return await xo.wait_for(probe(), 5)
-        except (OSError, xo.ActorNotExist, xo.ServerClosed):
+            return await xo.wait_for(probe(), probe_timeout)
+        except (asyncio.TimeoutError, OSError, xo.ActorNotExist, xo.ServerClosed):
             # Without positive evidence, recovery relies on the operator's
             # verification of the exact process on the target host.
             return False
