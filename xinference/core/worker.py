@@ -740,6 +740,35 @@ def _filter_alive_pids(pids: set) -> set:
     return alive
 
 
+def _snapshot_replica_gpu_children(pids: set, device_indices: list) -> set:
+    """Return the descendants of ``pids`` that occupy the given GPUs.
+
+    Must be called before the replica is torn down: a native child such as a
+    spawn-created EngineCore can outlive its parent, and once reparented it
+    can no longer be attributed to the model.
+
+    If NVML attributes no process on these GPUs to the replica at all (no PID
+    visibility, e.g. inside a container), every descendant is returned, since
+    any of them may be the one holding VRAM.
+    """
+    import psutil
+
+    descendants: set = set()
+    for pid in pids:
+        try:
+            descendants.update(
+                child.pid for child in psutil.Process(pid).children(recursive=True)
+            )
+        except Exception:
+            continue
+    if not descendants:
+        return set()
+    gpu_pids = _snapshot_gpu_occupying_pids(device_indices)
+    if not gpu_pids & (descendants | set(pids)):
+        return descendants
+    return descendants & gpu_pids
+
+
 async def _wait_vram_reclaim_after_terminate(
     device_indices: list,
     holder_pids: set,
@@ -753,8 +782,8 @@ async def _wait_vram_reclaim_after_terminate(
     replica apart from VRAM used by other models or applications on the same
     GPU. Waiting for the ratio alone therefore always runs into ``timeout``
     on a shared GPU. Only wait while one of ``holder_pids`` (the processes of
-    the terminated replica and the orphans killed for it) is still alive and
-    may release more VRAM.
+    the terminated replica, its GPU-owning children and the orphans killed
+    for it) is still alive and may release more VRAM.
 
     Returns False only if a holder is still alive when ``timeout`` expires.
     """
@@ -6926,6 +6955,21 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     _gpu_indices_for_terminate = [
                         int(dev) for dev in _model_spec["accelerators"]
                     ]
+            if _gpu_indices_for_terminate and _replica_pids_for_terminate:
+                # A GPU-owning child can outlive the replica and get
+                # reparented, so it has to be recorded before the teardown.
+                try:
+                    _replica_pids_for_terminate |= await asyncio.to_thread(
+                        _snapshot_replica_gpu_children,
+                        set(_replica_pids_for_terminate),
+                        _gpu_indices_for_terminate,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Failed to snapshot GPU children of %s",
+                        model_uid,
+                        exc_info=True,
+                    )
 
         try:
             await checkpoint()

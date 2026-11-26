@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 """Unit tests for B2 v5: GPU orphan cleanup helpers.
 
 Tests cover:
@@ -21,6 +22,8 @@ Tests cover:
 - _kill_orphan_gpu_pids: diff-only / no-new-pids
 - _wait_pids_dead: all-dead / timeout
 - _wait_vram_reclaim_after_terminate: shared GPU / replica exit / timeout
+- _snapshot_replica_gpu_children: GPU-owning child / no PID visibility
+- _terminate_model: waits for a reparented child that still owns VRAM
 """
 
 from unittest.mock import MagicMock, patch
@@ -383,3 +386,130 @@ async def test_wait_vram_reclaim_times_out_while_replica_holds_vram():
 
     assert reclaimed is False
     assert _elapsed >= 0.3
+
+
+def _spawn_replica_with_child():
+    """Start a stand-in replica process that owns one long-lived child."""
+    import subprocess
+    import sys
+
+    import psutil
+
+    script = (
+        "import subprocess, sys, time\n"
+        "child = subprocess.Popen("
+        "[sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        "print(child.pid, flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    replica = subprocess.Popen(
+        [sys.executable, "-c", script], stdout=subprocess.PIPE, text=True
+    )
+    child = psutil.Process(int(replica.stdout.readline()))
+    return replica, child
+
+
+def _stop_replica_with_child(replica, child):
+    import psutil
+
+    _stop(replica)
+    replica.stdout.close()
+    try:
+        child.kill()
+        child.wait(timeout=5)
+    except psutil.NoSuchProcess:
+        pass
+
+
+def test_snapshot_replica_gpu_children():
+    from xinference.core.worker import _snapshot_replica_gpu_children
+
+    replica, child = _spawn_replica_with_child()
+    try:
+        with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as snap:
+            # The child owns VRAM next to an unrelated process.
+            snap.return_value = {child.pid, 4242}
+            assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
+            # Only the replica itself is on the GPU.
+            snap.return_value = {replica.pid, 4242}
+            assert _snapshot_replica_gpu_children({replica.pid}, [0]) == set()
+            # NVML cannot attribute anything to the replica (e.g. container
+            # PID namespace): every descendant may be the one holding VRAM.
+            snap.return_value = {4242}
+            assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
+            snap.return_value = set()
+            assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
+    finally:
+        _stop_replica_with_child(replica, child)
+
+
+@pytest.mark.asyncio
+async def test_terminate_waits_for_reparented_gpu_child(monkeypatch):
+    """The replica exits first while a child it started still owns VRAM on a
+    shared GPU. The child cannot be attributed to the model once it has been
+    reparented, so it has to be recorded before the pool is destroyed."""
+    from unittest.mock import AsyncMock
+
+    import xinference.core.worker as worker_module
+    from xinference.core.worker import WorkerActor
+
+    replica, child = _spawn_replica_with_child()
+    uid = "model-x-0"
+    polls = []
+
+    class _Pool:
+        sub_processes: dict = {}
+
+        async def remove_sub_pool(self, address, force=False):
+            _stop(replica)  # only the replica dies; its child lives on
+
+    def _ratio(devices):
+        # Another tenant keeps the GPU below the ready ratio throughout.
+        polls.append(child.is_running())
+        if len(polls) == 3:
+            child.kill()
+            child.wait(timeout=5)
+        return 0.74
+
+    async def _no_check(_worker):
+        return None
+
+    async def _no_orphans(*args, **kwargs):
+        return []  # the reparented child no longer matches the model UID
+
+    monkeypatch.setattr(worker_module, "check_control_session", _no_check)
+    monkeypatch.setattr(worker_module, "_kill_orphan_gpu_pids", _no_orphans)
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", _ratio)
+    monkeypatch.setattr(
+        worker_module,
+        "_snapshot_gpu_occupying_pids",
+        lambda devices: {child.pid, 4242} if child.is_running() else {4242},
+    )
+    monkeypatch.setattr(WorkerActor, "_finish_launch_progress", AsyncMock())
+
+    worker = MagicMock()
+    worker._control_fence = None
+    worker._model_uid_launching_guard = {}
+    worker._model_uid_to_model_status = {}
+    worker._model_uid_to_model = {uid: None}
+    worker._model_uid_to_subpool_addresses = {uid: {"addr-1"}}
+    worker._model_uid_to_addr = {uid: "addr-1"}
+    worker._model_uid_to_launch_args = {uid: {"model_uid": uid, "gpu_idx": [0]}}
+    worker._model_uid_to_model_spec = {uid: {}}
+    worker._model_uid_to_pid = {uid: replica.pid}
+    worker._model_uid_to_subpool_pids = {uid: {replica.pid}}
+    worker._main_pool = _Pool()
+    worker._event_collector_ref = None
+    worker._status_guard_ref = MagicMock(update_instance_info=AsyncMock())
+    worker._update_model_state = AsyncMock()
+    worker.get_supervisor_ref = AsyncMock()
+
+    try:
+        await WorkerActor._terminate_model(worker, uid)
+        # The unload returned only after the child released the GPU: the
+        # first poll saw it alive, and it was gone when the wait ended.
+        assert polls[:3] == [True, True, True]
+        assert not child.is_running()
+        assert replica.poll() is not None
+    finally:
+        _stop_replica_with_child(replica, child)
