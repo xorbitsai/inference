@@ -122,6 +122,7 @@ class WorkerOwnership:
                             ),
                             "models": record.get("models", []),
                             "committed": record["committed"],
+                            "transferring": record.get("transferring", False),
                             "expires_at": time.time()
                             + record["deadline"]
                             - time.monotonic(),
@@ -164,7 +165,9 @@ class WorkerOwnership:
     def protected(self, address):
         state = self.pending.get(address)
         return state is not None and (
-            state["committed"] or time.monotonic() < state["deadline"]
+            state["committed"]
+            or state.get("transferring", False)
+            or time.monotonic() < state["deadline"]
         )
 
 
@@ -194,6 +197,10 @@ def worker_message(*, registration=False):
             registry = self._ownership_registry()
             async with registry.lock(worker_address):
                 registry.check(worker_address, incarnation, registration)
+                if registration and registry.protected(worker_address):
+                    state = registry.pending[worker_address]
+                    if incarnation != state["key"][5]:
+                        raise RuntimeError("Worker handoff source incarnation changed")
                 if registration and incarnation:
                     from .worker import WorkerActor
 
@@ -268,13 +275,19 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             ):
                 return False
             registry.discard(address)
-            await self._handle_dead_worker(address)
-            self._worker_status.pop(address, None)
-            self._worker_address_to_worker.pop(address, None)
-            self._extension_worker_resources.pop(address, None)
-            self._discard_worker_metadata(address)
-            self._clear_worker_model_gpu_memory(address)
+            await SupervisorHandoffMixin._clear_dead_worker_registration(self, address)
             return True
+
+    async def _clear_dead_worker_registration(self, address, *, reconcile_models=None):
+        if reconcile_models is not None:
+            await self._handle_dead_worker(address, reconcile_models=reconcile_models)
+        else:
+            await self._handle_dead_worker(address)
+        self._worker_status.pop(address, None)
+        self._worker_address_to_worker.pop(address, None)
+        self._extension_worker_resources.pop(address, None)
+        self._discard_worker_metadata(address)
+        self._clear_worker_model_gpu_memory(address)
 
     def can_recover_model(self, worker_address: str, model_uid: str) -> bool:
         refs = self._replica_model_uid_to_worker.get(model_uid)
@@ -296,6 +309,13 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     and state.get("worker_id") == worker_id
                     and registry.protected(other_source)
                 ):
+                    registered = self._extension_worker_resources.get(address, {})
+                    if (
+                        other_source == address
+                        and address in self._worker_address_to_worker
+                        and registered.get("worker_id") == worker_id
+                    ):
+                        continue
                     owner = state["key"][3]
                     break
         if owner is None:
@@ -316,6 +336,10 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             )
 
     async def prepare_worker_handoff(self, snapshot, timeout):
+        from .worker_handoff import PROTOCOL_VERSION
+
+        if snapshot.transfer_key[0] != PROTOCOL_VERSION:
+            raise ValueError("Unsupported Worker handoff protocol")
         registry = self._ownership_registry()
         async with registry.lock(snapshot.source):
             registry.check(snapshot.source, snapshot.source_incarnation)
@@ -383,6 +407,47 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                         "Committed worker ownership cannot be rolled back"
                     )
                 registry.discard(source)
+
+    async def rollback_dead_worker_handoff(self, transfer_key):
+        from .worker import WorkerActor
+
+        key = tuple(transfer_key)
+        source, target = key[2:4]
+        registry = self._ownership_registry()
+        async with registry.lock(source):
+            state = registry.pending.get(source)
+            if state is None:
+                if key[1] in registry.completed:
+                    raise RuntimeError("Worker ownership was already transferred")
+                return
+            if state["key"] != key or state["committed"]:
+                raise RuntimeError("Worker handoff reservation cannot be rolled back")
+            worker = await xo.actor_ref(address=target, uid=WorkerActor.default_uid())
+            if await xo.wait_for(worker.worker_incarnation(), 5) != key[
+                6
+            ] or not await xo.wait_for(worker.can_rollback_dead_worker_handoff(key), 5):
+                raise RuntimeError(
+                    "Replacement Worker could not verify handoff rollback"
+                )
+
+            # The journal retains model IDs even if a previous attempt removed
+            # their routes before being interrupted during status reconciliation.
+            await self._clear_dead_worker_registration(
+                source, reconcile_models=state.get("models", ())
+            )
+            registry.discard(source)
+        self._schedule_autostart()
+
+    async def begin_worker_handoff(self, source, ticket):
+        registry = self._ownership_registry()
+        async with registry.lock(source):
+            state = registry.pending.get(source)
+            if not state or state["key"][1] != ticket:
+                raise RuntimeError("No matching worker reservation")
+            if not registry.protected(source):
+                raise RuntimeError("Worker handoff reservation expired")
+            if not state["committed"] and not state.get("transferring"):
+                registry.set_pending(source, dict(state, transferring=True))
 
     async def confirm_worker_handoff(self, source, ticket):
         registry = self._ownership_registry()

@@ -1013,6 +1013,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         standby: bool = False,
         relaunch_operation_id: Optional[str] = None,
         logging_conf: Optional[dict] = None,
+        colocated_metrics: bool = False,
     ):
         super().__init__()
         self._lifecycle = WorkerLifecycle(active=not standby)
@@ -1025,6 +1026,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
         self._supervisor_endpoint = supervisor_endpoint
+        self._colocated_metrics = colocated_metrics
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._supervisor_ref_lock = threading.Lock()
         self._supervisor_ref_generation = 0
@@ -2078,6 +2080,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     return host
             except (OSError, ValueError):
                 continue
+        if self._colocated_metrics:
+            return "::1" if family == socket.AF_INET6 else "127.0.0.1"
         logger.warning("No advertised host available for Worker metrics")
         return None
 

@@ -17,7 +17,7 @@ from ..worker_relaunch import WorkerRelaunchManager, validate_relaunch_options
 def manager_at(tmp_path, monkeypatch):
     worker = SimpleNamespace(
         worker_incarnation=AsyncMock(return_value="source-generation"),
-        worker_handoff_protocol=AsyncMock(return_value=1),
+        worker_handoff_protocol=AsyncMock(return_value=2),
         worker_package_upgrade_protocol=AsyncMock(return_value=1),
         get_node_metadata=AsyncMock(return_value={"software_version": "4.1.0"}),
     )
@@ -233,8 +233,13 @@ async def test_initial_status_report_failure_does_not_abort_replacement(monkeypa
     )
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=supervisor))
     await deployment._start_worker(
-        "new", "supervisor", replace_worker="old", relaunch_operation_id="one"
+        "new",
+        "supervisor",
+        replace_worker="old",
+        relaunch_operation_id="one",
+        colocated_metrics=True,
     )
+    assert deployment.start_worker_components.await_args.kwargs["colocated_metrics"]
     worker.replace_worker.assert_awaited_once_with("old")
     pool.stop.assert_not_awaited()
 

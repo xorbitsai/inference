@@ -20,11 +20,13 @@ import copy
 import json
 import math
 import os
+import socket
 import sys
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
+import psutil
 import xoscar as xo
 
 from ..constants import is_metrics_disabled
@@ -47,7 +49,7 @@ STATE_FIELDS = (
     "_virtual_env_usages",
     "_model_uid_to_virtual_env_path",
 )
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 
 class CustomModelState:
@@ -211,6 +213,7 @@ class WorkerSnapshot:
     metrics_port: Optional[int] = None
     custom_models: Dict[str, Dict[str, str]] = field(default_factory=dict)
     recovery_address: Optional[str] = None
+    source_process: Optional[Tuple[str, float, int, float]] = None
 
     @property
     def transfer_key(self):
@@ -268,6 +271,26 @@ def pool_transfer_received(pool, snapshot):
     )
 
 
+def source_process_exited(snapshot):
+    identity = getattr(snapshot, "source_process", None)
+    if identity is None:
+        return False
+    host, boot_time, pid, create_time = identity
+    if (host, boot_time) != (socket.gethostname(), psutil.boot_time()):
+        return False
+    try:
+        process = psutil.Process(pid)
+        return (
+            process.create_time() != create_time
+            or not process.is_running()
+            or process.status() == psutil.STATUS_ZOMBIE
+        )
+    except psutil.NoSuchProcess:
+        return True
+    except psutil.Error:
+        return False
+
+
 class WorkerHandoffMixin:
     def worker_process_host(self):
         return os.environ.get("XINFERENCE_WORKER_HOST_SOCKET")
@@ -285,6 +308,7 @@ class WorkerHandoffMixin:
         self._handoff_lock = asyncio.Lock()
         self._outgoing_handoff = None
         self._handoff_acknowledged = False
+        self._handoff_begin_attempted = False
         self._incoming_handoff = None
         self._relaunch_launcher = None
         self._handoff_expiry = None
@@ -437,7 +461,7 @@ class WorkerHandoffMixin:
                 for ref in self._model_uid_to_model.values():
                     binding = await xo.wait_for(ref.get_worker_binding(), timeout)
                     if (
-                        binding.get("protocol") != PROTOCOL_VERSION
+                        binding.get("protocol") != 1
                         or binding.get("address") != self.address
                     ):
                         raise ValueError(
@@ -484,6 +508,12 @@ class WorkerHandoffMixin:
                     ),
                     custom_models=CustomModelState.capture(self),
                     recovery_address=self._recovery_address or self.address,
+                    source_process=(
+                        socket.gethostname(),
+                        psutil.boot_time(),
+                        os.getpid(),
+                        psutil.Process().create_time(),
+                    ),
                 )
                 self._outgoing_handoff = snapshot
                 self._handoff_expiry = asyncio.create_task(
@@ -533,14 +563,23 @@ class WorkerHandoffMixin:
                 raise HandoffPending(
                     "Pool transfer needs to finish before application ownership changes"
                 )
-            # The native pool is still idle and this lock prevents commit.
-            # Local admission can resume even if the Supervisor is offline;
-            # its expired reservation is discarded by the next prepare.
+
+            async def release_reservation():
+                supervisor = await self._handoff_supervisor()
+                await xo.wait_for(
+                    supervisor.abort_worker_handoff(state.source, ticket), 5
+                )
+
+            if self._handoff_begin_attempted:
+                # A lost begin reply can leave a durable reservation.
+                await release_reservation()
+            begin_attempted = self._handoff_begin_attempted
+            self._handoff_begin_attempted = False
             self._outgoing_handoff = None
             self._cancel_handoff_expiry()
             self._lifecycle.phase = WorkerPhase.ACTIVE
-            supervisor = await self._handoff_supervisor()
-            await xo.wait_for(supervisor.abort_worker_handoff(state.source, ticket), 5)
+            if not begin_attempted:
+                await release_reservation()
 
     async def commit_worker_handoff(self, ticket, timeout):
         return await finish_before_cancelling(
@@ -553,6 +592,12 @@ class WorkerHandoffMixin:
             if state is None or state.ticket != ticket:
                 raise RuntimeError("No matching worker handoff")
             try:
+                if self.worker_handoff_status(ticket) == "idle":
+                    supervisor = await self._handoff_supervisor()
+                    self._handoff_begin_attempted = True
+                    await xo.wait_for(
+                        supervisor.begin_worker_handoff(state.source, ticket), timeout
+                    )
                 if (
                     self._main_pool.sub_processes
                     or pool_transfer_status(self._main_pool) != "idle"
@@ -602,6 +647,20 @@ class WorkerHandoffMixin:
                 incoming["committed"]
                 or pool_transfer_received(self._main_pool, incoming["snapshot"])
             )
+        )
+
+    def can_rollback_dead_worker_handoff(self, transfer_key):
+        incoming = self._incoming_handoff
+        if incoming is None or incoming["committed"]:
+            return False
+        snapshot = incoming["snapshot"]
+        return (
+            snapshot is not None
+            and snapshot.transfer_key == tuple(transfer_key)
+            and self._incarnation == snapshot.target_incarnation
+            and pool_transfer_status(self._main_pool) == "idle"
+            and not pool_transfer_received(self._main_pool, snapshot)
+            and source_process_exited(snapshot)
         )
 
     def worker_replacement_safe_to_stop(self):
@@ -702,6 +761,22 @@ class WorkerHandoffCoordinator:
         snapshot = incoming["snapshot"]
         if snapshot is not None and pool_transfer_received(target._main_pool, snapshot):
             incoming["committed"] = True
+        if (
+            snapshot is not None
+            and not incoming["committed"]
+            and pool_transfer_status(target._main_pool) == "idle"
+            and source_process_exited(snapshot)
+        ):
+            supervisor = await target._handoff_supervisor()
+            await xo.wait_for(
+                supervisor.rollback_dead_worker_handoff(snapshot.transfer_key), timeout
+            )
+            target._incoming_handoff = None
+            for name in STATE_FIELDS:
+                getattr(target, name).clear()
+            raise RuntimeError(
+                "Source Worker exited before ownership transfer completed"
+            )
         old = None
         if not incoming["committed"]:
             try:

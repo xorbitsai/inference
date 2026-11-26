@@ -35,6 +35,7 @@ from typing import (
     Coroutine,
     DefaultDict,
     Dict,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -880,7 +881,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         return affected_replica_uids
 
     async def _mark_affected_replicas_terminated(
-        self, affected_replica_uids: List[str]
+        self, affected_replica_uids: List[str], *, strict: bool = False
     ) -> Set[str]:
         base_uids_affected: Set[str] = set()
         for replica_model_uid in affected_replica_uids:
@@ -897,11 +898,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         {"status": LaunchStatus.TERMINATED.name},
                     )
                 except Exception:
-                    pass
+                    if strict:
+                        raise
         return base_uids_affected
 
     async def _reconcile_affected_model_statuses(
-        self, base_uids_affected: Set[str]
+        self, base_uids_affected: Set[str], *, strict: bool = False
     ) -> None:
         if self._status_guard_ref is None:
             return
@@ -915,11 +917,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             try:
                 await self._status_guard_ref.update_instance_info(base_uid, updates)
             except Exception:
+                if strict:
+                    raise
                 logger.warning(
                     "Failed to reconcile %s in status guard", base_uid, exc_info=True
                 )
 
-    async def _handle_dead_worker(self, worker_address: str) -> List[str]:
+    async def _handle_dead_worker(
+        self,
+        worker_address: str,
+        *,
+        reconcile_models: Optional[Iterable[str]] = None,
+    ) -> List[str]:
         """Shared cleanup for a worker that has gone away — heartbeat-dead,
         reverse-channel-dead, or graceful remove_worker.
 
@@ -938,9 +947,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         affected_replica_uids = await self._record_unexpected_down_replicas(
             worker_address
         )
-        base_uids_affected = await self._mark_affected_replicas_terminated(
-            affected_replica_uids
-        )
+        if reconcile_models is None:
+            base_uids_affected = await self._mark_affected_replicas_terminated(
+                affected_replica_uids
+            )
+        else:
+            base_uids_affected = await self._mark_affected_replicas_terminated(
+                affected_replica_uids, strict=True
+            )
 
         for replica_uid in affected_replica_uids:
             base_uid, _ = parse_replica_model_uid(replica_uid)
@@ -953,7 +967,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 and base_uid not in self._model_uid_to_replica_info
             ):
                 await self._cleanup_distributed_actors(base_uid)
-        await self._reconcile_affected_model_statuses(base_uids_affected)
+        if reconcile_models is None:
+            await self._reconcile_affected_model_statuses(base_uids_affected)
+        else:
+            await self._reconcile_affected_model_statuses(
+                base_uids_affected.union(reconcile_models), strict=True
+            )
         return affected_replica_uids
 
     def _clear_unexpected_down_replicas(self, model_uid: str) -> None:

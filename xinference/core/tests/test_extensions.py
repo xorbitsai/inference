@@ -676,17 +676,19 @@ async def test_conflicting_rename_removes_stale_worker_registration(monkeypatch)
 
 
 @pytest.mark.parametrize(
-    "address, bind_host, expected_host",
+    "address, bind_host, expected_host, colocated",
     [
-        ("192.0.2.1:12001", "0.0.0.0", "192.0.2.1"),
-        ("0.0.0.0:12001", "0.0.0.0", "192.0.2.3"),
-        ("[2001:db8::1]:12001", "0.0.0.0", "192.0.2.3"),
-        ("[2001:db8::1]:12001", "::", "2001:db8::1"),
-        ("192.0.2.1:12001", "192.0.2.2", "192.0.2.2"),
+        ("192.0.2.1:12001", "0.0.0.0", "192.0.2.1", False),
+        ("0.0.0.0:12001", "0.0.0.0", "192.0.2.3", False),
+        ("[2001:db8::1]:12001", "0.0.0.0", "192.0.2.3", False),
+        ("[2001:db8::1]:12001", "::", "2001:db8::1", False),
+        ("192.0.2.1:12001", "192.0.2.2", "192.0.2.2", False),
+        ("0.0.0.0:12001", "0.0.0.0", "127.0.0.1", True),
+        ("[::]:12001", "::", "::1", True),
     ],
 )
 def test_worker_advertises_metrics_endpoint(
-    monkeypatch, address, bind_host, expected_host
+    monkeypatch, address, bind_host, expected_host, colocated
 ):
     from threading import Event
 
@@ -700,7 +702,8 @@ def test_worker_advertises_metrics_endpoint(
         _total_gpu_devices=[],
     )
     worker._supervisor_address = "0.0.0.0:9997"
-    worker._supervisor_endpoint = "http://192.0.2.10:9997"
+    worker._supervisor_endpoint = None if colocated else "http://192.0.2.10:9997"
+    worker._colocated_metrics = colocated
     route = Mock()
     route.__enter__ = Mock()
     route.__exit__ = Mock()
@@ -738,7 +741,11 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
 
     from xinference.core.supervisor import SupervisorActor
 
-    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+    from .test_worker import (
+        DummyReplicaWorkerRef,
+        DummyStatusGuardRef,
+        _reconnect_replica_state,
+    )
 
     install(monkeypatch)
     supervisor = SupervisorActor()
@@ -749,27 +756,31 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         ("other", "worker-b"),
         ("target", "worker-b"),
     ):
-        ref = DummyReplicaWorkerRef(address)
+        models = (
+            {"model-rep0": {"model_uid": "model-rep0"}} if address == "source" else {}
+        )
+        ref = DummyReplicaWorkerRef(address, models=models)
         ref.get_extension_resources = AsyncMock(
             return_value={"extensions": {"test": {}}, "worker_id": name}
         )
         ref.worker_handoff_ready = AsyncMock(return_value=True)
+        ref.worker_incarnation = AsyncMock(return_value="old")
         workers[address] = ref
 
     async def lookup(address, uid):
         return workers[address]
 
     monkeypatch.setattr(xo, "actor_ref", lookup)
-    await supervisor.add_worker("source")
+    replicas = [_reconnect_replica_state("model-rep0")]
+    await supervisor.add_worker("source", incarnation="old", replica_states=replicas)
     await supervisor.add_worker("other")
-    supervisor._replica_model_uid_to_worker["model-rep0"] = workers["source"]
     snapshot = SimpleNamespace(
         source="source",
         target="target",
         ticket="ticket",
         source_incarnation="old",
         target_incarnation="new",
-        transfer_key=("source", "ticket", "old", "target"),
+        transfer_key=(2, "ticket", "source", "target", "supervisor", "old", "new", 1),
         state={"_model_uid_to_model": {"model-rep0": None}},
     )
 
@@ -796,7 +807,16 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
             ticket="replacement",
             source_incarnation="old",
             target_incarnation="new",
-            transfer_key=("other", "replacement", "old", "target"),
+            transfer_key=(
+                2,
+                "replacement",
+                "other",
+                "target",
+                "supervisor",
+                "old",
+                "new",
+                1,
+            ),
             state={"_model_uid_to_model": {}},
         )
         await supervisor.prepare_worker_handoff(replacement, 10)
@@ -810,6 +830,12 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         await supervisor.commit_worker_handoff(replacement)
         assert supervisor._worker_address_to_worker["target"] is workers["target"]
     else:
+        with pytest.raises(RuntimeError, match="source incarnation changed"):
+            await supervisor.add_worker("source", incarnation="different")
+        await supervisor.add_worker(
+            "source", incarnation="old", replica_states=replicas
+        )
+        assert supervisor._worker_address_to_worker["source"] is workers["source"]
         await supervisor.commit_worker_handoff(snapshot)
         assert (
             supervisor._replica_model_uid_to_worker["model-rep0"] is workers["target"]
