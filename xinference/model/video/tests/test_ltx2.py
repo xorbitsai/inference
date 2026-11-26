@@ -94,7 +94,10 @@ def test_specs_only_reference_official_bf16_sources() -> None:
         "LTX-2.5",
         "LTX-2.5-Dev",
     }
-    assert {spec["model_variant"] for spec in specs} == {"distilled", "dev"}
+    assert {
+        spec["model_name"]: spec["default_model_config"]["model_variant"]
+        for spec in specs
+    } == {"LTX-2.5": "distilled", "LTX-2.5-Dev": "dev"}
 
     for spec in specs:
         assert set(spec["model_src"]) == {"huggingface", "modelscope"}
@@ -107,7 +110,7 @@ def test_specs_only_reference_official_bf16_sources() -> None:
             "model_revision": OFFICIAL_MODELSCOPE_REVISION,
         }
         packages = spec["virtualenv"]["packages"]
-        assert f"diffusers=={DIFFUSERS_VERSION}" in packages
+        assert f'diffusers=={DIFFUSERS_VERSION} ; #engine# == "diffusers"' in packages
         assert not any("git+" in package for package in packages)
         serialized = json.dumps(spec).lower()
         assert "gguf" not in serialized
@@ -123,7 +126,7 @@ def test_specs_only_reference_official_bf16_sources() -> None:
             in spec["cache_config"]["ignore_patterns"]
         )
 
-    distilled = next(spec for spec in specs if spec["model_variant"] == "distilled")
+    distilled = next(spec for spec in specs if spec["model_name"] == "LTX-2.5")
     assert (
         "transformer/diffusion_pytorch_model-*-of-00008.safetensors"
         in distilled["cache_config"]["ignore_patterns"]
@@ -200,8 +203,7 @@ def test_factory_rejects_unofficial_ltx_spec_before_download(
 def test_factory_keeps_non_ltx_dispatch_compatible(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from .. import core
-    from .. import engine_family
+    from .. import core, engine_family
     from ..engine import DiffusersVideoEngineModel
 
     spec = _model_spec().copy(
@@ -479,7 +481,9 @@ def test_muxes_each_audio_track_and_cleans_base64_files(
     result = model._output_to_audio_video(output, 24.0, "b64_json")
 
     assert len(result["data"]) == 2
-    assert base64.b64decode(result["data"][0]["b64_json"]) == b"muxed-frames-1"
+    encoded_video = result["data"][0]["b64_json"]
+    assert encoded_video is not None
+    assert base64.b64decode(encoded_video) == b"muxed-frames-1"
     assert [call["audio_sample_rate"] for call in encoded_calls] == [48000, 48000]
     assert [call["fps"] for call in encoded_calls] == [24, 24]
     assert list(tmp_path.iterdir()) == []

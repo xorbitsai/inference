@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
     """Official LTX-2.5 audio-video model backed by Hugging Face Diffusers."""
 
+    _model: Any
     replica_autoscaling = "serialized"
     engine_model_format = "diffusers"
     engine_quantization = "none"
@@ -82,7 +83,7 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         **kwargs: Any,
     ) -> None:
         super().__init__(model_uid, model_path, model_spec, **kwargs)
-        self._variant = getattr(model_spec, "model_variant", self._DISTILLED)
+        self._variant = self._variant_from_spec(model_spec)
         self._device = "cpu"
         self._torch_dtype: Any = None
         self._latent_upsample_pipeline: Any = None
@@ -119,12 +120,19 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
                 "LTX-2.5 must use the tested official model revision "
                 f"{official_model_revision}"
             )
-        variant = getattr(model_spec, "model_variant", cls._DISTILLED)
-        if variant not in cls._SUPPORTED_VARIANTS:
+        cls._variant_from_spec(model_spec)
+
+    @classmethod
+    def _variant_from_spec(cls, model_spec: "VideoModelFamilyV2") -> str:
+        variant = (model_spec.default_model_config or {}).get(
+            "model_variant", cls._DISTILLED
+        )
+        if not isinstance(variant, str) or variant not in cls._SUPPORTED_VARIANTS:
             raise ValueError(
                 f"Unsupported LTX-2.5 variant {variant!r}; expected one of "
                 f"{sorted(cls._SUPPORTED_VARIANTS)}"
             )
+        return variant
 
     def _validate_official_model(self) -> None:
         self.validate_model_spec(self._model_spec)
