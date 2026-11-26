@@ -2016,7 +2016,6 @@ class VLLMModel(WeightCachedModel, LLM):
             model_config.get("hf_overrides"), "hf_overrides"
         )
         overrides, scaling = copy.deepcopy((overrides, scaling))
-        model_config["hf_overrides"] = overrides
         saved = {}
         if self.model_spec.model_format != "ggufv2" and model_config.get(
             "config_format"
@@ -2027,30 +2026,50 @@ class VLLMModel(WeightCachedModel, LLM):
         nested = isinstance(text, dict)
         if nested and (VLLM_VERSION is None or VLLM_VERSION < version.parse("0.11.1")):
             overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
             return
         target = overrides.get("text_config", {}) if nested else overrides
         if not isinstance(saved, dict) or not saved or not isinstance(target, dict):
             overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
             return
         base = ("rope_theta", "partial_rotary_factor")
         aliases = ("rope_scaling", "rope_parameters")
-        sources: List[Optional[Dict[str, Any]]] = []
-        for owner in (text if isinstance(text, dict) else saved, target):
-            sources.append({key: owner.get(key) for key in base})
-            sources.extend(owner.get(key) for key in aliases)
+        checkpoint = text if isinstance(text, dict) else saved
+        native_type = "default"
         parameters: Dict[str, Any] = {}
         type_key = "rope_type"
-        for source in (*sources, scaling):
-            if not isinstance(source, dict):
-                continue
-            if any(isinstance(value, dict) for value in source.values()):
-                overrides["rope_scaling"] = scaling
-                return
-            fields = {k: v for k, v in source.items() if v is not None or k not in base}
-            if "rope_type" in fields or "type" in fields:
-                type_key = "rope_type" if "rope_type" in fields else "type"
-                fields.setdefault("rope_type", fields.pop("type", None))
-            parameters.update(fields)
+        for owner, explicit in ((checkpoint, None), (target, scaling)):
+            for source in (
+                {key: owner.get(key) for key in base},
+                *(owner.get(key) for key in aliases),
+                explicit,
+            ):
+                if not isinstance(source, dict):
+                    continue
+                if any(isinstance(value, dict) for value in source.values()):
+                    overrides["rope_scaling"] = scaling
+                    model_config["hf_overrides"] = overrides
+                    return
+                fields = {
+                    k: v for k, v in source.items() if v is not None or k not in base
+                }
+                if "rope_type" in fields or "type" in fields:
+                    type_key = "rope_type" if "rope_type" in fields else "type"
+                    fields.setdefault("rope_type", fields.pop("type", None))
+                parameters.update(fields)
+            if explicit is None and "mrope_section" in parameters:
+                native_type = parameters.get("rope_type", "default")
+        rope_type = parameters.get("rope_type", "default")
+        if "mrope_section" in parameters and rope_type not in (
+            "default",
+            "mrope",
+            "yarn",
+            native_type,
+        ):
+            detail = f"{rope_type!r} is unsupported for multimodal RoPE (mrope_section)"
+            raise ValueError(detail)
+        model_config["hf_overrides"] = overrides
         for key in (*base, *aliases):
             target.pop(key, None)
         if target is not overrides:
@@ -2066,6 +2085,8 @@ class VLLMModel(WeightCachedModel, LLM):
             loader = importlib.import_module("vllm.transformers_utils.config")
             if not hasattr(loader, "patch_rope_parameters"):
                 return
+        if rope_type == "mrope" and "mrope_section" in parameters:
+            parameters["rope_type"] = "default"
         target["rope_parameters"] = parameters
 
     def _sanitize_model_config(

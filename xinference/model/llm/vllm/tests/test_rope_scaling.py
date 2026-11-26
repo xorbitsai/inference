@@ -36,6 +36,17 @@ QWEN3_CONFIG = {
     "rope_theta": CHECKPOINT_THETA,
     "rope_scaling": None,
 }
+AXES = {"mrope_section": [4, 2, 2], "mrope_interleaved": True}
+QWEN3_VL_CONFIG = {
+    "architectures": ["Qwen3VLForConditionalGeneration"],
+    "model_type": "qwen3_vl",
+    "vision_config": {},
+    "text_config": {
+        **QWEN3_CONFIG,
+        "model_type": "qwen3_vl_text",
+        "rope_parameters": dict(AXES, rope_type="default", rope_theta=CHECKPOINT_THETA),
+    },
+}
 SCALING = {
     "rope_type": "yarn",
     "factor": 4.0,
@@ -96,18 +107,11 @@ def versions(monkeypatch):
 @pytest.mark.parametrize(
     ("transformers", "patch_rope", "as_json"),
     [
-        ("5.22.2", False, False),
-        ("5.22.2", False, True),
-        ("4.57.6", True, False),
-        ("4.57.6", True, True),
-        ("4.57.6", False, False),
-    ],
-    ids=[
-        "native-dict",
-        "native-json-no-theta",
-        "normalized-dict-precedence",
-        "normalized-json",
-        "legacy-only",
+        pytest.param("5.22.2", False, False, id="native-dict"),
+        pytest.param("5.22.2", False, True, id="native-json-no-theta"),
+        pytest.param("4.57.6", True, False, id="normalized-dict-precedence"),
+        pytest.param("4.57.6", True, True, id="normalized-json"),
+        pytest.param("4.57.6", False, False, id="legacy-only"),
     ],
 )
 def test_rope_scaling_merges_checkpoint_caller_and_explicit_fields(
@@ -219,6 +223,28 @@ def test_rope_scaling_resolves_separate_checkpoint_text_config(
     }
 
 
+@pytest.mark.parametrize("key", ["rope_type", "type"])
+def test_rope_scaling_rejects_linear_for_mrope(tmp_path, versions, key):
+    versions()
+    model = _model(_write_checkpoint(tmp_path, QWEN3_VL_CONFIG), multimodal=True)
+    overrides = {"text_config": dict(UNRELATED_OVERRIDE)}
+    launch = {"hf_overrides": overrides, "rope_scaling": {key: "linear", "factor": 2.0}}
+    with pytest.raises(ValueError, match="linear.*multimodal RoPE.*mrope_section"):
+        model._sanitize_model_config(launch)
+    assert launch["hf_overrides"] is overrides
+    assert overrides == {"text_config": UNRELATED_OVERRIDE}
+
+
+@pytest.mark.parametrize("saved", ["openpangu", "mrope"])
+def test_rope_scaling_preserves_native_mrope(tmp_path, versions, saved):
+    versions()
+    params = dict(AXES, rope_type=saved)
+    model = _model(_write_checkpoint(tmp_path, {"rope_parameters": params}))
+    launch = model._sanitize_model_config({"rope_scaling": {"factor": 2.0}})
+    params.update(rope_type="default" if saved == "mrope" else saved, factor=2.0)
+    assert launch["hf_overrides"]["rope_parameters"] == params
+
+
 def test_rope_scaling_preserves_mllama_text_config_on_legacy_vllm(tmp_path, versions):
     from transformers import MllamaConfig, PretrainedConfig
 
@@ -261,27 +287,33 @@ def test_empty_rope_scaling_keeps_hf_overrides(tmp_path, versions):
     assert result["hf_overrides"] == overrides
 
 
-def test_rope_scaling_builds_yarn_with_checkpoint_base(tmp_path, monkeypatch):
+@pytest.mark.parametrize("mrope", [False, True], ids=["text", "mrope"])
+def test_rope_scaling_builds_yarn_with_checkpoint_base(tmp_path, monkeypatch, mrope):
     vllm = pytest.importorskip("vllm")
+    from vllm.transformers_utils import config as config_utils
+
+    if not hasattr(config_utils, "set_default_rope_theta"):
+        pytest.skip("vLLM lacks the rope_parameters API")
     from vllm.config import DeviceConfig, VllmConfig, set_current_vllm_config
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.model_executor.layers.rotary_embedding import get_rope
+    from vllm.model_executor.layers.rotary_embedding.mrope import MRotaryEmbedding
     from vllm.model_executor.layers.rotary_embedding.yarn_scaling_rope import (
         YaRNScalingRotaryEmbedding,
     )
-    from vllm.transformers_utils.config import set_default_rope_theta
 
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse(vllm.__version__))
-    model = _model(_write_checkpoint(tmp_path, QWEN3_CONFIG))
+    checkpoint = QWEN3_VL_CONFIG if mrope else QWEN3_CONFIG
+    model = _model(_write_checkpoint(tmp_path, checkpoint), multimodal=mrope)
     scaling = dict(SCALING, original_max_position_embeddings=128)
     overrides = model._sanitize_model_config({"rope_scaling": scaling})["hf_overrides"]
     model_config = AsyncEngineArgs(
         model=model.model_path, hf_overrides=overrides
     ).create_model_config()
-    config = model_config.hf_config
-    set_default_rope_theta(config, default_theta=1000000)  # Qwen3DecoderLayer
+    config = model_config.hf_text_config
+    config_utils.set_default_rope_theta(config, default_theta=1000000)
     with set_current_vllm_config(
         VllmConfig(model_config=model_config, device_config=DeviceConfig(device="cpu"))
     ):
@@ -291,5 +323,7 @@ def test_rope_scaling_builds_yarn_with_checkpoint_base(tmp_path, monkeypatch):
             rope_parameters=config.rope_parameters,
         )
 
-    assert isinstance(rotary, YaRNScalingRotaryEmbedding)
+    assert isinstance(rotary, MRotaryEmbedding if mrope else YaRNScalingRotaryEmbedding)
     assert rotary.base == CHECKPOINT_THETA
+    if mrope:
+        assert config.rope_parameters["rope_type"] == "yarn"
