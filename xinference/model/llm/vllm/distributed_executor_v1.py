@@ -48,22 +48,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _SHUTDOWN_TIMEOUT_SECONDS = 10.0
+_XOSCAR_PLACEMENT_KEY = "xinference_xoscar_executor_placement"
 
 
 class _XoscarExecutorConfig(dict[str, Any]):
-    def __init__(
-        self,
-        additional_config: Dict[str, Any],
-        pool_addresses: List[str],
-        n_worker: int,
-    ) -> None:
-        super().__init__(additional_config)
-        self.pool_addresses = tuple(pool_addresses)
-        self.n_worker = n_worker
-
     def compile_factors(self) -> Dict[str, Any]:
         # Actor addresses change on restart without changing the compiled graph.
-        return dict(self)
+        return {
+            key: value for key, value in self.items() if key != _XOSCAR_PLACEMENT_KEY
+        }
 
 
 class _ExecutorIsolation(Isolation):
@@ -128,7 +121,10 @@ class XinferenceDistributedExecutorV1(Executor):
         # and carry the per-replica placement in its serialized config.
         engine_args.distributed_executor_backend = cls
         engine_args.additional_config = _XoscarExecutorConfig(
-            engine_args.additional_config, pool_addresses, n_worker
+            {
+                **engine_args.additional_config,
+                _XOSCAR_PLACEMENT_KEY: (tuple(pool_addresses), n_worker),
+            }
         )
 
     def __init__(
@@ -140,11 +136,15 @@ class XinferenceDistributedExecutorV1(Executor):
         **kwargs,
     ):
         if pool_addresses is None or n_worker is None:
-            config = vllm_config.additional_config
-            if not isinstance(config, _XoscarExecutorConfig):
+            # vLLM can pass an ordinary dict to EngineCore. Consume the runtime
+            # placement before sharing the config with GPU workers.
+            placement: Optional[Tuple[Tuple[str, ...], int]] = (
+                vllm_config.additional_config.pop(_XOSCAR_PLACEMENT_KEY, None)
+            )
+            if placement is None:
                 raise ValueError("Missing Xoscar executor placement in vLLM config")
-            pool_addresses = list(config.pool_addresses)
-            n_worker = config.n_worker
+            pool_addresses = list(placement[0])
+            n_worker = placement[1]
 
         # XinferenceDistributedExecutorV1
         self._isolation = _ExecutorIsolation(asyncio.new_event_loop())

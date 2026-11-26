@@ -43,7 +43,10 @@ def executor_module(monkeypatch):
     return module
 
 
-def test_vllm_executor_class_and_placement_survive_spawn(executor_module, monkeypatch):
+@pytest.mark.parametrize("plain_dict", [False, True])
+def test_vllm_executor_class_and_placement_survive_spawn(
+    executor_module, monkeypatch, plain_dict
+):
     executor_cls = executor_module.XinferenceDistributedExecutorV1
     caller_config = {"gdn_prefill_backend": "triton"}
     engine_args = SimpleNamespace(
@@ -56,13 +59,16 @@ def test_vllm_executor_class_and_placement_survive_spawn(executor_module, monkey
     )
     assert caller_config == {"gdn_prefill_backend": "triton"}
     assert engine_args.additional_config.compile_factors() == caller_config
+    config_payload = engine_args.additional_config
+    if plain_dict:
+        config_payload = dict(config_payload)
 
     cls, config = pickle.loads(
         pickle.dumps(
             (
                 engine_args.distributed_executor_backend,
                 SimpleNamespace(
-                    additional_config=engine_args.additional_config,
+                    additional_config=config_payload,
                     parallel_config=None,
                     scheduler_config=None,
                 ),
@@ -75,6 +81,7 @@ def test_vllm_executor_class_and_placement_survive_spawn(executor_module, monkey
     try:
         assert instance._pool_addresses == ["node-a:1000", "node-b:1000"]
         assert instance._n_worker == 2
+        assert config.additional_config == caller_config
     finally:
         instance.shutdown()
 
