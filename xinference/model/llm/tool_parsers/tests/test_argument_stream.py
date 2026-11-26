@@ -521,11 +521,18 @@ def test_closed_rejected_frame_does_not_absorb_following_calls(parser_name):
         end = "\n" + chr(96) * 3
         rejected = feed(model, end, history, state)
         assert rejected["choices"][0]["delta"]["content"] == prefix + end
+        assert not deltas(rejected)
     else:
-        rejected = feed(
-            model, "<｜tool▁call▁end｜><｜tool▁calls▁end｜>", history, state
-        )
-    assert not deltas(rejected)
+        # The string is still open, so the call end tokens may belong to its
+        # value and cannot close the call yet. They are kept as part of that
+        # value (nothing leaks as content) and the call is rejected once the
+        # next call starts.
+        ambiguous = "<｜tool▁call▁end｜><｜tool▁calls▁end｜>"
+        held = feed(model, ambiguous, history, state)
+        assert not held["choices"][0]["delta"]["content"]
+        (held_call,) = deltas(held)
+        assert held_call["index"] == 0
+        assert held_call["function"]["arguments"] == ambiguous
 
     (later,) = deltas(feed(model, opening + value, history, state))
     assert later["index"] == 1
@@ -697,3 +704,52 @@ def test_rejected_fence_does_not_match_identical_valid_sibling():
         feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
         == "length"
     )
+
+
+@pytest.mark.parametrize("size", (1, 17, 1000))
+def test_v31_call_end_token_inside_a_string_argument_keeps_one_call(size):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3.1"]()
+    history, state = [""], {}
+    code = 'print("<｜tool▁call▁end｜><｜tool▁calls▁end｜>")'
+    arguments = json.dumps({"code": code, "line": 7}, ensure_ascii=False)
+    text = (
+        "<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>write<｜tool▁sep｜>"
+        + arguments
+        + "<｜tool▁call▁end｜><｜tool▁calls▁end｜>"
+    )
+    calls = []
+    for offset in range(0, len(text), size):
+        calls += deltas(feed(model, text[offset : offset + size], history, state))
+    assert {call["index"] for call in calls} == {0}
+    streamed = "".join(call["function"].get("arguments", "") for call in calls)
+    assert json.loads(streamed) == {"code": code, "line": 7}
+    last = feed(model, "", history, state, "stop")
+    assert last["choices"][0]["finish_reason"] == "tool_calls"
+
+
+@pytest.mark.parametrize("size", (1, 17))
+def test_v31_unclosed_string_before_call_end_tokens_is_not_lost_at_stop(size):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3.1"]()
+    history, state = [""], {}
+    opening = CALLS["deepseek-v3.1"][0]
+    ambiguous = "<｜tool▁call▁end｜><｜tool▁calls▁end｜>"
+    text = opening + '"partial' + ambiguous
+    calls, content = [], ""
+    for offset in range(0, len(text), size):
+        chunk = feed(model, text[offset : offset + size], history, state)
+        calls += deltas(chunk)
+        if chunk:
+            content += chunk["choices"][0]["delta"].get("content") or ""
+    last = feed(model, "", history, state, "stop")
+    calls += deltas(last)
+    content += last["choices"][0]["delta"].get("content") or ""
+    # No next call arrives: the open string is never closed, so the call is
+    # reported as truncated and everything the model produced is still
+    # streamed (as argument text), none of it is dropped or turned into content.
+    assert last["choices"][0]["finish_reason"] == "length"
+    assert {call["index"] for call in calls} == {0}
+    streamed = "".join(call["function"].get("arguments", "") for call in calls)
+    assert streamed == '{"code":"partial' + ambiguous
+    assert not content

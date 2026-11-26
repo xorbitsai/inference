@@ -8,8 +8,11 @@ from .abstract_tool_parser import find_outside_json_string
 _DSML = "<｜DSML｜"
 
 
-def _tags(dsml: bool) -> Tuple[re.Pattern, re.Pattern, str, str]:
-    """Return the invoke open, parameter open, parameter close and invoke close."""
+def _tags(dsml: bool) -> Tuple[re.Pattern, re.Pattern, str, str, str]:
+    """
+    Return the invoke open, parameter open, parameter close and invoke close
+    patterns and the text that starts an invoke.
+    """
     prefix = _DSML if dsml else "<"
     close = "</" + prefix[1:]
     return (
@@ -19,6 +22,7 @@ def _tags(dsml: bool) -> Tuple[re.Pattern, re.Pattern, str, str]:
         ),
         f"{close}parameter>",
         f"{close}invoke>",
+        f"{prefix}invoke",
     )
 
 
@@ -35,7 +39,7 @@ def invoke_end(text: str, opening: int, dsml: bool) -> int:
     ``</invoke>`` inside a value does not end the invoke. Text that is not a parameter falls
     back to the first closing tag.
     """
-    open_tag, parameter_open, parameter_close, invoke_close = _TAGS[dsml]
+    open_tag, parameter_open, parameter_close, invoke_close, invoke_start = _TAGS[dsml]
     head = open_tag.match(text, opening)
     if head is None:
         close = text.find(invoke_close, opening + 1)
@@ -49,7 +53,8 @@ def invoke_end(text: str, opening: int, dsml: bool) -> int:
         value = parameter.end()
         if parameter[1] == "false":
             # A JSON value may hold the closing tag inside one of its strings
-            close = find_outside_json_string(text, parameter_close, value)
+            # (a string cut short before the next invoke does not hide it)
+            close = find_outside_json_string(text, parameter_close, value, invoke_start)
         else:
             close = text.find(parameter_close, value)
         if close == -1:
@@ -65,7 +70,7 @@ def iter_invokes(
     where ``body`` is what lies between the open and the closing tag and
     ``end`` is the index just past the closing tag.
     """
-    open_tag, _, _, invoke_close = _TAGS[dsml]
+    open_tag, _, _, invoke_close, _ = _TAGS[dsml]
     text = text if stop is None else text[:stop]
     position = start
     while (head := open_tag.search(text, position)) is not None:

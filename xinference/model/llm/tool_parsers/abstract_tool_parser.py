@@ -1,3 +1,4 @@
+import re
 from contextvars import ContextVar
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional
 
@@ -185,6 +186,11 @@ class ToolParser:
             position = call_close
 
 
+# The body of a JSON string up to and including its closing quote, read from
+# just after the opening quote.
+_JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
+
+
 def find_outside_json_string(
     text: str, marker: str, position: int, restart: Optional[str] = None
 ) -> int:
@@ -194,32 +200,30 @@ def find_outside_json_string(
     inside a string value is part of the value, so it is skipped, and a string
     that is still open hides the rest of the text.
 
-    A string that is still open when the next ``restart`` token (the start of
-    a following call) begins was cut short, so the first marker inside it
-    counts after all.
+    A string that holds a ``marker`` and is still open when the next
+    ``restart`` token (the start of a following call) begins was cut short, so
+    that first marker counts after all.
+
+    The text is read with ``str.find`` and one regular expression per string,
+    and a text without ``marker`` returns at once, so a value that is still
+    arriving costs little to check again on every delta.
     """
-    in_string = False
-    escaped = False
-    inside = -1
+    if text.find(marker, position) == -1:
+        return -1
     index = position
-    length = len(text)
-    while index < length:
-        char = text[index]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                in_string = False
-            elif inside == -1 and text.startswith(marker, index):
-                inside = index
-            elif inside != -1 and restart and text.startswith(restart, index):
+    while True:
+        quote = text.find('"', index)
+        found = text.find(marker, index)
+        if found != -1 and (quote == -1 or found < quote):
+            return found
+        if quote == -1:
+            return -1
+        body = _JSON_STRING_BODY.match(text, quote + 1)
+        end = body.end() if body is not None else len(text)
+        if restart:
+            inside = text.find(marker, quote + 1, end)
+            if inside != -1 and text.find(restart, inside + 1, end) != -1:
                 return inside
-        elif char == '"':
-            in_string = True
-            inside = -1
-        elif text.startswith(marker, index):
-            return index
-        index += 1
-    return -1
+        if body is None:
+            return -1
+        index = end

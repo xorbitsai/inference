@@ -167,9 +167,11 @@ class DeepseekV3_1ToolParser(ToolParser):
             close_frame=self._close_call,
         )
 
-    @staticmethod
-    def _close_call(text: str, start: int) -> int:
-        return text.find("<｜tool▁call▁end｜>", start)
+    @classmethod
+    def _close_call(cls, text: str, start: int) -> int:
+        # Same boundary as _call_end: a call end token inside a JSON string
+        # value does not close the call.
+        return find_outside_json_string(text, cls._CALL_END, start, cls._CALL_BEGIN)
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
