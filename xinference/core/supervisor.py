@@ -7048,6 +7048,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if state is not None:
             candidates = sorted(candidates, key=state.should_avoid)
         last_error = ModelNotReadyError(f"Model {model_uid} has no available replica")
+
+        def routable(replica_id: int) -> bool:
+            uid = build_replica_model_uid(model_uid, replica_id)
+            return uid in self._replica_model_uid_to_worker and (
+                state is None or replica_id not in state.draining
+            )
+
         for replica_id in candidates:
             # A replica can start draining while an earlier lookup is pending.
             if state is not None and replica_id in state.draining:
@@ -7057,7 +7064,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             except ModelNotReadyError as exc:
                 last_error = exc
                 continue
-            if state is None or replica_id not in state.draining:
+            except Exception:
+                # Drained or scaled down during its own lookup: try the next one.
+                if routable(replica_id):
+                    raise
+                continue
+            if routable(replica_id):
                 return model, False
         raise last_error
 
