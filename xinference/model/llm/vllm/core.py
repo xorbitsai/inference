@@ -2069,6 +2069,10 @@ class VLLMModel(WeightCachedModel, LLM):
         ):
             detail = f"{rope_type!r} is unsupported for multimodal RoPE (mrope_section)"
             raise ValueError(detail)
+        if rope_type == "mrope":
+            if "mrope_section" not in parameters:
+                raise ValueError("'mrope' requires multimodal RoPE (mrope_section)")
+            parameters["rope_type"] = "default"
         model_config["hf_overrides"] = overrides
         for key in (*base, *aliases):
             target.pop(key, None)
@@ -2078,15 +2082,17 @@ class VLLMModel(WeightCachedModel, LLM):
         if transformers_version and transformers_version.major < 5:
             legacy = {k: v for k, v in parameters.items() if k not in base}
             target.update({key: parameters[key] for key in base if key in parameters})
-            if type_key == "type":
+            if VLLM_VERSION is not None and VLLM_VERSION >= version.parse("0.11.1"):
+                saved_rope = checkpoint.get("rope_scaling")
+                if nested and isinstance(saved_rope, dict) and "type" in saved_rope:
+                    legacy["type"] = legacy["rope_type"]
+            elif type_key == "type":
                 legacy["type"] = legacy.pop("rope_type")
             target["rope_scaling"] = copy.deepcopy(legacy)
             # vLLM may derive rope_parameters before applying overrides.
             loader = importlib.import_module("vllm.transformers_utils.config")
             if not hasattr(loader, "patch_rope_parameters"):
                 return
-        if rope_type == "mrope" and "mrope_section" in parameters:
-            parameters["rope_type"] = "default"
         target["rope_parameters"] = parameters
 
     def _sanitize_model_config(
