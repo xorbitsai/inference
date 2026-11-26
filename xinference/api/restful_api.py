@@ -142,6 +142,7 @@ from .protocols.openai_responses import (
     responses_error_code,
     responses_stream_events,
 )
+from .replica_drain import ReplicaDrainMiddleware, ReplicaDrainRequests
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
@@ -162,7 +163,6 @@ from .schemas import (
     UpdateModelSpecRequest,
     WorldGenerationRequest,
 )
-from .replica_drain import ReplicaDrainMiddleware, ReplicaDrainRequests
 from .streaming_outcome import (
     FailureOrigin,
     StreamState,
