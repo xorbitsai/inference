@@ -192,7 +192,11 @@ _JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
 
 
 def find_outside_json_string(
-    text: str, marker: str, position: int, restart: Optional[str] = None
+    text: str,
+    marker: str,
+    position: int,
+    restart: Optional[str] = None,
+    final: bool = False,
 ) -> int:
     """
     Return the index of the first ``marker`` at or after ``position`` that is
@@ -204,26 +208,32 @@ def find_outside_json_string(
     ``restart`` token (the start of a following call) begins was cut short, so
     that first marker counts after all.
 
-    The text is read with ``str.find`` and one regular expression per string,
-    and a text without ``marker`` returns at once, so a value that is still
-    arriving costs little to check again on every delta.
+    With ``final`` the text is complete, so a string still open at its end was
+    cut short too, and so is one that hides every ``marker`` from ``position``:
+    the first ``marker`` at or after ``position`` counts.
+
+    The marker is looked for once and the quotes are only looked for before
+    it, so a value that is still arriving costs little to check again on
+    every delta: a text without ``marker`` returns at once, and each string is
+    read with one regular expression.
     """
-    if text.find(marker, position) == -1:
+    found = text.find(marker, position)
+    if found == -1:
         return -1
     index = position
     while True:
-        quote = text.find('"', index)
-        found = text.find(marker, index)
-        if found != -1 and (quote == -1 or found < quote):
-            return found
+        quote = text.find('"', index, found)
         if quote == -1:
-            return -1
+            return found
         body = _JSON_STRING_BODY.match(text, quote + 1)
         end = body.end() if body is not None else len(text)
-        if restart:
-            inside = text.find(marker, quote + 1, end)
-            if inside != -1 and text.find(restart, inside + 1, end) != -1:
-                return inside
+        if restart and found + len(marker) <= end:
+            if text.find(restart, found + 1, end) != -1:
+                return found
         if body is None:
-            return -1
+            return text.find(marker, position) if final else -1
         index = end
+        if found < index:
+            found = text.find(marker, index)
+            if found == -1:
+                return text.find(marker, position) if final else -1

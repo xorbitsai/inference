@@ -80,6 +80,13 @@ def _stream(parser, chunks):
                 tool_calls.append((name, args))
             elif content:
                 contents.append(content)
+    # The stream is over: what a string cut short at the end hid is complete
+    flush = getattr(parser, "flush_streaming_tool_calls", None)
+    for content, name, args in flush("".join(previous_texts)) if flush else []:
+        if name is not None:
+            tool_calls.append((name, args))
+        elif content:
+            contents.append(content)
     return "".join(contents), tool_calls
 
 
@@ -188,14 +195,18 @@ def test_streaming_ignores_end_markers_inside_a_json_argument(parser_name, plain
     parser_cls, tool_call = PARSERS[name]
     call_end = CALL_END[name]
     marker = WRAPPER_END[name]
-    for value in (f"example = {call_end}{marker}; print(example)",):
-        # A JSON value ends at its closing tag outside of its strings
-        json_call = tool_call.replace('string="true">Beijing', 'string="false">"VALUE"')
-        text = "A " + json_call.replace("VALUE", value) + " B"
-        for chunks in [*_splits(text), _chunks_of(text, 17)]:
-            content, tool_calls = _stream(parser_cls(), chunks)
-            assert tool_calls == [("get_weather", {"location": value})], chunks
-            assert content == "A  B", chunks
+    value = f"example = {call_end}{marker}; print(example)"
+    # A JSON value ends at its closing tag outside of its strings
+    json_call = tool_call.replace('string="true">Beijing', 'string="false">"VALUE"')
+    text = "A " + json_call.replace("VALUE", value) + " B"
+    for chunks in [*_splits(text), _chunks_of(text, 17)]:
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert tool_calls == [("get_weather", {"location": value})], chunks
+        assert content == "A  B", chunks
+
+
+def _calls_of(parser, text):
+    return [(name, args) for _, name, args in parser.extract_tool_calls(text) if name]
 
 
 @pytest.mark.parametrize("parser_name", ["deepseek-v3.2", "deepseek-v4"])
@@ -210,14 +221,56 @@ def test_a_call_after_malformed_json_is_kept(parser_name, plain):
     wrapper_end = WRAPPER_END[name]
     text = "A " + malformed.removesuffix(wrapper_end) + valid[len(wrapper_start) :]
     text += " B"
-    expected = ("get_weather", {"location": "Paris"})
-    assert expected in [
-        (name, args) for _, name, args in parser_cls().extract_tool_calls(text) if name
+    expected = _calls_of(parser_cls(), text)
+    assert [args for _, args in expected] == [
+        {"location": '{"a": "b}'},
+        {"location": "Paris"},
     ]
-    for chunks in [[text], _chunks_of(text, 17), list(text)]:
+    for chunks in [[text], *(_chunks_of(text, n) for n in (1, 3, 8, 17))]:
         content, tool_calls = _stream(parser_cls(), chunks)
-        assert expected in tool_calls, chunks
+        assert tool_calls == expected, chunks
         assert content == "A  B", chunks
+
+
+@pytest.mark.parametrize("parser_name", ["deepseek-v3.2", "deepseek-v4"])
+@pytest.mark.parametrize("plain", (False, True))
+@pytest.mark.parametrize("after", ("", " B"))
+def test_a_call_with_an_odd_quote_in_its_json_value_is_kept(parser_name, plain, after):
+    name = parser_name + "-plain" if plain else parser_name
+    parser_cls, tool_call = PARSERS[name]
+    # Nothing follows the call, so the open string is the end of the output
+    wrapper_start = tool_call[: tool_call.index(">") + 1]
+    tag = "" if plain else "｜DSML｜"
+    call = (
+        f'{wrapper_start}<{tag}invoke name="get_weather">'
+        f'<{tag}parameter name="location" string="false">27" monitor</{tag}parameter>'
+        f'<{tag}parameter name="n" string="false">3</{tag}parameter>'
+        f"</{tag}invoke>{WRAPPER_END[name]}"
+    )
+    text = "A " + call + after
+    expected = [("get_weather", {"location": '27" monitor', "n": 3})]
+    assert _calls_of(parser_cls(), text) == expected
+    for chunks in [[text], *(_chunks_of(text, n) for n in (1, 3, 8, 17))]:
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert tool_calls == expected, chunks
+        assert content == "A " + after, chunks
+
+
+@pytest.mark.parametrize("parser_name", ["deepseek-v3.2", "deepseek-v4"])
+@pytest.mark.parametrize("plain", (False, True))
+def test_a_quote_after_the_block_does_not_hide_a_call_with_an_odd_quote(
+    parser_name, plain
+):
+    name = parser_name + "-plain" if plain else parser_name
+    parser_cls, tool_call = PARSERS[name]
+    call = tool_call.replace('string="true">Beijing', 'string="false">27" monitor')
+    text = "A " + call + ' then "done'
+    expected = [("get_weather", {"location": '27" monitor'})]
+    assert _calls_of(parser_cls(), text) == expected
+    for chunks in [[text], *(_chunks_of(text, n) for n in (1, 3, 17))]:
+        content, tool_calls = _stream(parser_cls(), chunks)
+        assert tool_calls == expected, chunks
+        assert content == 'A  then "done', chunks
 
 
 def test_find_outside_json_string():
@@ -227,6 +280,8 @@ def test_find_outside_json_string():
     assert find_outside_json_string('{"a": "\\"<end>"}<end>', marker, 0) == 16
     # A string that is still open hides the rest of the text
     assert find_outside_json_string('{"a": "x<end>', marker, 0) == -1
+    # ... unless the text is complete: then it was cut short
+    assert find_outside_json_string('{"a": "x<end>', marker, 0, final=True) == 8
     assert find_outside_json_string("no marker at all", marker, 0) == -1
     # An open string cut short by the start of a following call
     text = '{"a": "x<end><call>{"b": 1}<end>'
@@ -236,21 +291,37 @@ def test_find_outside_json_string():
 
 
 @pytest.mark.parametrize("name", ["deepseek-v3.1", "deepseek-v4"])
-def test_a_growing_json_argument_is_not_rescanned_on_every_delta(name):
+@pytest.mark.parametrize(
+    "shape", ("long string", "many strings", "marker", "two calls")
+)
+def test_a_growing_json_argument_is_not_rescanned_on_every_delta(name, shape):
     parser_cls, tool_call = PARSERS[name]
-    # Many string characters and no call end marker until the very end
-    value = json.dumps("".join(chr(97 + i % 26) + " " for i in range(16384)))
-    if name == "deepseek-v3.1":
-        text = tool_call.replace('{"location": "Beijing"}', '{"location": ' + value + "}")
+    if shape == "long string":
+        value = "".join(chr(97 + i % 26) + " " for i in range(16384))
     else:
+        # Thousands of short strings, as in a JSON array of words
+        value = ["word" + str(i % 10) for i in range(4000)]
+        if shape == "marker":
+            marker = (
+                CALL_END[name] if name == "deepseek-v3.1" else "</｜DSML｜parameter>"
+            )
+            value[0] = "x" + marker + "y"
+    encoded = json.dumps(value)
+    if name == "deepseek-v3.1":
         text = tool_call.replace(
-            'string="true">Beijing', 'string="false">' + value
+            '{"location": "Beijing"}', '{"location": ' + encoded + "}"
         )
-    chunks = _chunks_of(text, 8)
+    else:
+        text = tool_call.replace('string="true">Beijing', 'string="false">' + encoded)
+    expected = [("get_weather", {"location": value})]
+    if shape == "two calls":
+        # A long second call, read next to the big first one on every delta
+        text += tool_call.replace("Beijing", "z" * 6000)
+        expected.append(("get_weather", {"location": "z" * 6000}))
     started = time.perf_counter()
-    content, tool_calls = _stream(parser_cls(), chunks)
+    content, tool_calls = _stream(parser_cls(), _chunks_of(text, 8))
     elapsed = time.perf_counter() - started
-    assert tool_calls and tool_calls[0][0] == "get_weather"
+    assert tool_calls == expected
     assert not content
-    # A rescan of the whole value on each delta takes about 5 seconds here
-    assert elapsed < 1.5, elapsed
+    # Reading the whole value again on each delta takes 3 to 30 seconds here
+    assert elapsed < 3, elapsed

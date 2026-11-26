@@ -168,6 +168,14 @@ class ArgumentStream:
         finish_reason: Optional[str],
     ) -> List[Tuple]:
         parsed = parser.extract_tool_calls_streaming(previous, text, delta)
+        flush = getattr(parser, "flush_streaming_tool_calls", None)
+        if finish_reason is not None and flush is not None:
+            # The output is complete: calls a cut short JSON string hid are
+            # complete too and reconcile with their readers like any other.
+            parsed = [
+                *(parsed if isinstance(parsed, list) else [parsed] if parsed else []),
+                *flush(text),
+            ]
         events: List[Tuple] = []
         for event in parsed if isinstance(parsed, list) else [parsed] if parsed else ():
             content, name, args = event[:3]
