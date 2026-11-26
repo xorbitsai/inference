@@ -120,6 +120,10 @@ class XinferenceDistributedExecutorV1(Executor):
         # vLLM starts the engine with a spawn context. Pass an importable class
         # and carry the per-replica placement in its serialized config.
         engine_args.distributed_executor_backend = cls
+        # Xoscar manages node placement. vLLM's multi-node launcher settings
+        # apply to its built-in executors and are rejected for custom classes.
+        engine_args.nnodes = 1
+        engine_args.node_rank = 0
         engine_args.additional_config = _XoscarExecutorConfig(
             {
                 **engine_args.additional_config,

@@ -12,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from packaging.version import Version
 
 
 @pytest.fixture
@@ -82,6 +83,55 @@ def test_vllm_executor_class_and_placement_survive_spawn(
         assert instance._pool_addresses == ["node-a:1000", "node-b:1000"]
         assert instance._n_worker == 2
         assert config.additional_config == caller_config
+    finally:
+        instance.shutdown()
+
+
+def test_vllm_parallel_config_accepts_two_xoscar_workers(monkeypatch):
+    vllm = pytest.importorskip("vllm")
+    if Version(vllm.__version__) < Version("0.34.0"):
+        pytest.skip("Class-based Xoscar registration requires vLLM 0.34 or newer")
+
+    from vllm.config import DeviceConfig, ParallelConfig, VllmConfig
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.v1.executor.abstract import Executor
+
+    from xinference.model.llm.vllm.distributed_executor_v1 import (
+        XinferenceDistributedExecutorV1,
+    )
+
+    # Two Xinference Workers with two GPU actors each, as configured by
+    # VLLMModel._sanitize_model_config before Xoscar registers its executor.
+    addresses = ["node-a:1000", "node-a:1001", "node-b:1000", "node-b:1001"]
+    engine_args = AsyncEngineArgs(
+        tensor_parallel_size=2,
+        pipeline_parallel_size=2,
+        nnodes=2,
+        node_rank=0,
+        distributed_executor_backend="mp",
+    )
+    XinferenceDistributedExecutorV1.configure_engine_args(engine_args, addresses, 2)
+
+    parallel_config = ParallelConfig(
+        tensor_parallel_size=engine_args.tensor_parallel_size,
+        pipeline_parallel_size=engine_args.pipeline_parallel_size,
+        nnodes=engine_args.nnodes,
+        node_rank=engine_args.node_rank,
+        distributed_executor_backend=engine_args.distributed_executor_backend,
+    )
+    config = VllmConfig(
+        device_config=DeviceConfig("cpu"),
+        parallel_config=parallel_config,
+        additional_config=engine_args.additional_config,
+    )
+    executor_cls = Executor.get_class(config)
+    assert executor_cls is XinferenceDistributedExecutorV1
+    assert parallel_config.world_size == len(addresses)
+    monkeypatch.setattr(executor_cls, "_init_executor", lambda self: None)
+    instance = executor_cls(config)
+    try:
+        assert instance._pool_addresses == addresses
+        assert instance._n_worker == 2
     finally:
         instance.shutdown()
 
