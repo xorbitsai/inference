@@ -55,8 +55,7 @@ def test_vllm_executor_class_and_placement_survive_spawn(executor_module, monkey
         engine_args.distributed_executor_backend, executor_module.Executor
     )
     assert caller_config == {"gdn_prefill_backend": "triton"}
-    placement = engine_args.additional_config[executor_module._XOSCAR_PLACEMENT_KEY]
-    assert placement.compile_factors() == {}
+    assert engine_args.additional_config.compile_factors() == caller_config
 
     cls, config = pickle.loads(
         pickle.dumps(

@@ -17,7 +17,6 @@ import logging
 import os
 import time
 from concurrent.futures import Future
-from dataclasses import dataclass
 from threading import Thread
 from typing import (
     TYPE_CHECKING,
@@ -49,17 +48,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _SHUTDOWN_TIMEOUT_SECONDS = 10.0
-_XOSCAR_PLACEMENT_KEY = "xinference_xoscar_executor_placement"
 
 
-@dataclass(frozen=True)
-class _XoscarExecutorPlacement:
-    pool_addresses: Tuple[str, ...]
-    n_worker: int
+class _XoscarExecutorConfig(dict[str, Any]):
+    def __init__(
+        self,
+        additional_config: Dict[str, Any],
+        pool_addresses: List[str],
+        n_worker: int,
+    ) -> None:
+        super().__init__(additional_config)
+        self.pool_addresses = tuple(pool_addresses)
+        self.n_worker = n_worker
 
     def compile_factors(self) -> Dict[str, Any]:
         # Actor addresses change on restart without changing the compiled graph.
-        return {}
+        return dict(self)
 
 
 class _ExecutorIsolation(Isolation):
@@ -123,12 +127,9 @@ class XinferenceDistributedExecutorV1(Executor):
         # vLLM starts the engine with a spawn context. Pass an importable class
         # and carry the per-replica placement in its serialized config.
         engine_args.distributed_executor_backend = cls
-        engine_args.additional_config = {
-            **engine_args.additional_config,
-            _XOSCAR_PLACEMENT_KEY: _XoscarExecutorPlacement(
-                tuple(pool_addresses), n_worker
-            ),
-        }
+        engine_args.additional_config = _XoscarExecutorConfig(
+            engine_args.additional_config, pool_addresses, n_worker
+        )
 
     def __init__(
         self,
@@ -139,11 +140,11 @@ class XinferenceDistributedExecutorV1(Executor):
         **kwargs,
     ):
         if pool_addresses is None or n_worker is None:
-            placement: _XoscarExecutorPlacement = vllm_config.additional_config[
-                _XOSCAR_PLACEMENT_KEY
-            ]
-            pool_addresses = list(placement.pool_addresses)
-            n_worker = placement.n_worker
+            config = vllm_config.additional_config
+            if not isinstance(config, _XoscarExecutorConfig):
+                raise ValueError("Missing Xoscar executor placement in vLLM config")
+            pool_addresses = list(config.pool_addresses)
+            n_worker = config.n_worker
 
         # XinferenceDistributedExecutorV1
         self._isolation = _ExecutorIsolation(asyncio.new_event_loop())
