@@ -632,19 +632,21 @@ def _strip_test_envs(launch_args: dict) -> Tuple[dict, Set[str]]:
         return dict(launch_args), set()
 
 
-def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
+def _query_gpu_occupying_pids(device_indices: list) -> Tuple[set, bool]:
     """List PIDs currently occupying GPU memory via pynvml.
 
-    Returns set of int. Gracefully degrades to empty set if pynvml is
-    unavailable.
+    Returns ``(pids, complete)``. ``complete`` is False if pynvml is
+    unavailable or the process query of any device failed, in which case
+    ``pids`` may miss processes.
     """
     try:
         import pynvml
 
         pynvml.nvmlInit()
     except Exception:
-        return set()
+        return set(), False
     pids: set = set()
+    complete = True
     try:
         for idx in device_indices:
             try:
@@ -653,13 +655,23 @@ def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
                     if pro.pid:
                         pids.add(pro.pid)
             except Exception:
+                complete = False
                 continue
     finally:
         try:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-    return pids
+    return pids, complete
+
+
+def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
+    """List PIDs currently occupying GPU memory via pynvml.
+
+    Returns set of int. Gracefully degrades to empty set if pynvml is
+    unavailable.
+    """
+    return _query_gpu_occupying_pids(device_indices)[0]
 
 
 def _snapshot_gpu_free_ratio(device_indices: list) -> float:
@@ -747,9 +759,10 @@ def _snapshot_replica_gpu_children(pids: set, device_indices: list) -> set:
     spawn-created EngineCore can outlive its parent, and once reparented it
     can no longer be attributed to the model.
 
-    If NVML attributes no process on these GPUs to the replica at all (no PID
-    visibility, e.g. inside a container), every descendant is returned, since
-    any of them may be the one holding VRAM.
+    Every descendant is returned if the process list is not reliable for the
+    replica, since any of them may be the one holding VRAM: the process query
+    of a target GPU failed, or NVML attributes no process on these GPUs to
+    the replica at all (no PID visibility, e.g. inside a container).
     """
     import psutil
 
@@ -763,8 +776,8 @@ def _snapshot_replica_gpu_children(pids: set, device_indices: list) -> set:
             continue
     if not descendants:
         return set()
-    gpu_pids = _snapshot_gpu_occupying_pids(device_indices)
-    if not gpu_pids & (descendants | set(pids)):
+    gpu_pids, complete = _query_gpu_occupying_pids(device_indices)
+    if not complete or not gpu_pids & (descendants | set(pids)):
         return descendants
     return descendants & gpu_pids
 

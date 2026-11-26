@@ -22,7 +22,9 @@ Tests cover:
 - _kill_orphan_gpu_pids: diff-only / no-new-pids
 - _wait_pids_dead: all-dead / timeout
 - _wait_vram_reclaim_after_terminate: shared GPU / replica exit / timeout
-- _snapshot_replica_gpu_children: GPU-owning child / no PID visibility
+- _query_gpu_occupying_pids: failed per-device query is reported
+- _snapshot_replica_gpu_children: GPU-owning child / no PID visibility /
+  failed device query
 - _terminate_model: waits for a reparented child that still owns VRAM
 """
 
@@ -426,29 +428,65 @@ def test_snapshot_replica_gpu_children():
 
     replica, child = _spawn_replica_with_child()
     try:
-        with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as snap:
+        with patch("xinference.core.worker._query_gpu_occupying_pids") as query:
             # The child owns VRAM next to an unrelated process.
-            snap.return_value = {child.pid, 4242}
+            query.return_value = ({child.pid, 4242}, True)
             assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
             # Only the replica itself is on the GPU.
-            snap.return_value = {replica.pid, 4242}
+            query.return_value = ({replica.pid, 4242}, True)
             assert _snapshot_replica_gpu_children({replica.pid}, [0]) == set()
             # NVML cannot attribute anything to the replica (e.g. container
             # PID namespace): every descendant may be the one holding VRAM.
-            snap.return_value = {4242}
+            query.return_value = ({4242}, True)
             assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
-            snap.return_value = set()
+            query.return_value = (set(), True)
             assert _snapshot_replica_gpu_children({replica.pid}, [0]) == {child.pid}
+            # The replica is visible, but the query of another target GPU
+            # failed: the child may be on that one.
+            query.return_value = ({replica.pid, 4242}, False)
+            assert _snapshot_replica_gpu_children({replica.pid}, [0, 1]) == {child.pid}
     finally:
         _stop_replica_with_child(replica, child)
 
 
+def test_query_gpu_occupying_pids_reports_failed_device():
+    from xinference.core.worker import _query_gpu_occupying_pids
+
+    def _processes(handle):
+        if handle == 1:
+            raise RuntimeError("NVML_ERROR_UNKNOWN")
+        return [MagicMock(pid=123)]
+
+    mock_pynvml = MagicMock()
+    mock_pynvml.nvmlDeviceGetHandleByIndex.side_effect = lambda idx: idx
+    mock_pynvml.nvmlDeviceGetComputeRunningProcesses.side_effect = _processes
+    with patch.dict("sys.modules", {"pynvml": mock_pynvml}):
+        assert _query_gpu_occupying_pids([0]) == ({123}, True)
+        assert _query_gpu_occupying_pids([0, 1]) == ({123}, False)
+    with patch.dict("sys.modules", {"pynvml": None}):
+        assert _query_gpu_occupying_pids([0]) == (set(), False)
+
+
 @pytest.mark.asyncio
-async def test_terminate_waits_for_reparented_gpu_child(monkeypatch):
+@pytest.mark.parametrize(
+    "gpu_idx, child_gpu",
+    [
+        pytest.param([0], 0, id="child_visible"),
+        # GPU 0 lists the replica, the query of GPU 1 (where the child
+        # lives) fails: the child must not be dropped from the wait.
+        pytest.param([0, 1], None, id="query_fails_on_second_gpu"),
+    ],
+)
+async def test_terminate_waits_for_reparented_gpu_child(
+    monkeypatch, gpu_idx, child_gpu
+):
     """The replica exits first while a child it started still owns VRAM on a
     shared GPU. The child cannot be attributed to the model once it has been
     reparented, so it has to be recorded before the pool is destroyed."""
+    import sys
     from unittest.mock import AsyncMock
+
+    import psutil
 
     import xinference.core.worker as worker_module
     from xinference.core.worker import WorkerActor
@@ -456,6 +494,21 @@ async def test_terminate_waits_for_reparented_gpu_child(monkeypatch):
     replica, child = _spawn_replica_with_child()
     uid = "model-x-0"
     polls = []
+
+    def _processes(handle):
+        if handle == 0:
+            pids = [4242]  # another tenant of the shared GPU
+            if psutil.pid_exists(replica.pid) and replica.poll() is None:
+                pids.append(replica.pid)
+            if child_gpu == 0 and child.is_running():
+                pids.append(child.pid)
+            return [MagicMock(pid=pid) for pid in pids]
+        raise RuntimeError("NVML_ERROR_UNKNOWN")
+
+    mock_pynvml = MagicMock()
+    mock_pynvml.nvmlDeviceGetHandleByIndex.side_effect = lambda idx: idx
+    mock_pynvml.nvmlDeviceGetComputeRunningProcesses.side_effect = _processes
+    monkeypatch.setitem(sys.modules, "pynvml", mock_pynvml)
 
     class _Pool:
         sub_processes: dict = {}
@@ -480,11 +533,6 @@ async def test_terminate_waits_for_reparented_gpu_child(monkeypatch):
     monkeypatch.setattr(worker_module, "check_control_session", _no_check)
     monkeypatch.setattr(worker_module, "_kill_orphan_gpu_pids", _no_orphans)
     monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", _ratio)
-    monkeypatch.setattr(
-        worker_module,
-        "_snapshot_gpu_occupying_pids",
-        lambda devices: {child.pid, 4242} if child.is_running() else {4242},
-    )
     monkeypatch.setattr(WorkerActor, "_finish_launch_progress", AsyncMock())
 
     worker = MagicMock()
@@ -494,7 +542,7 @@ async def test_terminate_waits_for_reparented_gpu_child(monkeypatch):
     worker._model_uid_to_model = {uid: None}
     worker._model_uid_to_subpool_addresses = {uid: {"addr-1"}}
     worker._model_uid_to_addr = {uid: "addr-1"}
-    worker._model_uid_to_launch_args = {uid: {"model_uid": uid, "gpu_idx": [0]}}
+    worker._model_uid_to_launch_args = {uid: {"model_uid": uid, "gpu_idx": gpu_idx}}
     worker._model_uid_to_model_spec = {uid: {}}
     worker._model_uid_to_pid = {uid: replica.pid}
     worker._model_uid_to_subpool_pids = {uid: {replica.pid}}
