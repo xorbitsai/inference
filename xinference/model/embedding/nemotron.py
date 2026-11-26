@@ -16,6 +16,7 @@ import os
 from abc import abstractmethod
 from importlib.metadata import PackageNotFoundError, requires, version
 from io import BytesIO
+from traceback import walk_tb
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -66,6 +67,26 @@ def _validate_processor_option_groups(
             raise InvalidModelRequestError(
                 f"Nemotron 3.5 Embed {path}.{group} must be an object."
             )
+
+
+def _raise_request_processing_error(
+    exc: Exception, chat_template: Optional[str]
+) -> None:
+    if chat_template is not None:
+        from jinja2 import TemplateError
+
+        # Jinja can propagate ordinary Python exceptions without wrapping them.
+        if isinstance(exc, TemplateError) or any(
+            frame.f_globals.get("__name__") == "jinja2.environment"
+            for frame, _ in walk_tb(exc.__traceback__)
+        ):
+            raise InvalidModelRequestError(
+                f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
+            ) from exc
+    if isinstance(exc, (TypeError, ValueError)):
+        raise InvalidModelRequestError(
+            f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
+        ) from exc
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
@@ -403,8 +424,6 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
     def _encode_samples(
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
-        from jinja2 import TemplateError
-
         vectors, counts = [], []
         processing_kwargs = kwargs.get("processing_kwargs") or {}
         for sample in samples:
@@ -417,18 +436,12 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                     return_tensors="pt",
                     **processing_kwargs,
                 )
-            except TemplateError as exc:
-                if processing_kwargs.get("chat_template") is None:
-                    raise
-                raise InvalidModelRequestError(
-                    f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
-                ) from exc
-            except (TypeError, ValueError) as exc:
-                if not processing_kwargs:
-                    raise
-                raise InvalidModelRequestError(
-                    f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
-                ) from exc
+            except Exception as exc:
+                if processing_kwargs:
+                    _raise_request_processing_error(
+                        exc, processing_kwargs.get("chat_template")
+                    )
+                raise
             self._validate_context_length(features["input_ids"].shape[-1])
             if features.get("attention_mask") is None:
                 raise InvalidModelRequestError(
@@ -474,8 +487,6 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
     def _encode_samples(
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
-        from jinja2 import TemplateError
-
         vectors, counts = [], []
         processing_kwargs = kwargs.get("processing_kwargs")
         template_options = (processing_kwargs or {}).get("chat_template", {})
@@ -510,19 +521,13 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
                             show_progress_bar=False,
                             processing_kwargs=processing_kwargs,
                         )
-                except TemplateError as exc:
-                    if forward_started or template_options.get("chat_template") is None:
-                        raise
-                    raise InvalidModelRequestError(
-                        f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
-                    ) from exc
-                except (TypeError, ValueError) as exc:
+                except Exception as exc:
                     # encode() includes inference as well as preprocessing.
-                    if forward_started or not processing_kwargs:
-                        raise
-                    raise InvalidModelRequestError(
-                        f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
-                    ) from exc
+                    if not forward_started and processing_kwargs:
+                        _raise_request_processing_error(
+                            exc, template_options.get("chat_template")
+                        )
+                    raise
                 vectors.append(vector[0])
         finally:
             hook.remove()

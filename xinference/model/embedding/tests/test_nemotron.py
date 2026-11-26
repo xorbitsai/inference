@@ -274,18 +274,44 @@ def test_transformers_rejects_expanded_input_over_context_limit():
         (CLASSES[1], {"chat_template": {"add_generation_prompt": False}}),
     ],
 )
+@pytest.mark.parametrize(
+    "template,message",
+    [("{{", "unexpected"), ("{{ 1 / 0 }}", "division by zero")],
+)
 def test_checkpoint_chat_template_errors_remain_server_errors(
-    model_cls, processing_kwargs
+    model_cls, processing_kwargs, template, message
 ):
-    from jinja2 import TemplateSyntaxError
+    from jinja2 import Environment, TemplateSyntaxError
+
+    def render_checkpoint_template(*args, **kwargs):
+        return Environment().from_string(template).render()
 
     model = make_model(model_cls)
-    error = TemplateSyntaxError("Invalid checkpoint template", lineno=1)
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.side_effect = render_checkpoint_template
+    model._model = MagicMock()
+    model._model.encode.side_effect = render_checkpoint_template
+    with pytest.raises((TemplateSyntaxError, ZeroDivisionError), match=message):
+        model._create_embedding("document", processing_kwargs=processing_kwargs)
+
+
+@pytest.mark.parametrize(
+    "model_cls,processing_kwargs",
+    [
+        (CLASSES[0], {"chat_template": "{{ messages }}"}),
+        (CLASSES[1], {"chat_template": {"chat_template": "{{ messages }}"}}),
+    ],
+)
+def test_custom_chat_templates_preserve_unrelated_processor_errors(
+    model_cls, processing_kwargs
+):
+    model = make_model(model_cls)
+    error = ZeroDivisionError("Processor failed outside Jinja")
     model._processor = MagicMock()
     model._processor.apply_chat_template.side_effect = error
     model._model = MagicMock()
     model._model.encode.side_effect = error
-    with pytest.raises(TemplateSyntaxError) as exc:
+    with pytest.raises(ZeroDivisionError) as exc:
         model._create_embedding("document", processing_kwargs=processing_kwargs)
     assert exc.value is error
 
@@ -969,9 +995,10 @@ async def test_rest_sentence_transformers_processor_options_are_request_local(
     [
         ("{{", "chat_template"),
         ("{{ raise_exception('template render failed') }}", "template render failed"),
+        ("{{ 1 / 0 }}", "division by zero"),
         (None, None),
     ],
-    ids=["syntax-error", "render-error", "valid-template"],
+    ids=["syntax-error", "render-error", "python-error", "valid-template"],
 )
 async def test_rest_custom_chat_template_errors_are_request_local(
     tiny_nemotron_checkpoint, monkeypatch, model_cls, template, error, reverse
