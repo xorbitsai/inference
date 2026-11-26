@@ -3996,12 +3996,12 @@ class RESTfulAPI(CancelMixin):
 
             capability = desc.get("reasoning_effort")
             try:
-                kwargs = normalize_reasoning_controls(
-                    kwargs,
-                    ReasoningEffortConfig.parse_obj(capability) if capability else None,
-                )
-            except NotImplementedError as exc:
-                return self._responses_error(501, str(exc), param="reasoning.effort")
+                if capability:
+                    kwargs = normalize_reasoning_controls(
+                        kwargs, ReasoningEffortConfig.parse_obj(capability)
+                    )
+                else:
+                    kwargs.pop("reasoning_effort", None)
             except (ValueError, TypeError) as exc:
                 mark_inference_rejection(request, "reasoning_controls")
                 return self._responses_error(400, str(exc), param="reasoning.effort")

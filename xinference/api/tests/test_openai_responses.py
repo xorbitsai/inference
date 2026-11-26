@@ -433,19 +433,23 @@ def _family_description(name):
         ("glm-5.3", "high", "high"),
         ("glm-5.3", "medium", "high"),
         ("DeepSeek-V4.1-Flash", "none", "none"),
+        pytest.param("qwen3", "medium", None, id="qwen3-undeclared"),
     ],
 )
-async def test_responses_declared_effort_reaches_model(
+async def test_responses_generation_with_effort(
     responses_effort, stream, family, effort, expected
 ):
     post, model, describe_model = responses_effort
     describe_model.return_value = _family_description(family)
     reasoning = {"effort": effort, "summary": "auto"}
-    response = await post(reasoning=reasoning, stream=stream)
+    response = await post(model=family, reasoning=reasoning, stream=stream)
     assert response.status_code == 200, response.text
     _, config, raw_params = model.calls[0]
     for arguments in (config, raw_params):
-        assert arguments.get("chat_template_kwargs") == {"reasoning_effort": expected}
+        if expected is None:
+            assert "chat_template_kwargs" not in arguments
+        else:
+            assert arguments["chat_template_kwargs"] == {"reasoning_effort": expected}
         assert "reasoning_effort" not in arguments
 
     if stream:
@@ -462,17 +466,12 @@ async def test_responses_declared_effort_reaches_model(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "family,effort,status",
-    [("glm-5.3", "xhigh", 400), ("qwen3", "high", 501), ("glm-5.3", 3, 400)],
-)
-async def test_responses_rejects_effort_before_generation(
-    responses_effort, family, effort, status
-):
+@pytest.mark.parametrize("effort", ["xhigh", 3])
+async def test_responses_rejects_effort_before_generation(responses_effort, effort):
     post, model, describe_model = responses_effort
-    describe_model.return_value = _family_description(family)
+    describe_model.return_value = _family_description("glm-5.3")
     response = await post(reasoning={"effort": effort}, stream=True)
-    assert response.status_code == status, response.text
+    assert response.status_code == 400, response.text
     assert response.headers["content-type"] == "application/json"
     assert response.json()["error"]["param"] == "reasoning.effort"
     assert not model.calls
