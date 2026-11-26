@@ -790,11 +790,25 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         supervisor._extension_worker_resources["source"]["worker_id"] = "worker-c"
         workers["other"].get_extension_resources.return_value["worker_id"] = "worker-a"
         await supervisor.add_worker("other")
-        with pytest.raises(RuntimeError, match="already registered"):
+        replacement = SimpleNamespace(
+            source="other",
+            target="target",
+            ticket="replacement",
+            source_incarnation="old",
+            target_incarnation="new",
+            transfer_key=("other", "replacement", "old", "target"),
+            state={"_model_uid_to_model": {}},
+        )
+        await supervisor.prepare_worker_handoff(replacement, 10)
+        with pytest.raises(RuntimeError, match="reservation expired"):
+            await supervisor.confirm_worker_handoff(snapshot.source, snapshot.ticket)
+        with pytest.raises(RuntimeError, match="reservation expired"):
             await supervisor.commit_worker_handoff(snapshot)
         assert (
             supervisor._replica_model_uid_to_worker["model-rep0"] is workers["source"]
         )
+        await supervisor.commit_worker_handoff(replacement)
+        assert supervisor._worker_address_to_worker["target"] is workers["target"]
     else:
         await supervisor.commit_worker_handoff(snapshot)
         assert (

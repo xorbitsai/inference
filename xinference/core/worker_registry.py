@@ -334,17 +334,19 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                         )
                     return True
                 raise RuntimeError("Another worker replacement is in progress")
-            if snapshot.target in self._worker_address_to_worker or any(
-                state["key"][3] == snapshot.target
-                for state in registry.pending.values()
-            ):
-                raise ValueError("Replacement worker is already registered or reserved")
             from .worker import WorkerActor
 
             target = await xo.actor_ref(
                 address=snapshot.target, uid=WorkerActor.default_uid()
             )
             resources = await xo.wait_for(target.get_extension_resources(), timeout)
+            if snapshot.target in self._worker_address_to_worker or any(
+                state["key"][3] == snapshot.target
+                # A commit may be awaiting cache rebind as its deadline passes.
+                and (registry.protected(source) or registry.lock(source).locked())
+                for source, state in registry.pending.items()
+            ):
+                raise ValueError("Replacement worker is already registered or reserved")
             expected = self._extension_worker_resources.get(snapshot.source)
             if set(resources.get("extensions", {})) != set(
                 (expected or {}).get("extensions", {})
@@ -387,6 +389,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
         async with registry.lock(source):
             state = registry.pending.get(source)
             if state and state["key"][1] == ticket:
+                if not registry.protected(source):
+                    raise RuntimeError("Worker handoff reservation expired")
                 registry.set_pending(source, dict(state, committed=True))
 
     async def commit_worker_handoff(self, snapshot):
@@ -404,6 +408,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             state = registry.pending.get(snapshot.source)
             if not state or state["key"] != snapshot.transfer_key:
                 raise RuntimeError("No matching worker reservation")
+            if not registry.protected(snapshot.source):
+                raise RuntimeError("Worker handoff reservation expired")
             if (
                 not state.get("recovered")
                 and snapshot.source not in self._worker_address_to_worker
@@ -416,6 +422,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             if not await worker.worker_handoff_ready(snapshot.transfer_key):
                 raise RuntimeError("Replacement worker is not ready")
             resources = await worker.get_extension_resources()
+            if not registry.protected(snapshot.source):
+                raise RuntimeError("Worker handoff reservation expired")
             if set(resources.get("extensions", {})) != set(state["extensions"]):
                 raise ValueError("Worker extensions must match during replacement")
 
