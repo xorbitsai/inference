@@ -5951,8 +5951,11 @@ class RESTfulAPI(CancelMixin):
                     media_counts,
                 )
 
-        deepseek_forced_tools = is_vllm_backend and is_deepseek_v41_forced_tool_choice(
-            kwargs, model_family
+        # The P/D router reports vLLM compatibility for non-vLLM engines too.
+        deepseek_forced_tools = (
+            is_vllm_backend
+            and (desc.get("model_engine") or "vllm").lower() == "vllm"
+            and is_deepseek_v41_forced_tool_choice(kwargs, model_family)
         )
         if deepseek_forced_tools or (
             controls_requested

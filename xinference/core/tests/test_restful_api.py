@@ -2152,6 +2152,58 @@ async def test_deepseek_v41_openai_forces_tool_choice(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
+@pytest.mark.parametrize("family", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "function": {"name": "time"}}],
+    ids=["required", "named"],
+)
+async def test_pd_deepseek_v41_openai_forced_tool_routing(
+    monkeypatch, engine, family, choice
+):
+    from ..pd_model import PDModelActor
+
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": family, "model_engine": engine}
+    )
+    pd_model = PDModelActor("pd", model_engine=engine)
+    pd_model.address = "localhost:1234"
+    model.is_vllm_backend.side_effect = pd_model.is_vllm_backend
+    model.prepare_reasoning_request.side_effect = pd_model.prepare_reasoning_request
+    model.chat.side_effect = pd_model.chat
+    prefill = SimpleNamespace(chat=AsyncMock())
+    decode = SimpleNamespace(chat=AsyncMock(return_value=b'{"choices":[]}'))
+    await pd_model.add_prefill_actor("prefill", prefill)
+    await pd_model.add_decode_actor("decode", decode)
+
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "enable_thinking": False,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    if engine == "vLLM":
+        with pytest.raises(HTTPException, match="not supported for P/D") as error:
+            await api.create_chat_completion(request)
+        assert error.value.status_code == 501
+        prefill.chat.assert_not_awaited()
+        decode.chat.assert_not_awaited()
+    else:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        model.prepare_reasoning_request.assert_not_awaited()
+        for replica in (prefill, decode):
+            replica.chat.assert_awaited_once()
+            assert replica.chat.await_args.args[1]["tool_choice"] == choice
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tool_request",
     [
