@@ -8096,23 +8096,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 raise RuntimeError("Worker and supervisor extensions must match")
             worker_id = (resources or {}).get("worker_id")
             if worker_id:
-                owner = self._pending_worker_names.get(worker_id)
-                if owner is None:
-                    owner = next(
-                        (
-                            address
-                            for address, registered in self._extension_worker_resources.copy().items()
-                            if address != worker_address
-                            and address in self._worker_address_to_worker
-                            and registered.get("worker_id") == worker_id
-                        ),
-                        None,
-                    )
-                if owner is not None:
-                    raise RuntimeError(
-                        f"Worker name {worker_id!r} is already registered or being "
-                        f"registered at {owner}; refusing registration from {worker_address}"
-                    )
+                self._check_worker_name(worker_id, worker_address)
                 self._pending_worker_names[worker_id] = worker_address
                 reserved_name = worker_id
             control = getattr(self, "_controller_control", None)

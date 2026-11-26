@@ -115,6 +115,11 @@ class WorkerOwnership:
                         source: {
                             "key": record["key"],
                             "extensions": record["extensions"],
+                            **(
+                                {"worker_id": record["worker_id"]}
+                                if "worker_id" in record
+                                else {}
+                            ),
                             "models": record.get("models", []),
                             "committed": record["committed"],
                             "expires_at": time.time()
@@ -279,6 +284,37 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             refs = [refs]
         return any(ref.address == worker_address for ref in refs)
 
+    def _check_worker_name(self, worker_id, address, *, source=None):
+        if not worker_id:
+            return
+        owner = self._pending_worker_names.get(worker_id)
+        if owner is None:
+            registry = self._ownership_registry()
+            for other_source, state in registry.pending.items():
+                if (
+                    other_source != source
+                    and state.get("worker_id") == worker_id
+                    and registry.protected(other_source)
+                ):
+                    owner = state["key"][3]
+                    break
+        if owner is None:
+            owner = next(
+                (
+                    registered_address
+                    for registered_address, resources in self._extension_worker_resources.copy().items()
+                    if registered_address not in (address, source)
+                    and registered_address in self._worker_address_to_worker
+                    and resources.get("worker_id") == worker_id
+                ),
+                None,
+            )
+        if owner is not None:
+            raise RuntimeError(
+                f"Worker name {worker_id!r} is already registered or being "
+                f"registered at {owner}; refusing registration from {address}"
+            )
+
     async def prepare_worker_handoff(self, snapshot, timeout):
         registry = self._ownership_registry()
         async with registry.lock(snapshot.source):
@@ -314,6 +350,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 (expected or {}).get("extensions", {})
             ):
                 raise ValueError("Worker extensions must match during replacement")
+            worker_id = resources.get("worker_id")
+            self._check_worker_name(worker_id, snapshot.target, source=snapshot.source)
             replicas = [
                 self._get_model_uid_and_replica_index(uid)
                 for uid in snapshot.state["_model_uid_to_model"]
@@ -323,6 +361,7 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 {
                     "key": snapshot.transfer_key,
                     "extensions": sorted(resources.get("extensions", {})),
+                    "worker_id": worker_id,
                     "models": sorted(
                         {replica[0] for replica in replicas if replica is not None}
                     ),
@@ -380,11 +419,21 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             if set(resources.get("extensions", {})) != set(state["extensions"]):
                 raise ValueError("Worker extensions must match during replacement")
 
-            cache_tracker = getattr(self, "_cache_tracker_ref", None)
-            if cache_tracker is not None:
-                await xo.wait_for(
-                    cache_tracker.rebind_worker(snapshot.source, snapshot.target), 5
-                )
+            worker_id = resources.get("worker_id")
+            if "worker_id" in state and state["worker_id"] != worker_id:
+                raise ValueError("Replacement worker name changed during handoff")
+            self._check_worker_name(worker_id, snapshot.target, source=snapshot.source)
+            if worker_id:
+                self._pending_worker_names[worker_id] = snapshot.target
+            try:
+                cache_tracker = getattr(self, "_cache_tracker_ref", None)
+                if cache_tracker is not None:
+                    await xo.wait_for(
+                        cache_tracker.rebind_worker(snapshot.source, snapshot.target), 5
+                    )
+            finally:
+                if worker_id:
+                    self._pending_worker_names.pop(worker_id, None)
 
             pending = dict(registry.pending)
             pending.pop(snapshot.source)

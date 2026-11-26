@@ -679,6 +679,8 @@ async def test_conflicting_rename_removes_stale_worker_registration(monkeypatch)
     "address, bind_host, expected_host",
     [
         ("192.0.2.1:12001", "0.0.0.0", "192.0.2.1"),
+        ("0.0.0.0:12001", "0.0.0.0", "192.0.2.3"),
+        ("[2001:db8::1]:12001", "0.0.0.0", "192.0.2.3"),
         ("[2001:db8::1]:12001", "::", "2001:db8::1"),
         ("192.0.2.1:12001", "192.0.2.2", "192.0.2.2"),
     ],
@@ -697,6 +699,13 @@ def test_worker_advertises_metrics_endpoint(
         _metrics_stop_event=Event(),
         _total_gpu_devices=[],
     )
+    worker._supervisor_address = "0.0.0.0:9997"
+    worker._supervisor_endpoint = "http://192.0.2.10:9997"
+    route = Mock()
+    route.__enter__ = Mock()
+    route.__exit__ = Mock()
+    route.__enter__.return_value.getsockname.return_value = ("192.0.2.3", 54321)
+    monkeypatch.setattr(module.socket, "socket", Mock(return_value=route))
     monkeypatch.setattr(module, "is_metrics_disabled", lambda: False)
     monkeypatch.setattr(module.threading, "Thread", Mock())
     monkeypatch.setattr(
@@ -718,3 +727,76 @@ def test_registered_worker_resources_can_be_read_without_control_session():
     supervisor._controller_control = object()
 
     assert supervisor.get_registered_worker_resources() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expired", [False, True])
+async def test_handoff_rejects_third_party_worker_name_before_rerouting(
+    monkeypatch, expired
+):
+    import xoscar as xo
+
+    from xinference.core.supervisor import SupervisorActor
+
+    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+
+    install(monkeypatch)
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    workers = {}
+    for address, name in (
+        ("source", "worker-a"),
+        ("other", "worker-b"),
+        ("target", "worker-b"),
+    ):
+        ref = DummyReplicaWorkerRef(address)
+        ref.get_extension_resources = AsyncMock(
+            return_value={"extensions": {"test": {}}, "worker_id": name}
+        )
+        ref.worker_handoff_ready = AsyncMock(return_value=True)
+        workers[address] = ref
+
+    async def lookup(address, uid):
+        return workers[address]
+
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    await supervisor.add_worker("source")
+    await supervisor.add_worker("other")
+    supervisor._replica_model_uid_to_worker["model-rep0"] = workers["source"]
+    snapshot = SimpleNamespace(
+        source="source",
+        target="target",
+        ticket="ticket",
+        source_incarnation="old",
+        target_incarnation="new",
+        transfer_key=("source", "ticket", "old", "target"),
+        state={"_model_uid_to_model": {"model-rep0": None}},
+    )
+
+    with pytest.raises(RuntimeError, match="already registered"):
+        await supervisor.prepare_worker_handoff(snapshot, 10)
+
+    assert supervisor._worker_address_to_worker["source"] is workers["source"]
+    assert supervisor._replica_model_uid_to_worker["model-rep0"] is workers["source"]
+    assert "target" not in supervisor._worker_address_to_worker
+
+    workers["target"].get_extension_resources.return_value["worker_id"] = "worker-a"
+    await supervisor.prepare_worker_handoff(snapshot, 10)
+    if expired:
+        registry = supervisor._ownership_registry()
+        registry.pending["source"]["deadline"] = 0
+        workers["target"].get_extension_resources.return_value["worker_id"] = "worker-a"
+        # Release the registered owner's name without ending the pending handoff.
+        supervisor._extension_worker_resources["source"]["worker_id"] = "worker-c"
+        workers["other"].get_extension_resources.return_value["worker_id"] = "worker-a"
+        await supervisor.add_worker("other")
+        with pytest.raises(RuntimeError, match="already registered"):
+            await supervisor.commit_worker_handoff(snapshot)
+        assert (
+            supervisor._replica_model_uid_to_worker["model-rep0"] is workers["source"]
+        )
+    else:
+        await supervisor.commit_worker_handoff(snapshot)
+        assert (
+            supervisor._replica_model_uid_to_worker["model-rep0"] is workers["target"]
+        )

@@ -17,6 +17,7 @@ import errno
 import hashlib
 import hmac
 import inspect
+import ipaddress
 import json
 import logging
 import os
@@ -26,6 +27,7 @@ import queue
 import re
 import shutil
 import signal
+import socket
 import sys
 import threading
 import time
@@ -2038,6 +2040,47 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ),
         }
 
+    def _resolve_metrics_endpoint_host(self, bind_host: str) -> Optional[str]:
+        if bind_host not in ("0.0.0.0", "::"):
+            return bind_host
+
+        from urllib.parse import urlsplit
+
+        family = socket.AF_INET6 if bind_host == "::" else socket.AF_INET
+        actor_host = self.address.rsplit(":", 1)[0].strip("[]")
+        if actor_host not in ("0.0.0.0", "::"):
+            try:
+                addresses = socket.getaddrinfo(
+                    actor_host, None, family, socket.SOCK_STREAM
+                )
+            except OSError:
+                pass
+            else:
+                if addresses:
+                    host = addresses[0][4][0]
+                    if isinstance(host, str):
+                        return host
+
+        supervisor = urlsplit(f"tcp://{self._supervisor_address}")
+        api = urlsplit(self._supervisor_endpoint or "")
+        for peer in (supervisor, api):
+            if peer.hostname in (None, "0.0.0.0", "::"):
+                continue
+            try:
+                with socket.socket(family, socket.SOCK_DGRAM) as sock:
+                    # UDP connect selects the local route without sending data.
+                    sock.connect((peer.hostname, peer.port or 80))
+                    host = sock.getsockname()[0]
+                if not isinstance(host, str):
+                    continue
+                ip = ipaddress.ip_address(host)
+                if not (ip.is_unspecified or ip.is_loopback or ip.is_link_local):
+                    return host
+            except (OSError, ValueError):
+                continue
+        logger.warning("No advertised host available for Worker metrics")
+        return None
+
     def _start_metrics_service(self):
         if self._metrics_started:
             return
@@ -2066,10 +2109,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             self._metrics_thread.start()
             logger.info("Checking metrics export server...")
             host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
-            endpoint_host = host
-            if host in ("0.0.0.0", "::"):
-                endpoint_host = self.address.rsplit(":", 1)[0].strip("[]")
-            self._metrics_exporter_endpoint = (endpoint_host, port)
+            endpoint_host = WorkerActor._resolve_metrics_endpoint_host(self, host)
+            if endpoint_host is not None:
+                self._metrics_exporter_endpoint = (endpoint_host, port)
             logger.info(
                 f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
             )
