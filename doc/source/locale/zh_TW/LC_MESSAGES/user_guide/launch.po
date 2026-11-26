@@ -817,3 +817,7 @@ msgstr "如果副本刪除中斷，請使用相同的 ``drain_id`` 重試。API 
 #: ../../source/user_guide/launch.rst:479
 msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
 msgstr "如果 Worker 交接時移轉了原來保留的副本，刪除可以繼續。在託管部署中，只要還有其他 API 程序在執行，排空請求就會回傳 HTTP 409，熱重啟失敗後仍在執行的替換程序也包含在內。如果舊版 API Host 無法確認失敗後的程序已結束，請先成功完成一次 API 熱重啟，再重試排空。"
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Supervisor 移除 Worker 並將原部署從路由中摘除後，排空狀態會變為 ``cancelled``。如需縮減替代部署的副本數，請發起新的排空。"

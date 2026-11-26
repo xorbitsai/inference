@@ -841,3 +841,7 @@ msgstr "복제본 삭제가 중단되면 같은 ``drain_id`` 로 다시 시도�
 #: ../../source/user_guide/launch.rst:479
 msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
 msgstr "기존에 살아 있던 복제본이 새 Worker로 이전되었다면 Worker 인계 후에도 삭제를 계속할 수 있습니다. 호스팅된 배포에서 다른 API 프로세스가 실행 중이면 드레이닝 요청은 HTTP 409를 반환합니다. 재시작에 실패한 대체 프로세스도 포함됩니다. 이전 API Host가 실패 후 프로세스 종료를 확인할 수 없으면 API 재시작을 정상적으로 완료한 뒤 드레이닝을 다시 시도하세요."
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Supervisor가 Worker를 제외하고 기존 배포를 라우팅에서 제거하면 드레이닝은 ``cancelled`` 상태가 됩니다. 대체 배포의 복제본 수를 줄이려면 새 드레이닝을 시작하세요."

@@ -952,6 +952,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         3. Reconcile replica statuses/counts, and advance fully-gone models to
            TERMINATED so model_status disappears; degraded models stay READY.
         """
+        worker = self._worker_address_to_worker.get(worker_address)
         affected_replica_uids = await self._record_unexpected_down_replicas(
             worker_address
         )
@@ -971,6 +972,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             ):
                 await self._cleanup_distributed_actors(base_uid)
         await self._reconcile_affected_model_statuses(base_uids_affected)
+        # A pending DELETE may still be awaiting this Worker. Its finalizer
+        # revalidates the drain after the RPC settles.
+        for drain in getattr(self, "_manual_replica_drains", {}).values():
+            if drain.worker == worker:
+                self._finish_manual_replica_drain(drain, "cancelled")
         return affected_replica_uids
 
     def _clear_unexpected_down_replicas(self, model_uid: str) -> None:
@@ -6516,6 +6522,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if drain is not None and drain.status not in ("cancelled", "succeeded"):
             raise ValueError("A manual replica drain is in progress")
 
+    def _finish_manual_replica_drain(
+        self, drain: ManualReplicaDrain, status: Literal["cancelled", "succeeded"]
+    ) -> None:
+        if drain.status not in ("cancelled", "succeeded"):
+            drain.status = status
+            self._upgrade_state.maintenance.end()
+
     async def begin_manual_replica_drain(
         self, model_uid: str, replica_id: int, request_id: str
     ) -> Dict[str, Any]:
@@ -6626,7 +6639,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 return True
             if drain.status != "draining":
                 raise ValueError("The manual replica drain is not in progress")
-            if not await self._verify_manual_replica_drain(model_uid, drain):
+            idle = await self._verify_manual_replica_drain(model_uid, drain)
+            if drain.status != "draining":
+                raise ValueError("The manual replica drain is not in progress")
+            if not idle:
                 return False
             drain.status = "drained"
             return True
@@ -6637,8 +6653,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         async with self._get_model_replica_lock(model_uid):
             drain = self._manual_replica_drain(model_uid, replica_id, request_id)
             if drain.status in ("draining", "drained"):
-                drain.status = "cancelled"
-                self._upgrade_state.maintenance.end()
+                self._finish_manual_replica_drain(drain, "cancelled")
             elif drain.status != "cancelled":
                 raise ValueError("The replica deletion can no longer be cancelled")
             return drain.public()
@@ -6659,23 +6674,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 model_uid, drain
             ):
                 raise ValueError("The target replica is no longer idle")
+            if drain.status == "cancelled":
+                raise ValueError("A confirmed replica drain is required")
             drain.status = "deleting"
             try:
                 if worker_deleted:
                     remaining = await self._finalize_replica_termination(
-                        model_uid, replica_id
+                        model_uid, replica_id, drain=drain
                     )
                 else:
                     remaining = await self._terminate_model_replica(
-                        model_uid, replica_id
+                        model_uid, replica_id, drain=drain
                     )
                 if remaining != 1:
                     raise ValueError("The surviving replica could not be confirmed")
             except BaseException:
-                drain.status = "unknown"
+                if drain.status == "deleting":
+                    drain.status = "unknown"
                 raise
-            drain.status = "succeeded"
-            self._upgrade_state.maintenance.end()
+            self._finish_manual_replica_drain(drain, "succeeded")
             return remaining
 
     async def _manual_drain_target_removed(
@@ -6706,7 +6723,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         return True
 
     async def _terminate_model_replica(
-        self, model_uid: str, replica_id: int, suppress_exception: bool = False
+        self,
+        model_uid: str,
+        replica_id: int,
+        suppress_exception: bool = False,
+        *,
+        drain: Optional[ManualReplicaDrain] = None,
     ) -> int:
         self._check_model_reload_idle(model_uid)
         if model_uid in self._pd_model_mapping:
@@ -6756,11 +6778,38 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if not suppress_exception:
                 raise
 
-        return await self._finalize_replica_termination(model_uid, replica_id)
+        return await self._finalize_replica_termination(
+            model_uid, replica_id, drain=drain
+        )
+
+    def _check_manual_replica_deletion(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> None:
+        if (
+            drain.status != "deleting"
+            or self._model_uid_to_replica_info.get(model_uid) is not drain.topology
+        ):
+            raise ValueError("The deployment changed during manual replica deletion")
+        for replica_id in drain.replicas:
+            worker = self._replica_model_uid_to_worker.get(
+                build_replica_model_uid(model_uid, replica_id)
+            )
+            if worker != drain.worker and (
+                replica_id != drain.replica_id or worker is not None
+            ):
+                raise ValueError(
+                    "The deployment changed during manual replica deletion"
+                )
 
     async def _finalize_replica_termination(
-        self, model_uid: str, replica_id: int
+        self,
+        model_uid: str,
+        replica_id: int,
+        *,
+        drain: Optional[ManualReplicaDrain] = None,
     ) -> int:
+        if drain is not None:
+            self._check_manual_replica_deletion(model_uid, drain)
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
@@ -6778,6 +6827,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             self._refresh_replica_scheduler(replica_info)
 
         await self._status_guard_ref.remove_replica_status(model_uid, replica_id)
+        if drain is not None:
+            self._check_manual_replica_deletion(model_uid, drain)
         # StatusGuard may retain other terminal rows; these are not live replicas.
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         remaining_replica_count = (
@@ -6794,6 +6845,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 ),
             },
         )
+        if drain is not None:
+            self._check_manual_replica_deletion(model_uid, drain)
         self._clear_replica_model_gpu_memory(replica_model_uid)
         self._unexpected_down_replicas.pop((model_uid, replica_id), None)
         self._invalidate_list_models_debounce_cache()

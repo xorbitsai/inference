@@ -86,7 +86,9 @@ async def test_manual_drain_excludes_fixed_replica_then_deletes(target_id, survi
     assert (
         await supervisor.terminate_drained_model_replica("demo", target_id, "r1") == 1
     )
-    supervisor._terminate_model_replica.assert_awaited_once_with("demo", target_id)
+    supervisor._terminate_model_replica.assert_awaited_once_with(
+        "demo", target_id, drain=supervisor._manual_replica_drains["demo"]
+    )
     assert supervisor._upgrade_state.maintenance.idle()
 
 
@@ -1074,6 +1076,96 @@ async def test_retry_interrupted_drained_replica_deletion(failure, monkeypatch):
         "demo",
         {"replica": 1, "status": "READY"},
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", ["early_error", "late_error", "late_success"])
+async def test_worker_eviction_cancels_drain_without_touching_redeployment(reply):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    original = SimpleNamespace(get_chat_routing_load=AsyncMock(return_value=0))
+    worker.get_model = AsyncMock(return_value=original)
+    worker.get_model_launch_status = AsyncMock(
+        side_effect=ConnectionError("Worker exited")
+    )
+    supervisor.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_engine": "vLLM"}
+    )
+    entered = asyncio.Event()
+    resume = asyncio.Event()
+
+    async def terminate(model_uid):
+        entered.set()
+        if reply != "early_error":
+            await resume.wait()
+        if reply != "late_success":
+            raise ConnectionError("Worker exited during deletion")
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    delete = asyncio.create_task(
+        supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=2)
+        if reply == "early_error":
+            with pytest.raises(ConnectionError, match="Worker exited"):
+                await delete
+            assert (
+                supervisor.get_manual_replica_drain("demo", 1, "r1")["status"]
+                == "unknown"
+            )
+        assert not supervisor._upgrade_state.maintenance.idle()
+        assert await supervisor._remove_dead_worker(worker.address, worker)
+        assert "demo" not in supervisor._model_uid_to_replica_info
+        assert (
+            supervisor.get_manual_replica_drain("demo", 1, "r1")["status"]
+            == "cancelled"
+        )
+        assert supervisor._upgrade_state.maintenance.idle()
+
+        replacement = SimpleNamespace(
+            address="worker-1:9978", terminate_model=AsyncMock()
+        )
+        model = object()
+        replacement.get_model = AsyncMock(return_value=model)
+        supervisor._rebuild_worker_replica_state(
+            replacement,
+            [{"replica_model_uid": f"demo-rep{i}"} for i in (0, 1)],
+        )
+        for i in (0, 1):
+            await supervisor._status_guard_ref.update_replica_status(
+                "demo", i, {"status": "READY", "worker_address": replacement.address}
+            )
+
+        resume.set()
+        if reply == "late_success":
+            with pytest.raises(ValueError, match="deployment changed"):
+                await delete
+        elif reply == "late_error":
+            with pytest.raises(ConnectionError, match="Worker exited"):
+                await delete
+        with pytest.raises(ValueError, match="confirmed replica drain"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+        assert (await supervisor.cancel_manual_replica_drain("demo", 1, "r1"))[
+            "status"
+        ] == "cancelled"
+        assert not supervisor._replica_is_draining("demo", 1)
+        assert await supervisor._get_replica_model("demo", 1) is model
+        statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
+        assert [(status.replica_id, status.status) for status in statuses] == [
+            (0, "READY"),
+            (1, "READY"),
+        ]
+        worker.get_model_launch_status.assert_not_awaited()
+        replacement.terminate_model.assert_not_awaited()
+        await asyncio.wait_for(supervisor._upgrade_state.pause(), timeout=1)
+        supervisor._upgrade_state.resume()
+    finally:
+        resume.set()
+        await asyncio.gather(delete, return_exceptions=True)
 
 
 @pytest.mark.asyncio

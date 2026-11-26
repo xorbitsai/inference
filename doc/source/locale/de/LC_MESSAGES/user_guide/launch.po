@@ -969,3 +969,7 @@ msgstr "Wiederholen Sie das Löschen einer Replik nach einer Unterbrechung mit d
 #: ../../source/user_guide/launch.rst:479
 msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
 msgstr "Nach einer Worker-Übergabe kann der Löschvorgang fortgesetzt werden, wenn die ursprüngliche verbleibende Replik übertragen wurde. In gehosteten Bereitstellungen gibt das Leeren einer Replik HTTP 409 zurück, solange ein anderer API-Prozess läuft. Das gilt auch für einen Ersatzprozess nach einem fehlgeschlagenen Neustart. Wenn ein älterer API Host nach einem Fehler das Prozessende nicht bestätigen kann, führen Sie einen erfolgreichen API-Neustart durch, bevor Sie es erneut versuchen."
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Wenn der Supervisor den Worker aus dem Cluster entfernt und die ursprüngliche Bereitstellung aus dem Routing nimmt, wechselt der Vorgang zu ``cancelled``. Starten Sie einen neuen Vorgang zum Leeren einer Replik, um eine Ersatzbereitstellung zu verkleinern."

@@ -959,3 +959,7 @@ msgstr "Si se interrumpe la eliminación de una réplica, vuelva a intentarla co
 #: ../../source/user_guide/launch.rst:479
 msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
 msgstr "La eliminación puede reanudarse tras un traspaso de Worker si se transfirió la réplica original que sigue en servicio. En implementaciones alojadas, el drenaje devuelve HTTP 409 mientras siga activo otro proceso de la API, incluido un reemplazo de un reinicio fallido. Si un API Host anterior no puede confirmar que el proceso terminó tras un fallo, complete un reinicio de la API antes de volver a intentar el drenaje."
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Cuando el Supervisor retira el Worker y quita la implementación original del enrutamiento, el drenaje pasa a ``cancelled``. Inicie un nuevo drenaje para reducir el número de réplicas de una implementación de reemplazo."

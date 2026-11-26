@@ -836,3 +836,7 @@ msgstr "レプリカの削除が中断された場合は、同じ ``drain_id`` �
 #: ../../source/user_guide/launch.rst:479
 msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
 msgstr "元の稼働中のレプリカが後継 Worker に引き継がれていれば、削除を再開できます。ホスト型デプロイで別の API プロセスが動作中の場合、ドレインは HTTP 409 を返します。再起動に失敗した後の代替プロセスも対象です。古い API Host で失敗後にプロセスの終了を確認できない場合は、API の再起動を正常に完了してからドレインを再試行してください。"
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Supervisor が Worker を除外し、元のデプロイをルーティングから外すと、ドレインは ``cancelled`` になります。代わりにデプロイされたモデルのレプリカ数を減らすには、新しいドレインを開始してください。"

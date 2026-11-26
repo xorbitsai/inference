@@ -482,6 +482,10 @@ another API process is still running, including a replacement from a failed
 relaunch. If an older API Host cannot confirm process exit after a failure,
 complete a successful API relaunch before retrying the drain.
 
+When the Supervisor evicts the Worker and removes the original deployment
+from routing, the drain becomes ``cancelled``. Start a new drain to scale down
+a replacement deployment.
+
 GPU Allocation Strategy
 =======================
 
