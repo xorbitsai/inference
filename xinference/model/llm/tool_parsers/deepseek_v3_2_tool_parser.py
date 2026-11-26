@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 from .argument_stream import ArgumentStart, dsml_argument_start
+from .invoke_scan import invoke_end, iter_invokes
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,15 @@ class DeepseekV3_2ToolParser(ToolParser):
         """Return True when DSML-prefixed format is detected, False for plain."""
         return f"{self._DSML}function_calls>" in text
 
+    def _wrapper_tags(self, dsml: bool) -> Tuple[str, str]:
+        """Return the tags that open and close the tool calls block."""
+        if dsml:
+            return f"{self._DSML}function_calls>", f"</{self._DSML[1:]}function_calls>"
+        return "<function_calls>", "</function_calls>"
+
+    def _call_start(self, dsml: bool) -> str:
+        return f"{self._DSML}invoke" if dsml else "<invoke"
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
@@ -115,26 +125,38 @@ class DeepseekV3_2ToolParser(ToolParser):
         if not has_any:
             return [(model_output, None, None)]
 
-        tool_call_regex, invoke_regex, parameter_regex = self._regexes[
-            self._detect_format(model_output)
-        ]
+        dsml = self._detect_format(model_output)
+        parameter_regex = self._regexes[dsml][2]
+        wrapper_start, wrapper_end = self._wrapper_tags(dsml)
 
         results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
             []
         )
 
         content_start = 0
-        for tool_call_match in tool_call_regex.finditer(model_output):
-            invokes = invoke_regex.findall(tool_call_match.group(1))
+        position = 0
+        while (block := model_output.find(wrapper_start, position)) != -1:
+            body = block + len(wrapper_start)
+            close = self.block_end(
+                model_output,
+                body,
+                wrapper_end,
+                self._call_start(dsml),
+                lambda text, index: invoke_end(text, index, dsml),
+            )
+            if close == -1:
+                break
+            position = close + len(wrapper_end)
+            invokes = list(iter_invokes(model_output, dsml, body, close))
             if not invokes:
                 continue
-            content = model_output[content_start : tool_call_match.start()]
+            content = model_output[content_start:block]
             if content:
                 results.append((content, None, None))
-            for invoke_name, invoke_content in invokes:
+            for invoke_name, invoke_content, _ in invokes:
                 param_dict = self._parse_invoke_params(invoke_content, parameter_regex)
                 results.append((None, invoke_name, param_dict))
-            content_start = tool_call_match.end()
+            content_start = position
 
         if not results:
             return [(model_output, None, None)]
@@ -186,21 +208,22 @@ class DeepseekV3_2ToolParser(ToolParser):
             # Inside tool-call region: return the invokes whose closing tag
             # arrived in this delta
             dsml = self._detect_format(current_text)
-            _, invoke_regex, parameter_regex = self._regexes[dsml]
+            parameter_regex = self._regexes[dsml][2]
             previous_length = len(current_text) - len(delta_text)
             # Every invoke ends with its closing tag, so none can complete in
             # this delta unless the tag does. Skip the regex scan until then.
             invoke_close = f"</{self._DSML[1:]}invoke>" if dsml else "</invoke>"
             # Text outside the tool call blocks is content, even when it
             # shares a chunk with a marker.
+            wrapper_start, wrapper_end = self._wrapper_tags(dsml)
             content = self._text_outside_blocks(
                 current_text,
                 delta_text,
-                f"{self._DSML}function_calls>" if dsml else "<function_calls>",
-                f"</{self._DSML[1:]}function_calls>" if dsml else "</function_calls>",
+                wrapper_start,
+                wrapper_end,
                 self.tool_call_start_tokens,
-                call_start="<｜DSML｜invoke" if dsml else "<invoke",
-                call_end=invoke_close,
+                call_start=self._call_start(dsml),
+                call_end=lambda text, index: invoke_end(text, index, dsml),
             )
             if (
                 current_text.find(
@@ -210,9 +233,8 @@ class DeepseekV3_2ToolParser(ToolParser):
             ):
                 return (content, None, None) if content else None
             results: List[ToolCall] = [(content, None, None)] if content else []
-            for invoke in invoke_regex.finditer(current_text):
-                if invoke.end() > previous_length:
-                    invoke_name, invoke_body = invoke.groups()
+            for invoke_name, invoke_body, end in iter_invokes(current_text, dsml):
+                if end > previous_length:
                     param_dict = self._parse_invoke_params(invoke_body, parameter_regex)
                     results.append((None, invoke_name, param_dict))
 

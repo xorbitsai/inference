@@ -1,5 +1,5 @@
 from contextvars import ContextVar
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional
 
 # Tools of the request whose output is being parsed. One parser instance serves
 # every request to a model, so the chat helpers set this around each parse call
@@ -117,7 +117,7 @@ class ToolParser:
         end: str,
         held_markers: Optional[Iterable[str]] = None,
         call_start: Optional[str] = None,
-        call_end: Optional[str] = None,
+        call_end: Optional[Callable[[str, int], int]] = None,
     ) -> Optional[str]:
         """
         Return the plain text this chunk adds outside ``start``...``end``
@@ -130,9 +130,12 @@ class ToolParser:
         is still open.
 
         ``end`` only closes a block outside a call. When ``call_start`` and
-        ``call_end`` are given, a call that has started is skipped up to its
-        ``call_end``, so an ``end`` marker written inside a tool argument does
-        not close the block.
+        ``call_end`` are given, a call that starts with ``call_start`` is
+        skipped as a whole, so an ``end`` marker written inside a tool argument
+        does not close the block. ``call_end(text, index)`` takes the index of
+        a ``call_start`` and returns the index just past the end of that call,
+        or -1 while it is still open. It reads the arguments by their syntax,
+        so a literal end marker inside an argument does not end the call.
         """
         markers = tuple(held_markers or (start,))
         previous_length = len(current_text) - len(delta_text)
@@ -143,7 +146,7 @@ class ToolParser:
         position = 0
         while (block := current_text.find(start, position)) != -1:
             parts.append(current_text[max(position, floor) : block])
-            body_end = self._block_end(
+            body_end = self.block_end(
                 current_text, block + len(start), end, call_start, call_end
             )
             if body_end == -1:
@@ -156,26 +159,67 @@ class ToolParser:
         return "".join(parts) or None
 
     @staticmethod
-    def _block_end(
+    def block_end(
         text: str,
         position: int,
         end: str,
-        call_start: Optional[str],
-        call_end: Optional[str],
+        call_start: Optional[str] = None,
+        call_end: Optional[Callable[[str, int], int]] = None,
     ) -> int:
         """
         Return the index of the ``end`` marker that closes the block whose body
-        starts at ``position``, or -1 while it is still open. Text between a
-        ``call_start`` and its ``call_end`` is never searched for ``end``.
+        starts at ``position``, or -1 while it is still open. A call that
+        starts with ``call_start`` is skipped as a whole (see
+        ``_text_outside_blocks``), so ``end`` is never looked for inside it.
         """
         while True:
             closing = text.find(end, position)
-            if not call_start or not call_end:
+            if not call_start or call_end is None:
                 return closing
             opening = text.find(call_start, position)
             if opening == -1 or (closing != -1 and closing < opening):
                 return closing
-            call_close = text.find(call_end, opening + len(call_start))
+            call_close = call_end(text, opening)
             if call_close == -1:
                 return -1
-            position = call_close + len(call_end)
+            position = call_close
+
+
+def find_outside_json_string(
+    text: str, marker: str, position: int, restart: Optional[str] = None
+) -> int:
+    """
+    Return the index of the first ``marker`` at or after ``position`` that is
+    not inside a JSON string, or -1 when there is none yet. A marker written
+    inside a string value is part of the value, so it is skipped, and a string
+    that is still open hides the rest of the text.
+
+    A string that is still open when the next ``restart`` token (the start of
+    a following call) begins was cut short, so the first marker inside it
+    counts after all.
+    """
+    in_string = False
+    escaped = False
+    inside = -1
+    index = position
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            elif inside == -1 and text.startswith(marker, index):
+                inside = index
+            elif inside != -1 and restart and text.startswith(restart, index):
+                return inside
+        elif char == '"':
+            in_string = True
+            inside = -1
+        elif text.startswith(marker, index):
+            return index
+        index += 1
+    return -1

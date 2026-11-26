@@ -145,13 +145,33 @@ WRAPPER_END = {
 }
 
 
+# The marker that closes a single call of each format.
+CALL_END = {
+    "deepseek-v3.1": "<｜tool▁call▁end｜>",
+    "deepseek-v3.2": "</｜DSML｜invoke>",
+    "deepseek-v4": "</｜DSML｜invoke>",
+    "deepseek-v3.2-plain": "</invoke>",
+    "deepseek-v4-plain": "</invoke>",
+}
+
+
+def _chunks_of(text, size):
+    return [text[i : i + size] for i in range(0, len(text), size)]
+
+
 @pytest.mark.parametrize("parser_name", WRAPPER_END)
 def test_streaming_ignores_block_end_marker_inside_an_argument(parser_name):
     parser_cls, tool_call = PARSERS[parser_name]
     marker = WRAPPER_END[parser_name]
-    value = f"example = {marker}; print(example)"
-    text = "A " + tool_call.replace("Beijing", value) + " B"
-    for chunks in _splits(text):
-        content, tool_calls = _stream(parser_cls(), chunks)
-        assert tool_calls == [("get_weather", {"location": value})], chunks
-        assert content == "A  B", chunks
+    # The marker that closes the call itself, which a wrapper end may follow
+    call_end = CALL_END[parser_name]
+    for value in (
+        f"example = {marker}; print(example)",
+        f"example = {call_end}; print(example)",
+        f"example = {call_end}{marker}; print(example)",
+    ):
+        text = "A " + tool_call.replace("Beijing", value) + " B"
+        for chunks in [*_splits(text), _chunks_of(text, 17)]:
+            content, tool_calls = _stream(parser_cls(), chunks)
+            assert tool_calls == [("get_weather", {"location": value})], chunks
+            assert content == "A  B", chunks
