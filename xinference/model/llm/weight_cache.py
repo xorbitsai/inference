@@ -16,6 +16,7 @@
 
 import copy
 import dataclasses
+import hashlib
 import json
 import logging
 import math
@@ -124,21 +125,68 @@ def _gpu_memory_snapshot():
     return devices
 
 
-def _assigned_gpus(environment: Dict[str, str]) -> Optional[Set[int]]:
-    """GPU indices in the daemon's visible-devices variable, or None if unknown.
+_ACCOUNTING_ERROR = (
+    "Cannot account for the weight cache daemon's GPU memory. "
+    "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
+    "driver process memory accounting to this container."
+)
 
-    Integer entries are physical indices, as in `device_utils`. An unset
-    variable or a UUID entry leaves the assignment unknown.
-    """
-    from ...device_utils import get_available_device_env_name
 
-    value = environment.get(get_available_device_env_name() or "CUDA_VISIBLE_DEVICES")
-    if not value or not value.strip():
-        return None
+def _gpu_uuids() -> Dict[int, str]:
+    """NVML UUID of each NVIDIA GPU that can be queried, by NVML index."""
+    import torch
+
+    if torch.version.hip:
+        return {}
+    import pynvml
+
+    uuids = {}
+    pynvml.nvmlInit()
     try:
-        return {int(entry) for entry in value.split(",")}
-    except ValueError:
+        for index in range(pynvml.nvmlDeviceGetCount()):
+            try:
+                handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+                uuid = pynvml.nvmlDeviceGetUUID(handle)
+            except pynvml.NVMLError as e:
+                if not _gpu_cannot_be_queried(pynvml, e):
+                    raise
+                continue
+            uuids[index] = uuid.decode() if isinstance(uuid, bytes) else uuid
+    finally:
+        pynvml.nvmlShutdown()
+    return uuids
+
+
+VLLM_SOCKET_PREFIX = "vllm_weight_cache_"
+
+
+def _daemon_gpus(socket_paths) -> Optional[Set[int]]:
+    """NVML indices of the GPUs the vLLM daemon serves, from its socket names.
+
+    vLLM names each rank's socket after a hash of the GPU's NVML UUID (md5, or
+    sha256 under FIPS), so this does not depend on CUDA and NVML ordering. None
+    when no socket name matches a GPU, so the caller falls back to counting.
+    Raises when some sockets match and others name a GPU NVML cannot query.
+    """
+    digests = set()
+    for path in socket_paths:
+        name = Path(path).name
+        if name.startswith(VLLM_SOCKET_PREFIX) and name.endswith(".sock"):
+            # Drop a role suffix such as `_draft`.
+            digests.add(name[len(VLLM_SOCKET_PREFIX) : -len(".sock")].split("_")[0])
+    if not digests:
         return None
+    index_by_digest = {}
+    for index, uuid in _gpu_uuids().items():
+        for algorithm in ("md5", "sha256"):
+            digest = hashlib.new(algorithm, uuid.encode(), usedforsecurity=False)
+            index_by_digest[digest.hexdigest()] = index
+    matched = {index_by_digest[d] for d in digests if d in index_by_digest}
+    if not matched:
+        return None
+    if len(matched) < len(digests):
+        raise RuntimeError(_ACCOUNTING_ERROR)
+    return matched
 
 
 def _cached_memory_fraction(
@@ -177,18 +225,14 @@ def _cached_memory_fraction(
     unmeasured = False
     if baseline is not None:
         if devices is not None:
-            # Each GPU assigned to the daemon must be in both snapshots.
+            # Each GPU the daemon serves must be in both snapshots.
             unmeasured = not devices <= set(baseline) & set(snapshot)
         else:
             # Unknown assignment: when the snapshots cover different GPUs, one
             # the daemon's ranks use may be among the unmeasured ones.
             unmeasured = set(baseline) != set(snapshot) and len(fractions) < ranks
     if not fractions or not all(0 < value < 1 for value in fractions) or unmeasured:
-        raise RuntimeError(
-            "Cannot account for the weight cache daemon's GPU memory. "
-            "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
-            "driver process memory accounting to this container."
-        )
+        raise RuntimeError(_ACCOUNTING_ERROR)
     return max(fractions)
 
 
@@ -418,7 +462,10 @@ class WeightCacheDaemon:
                         self._ready_paths = list(self.directory.glob("*.ready"))
                         if baseline is not None:
                             self._memory_fraction = _cached_memory_fraction(
-                                self.process.pid, baseline, ranks, _assigned_gpus(env)
+                                self.process.pid,
+                                baseline,
+                                ranks,
+                                _daemon_gpus(self._socket_paths),
                             )
                         return
                 time.sleep(0.1)
