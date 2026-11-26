@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,6 +54,11 @@ def make_pdf(page_count: int = 1, media_box: str = "0 0 200 100") -> bytes:
         f"<</Type /Page /Parent 2 0 R /MediaBox [{media_box}]>>".encode()
         for _ in range(page_count)
     )
+    return make_pdf_from_objects(objects)
+
+
+def make_pdf_from_objects(objects: list[bytes]) -> bytes:
+    """Write a numbered PDF object list with the first object as its catalog."""
     out = bytearray(b"%PDF-1.4\n")
     offsets = []
     for i, body in enumerate(objects, start=1):

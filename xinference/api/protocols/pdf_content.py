@@ -61,6 +61,7 @@ def render_pdf_pages(raw: bytes, budget: PDFRenderBudget) -> List[Dict[str, Any]
     # PDFium operations on different documents must also share the OCR lock.
     try:
         with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
+            pdf.init_forms()
             budget.pages += len(pdf)
             if budget.pages > 20:
                 raise ValueError("PDF input supports at most 20 pages per request")

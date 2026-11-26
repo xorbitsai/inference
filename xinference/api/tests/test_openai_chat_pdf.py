@@ -14,6 +14,7 @@ from PIL import Image
 from .. import restful_api
 from .test_llm_request_abort import _new_api
 from .test_model_request_logging import _app
+from .test_ocr_pdf import make_pdf_from_objects
 
 CHAT_PATH = "/v1/chat/completions"
 
@@ -105,6 +106,49 @@ async def test_chat_expands_pdf_pages_in_place(chat_api, stream, prefix):
         with Image.open(io.BytesIO(base64.b64decode(data))) as page:
             sizes.append(page.size)
     assert sizes == [(120, 150), (150, 120)]
+
+
+@pytest.mark.asyncio
+async def test_chat_pdf_renders_filled_form_field(chat_api):
+    pytest.importorskip("pypdfium2")
+    client, model, _ = chat_api
+    # The page is blank apart from an invoice total in the widget appearance.
+    appearance = b"BT /Helv 18 Tf 0 g 8 8 Td (123.45) Tj ET\n"
+    pdf = make_pdf_from_objects(
+        [
+            b"<</Type /Catalog /Pages 2 0 R /AcroForm "
+            b"<</Fields [4 0 R] /DA (/Helv 18 Tf 0 g) "
+            b"/DR <</Font <</Helv 5 0 R>>>>>> >>",
+            b"<</Type /Pages /Kids [3 0 R] /Count 1>>",
+            b"<</Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Annots [4 0 R]>>",
+            b"<</Type /Annot /Subtype /Widget /FT /Tx /T (InvoiceTotal) /V (123.45) "
+            b"/P 3 0 R /F 4 /Rect [40 35 160 65] /AP <</N 6 0 R>>>>",
+            b"<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>",
+            b"<</Type /XObject /Subtype /Form /BBox [0 0 120 30] "
+            b"/Resources <</Font <</Helv 5 0 R>>>> /Length "
+            + str(len(appearance)).encode()
+            + b">>\nstream\n"
+            + appearance
+            + b"endstream",
+        ]
+    )
+    response = await client.post(
+        CHAT_PATH,
+        json={
+            "model": "local",
+            "messages": [
+                {"role": "user", "content": [_file(base64.b64encode(pdf).decode())]}
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    (part,) = model.chat.await_args.args[0][0]["content"]
+    assert part["type"] == "image_url"
+    prefix, data = part["image_url"]["url"].split(",", 1)
+    assert prefix == "data:image/png;base64"
+    with Image.open(io.BytesIO(base64.b64decode(data))) as image:
+        assert image.convert("L").crop((60, 52, 240, 98)).getextrema()[0] < 128
 
 
 @pytest.mark.asyncio
