@@ -416,6 +416,10 @@ def create_image_model_instance(
     preflight = getattr(model_cls, "preflight", None)
     if callable(preflight) and not skip_preflight:
         preflight(**kwargs)
+    if model_spec.model_family == "minimax_h3_image" and model_engine.lower() == "vllm":
+        from .minimax_h3 import prepare_vllm_model_spec
+
+        model_spec = prepare_vllm_model_spec(model_spec)
     cache_manager = ImageCacheManager(model_spec)
     if not lightning_model_path and lightning_version:
         cache_manager.check_lightning(lightning_version)

@@ -112,6 +112,7 @@ for faster inference:
 * GLM-Image (SGLang only)
 * Krea-2-Raw (SGLang only)
 * Krea-2-Turbo (SGLang only)
+* MiniMax-H3-Image (vLLM only)
 * Qwen-Image
 * Qwen-Image-2.1
 * Qwen-Image-2.1-Turbo
@@ -134,6 +135,17 @@ Supported vLLM-Omni pipelines can use ``step_execution=true`` for experimental
 continuous batching. Batching is opt-in, requires compatible requests and model
 support, and increases GPU memory usage. Send independent API requests
 concurrently. The ``n`` parameter controls the number of outputs within one request.
+
+MiniMax-H3-Image supports text-to-image generation with the ``vLLM`` engine using
+the paired ``vllm-omni==0.34.*`` and ``vllm==0.34.*`` releases. Its virtual environment
+uses the engine's PyTorch dependencies and a separate native-checkpoint cache.
+Generation uses six distilled steps and guidance scale 1. Multiple outputs are
+submitted as separate engine requests. Reference-image editing remains available
+through the ``diffusers`` engine.
+
+.. code-block:: bash
+
+   xinference launch --model-name MiniMax-H3-Image --model-type image --model-engine vLLM
 
 By default, Xinference installs the engine dependencies in a per-model virtual
 environment. For manual installs of Qwen-Image-2.1 or Qwen-Image-2.1-Turbo, use

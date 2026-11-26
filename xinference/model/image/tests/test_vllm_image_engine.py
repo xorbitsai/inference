@@ -16,6 +16,7 @@
 
 import asyncio
 import dataclasses
+import importlib.metadata
 import queue
 import sys
 import threading
@@ -628,3 +629,131 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
                 f"{model_name}: vllm-omni ({omni_ver}) and vllm ({vllm_ver}) "
                 "pins must share the same version"
             )
+
+
+@pytest.mark.parametrize(
+    "hub,revision", [("huggingface", "main"), ("modelscope", "master")]
+)
+def test_minimax_factory_selects_native_checkpoint(
+    monkeypatch, tmp_path, hub, revision
+):
+    from ..cache_manager import ImageCacheManager
+    from ..core import create_image_model_instance
+    from ..engine_family import IMAGE_ENGINES, generate_engine_config_by_model_name
+
+    spec = next(
+        s for s in BUILTIN_IMAGE_MODELS["MiniMax-H3-Image"] if s.model_hub == hub
+    )
+    original = spec.dict()
+    monkeypatch.setattr(engine_platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        sys.modules[VLLMImageModel.__module__], "has_cuda_device", lambda: True
+    )
+    engines = {}
+    generate_engine_config_by_model_name(spec, target_engines=engines)
+    monkeypatch.setitem(IMAGE_ENGINES, spec.model_name, engines[spec.model_name])
+    cached = []
+
+    def cache(manager):
+        cached.append(manager._model_family)
+        assert manager.get_cache_dir() != ImageCacheManager(spec).get_cache_dir()
+        return str(tmp_path)
+
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    model = create_image_model_instance(
+        "minimax-vllm",
+        spec.model_name,
+        model_engine="vLLM",
+        download_hub=hub,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, VLLMImageModel)
+    assert model.model_ability == ["text2image"]
+    assert cached[0].model_hub == hub
+    assert cached[0].model_revision == revision
+    assert cached[0].cache_name == "MiniMax-H3-Image-vllm"
+    assert set(cached[0].cache_config["allow_patterns"]) == {
+        "model_index.json",
+        "pdd_*",
+        "transformer/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "processor/*",
+        "vae/*",
+    }
+    assert model.model_family.model_engine == "vLLM"
+    assert spec.dict() == original
+
+
+def test_minimax_virtualenv_dependencies_are_engine_scoped():
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    spec = _get_spec("MiniMax-H3-Image")
+    omni = UVVirtualEnvManager.process_packages(spec.virtualenv.packages, engine="vLLM")
+    assert "vllm-omni==0.34.*" in omni
+    assert "vllm==0.34.*" in omni
+    assert not any(p.startswith(("torch", "numpy", "diffusers")) for p in omni)
+    diffusers = UVVirtualEnvManager.process_packages(
+        spec.virtualenv.packages, engine="diffusers"
+    )
+    assert "diffusers>=0.43.0" in diffusers
+    assert not any(p.startswith("vllm") for p in diffusers)
+
+
+@pytest.mark.parametrize("version", ["0.32.0", "0.33.0rc1", "0.34.0"])
+def test_minimax_load_checks_release_and_maps_offload(monkeypatch, version):
+    calls = []
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: version)
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        types.SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs)),
+    )
+    model = VLLMDiffusionModel(
+        "minimax-vllm",
+        "/native",
+        model_spec=_get_spec("MiniMax-H3-Image"),
+        torch_dtype="bfloat16",
+        cpu_offload=True,
+    )
+    if version != "0.34.0":
+        with pytest.raises(
+            ImportError, match="MiniMax-H3-Image requires vllm-omni>=0.34.0"
+        ):
+            model.load()
+        assert not calls
+    else:
+        model.load()
+        assert calls == [
+            {"model": "/native", "dtype": "bfloat16", "enable_cpu_offload": True}
+        ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "seed,expected", [(42, [42, 43]), ([7, 11], [7, 11]), (None, None), (-1, None)]
+)
+async def test_minimax_multiple_outputs_use_single_image_requests(
+    fake_vllm_omni_sampling_params, seed, expected
+):
+    calls = []
+
+    class Omni:
+        def generate(self, prompt, *, sampling_params_list):
+            params = sampling_params_list[0]
+            assert params.num_outputs_per_prompt == 1
+            assert params.num_inference_steps == 6
+            assert params.guidance_scale == 1.0
+            calls.append(params)
+            return [types.SimpleNamespace(images=[Image.new("RGB", (8, 8))])]
+
+    model = VLLMDiffusionModel(
+        "minimax-vllm", "/native", model_spec=_get_spec("MiniMax-H3-Image")
+    )
+    model._model = Omni()
+    result = await model.text_to_image(
+        "a teapot", n=2, seed=seed, size="512*512", response_format="b64_json"
+    )
+    assert len(result["data"]) == len(calls) == 2
+    if expected is not None:
+        assert [call.seed for call in calls] == expected

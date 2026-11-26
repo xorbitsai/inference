@@ -36,11 +36,13 @@
     "virtualenv": {
       "packages": [
         "diffusers>=0.43.0 ; #engine# == \"diffusers\"",
+        "vllm-omni==0.34.* ; #engine# == \"vLLM\"",
+        "vllm==0.34.* ; #engine# == \"vLLM\"",
         "transformers>=5.8.1,<6",
         "accelerate>=1.13.0",
-        "#system_torch#",
-        "#system_torchvision#",
-        "#system_numpy#"
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
       ],
       "no_build_isolation": true
     },
