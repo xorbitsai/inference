@@ -5,6 +5,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 # CI: linux
 
+import hashlib
 import json
 import os
 import pickle
@@ -437,10 +438,18 @@ def test_container_driver_pids_and_unknown_memory(monkeypatch):
         _cached_memory_fraction(os.getpid())
 
 
-def _start_with_snapshots(monkeypatch, snapshots, tp, environment=None):
+def _start_with_snapshots(
+    monkeypatch, snapshots, tp, gpu_uuids=None, sockets=None, environment=None
+):
     """Start a vLLM daemon whose two driver snapshots (before and after preload)
-    are given, and return it."""
+    are given, and return it. `gpu_uuids` maps NVML index to UUID; `sockets` are
+    the UUIDs the daemon's ranks serve (named as vLLM names their sockets)."""
     snapshots = iter(snapshots)
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._gpu_uuids",
+        lambda: dict(gpu_uuids or {}),
+        raising=False,
+    )
     monkeypatch.setattr(
         "xinference.model.llm.weight_cache._gpu_process_memory",
         lambda: next(snapshots),
@@ -452,8 +461,12 @@ def _start_with_snapshots(monkeypatch, snapshots, tp, environment=None):
     process.poll.return_value = None
 
     def spawn(command, **kwargs):
-        for rank in range(tp):
-            (daemon.directory / f"gpu-{rank}.sock").touch()
+        if sockets is None:
+            for rank in range(tp):
+                (daemon.directory / f"gpu-{rank}.sock").touch()
+        for uuid in sockets or ():
+            digest = hashlib.md5(uuid.encode()).hexdigest()
+            (daemon.directory / f"vllm_weight_cache_{digest}.sock").touch()
         return process
 
     monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
@@ -811,29 +824,49 @@ def test_disabled_cache_does_not_probe_environment(auto_cache_model, monkeypatch
 @pytest.mark.skipif(
     sys.platform == "win32", reason="Daemon process groups require POSIX"
 )
-def test_assigned_gpu_missing_from_baseline_is_not_masked(monkeypatch):
-    # The daemon's GPU 0 is missing before preload; an unrelated process that
-    # starts on GPU 1 meanwhile must not stand in for it.
+def test_daemon_gpu_missing_from_baseline_is_not_masked(monkeypatch):
+    # The daemon's GPU (NVML 0) is missing before preload; an unrelated process
+    # that starts on NVML 1 meanwhile must not stand in for it.
     with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
         _start_with_snapshots(
             monkeypatch,
             [{1: (1000, {})}, {0: (1000, {900: 700}), 1: (1000, {950: 200})}],
             tp=1,
-            environment={"CUDA_VISIBLE_DEVICES": "0"},
+            gpu_uuids={0: "GPU-model", 1: "GPU-other"},
+            sockets=["GPU-model"],
         )
 
 
 @pytest.mark.skipif(
     sys.platform == "win32", reason="Daemon process groups require POSIX"
 )
-def test_unassigned_gpu_missing_from_baseline_is_ignored(monkeypatch):
+def test_daemon_gpus_are_matched_by_uuid_not_cuda_ordinal(monkeypatch):
+    # CUDA ordinal 0 is NVML index 1 here. Only the unassigned NVML 0 fails its
+    # first query; the daemon's GPU is in both snapshots and holds 30%.
     daemon = _start_with_snapshots(
         monkeypatch,
-        [{0: (1000, {})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}],
+        [{1: (1000, {})}, {0: (1000, {950: 200}), 1: (1000, {900: 300})}],
         tp=1,
+        gpu_uuids={0: "GPU-other", 1: "GPU-model"},
+        sockets=["GPU-model"],
         environment={"CUDA_VISIBLE_DEVICES": "0"},
     )
     try:
         assert daemon._memory_fraction == 0.3
     finally:
         daemon.stop()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpu_that_cannot_be_queried_is_not_accounted(monkeypatch):
+    # One of two ranks serves a GPU whose UUID NVML no longer reports.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{0: (1000, {})}, {0: (1000, {900: 300})}],
+            tp=2,
+            gpu_uuids={0: "GPU-model"},
+            sockets=["GPU-model", "GPU-lost"],
+        )
