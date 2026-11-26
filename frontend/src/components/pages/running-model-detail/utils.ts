@@ -44,8 +44,8 @@ export function booleanValue(value: unknown): boolean {
   return value === true;
 }
 
-export function isLtx25Distilled(modelName: string): boolean {
-  return modelName === 'LTX-2.5';
+export function usesFixedVideoSampling(modelName: string): boolean {
+  return modelName === 'LTX-2.5' || modelName === 'Phai-M1-distilled';
 }
 
 export function positiveNumber(value: unknown): number | undefined {

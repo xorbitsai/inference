@@ -54,6 +54,8 @@ The text-to-video API is supported with the following models in Xinference:
 * :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
 * :ref:`LTX-2.3-distilled <models_builtin_ltx-2.3-distilled>`
 * :ref:`LTX-2.3-dev <models_builtin_ltx-2.3-dev>`
+* :ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`
+* :ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`
 
 The image-to-video API is supported with the following models in Xinference:
 
@@ -70,6 +72,8 @@ The image-to-video API is supported with the following models in Xinference:
 * :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
 * :ref:`LTX-2.3-distilled <models_builtin_ltx-2.3-distilled>`
 * :ref:`LTX-2.3-dev <models_builtin_ltx-2.3-dev>`
+* :ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`
+* :ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`
 
 The firstlastframe-to-video API is supported with the following models in Xinference:
 
@@ -115,6 +119,26 @@ pre-converted checkpoints.
 The Web UI obtains the engines supported by each model from the engine query
 API and presents them in the launch dialog. Additional video runtimes can be
 registered independently without changing the Video API.
+
+Phai-M1-dev and Phai-M1-distilled use Diffusers 0.41.0 or newer to generate
+video with synchronized audio from text or a reference image. Each variant
+downloads its own BF16 transformer and shares the LTX-2.5 Diffusers
+components. The separately published INT8 checkpoints use ComfyUI's convrot
+format. The default is single-stage generation at 768×512, 121 frames, and
+24 fps. Requested frame counts are rounded to the nearest ``8k+1`` value.
+The distilled variant always uses its eight-step schedule and a guidance
+scale of 1.
+Both variants use the same Diffusers runtime as
+:ref:`LTX-2.5 <models_builtin_ltx-2.5>`.
+
+Select Hugging Face (``main``) or ModelScope (``master``) using
+``--download_hub``. The LTX-2.5 Diffusers repository on Hugging Face requires
+approved access and an authenticated worker. To use a local copy of the
+shared components, set ``--base_model_path /path/to/LTX-2.5-Diffusers``.
+
+.. code-block:: bash
+
+    xinference launch --model-name Phai-M1-distilled --model-type video --model-engine diffusers --download_hub modelscope
 
 MiniMax-H3 also supports ``SGLang`` (0.5.22 or newer, below 0.6) and ``vLLM``
 (matching vLLM-Omni and vLLM 0.32.x) on Linux with CUDA. Both engines implement

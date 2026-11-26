@@ -49,12 +49,12 @@ import {
   fileToDataUrl,
   firstUpload,
   formatOCRPrompt,
-  isLtx25Distilled,
   numberValue,
   parseJsonObject,
   sizeFromValues,
   stringValue,
   uploadList,
+  usesFixedVideoSampling,
 } from './utils';
 import { parseScalarSeed } from './seed-utils';
 import { getSpeechOptions } from './speech-options';
@@ -124,10 +124,16 @@ const ltx25DevDefaults = {
   guidance_scale: 3,
 };
 
+const phaiM1Dimensions = { width: 768, height: 512 };
+const phaiM1DistilledDefaults = { ...ltx25DistilledDefaults, ...phaiM1Dimensions };
+const phaiM1DevDefaults = { ...ltx25DevDefaults, ...phaiM1Dimensions };
+
 function getVideoInitialValueOverrides({
   model_name,
 }: Pick<TransformContext['model'], 'model_name'>) {
-  if (isLtx25Distilled(model_name)) return ltx25DistilledDefaults;
+  if (model_name === 'Phai-M1-distilled') return phaiM1DistilledDefaults;
+  if (model_name === 'Phai-M1-dev') return phaiM1DevDefaults;
+  if (usesFixedVideoSampling(model_name)) return ltx25DistilledDefaults;
   if (model_name === 'LTX-2.5-Dev') return ltx25DevDefaults;
   return undefined;
 }
@@ -214,7 +220,7 @@ function buildMediaKwargs(
 
 function buildVideoKwargs(context: TransformContext) {
   const kwargs = buildMediaKwargs(context);
-  if (isLtx25Distilled(context.model.model_name)) {
+  if (usesFixedVideoSampling(context.model.model_name)) {
     delete kwargs.num_inference_steps;
     delete kwargs.guidance_scale;
   }

@@ -1,0 +1,65 @@
+[
+  {
+    "version": 2,
+    "model_name": "Phai-M1-dev",
+    "model_family": "Phai-M1",
+    "engine": "diffusers",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video",
+      "image2video"
+    ],
+    "default_model_config": {
+      "transformer_filename": "diffusion_models/Phai-M1-22b-dev-transformer-bf16.safetensors",
+      "model_variant": "dev",
+      "torch_dtype": "bfloat16",
+      "cpu_offload": true,
+      "vae_tiling": true
+    },
+    "default_generate_config": {
+      "fps": 24,
+      "height": 512,
+      "width": 768,
+      "num_frames": 121,
+      "num_inference_steps": 30,
+      "guidance_scale": 3.0,
+      "audio_guidance_scale": 7.0,
+      "stg_scale": 1.0,
+      "audio_stg_scale": 1.0,
+      "modality_scale": 3.0,
+      "audio_modality_scale": 3.0,
+      "guidance_rescale": 0.7,
+      "audio_guidance_rescale": 0.7
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "diffusion_models/Phai-M1-22b-dev-transformer-bf16.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.41.0,<1.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.15.0,<6.0",
+        "accelerate",
+        "sentencepiece",
+        "protobuf",
+        "av",
+        "#system_torch#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PhaiModelLab/Phai-M1",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PhaiModelLab/Phai-M1",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1795622400,
+    "featured": false
+  }
+]

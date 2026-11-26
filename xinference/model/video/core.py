@@ -204,15 +204,14 @@ def create_video_model_instance(
     )
     model_spec = match_diffusion(model_name, download_hub, model_engine=model_engine)
 
+    from .ltx2 import LTX2VideoModel
     from .precision import apply_runtime_precision
 
     kwargs = apply_runtime_precision(model_spec, model_engine, kwargs)
 
-    if model_spec.model_family == "LTX2":
-        from .ltx2 import LTX2VideoModel
-
+    if LTX2VideoModel.is_model_family_supported(model_spec):
         LTX2VideoModel.validate_model_spec(model_spec)
-        if model_path is not None:
+        if model_spec.model_family == "LTX2" and model_path is not None:
             raise ValueError(
                 "LTX-2.5 must be downloaded from its official Hugging Face or "
                 "ModelScope source; a custom model_path is not allowed"
@@ -241,8 +240,13 @@ def create_video_model_instance(
         if "variant" in kwargs and _is_set(kwargs["variant"]):
             forbidden_options.append("variant")
         if gguf_model_path or _is_set(gguf_quantization) or forbidden_options:
+            model_label = (
+                "LTX-2.5"
+                if model_spec.model_family == "LTX2"
+                else model_spec.model_family
+            )
             raise ValueError(
-                "LTX-2.5 only supports the official BF16 weights; "
+                f"{model_label} only supports the official BF16 weights; "
                 "quantization, GGUF, and alternate weight variants are not allowed"
             )
         gguf_quantization = None
