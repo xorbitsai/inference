@@ -29,6 +29,30 @@ from PIL import Image
 from ....api.restful_api import RESTfulAPI
 from ....core.model import ModelActor
 from .. import sensenova_u1
+from ..core import create_image_model_instance
+from ..engine import TransformersSenseNovaU1ImageModel
+
+
+@pytest.mark.parametrize(
+    ("hub", "namespace", "revision"),
+    [("huggingface", "sensenova", "main"), ("modelscope", "SenseNova", "master")],
+)
+def test_u16_uses_shared_transformers_image_engine(tmp_path, hub, namespace, revision):
+    model_name = "SenseNova-U1.6-8B-MoT"
+
+    model = create_image_model_instance(
+        model_uid="sensenova-u16",
+        model_name=model_name,
+        download_hub=hub,
+        model_path=str(tmp_path),
+    )
+
+    assert isinstance(model, TransformersSenseNovaU1ImageModel)
+    assert model.model_spec.model_engine == "transformers"
+    assert model.model_spec.model_hub == hub
+    assert model.model_spec.model_id == f"{namespace}/{model_name}"
+    assert model.model_spec.model_revision == revision
+    assert set(model.model_ability) == {"text2image", "image2image"}
 
 
 def _make_model():
