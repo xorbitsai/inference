@@ -23,6 +23,7 @@ import math
 import os
 import signal
 import socket
+import string
 import subprocess
 import sys
 import tempfile
@@ -132,12 +133,15 @@ _ACCOUNTING_ERROR = (
 )
 
 
-def _gpu_uuids() -> Dict[int, str]:
-    """NVML UUID of each NVIDIA GPU that can be queried, by NVML index."""
+def _gpu_uuids() -> Optional[Dict[int, str]]:
+    """NVML UUID of each NVIDIA GPU that can be queried, by NVML index.
+
+    None on ROCm, where there is no NVML to read UUIDs from.
+    """
     import torch
 
     if torch.version.hip:
-        return {}
+        return None
     import pynvml
 
     uuids = {}
@@ -158,6 +162,8 @@ def _gpu_uuids() -> Dict[int, str]:
 
 
 VLLM_SOCKET_PREFIX = "vllm_weight_cache_"
+# Hex lengths of the md5 and sha256 digests vLLM may name its sockets with.
+_UUID_DIGEST_LENGTHS = (32, 64)
 
 
 def _daemon_gpus(socket_paths) -> Optional[Set[int]]:
@@ -165,28 +171,33 @@ def _daemon_gpus(socket_paths) -> Optional[Set[int]]:
 
     vLLM names each rank's socket after a hash of the GPU's NVML UUID (md5, or
     sha256 under FIPS), so this does not depend on CUDA and NVML ordering. None
-    when no socket name matches a GPU, so the caller falls back to counting.
-    Raises when some sockets match and others name a GPU NVML cannot query.
+    when no socket carries such a hash, or on ROCm, so the caller falls back to
+    counting. Raises when any hash does not match a GPU NVML can query, since
+    counting would then measure whichever GPUs remain.
     """
     digests = set()
     for path in socket_paths:
         name = Path(path).name
         if name.startswith(VLLM_SOCKET_PREFIX) and name.endswith(".sock"):
             # Drop a role suffix such as `_draft`.
-            digests.add(name[len(VLLM_SOCKET_PREFIX) : -len(".sock")].split("_")[0])
+            digest = name[len(VLLM_SOCKET_PREFIX) : -len(".sock")].split("_")[0]
+            if len(digest) in _UUID_DIGEST_LENGTHS and all(
+                c in string.hexdigits for c in digest
+            ):
+                digests.add(digest.lower())
     if not digests:
         return None
-    index_by_digest = {}
-    for index, uuid in _gpu_uuids().items():
-        for algorithm in ("md5", "sha256"):
-            digest = hashlib.new(algorithm, uuid.encode(), usedforsecurity=False)
-            index_by_digest[digest.hexdigest()] = index
-    matched = {index_by_digest[d] for d in digests if d in index_by_digest}
-    if not matched:
+    uuids = _gpu_uuids()
+    if uuids is None:
         return None
-    if len(matched) < len(digests):
+    index_by_digest = {}
+    for index, uuid in uuids.items():
+        for algorithm in ("md5", "sha256"):
+            hashed = hashlib.new(algorithm, uuid.encode(), usedforsecurity=False)
+            index_by_digest[hashed.hexdigest()] = index
+    if not digests.issubset(index_by_digest):
         raise RuntimeError(_ACCOUNTING_ERROR)
-    return matched
+    return {index_by_digest[d] for d in digests}
 
 
 def _cached_memory_fraction(
