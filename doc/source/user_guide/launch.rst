@@ -476,6 +476,12 @@ Retry an interrupted replica deletion with the same ``drain_id``. An API
 relaunch and a replica drain cannot start concurrently. If either is blocked
 by the other, the API returns HTTP 409.
 
+A Worker handoff allows deletion to resume if it transferred the original
+surviving replica. In hosted deployments, a drain returns HTTP 409 while
+another API process is still running, including a replacement from a failed
+relaunch. If an older API Host cannot confirm process exit after a failure,
+complete a successful API relaunch before retrying the drain.
+
 GPU Allocation Strategy
 =======================
 

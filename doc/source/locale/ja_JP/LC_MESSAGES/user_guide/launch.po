@@ -68,3 +68,7 @@ msgstr ""
 #: ../../source/user_guide/launch.rst:475
 msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
 msgstr "レプリカの削除が中断された場合は、同じ ``drain_id`` で再試行してください。API の再起動とレプリカのドレインは同時に開始できません。一方の操作がもう一方をブロックしている場合、API は HTTP 409 を返します。"
+
+#: ../../source/user_guide/launch.rst:479
+msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
+msgstr "元の稼働中のレプリカが後継 Worker に引き継がれていれば、削除を再開できます。ホスト型デプロイで別の API プロセスが動作中の場合、ドレインは HTTP 409 を返します。再起動に失敗した後の代替プロセスも対象です。古い API Host で失敗後にプロセスの終了を確認できない場合は、API の再起動を正常に完了してからドレインを再試行してください。"

@@ -30,6 +30,7 @@ from ..supervisor import ReplicaInfo, SupervisorActor
 from ..supervisor_upgrade import SupervisorMaintenance
 from ..utils import build_replica_model_uid
 from ..worker import ModelStatus, WorkerActor
+from ..worker_handoff import PROTOCOL_VERSION, WorkerSnapshot
 
 
 @pytest.mark.asyncio
@@ -969,8 +970,10 @@ async def test_terminate_replica_reconciles_worker_replay_during_delete():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["worker", "worker_reply", "status"])
-async def test_retry_interrupted_drained_replica_deletion(failure):
+@pytest.mark.parametrize(
+    "failure", ["worker", "worker_reply", "worker_handoff", "status"]
+)
+async def test_retry_interrupted_drained_replica_deletion(failure, monkeypatch):
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
     supervisor = _make_supervisor([worker], worker.launch_args)
     await supervisor.add_model_replica("demo")
@@ -989,7 +992,7 @@ async def test_retry_interrupted_drained_replica_deletion(failure):
         if failure == "worker" and worker.terminate_model.await_count == 1:
             raise RuntimeError("Worker failed before deletion")
         replicas.pop(model_uid)
-        if failure == "worker_reply":
+        if failure in ("worker_reply", "worker_handoff"):
             raise RuntimeError("Worker reply lost after deletion")
 
     worker.terminate_model = AsyncMock(side_effect=terminate)
@@ -1012,6 +1015,38 @@ async def test_retry_interrupted_drained_replica_deletion(failure):
     assert not supervisor._upgrade_state.maintenance.idle()
     assert await supervisor.get_model("demo") is survivor
 
+    if failure == "worker_handoff":
+        replacement = SimpleNamespace(
+            address="worker-1:9978",
+            get_extension_resources=AsyncMock(return_value={"extensions": {}}),
+            worker_handoff_ready=AsyncMock(return_value=True),
+            get_model=AsyncMock(return_value=survivor),
+            get_model_launch_status=AsyncMock(return_value=None),
+            terminate_model=AsyncMock(),
+        )
+        snapshot = WorkerSnapshot(
+            version=PROTOCOL_VERSION,
+            ticket="replace-worker",
+            source=worker.address,
+            target=replacement.address,
+            supervisor=supervisor.address,
+            source_incarnation="source-instance",
+            target_incarnation="target-instance",
+            generation=1,
+            devices=[],
+            state={"_model_uid_to_model": dict(replicas)},
+        )
+        with monkeypatch.context() as patch:
+            patch.setattr(xo, "actor_ref", AsyncMock(return_value=replacement))
+            assert await supervisor.prepare_worker_handoff(snapshot, 10)
+            await supervisor.confirm_worker_handoff(worker.address, snapshot.ticket)
+            assert await supervisor.commit_worker_handoff(snapshot)
+        worker.get_model.side_effect = ConnectionError("Source Worker exited")
+        worker.get_model_launch_status.side_effect = ConnectionError(
+            "Source Worker exited"
+        )
+        assert await supervisor.get_model("demo") is survivor
+
     if failure == "worker":
         replicas["demo-rep1"] = object()
         with pytest.raises(ValueError, match="replica changed"):
@@ -1025,6 +1060,10 @@ async def test_retry_interrupted_drained_replica_deletion(failure):
 
     for _ in range(2):
         assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+    if failure == "worker_handoff":
+        replacement.get_model_launch_status.assert_awaited_once_with("demo-rep1")
+        replacement.terminate_model.assert_not_awaited()
+        worker.get_model_launch_status.assert_not_awaited()
     assert worker.terminate_model.await_count == (2 if failure == "worker" else 1)
     assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "succeeded"
     assert supervisor._upgrade_state.maintenance.idle()

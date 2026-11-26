@@ -2891,13 +2891,16 @@ class RESTfulAPI(CancelMixin):
             target = build_replica_model_uid(model_uid, replica_id).encode()
             with anyio.fail_after(timeout):
                 if os.environ.get(API_HOST_ENV):
-                    operations = await host_request("list")
-                    if any(
-                        operation["status"] not in ("succeeded", "failed")
-                        for operation in operations
+                    host_state = await host_request("list", require_single_api=True)
+                    # Older hosts ignore the option and return their operation
+                    # list. Starting the last relaunch ruled out older live
+                    # processes, and success means it waited for its source.
+                    if host_state is not True and (
+                        not isinstance(host_state, list)
+                        or (host_state and host_state[-1]["status"] != "succeeded")
                     ):
                         raise RuntimeError(
-                            "Wait for the previous API to finish draining"
+                            "Wait for a successful API relaunch before starting a drain"
                         )
                 started = True
                 result = await supervisor.begin_manual_replica_drain(

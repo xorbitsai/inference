@@ -6572,6 +6572,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if (
                 self._model_uid_to_replica_info.get(model_uid) is not info
                 or tuple(info.active_replica_ids) != active_replica_ids
+                or any(
+                    self._replica_model_uid_to_worker.get(
+                        build_replica_model_uid(model_uid, index)
+                    )
+                    != first
+                    for index in active_replica_ids
+                )
                 or not self._upgrade_state.maintenance.begin()
             ):
                 raise ValueError("The model topology or Supervisor changed")
@@ -6675,9 +6682,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self, model_uid: str, drain: ManualReplicaDrain
     ) -> bool:
         target_uid = build_replica_model_uid(model_uid, drain.replica_id)
+        worker = drain.worker
         # The routing entry can outlive a lost Worker reply, or already be gone
-        # if the following StatusGuard update failed. Check the original Worker.
-        if await drain.worker.get_model_launch_status(target_uid) is not None:
+        # if the following StatusGuard update failed. Check the recorded owner.
+        if await worker.get_model_launch_status(target_uid) is not None:
             return False
         survivor_id = next(
             index for index in drain.replicas if index != drain.replica_id
@@ -6690,9 +6698,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             or tuple(info.active_replica_ids)
             not in (tuple(drain.replicas), (survivor_id,))
             or survivor != drain.replicas[survivor_id]
-            or self._replica_model_uid_to_worker.get(survivor_uid) != drain.worker
-            or self._replica_model_uid_to_worker.get(target_uid)
-            not in (None, drain.worker)
+            or drain.worker != worker
+            or self._replica_model_uid_to_worker.get(survivor_uid) != worker
+            or self._replica_model_uid_to_worker.get(target_uid) not in (None, worker)
         ):
             raise ValueError("The model topology changed during manual drain")
         return True

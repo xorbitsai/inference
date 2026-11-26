@@ -115,6 +115,38 @@ async def test_manual_drain_timeout_cancels_without_deleting(replica_api, monkey
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status, expected", [("failed", 409), ("succeeded", 200)])
+async def test_manual_drain_with_an_older_api_host(
+    replica_api, monkeypatch, status, expected
+):
+    from ...deploy import api_host
+
+    monkeypatch.setenv(api_host.API_HOST_ENV, "hosted")
+    # An older host ignores the liveness option and returns its operation list.
+    host = AsyncMock(return_value=[{"status": "failed"}, {"status": status}])
+    monkeypatch.setattr(api_host, "host_request", host)
+    replica_api._replica_drain_requests = ReplicaDrainRequests()
+    supervisor = AsyncMock()
+    supervisor.begin_manual_replica_drain.return_value = {"status": "draining"}
+    supervisor.confirm_manual_replica_drain.return_value = True
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    if expected == 409:
+        with pytest.raises(HTTPException) as raised:
+            await replica_api.begin_model_replica_drain("demo", 1, "r1", timeout=1)
+        assert raised.value.status_code == expected
+        supervisor.begin_manual_replica_drain.assert_not_awaited()
+    else:
+        response = await replica_api.begin_model_replica_drain(
+            "demo", 1, "r1", timeout=1
+        )
+        assert response.status_code == expected
+        assert json.loads(response.body)["status"] == "drained"
+    host.assert_awaited_once_with("list", require_single_api=True)
+    assert not replica_api._replica_drain_requests.windows
+
+
+@pytest.mark.asyncio
 async def test_add_model_replica_accepts_empty_body(replica_api):
     supervisor = AsyncMock()
     supervisor.add_model_replicas.return_value = [

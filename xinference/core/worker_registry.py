@@ -351,6 +351,7 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 registry.set_pending(source, dict(state, committed=True))
 
     async def commit_worker_handoff(self, snapshot):
+        from .utils import build_replica_model_uid
         from .worker import WorkerActor
 
         registry = self._ownership_registry()
@@ -386,6 +387,23 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     cache_tracker.rebind_worker(snapshot.source, snapshot.target), 5
                 )
 
+            # An interrupted DELETE may have removed the target. Prove this
+            # handoff retained the survivor before rebinding the drain.
+            source_worker = self._worker_address_to_worker.get(snapshot.source)
+            retained_models = snapshot.state.get("_model_uid_to_model", {})
+            drains_to_rebind = [
+                drain
+                for model_uid, drain in getattr(
+                    self, "_manual_replica_drains", {}
+                ).items()
+                if drain.worker == source_worker
+                and all(
+                    retained_models.get(build_replica_model_uid(model_uid, index))
+                    == original
+                    for index, original in drain.replicas.items()
+                    if index != drain.replica_id
+                )
+            ]
             pending = dict(registry.pending)
             pending.pop(snapshot.source)
             retired = dict(registry.retired)
@@ -420,6 +438,8 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             for info in self._model_uid_to_replica_info.values():
                 for index, refs in info.replica_to_worker_refs.items():
                     info.replica_to_worker_refs[index] = [replace(ref) for ref in refs]
+            for drain in drains_to_rebind:
+                drain.worker = worker
             self._worker_address_to_worker.pop(snapshot.source, None)
             self._worker_address_to_worker[snapshot.target] = worker
             status = self._worker_status.pop(snapshot.source, None)
