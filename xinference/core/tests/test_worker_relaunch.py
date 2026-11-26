@@ -17,7 +17,7 @@ from ..worker_relaunch import WorkerRelaunchManager, validate_relaunch_options
 def manager_at(tmp_path, monkeypatch):
     worker = SimpleNamespace(
         worker_incarnation=AsyncMock(return_value="source-generation"),
-        worker_handoff_protocol=AsyncMock(return_value=2),
+        worker_handoff_protocol=AsyncMock(return_value=1),
         worker_package_upgrade_protocol=AsyncMock(return_value=1),
         get_node_metadata=AsyncMock(return_value={"software_version": "4.1.0"}),
     )

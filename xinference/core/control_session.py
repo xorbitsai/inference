@@ -82,6 +82,8 @@ READ_ONLY_WORKER_RPCS = frozenset(
         "worker_handoff_protocol",
         "worker_handoff_status",
         "worker_handoff_ready",
+        "worker_handoff_in_progress",
+        "worker_handoff_process_identity",
         "worker_replacement_safe_to_stop",
         "worker_package_upgrade_protocol",
         "worker_relaunch_state",

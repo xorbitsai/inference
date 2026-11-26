@@ -59,8 +59,6 @@ DRAIN_CALLBACKS = {
     "plan_worker_relaunch",
     "report_worker_relaunch",
     "prepare_worker_handoff",
-    "begin_worker_handoff",
-    "rollback_dead_worker_handoff",
     "commit_worker_handoff",
     "confirm_worker_handoff",
     "abort_worker_handoff",

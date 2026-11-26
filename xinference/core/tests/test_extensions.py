@@ -733,9 +733,9 @@ def test_registered_worker_resources_can_be_read_without_control_session():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("expired", [False, True])
+@pytest.mark.parametrize("scenario", ["reconnect", "target_reused", "source_replaced"])
 async def test_handoff_rejects_third_party_worker_name_before_rerouting(
-    monkeypatch, expired
+    monkeypatch, scenario
 ):
     import xoscar as xo
 
@@ -780,7 +780,7 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         ticket="ticket",
         source_incarnation="old",
         target_incarnation="new",
-        transfer_key=(2, "ticket", "source", "target", "supervisor", "old", "new", 1),
+        transfer_key=(1, "ticket", "source", "target", "supervisor", "old", "new", 1),
         state={"_model_uid_to_model": {"model-rep0": None}},
     )
 
@@ -793,9 +793,23 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
 
     workers["target"].get_extension_resources.return_value["worker_id"] = "worker-a"
     await supervisor.prepare_worker_handoff(snapshot, 10)
-    if expired:
-        registry = supervisor._ownership_registry()
+    registry = supervisor._ownership_registry()
+    if scenario != "reconnect":
         registry.pending["source"]["deadline"] = 0
+
+    if scenario == "source_replaced":
+        replacement = workers["source"]
+        replacement.worker_incarnation.return_value = "replacement-source"
+        await supervisor.add_worker(
+            "source", incarnation="replacement-source", replica_states=replicas
+        )
+        assert registry.incarnations["source"] == "replacement-source"
+        with pytest.raises(RuntimeError, match="Worker ownership was transferred"):
+            await supervisor.confirm_worker_handoff(snapshot.source, snapshot.ticket)
+        assert not registry.pending["source"]["committed"]
+        assert not registry.protected("source")
+        workers["target"].worker_handoff_ready.assert_not_awaited()
+    elif scenario == "target_reused":
         workers["target"].get_extension_resources.return_value["worker_id"] = "worker-a"
         # Release the registered owner's name without ending the pending handoff.
         supervisor._extension_worker_resources["source"]["worker_id"] = "worker-c"
@@ -808,7 +822,7 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
             source_incarnation="old",
             target_incarnation="new",
             transfer_key=(
-                2,
+                1,
                 "replacement",
                 "other",
                 "target",
@@ -840,3 +854,78 @@ async def test_handoff_rejects_third_party_worker_name_before_rerouting(
         assert (
             supervisor._replica_model_uid_to_worker["model-rep0"] is workers["target"]
         )
+
+
+@pytest.mark.asyncio
+async def test_expired_handoff_journal_allows_named_worker_after_restart(
+    tmp_path, monkeypatch
+):
+    import xoscar as xo
+
+    from xinference.core.supervisor import SupervisorActor
+    from xinference.core.worker_registry import WorkerOwnership
+
+    from .test_worker import DummyReplicaWorkerRef, DummyStatusGuardRef
+
+    install(monkeypatch)
+    journal = tmp_path / "ownership.json"
+    registry = WorkerOwnership(journal)
+    source = "127.0.0.1:12001"
+    target = "127.0.0.1:12002"
+    registry.set_pending(
+        source,
+        {
+            "key": (1, "ticket", source, target, "supervisor", "old", "target", 1),
+            "extensions": ["test"],
+            "worker_id": "worker-a",
+            "models": ["counter"],
+            "committed": False,
+            "deadline": 0,
+        },
+    )
+
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    supervisor._worker_ownership = WorkerOwnership(journal)
+    assert not supervisor._autostart_waiting_for_worker({"model_uid": "counter"})
+    with monkeypatch.context() as patch:
+        patch.setattr(xo, "actor_ref", AsyncMock(side_effect=ConnectionRefusedError))
+        assert not await supervisor._wait_for_worker_handoffs("counter")
+    with monkeypatch.context() as patch:
+        ready = DummyReplicaWorkerRef(target)
+        ready.worker_handoff_ready = AsyncMock(
+            side_effect=[ConnectionResetError, False, False, True]
+        )
+        ready.worker_handoff_in_progress = AsyncMock(side_effect=[False, True])
+        patch.setattr(xo, "actor_ref", AsyncMock(return_value=ready))
+        key = registry.pending[source]["key"]
+        assert await supervisor._wait_for_worker_handoffs("counter")
+        assert not supervisor._worker_ownership.pending[source]["committed"]
+        assert not await supervisor._wait_for_worker_handoffs("counter")
+        assert not supervisor._worker_ownership.pending[source]["committed"]
+        assert await supervisor._wait_for_worker_handoffs("counter")
+        assert not supervisor._worker_ownership.pending[source]["committed"]
+        assert await supervisor._wait_for_worker_handoffs("counter")
+        ready.worker_handoff_ready.assert_awaited_with(key)
+        ready.worker_handoff_in_progress.assert_awaited_with(key)
+        assert supervisor._autostart_waiting_for_worker({"model_uid": "counter"})
+    supervisor._worker_ownership.set_pending(
+        source, dict(supervisor._worker_ownership.pending[source], committed=False)
+    )
+    stale_ref = DummyReplicaWorkerRef(source)
+    supervisor._worker_address_to_worker[source] = stale_ref
+    supervisor._extension_worker_resources[source] = {"worker_id": "worker-a"}
+    supervisor._replica_model_uid_to_worker["counter-rep0"] = stale_ref
+
+    assert await supervisor._remove_dead_worker(source, stale_ref)
+    assert source not in WorkerOwnership(journal).pending
+    assert "counter-rep0" not in supervisor._replica_model_uid_to_worker
+
+    fresh = DummyReplicaWorkerRef("127.0.0.1:12003")
+    fresh.get_extension_resources = AsyncMock(
+        return_value={"extensions": {"test": {}}, "worker_id": "worker-a"}
+    )
+    lookup = AsyncMock(return_value=fresh)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    await supervisor.add_worker(fresh.address)
+    assert supervisor._worker_address_to_worker == {fresh.address: fresh}

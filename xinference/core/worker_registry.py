@@ -16,15 +16,19 @@
 
 import asyncio
 import functools
+import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
 
 import xoscar as xo
 
+from ..constants import XINFERENCE_HEALTH_CHECK_TIMEOUT
 from .supervisor_journal import LocalSupervisorJournal, supervisor_journal
 from .worker_relaunch import SupervisorRelaunchMixin
 from .worker_state import WorkerJournalError
+
+logger = logging.getLogger(__name__)
 
 _UNSPECIFIED_WORKER_GENERATION = object()
 
@@ -122,7 +126,7 @@ class WorkerOwnership:
                             ),
                             "models": record.get("models", []),
                             "committed": record["committed"],
-                            "transferring": record.get("transferring", False),
+                            "target_process": record.get("target_process"),
                             "expires_at": time.time()
                             + record["deadline"]
                             - time.monotonic(),
@@ -165,9 +169,7 @@ class WorkerOwnership:
     def protected(self, address):
         state = self.pending.get(address)
         return state is not None and (
-            state["committed"]
-            or state.get("transferring", False)
-            or time.monotonic() < state["deadline"]
+            state["committed"] or time.monotonic() < state["deadline"]
         )
 
 
@@ -275,19 +277,13 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             ):
                 return False
             registry.discard(address)
-            await SupervisorHandoffMixin._clear_dead_worker_registration(self, address)
-            return True
-
-    async def _clear_dead_worker_registration(self, address, *, reconcile_models=None):
-        if reconcile_models is not None:
-            await self._handle_dead_worker(address, reconcile_models=reconcile_models)
-        else:
             await self._handle_dead_worker(address)
-        self._worker_status.pop(address, None)
-        self._worker_address_to_worker.pop(address, None)
-        self._extension_worker_resources.pop(address, None)
-        self._discard_worker_metadata(address)
-        self._clear_worker_model_gpu_memory(address)
+            self._worker_status.pop(address, None)
+            self._worker_address_to_worker.pop(address, None)
+            self._extension_worker_resources.pop(address, None)
+            self._discard_worker_metadata(address)
+            self._clear_worker_model_gpu_memory(address)
+            return True
 
     def can_recover_model(self, worker_address: str, model_uid: str) -> bool:
         refs = self._replica_model_uid_to_worker.get(model_uid)
@@ -336,10 +332,6 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             )
 
     async def prepare_worker_handoff(self, snapshot, timeout):
-        from .worker_handoff import PROTOCOL_VERSION
-
-        if snapshot.transfer_key[0] != PROTOCOL_VERSION:
-            raise ValueError("Unsupported Worker handoff protocol")
         registry = self._ownership_registry()
         async with registry.lock(snapshot.source):
             registry.check(snapshot.source, snapshot.source_incarnation)
@@ -364,6 +356,13 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 address=snapshot.target, uid=WorkerActor.default_uid()
             )
             resources = await xo.wait_for(target.get_extension_resources(), timeout)
+            try:
+                target_process = await xo.wait_for(
+                    target.worker_handoff_process_identity(snapshot.target_incarnation),
+                    5,
+                )
+            except (AttributeError, asyncio.TimeoutError):
+                target_process = None
             if snapshot.target in self._worker_address_to_worker or any(
                 state["key"][3] == snapshot.target
                 # A commit may be awaiting cache rebind as its deadline passes.
@@ -388,6 +387,7 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     "key": snapshot.transfer_key,
                     "extensions": sorted(resources.get("extensions", {})),
                     "worker_id": worker_id,
+                    "target_process": target_process,
                     "models": sorted(
                         {replica[0] for replica in replicas if replica is not None}
                     ),
@@ -408,55 +408,165 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                     )
                 registry.discard(source)
 
-    async def rollback_dead_worker_handoff(self, transfer_key):
+    async def confirm_worker_handoff(self, source, ticket):
         from .worker import WorkerActor
+        from .worker_handoff import HandoffPending
 
-        key = tuple(transfer_key)
-        source, target = key[2:4]
         registry = self._ownership_registry()
         async with registry.lock(source):
             state = registry.pending.get(source)
-            if state is None:
-                if key[1] in registry.completed:
-                    raise RuntimeError("Worker ownership was already transferred")
+            if not state or state["key"][1] != ticket or state["committed"]:
                 return
-            if state["key"] != key or state["committed"]:
-                raise RuntimeError("Worker handoff reservation cannot be rolled back")
-            worker = await xo.actor_ref(address=target, uid=WorkerActor.default_uid())
-            if await xo.wait_for(worker.worker_incarnation(), 5) != key[
-                6
-            ] or not await xo.wait_for(worker.can_rollback_dead_worker_handoff(key), 5):
-                raise RuntimeError(
-                    "Replacement Worker could not verify handoff rollback"
+            key = state["key"]
+            registry.check(source, key[5])
+            if not registry.protected(source):
+                target = key[3]
+                # A v1 source reports completion only after transferring its
+                # subprocesses. Require evidence from the original target
+                # before restoring an expired reservation.
+                if (
+                    not state.get("recovered")
+                    and source not in self._worker_address_to_worker
+                ):
+                    raise RuntimeError("Worker handoff reservation expired")
+                worker = await xo.wait_for(
+                    xo.actor_ref(address=target, uid=WorkerActor.default_uid()), 5
                 )
+                if not await xo.wait_for(worker.worker_handoff_ready(key), 5):
+                    try:
+                        in_progress = await xo.wait_for(
+                            worker.worker_handoff_in_progress(key), 5
+                        )
+                    except AttributeError:
+                        # Older v1 Workers only expose the readiness check.
+                        in_progress = (
+                            await xo.wait_for(worker.worker_incarnation(), 5) == key[6]
+                        )
+                    if in_progress:
+                        raise HandoffPending("Replacement Worker is still transferring")
+                    raise RuntimeError("Worker handoff reservation expired")
+                if target in self._worker_address_to_worker or any(
+                    other_source != source
+                    and reservation["key"][3] == target
+                    and (
+                        registry.protected(other_source)
+                        or registry.lock(other_source).locked()
+                    )
+                    for other_source, reservation in registry.pending.items()
+                ):
+                    raise RuntimeError("Worker handoff reservation expired")
+                self._check_worker_name(state.get("worker_id"), target, source=source)
+            registry.set_pending(source, dict(state, committed=True))
 
-            # The journal retains model IDs even if a previous attempt removed
-            # their routes before being interrupted during status reconciliation.
-            await self._clear_dead_worker_registration(
+    async def _remove_abandoned_committed_handoff(self, source, expected):
+        from .worker_handoff import worker_handoff_process_exited
+
+        registry = self._ownership_registry()
+        async with registry.lock(source):
+            state = registry.pending.get(source)
+            if state is not expected:
+                return False
+            if not worker_handoff_process_exited(state.get("target_process")):
+                return False
+            # The confirmed transfer made the original source retire. Remove
+            # its stale routes before releasing the journaled reservation.
+            await self._handle_dead_worker(
                 source, reconcile_models=state.get("models", ())
             )
+            self._worker_status.pop(source, None)
+            self._worker_address_to_worker.pop(source, None)
+            self._extension_worker_resources.pop(source, None)
+            self._discard_worker_metadata(source)
+            self._clear_worker_model_gpu_memory(source)
             registry.discard(source)
-        self._schedule_autostart()
+            return True
 
-    async def begin_worker_handoff(self, source, ticket):
-        registry = self._ownership_registry()
-        async with registry.lock(source):
-            state = registry.pending.get(source)
-            if not state or state["key"][1] != ticket:
-                raise RuntimeError("No matching worker reservation")
-            if not registry.protected(source):
-                raise RuntimeError("Worker handoff reservation expired")
-            if not state["committed"] and not state.get("transferring"):
-                registry.set_pending(source, dict(state, transferring=True))
+    async def _try_remove_abandoned_committed_handoff(
+        self, source, state, *, timeout=None
+    ):
+        return await xo.wait_for(
+            self._remove_abandoned_committed_handoff(source, state),
+            XINFERENCE_HEALTH_CHECK_TIMEOUT if timeout is None else timeout,
+        )
 
-    async def confirm_worker_handoff(self, source, ticket):
-        registry = self._ownership_registry()
-        async with registry.lock(source):
+    async def _check_abandoned_worker_handoffs(self):
+        registry = getattr(self, "_worker_ownership", None)
+        if registry is None or not registry.pending:
+            return
+        loop = getattr(self, "_actor_loop", None)
+        if loop is not None and loop is not asyncio.get_running_loop():
+            future = asyncio.run_coroutine_threadsafe(
+                self._check_abandoned_worker_handoffs(), loop
+            )
+            await asyncio.wrap_future(future)
+            return
+
+        sources = [
+            source for source, state in registry.pending.items() if state["committed"]
+        ]
+        cursor = getattr(self, "_abandoned_handoff_scan_next", None)
+        start = sources.index(cursor) if cursor in sources else 0
+        deadline = time.monotonic() + XINFERENCE_HEALTH_CHECK_TIMEOUT
+        for offset in range(len(sources)):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            index = (start + offset) % len(sources)
+            source = sources[index]
+            self._abandoned_handoff_scan_next = sources[(index + 1) % len(sources)]
             state = registry.pending.get(source)
-            if state and state["key"][1] == ticket:
-                if not registry.protected(source):
-                    raise RuntimeError("Worker handoff reservation expired")
-                registry.set_pending(source, dict(state, committed=True))
+            if state is None or not state["committed"]:
+                continue
+            try:
+                if await self._try_remove_abandoned_committed_handoff(
+                    source, state, timeout=remaining
+                ):
+                    self._schedule_autostart()
+            except Exception:
+                logger.warning(
+                    "Failed to clean abandoned handoff for Worker %s",
+                    source,
+                    exc_info=True,
+                )
+
+    async def _wait_for_worker_handoffs(self, model_uid):
+        from .worker_handoff import HandoffPending
+
+        registry = getattr(self, "_worker_ownership", None)
+        if registry is None:
+            return False
+        for source, state in list(registry.pending.items()):
+            if model_uid not in state.get("models", ()):
+                continue
+            if state["committed"]:
+                try:
+                    await self._try_remove_abandoned_committed_handoff(source, state)
+                except Exception:
+                    logger.warning(
+                        "Failed to clean abandoned handoff for Worker %s",
+                        source,
+                        exc_info=True,
+                    )
+                # Recheck the model after cleanup or concurrent publication.
+                return True
+            if registry.protected(source):
+                return True
+            if not state.get("recovered"):
+                continue
+            try:
+                await self.confirm_worker_handoff(source, state["key"][1])
+            except (ConnectionRefusedError, xo.ActorNotExist):
+                continue
+            except (OSError, xo.ServerClosed, HandoffPending):
+                # A transient transport error does not establish that the
+                # target has lost its transferred subprocesses.
+                return True
+            except (RuntimeError, ValueError):
+                continue
+            # The replacement coordinator retries publication after reconnecting.
+            # Recheck even if it published while confirmation was in flight.
+            return True
+        return False
 
     async def commit_worker_handoff(self, snapshot):
         from .worker import WorkerActor

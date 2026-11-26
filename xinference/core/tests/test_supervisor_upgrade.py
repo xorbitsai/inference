@@ -147,6 +147,7 @@ def supervisor_snapshot(tmp_path, monkeypatch):
     worker.worker_incarnation = AsyncMock(return_value="worker-incarnation")
     worker.list_models = AsyncMock(return_value={"model-rep0": {}})
     worker.get_extension_resources = AsyncMock(return_value={"extensions": {}})
+    worker.worker_handoff_process_identity = AsyncMock(return_value=None)
     worker.get_node_metadata = AsyncMock(return_value={"software_version": "worker-v1"})
     worker.ping = AsyncMock()
     worker.get_model = AsyncMock(return_value=MagicMock(address="model:1234"))
@@ -508,6 +509,7 @@ async def test_lost_local_worker_does_not_redirect_pinned_launches(
         ref.worker_handoff_ready = AsyncMock(return_value=True)
         ref.list_models = AsyncMock(return_value=models)
         ref.get_extension_resources = AsyncMock(return_value={"extensions": {}})
+        ref.worker_handoff_process_identity = AsyncMock(return_value=None)
         ref.get_node_metadata = AsyncMock(return_value={})
         ref.get_gpu_allocation_status = AsyncMock(
             return_value={

@@ -339,6 +339,8 @@ async def test_handoff_preserves_model_and_fences_old_owner(runtime):
     model = await old.install_model()
     value, pid, _ = await model.add(5)
     old_incarnation = await old.incarnation()
+    assert await old.worker_handoff_protocol() == 1
+    assert await supervisor.worker_handoff_protocol() == 1
     assert await new.replace_worker(old.address)
     assert await model.add(1) == (value + 1, pid, new.address)
     assert await supervisor.inspect_workers() == [new.address]
@@ -355,105 +357,31 @@ async def test_handoff_preserves_model_and_fences_old_owner(runtime):
 
 
 @pytest.mark.asyncio
-async def test_handoff_can_publish_after_transfer_outlives_reservation(
-    runtime, monkeypatch
+@pytest.mark.parametrize("restart", [False, True])
+async def test_v1_handoff_confirms_transfer_after_reservation_expires(
+    runtime, monkeypatch, restart
 ):
     _, supervisor, (old, new) = runtime
     model = await old.install_model()
-    begin = HandoffSupervisor.begin_worker_handoff
+    confirm = HandoffSupervisor.confirm_worker_handoff
 
-    async def expire_after_begin(owner, source, ticket):
-        await begin(owner, source, ticket)
+    async def expire_before_confirm(owner, source, ticket):
         registry = owner._ownership_registry()
-        registry.pending[source]["deadline"] = 0
-        assert registry.protected(source)
+        record = registry.pending.get(source)
+        if record is not None:
+            record["deadline"] = 0
+            if restart and not record.get("recovered"):
+                registry.checkpoint()
+                owner._worker_ownership = WorkerOwnership(registry.path)
+                owner._worker_address_to_worker.pop(source)
+        await confirm(owner, source, ticket)
 
-    monkeypatch.setattr(HandoffSupervisor, "begin_worker_handoff", expire_after_begin)
+    monkeypatch.setattr(
+        HandoffSupervisor, "confirm_worker_handoff", expire_before_confirm
+    )
     assert await new.replace_worker(old.address)
     assert await supervisor.inspect_workers() == [new.address]
     assert (await model.add(1))[2] == new.address
-
-
-@pytest.mark.asyncio
-async def test_dead_source_without_native_transfer_releases_reservation(
-    runtime, monkeypatch
-):
-    from unittest.mock import AsyncMock
-
-    from .. import worker_handoff
-
-    pools, supervisor, (old, new) = runtime
-    await old.install_model()
-    snapshot = await old.prepare_worker_handoff(
-        new.address, await new.incarnation(), "dead-source", 10
-    )
-    await supervisor.begin_worker_handoff(old.address, snapshot.ticket)
-    target = pools[2]._actors[new.uid]
-    target._incoming_handoff = {
-        "source": old.address,
-        "ticket": snapshot.ticket,
-        "snapshot": snapshot,
-        "committed": False,
-    }
-    owner = pools[0]._actors[supervisor.uid]
-    owner._replica_model_uid_to_worker["counter-rep0"] = old
-    owner._unexpected_down_replicas = {}
-    owner._status_guard_ref = SimpleNamespace(
-        get_instance_info=AsyncMock(return_value=[]),
-        update_replica_status=AsyncMock(),
-        update_instance_info=AsyncMock(),
-    )
-    monkeypatch.setattr(HandoffSupervisor, "_schedule_autostart", lambda self: None)
-    registry = owner._ownership_registry()
-    with pytest.raises(RuntimeError, match="could not verify handoff rollback"):
-        await supervisor.rollback_dead_worker_handoff(snapshot.transfer_key)
-    assert old.address in registry.pending
-    assert old.address in await supervisor.inspect_workers()
-
-    monkeypatch.setattr(worker_handoff, "source_process_exited", lambda _: True)
-
-    replica_update = owner._status_guard_ref.update_replica_status
-    replica_update.side_effect = [TimeoutError("replica status unavailable"), None]
-    with pytest.raises(TimeoutError, match="replica status unavailable"):
-        await new.replace_worker(old.address)
-    assert old.address in registry.pending
-    assert owner._replica_model_uid_to_worker["counter-rep0"].address == old.address
-
-    async def interrupt_status_update(self, model_uids, *, strict):
-        assert strict
-        assert model_uids == {"counter"}
-        assert "counter-rep0" not in self._replica_model_uid_to_worker
-        raise asyncio.CancelledError
-
-    with monkeypatch.context() as patch:
-        patch.setattr(
-            HandoffSupervisor,
-            "_reconcile_affected_model_statuses",
-            interrupt_status_update,
-        )
-        with pytest.raises(asyncio.CancelledError):
-            await owner.rollback_dead_worker_handoff(snapshot.transfer_key)
-    assert old.address in registry.pending
-    assert target._incoming_handoff is not None
-
-    update = owner._status_guard_ref.update_instance_info
-    update.side_effect = [TimeoutError("status guard unavailable"), None]
-    with pytest.raises(TimeoutError, match="status guard unavailable"):
-        await new.replace_worker(old.address)
-    assert old.address in registry.pending
-    assert target._incoming_handoff is not None
-
-    with pytest.raises(RuntimeError, match="exited before ownership transfer"):
-        await new.replace_worker(old.address)
-
-    registry = pools[0]._actors[supervisor.uid]._ownership_registry()
-    assert old.address not in registry.pending
-    assert old.address not in await supervisor.inspect_workers()
-    assert target._incoming_handoff is None
-    assert replica_update.await_count == 2
-    replica_update.assert_awaited_with("counter", 0, {"status": "TERMINATED"})
-    assert update.await_count == 2
-    update.assert_awaited_with("counter", {"replica": 0, "status": "TERMINATED"})
 
 
 @pytest.mark.asyncio
@@ -887,7 +815,7 @@ def test_snapshot_preflight_rejects_incompatible_targets(monkeypatch, problem):
         _metrics_exporter_config=("127.0.0.1", 19002),
     )
     snapshot = WorkerSnapshot(
-        2,
+        1,
         "ticket",
         "old",
         "new",
@@ -901,7 +829,7 @@ def test_snapshot_preflight_rejects_incompatible_targets(monkeypatch, problem):
     )
     snapshot.validate(owner)
     if problem == "version":
-        snapshot.version = 1
+        snapshot.version = 2
     elif problem == "identity":
         snapshot.target_incarnation = "another-instance"
     elif problem == "supervisor":

@@ -31,6 +31,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Coroutine,
     DefaultDict,
@@ -269,6 +270,21 @@ def model_service_address(owner):
     from .supervisor_control import model_service_address as selected_address
 
     return selected_address(owner)
+
+
+async def _await_handoff_status_update(update: Awaitable[Any]) -> None:
+    task = asyncio.ensure_future(update)
+    task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+    try:
+        done, _ = await asyncio.wait({task}, timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT)
+        if not done:
+            raise asyncio.TimeoutError
+        task.result()
+    finally:
+        if not task.done():
+            # Cancel on either the RPC deadline or cancellation of the scan.
+            # Do not wait for an unresponsive actor's cancellation reply.
+            task.cancel()
 
 
 class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActor):
@@ -892,11 +908,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             base_uids_affected.add(base_uid)
             if self._status_guard_ref is not None:
                 try:
-                    await self._status_guard_ref.update_replica_status(
+                    update = self._status_guard_ref.update_replica_status(
                         base_uid,
                         replica_id,
                         {"status": LaunchStatus.TERMINATED.name},
                     )
+                    if strict:
+                        await _await_handoff_status_update(update)
+                    else:
+                        await update
                 except Exception:
                     if strict:
                         raise
@@ -915,7 +935,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 else {"replica": 0, "status": LaunchStatus.TERMINATED.name}
             )
             try:
-                await self._status_guard_ref.update_instance_info(base_uid, updates)
+                update = self._status_guard_ref.update_instance_info(base_uid, updates)
+                if strict:
+                    await _await_handoff_status_update(update)
+                else:
+                    await update
             except Exception:
                 if strict:
                     raise
@@ -924,10 +948,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
 
     async def _handle_dead_worker(
-        self,
-        worker_address: str,
-        *,
-        reconcile_models: Optional[Iterable[str]] = None,
+        self, worker_address: str, *, reconcile_models: Optional[Iterable[str]] = None
     ) -> List[str]:
         """Shared cleanup for a worker that has gone away — heartbeat-dead,
         reverse-channel-dead, or graceful remove_worker.
@@ -1590,17 +1611,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             entries = [entry for entry in entries if entry.get("enabled", True)]
             if not entries:
                 return None
-            if not self._worker_address_to_worker:
-                for entry in entries:
-                    model_uid = entry["launch"]["model_uid"]
-                    self._autostart_model_states[model_uid] = {
-                        **self._autostart_model_states.get(model_uid, {}),
-                        "status": "waiting_worker",
-                        "message": "Waiting for worker registration.",
-                    }
-                logger.info("Autostart waits for worker registration.")
-                return None
-
             semaphore = asyncio.Semaphore(1)
             retry_delays: List[float] = []
 
@@ -1681,7 +1691,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
         registry = getattr(self, "_worker_ownership", None)
         if registry is not None and any(
-            (state.get("recovered") or registry.protected(source))
+            registry.protected(source)
             and launch["model_uid"] in state.get("models", [])
             for source, state in registry.pending.items()
         ):
@@ -1744,7 +1754,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
         retry_interval = float(entry.get("retry_interval_seconds", 30))
 
-        model_status = await self._get_autostart_model_status(model_uid)
+        if await SupervisorHandoffMixin._wait_for_worker_handoffs(self, model_uid):
+            state.update(
+                status="waiting_worker",
+                message="Waiting for worker handoff.",
+            )
+            return retry_interval
+
+        model_status = (
+            await self._get_autostart_model_status(model_uid)
+            if self._worker_address_to_worker
+            else None
+        )
         if model_status == LaunchStatus.READY.name:
             state.update(
                 {
@@ -1766,6 +1787,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 }
             )
             return retry_interval
+
+        if not self._worker_address_to_worker:
+            state.update(
+                status="waiting_worker",
+                message="Waiting for worker registration.",
+            )
+            return None
 
         if self._autostart_waiting_for_worker(launch):
             state.update(
@@ -5783,6 +5811,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 await asyncio.sleep(0.1)
                 continue
             try:
+                await SupervisorHandoffMixin._check_abandoned_worker_handoffs(self)
                 dead_nodes = []
                 dead_worker_refs = {}
                 dead_worker_generations = {}
