@@ -463,12 +463,12 @@ launch, Xinference rolls back the replicas created by that operation.
 Scale-up is not supported for Xavier-distributed models or models launched with
 ``n_worker > 1``. Deleting the last replica terminates the running model.
 
-To drain replica 1 of a fixed pair of vLLM language model replicas on one Worker, send
-``POST /v1/models/{model_uid}/replicas/1/drain?request_id=ID``. Send all inference
+To drain either replica of a fixed pair of vLLM language model replicas on one Worker, send
+``POST /v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. Send all inference
 for this model through one API process and let any previous API finish its
-requests before starting a drain. New requests go to replica 0 while existing
-requests on replica 1 finish. After the drain returns ``drained``, send
-``DELETE /v1/models/{model_uid}/replicas/1?drain_id=ID`` to remove the replica.
+requests before starting a drain. New requests go to the surviving replica while existing
+requests on the selected replica finish. After the drain returns ``drained``, send
+``DELETE /v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` to remove the selected replica.
 Use ``GET`` or ``DELETE`` on the drain URL to check or cancel the drain before
 replica deletion. A timed-out drain restores routing to both replicas.
 

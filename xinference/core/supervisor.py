@@ -6530,19 +6530,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             info = self._model_uid_to_replica_info.get(model_uid)
             if (
                 info is None
-                or info.active_replica_ids != [0, 1]
-                or replica_id != 1
+                or len(info.active_replica_ids) != 2
+                or replica_id not in info.active_replica_ids
                 or model_uid in self._pd_model_mapping
                 or model_uid in self._initial_model_launches
             ):
                 raise ValueError(
-                    "Manual drain requires two fixed replicas and target 1"
+                    "Manual drain requires two fixed replicas and an active target"
                 )
+            active_replica_ids = tuple(info.active_replica_ids)
             first, second = (
                 self._replica_model_uid_to_worker.get(
                     build_replica_model_uid(model_uid, i)
                 )
-                for i in (0, 1)
+                for i in active_replica_ids
             )
             if first is None or isinstance(first, (list, tuple)) or first != second:
                 raise ValueError(
@@ -6554,7 +6555,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         model_uid,
                         selected_replica_uid=build_replica_model_uid(model_uid, i),
                     )
-                    for i in (0, 1)
+                    for i in active_replica_ids
                 )
             )
             if any(
@@ -6563,10 +6564,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 for desc in descriptions
             ):
                 raise ValueError("Manual drain requires a vLLM language model")
-            replicas = {i: await self._get_replica_model(model_uid, i) for i in (0, 1)}
+            replicas = {
+                i: await self._get_replica_model(model_uid, i)
+                for i in active_replica_ids
+            }
             if (
                 self._model_uid_to_replica_info.get(model_uid) is not info
-                or info.active_replica_ids != [0, 1]
+                or tuple(info.active_replica_ids) != active_replica_ids
                 or not self._upgrade_state.maintenance.begin()
             ):
                 raise ValueError("The model topology or Supervisor changed")
@@ -6595,7 +6599,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self, model_uid: str, drain: ManualReplicaDrain
     ) -> bool:
         info = self._model_uid_to_replica_info.get(model_uid)
-        if info is not drain.topology or info.active_replica_ids != [0, 1]:
+        if info is not drain.topology or tuple(info.active_replica_ids) != tuple(
+            drain.replicas
+        ):
             raise ValueError("The model topology changed during manual drain")
         for replica_id, original in drain.replicas.items():
             if await self._get_replica_model(model_uid, replica_id) != original:

@@ -33,11 +33,14 @@ from ..worker import ModelStatus, WorkerActor
 
 
 @pytest.mark.asyncio
-async def test_manual_drain_excludes_fixed_replica_then_deletes():
+@pytest.mark.parametrize(("target_id", "survivor_id"), [(0, 1), (1, 0), (1, 2), (2, 1)])
+async def test_manual_drain_excludes_fixed_replica_then_deletes(target_id, survivor_id):
     supervisor = SupervisorActor.__new__(SupervisorActor)
     supervisor._model_uid_to_replica_info = {"demo": supervisor._build_replica_info(2)}
     info = supervisor._model_uid_to_replica_info["demo"]
-    info.routing_keys["sticky"] = 1
+    info.active_replica_ids = sorted((target_id, survivor_id))
+    supervisor._refresh_replica_scheduler(info)
+    info.routing_keys["sticky"] = target_id
     supervisor._pd_model_mapping = {}
     supervisor._initial_model_launches = {}
     supervisor._model_replica_locks = {}
@@ -45,32 +48,44 @@ async def test_manual_drain_excludes_fixed_replica_then_deletes():
     supervisor._manual_replica_drains = {}
     supervisor._upgrade_state = SimpleNamespace(maintenance=SupervisorMaintenance())
     worker = object()
-    supervisor._replica_model_uid_to_worker = {"demo-rep0": worker, "demo-rep1": worker}
+    supervisor._replica_model_uid_to_worker = {
+        build_replica_model_uid("demo", replica_id): worker
+        for replica_id in info.active_replica_ids
+    }
     supervisor.describe_model = AsyncMock(
         return_value={"model_type": "LLM", "model_engine": "vLLM"}
     )
     survivor = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=True))
     target = SimpleNamespace(get_chat_routing_load=AsyncMock(side_effect=[2, 0, 0]))
+    replicas = {target_id: target, survivor_id: survivor}
     supervisor._get_replica_model = AsyncMock(
-        side_effect=lambda _uid, replica, **_: (survivor, target)[replica]
+        side_effect=lambda _uid, replica, **_: replicas[replica]
     )
     supervisor._terminate_model_replica = AsyncMock(return_value=1)
 
-    assert (await supervisor.begin_manual_replica_drain("demo", 1, "r1"))[
+    with pytest.raises(ValueError, match="active target"):
+        await supervisor.begin_manual_replica_drain("demo", 3, "r1")
+    assert (await supervisor.begin_manual_replica_drain("demo", target_id, "r1"))[
         "status"
     ] == "draining"
+    with pytest.raises(ValueError, match="different replica"):
+        await supervisor.begin_manual_replica_drain("demo", survivor_id, "r1")
     for _ in range(4):
         assert await supervisor.get_model("demo") is survivor
     model, reserved = await supervisor.get_chat_model("demo", "sticky", "request")
     assert model is survivor and reserved
     with pytest.raises(ValueError, match="drain is in progress"):
-        await supervisor.terminate_model_replica("demo", 1)
-    assert not await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+        await supervisor.terminate_model_replica("demo", target_id)
+    assert not await supervisor.confirm_manual_replica_drain("demo", target_id, "r1")
     supervisor._terminate_model_replica.assert_not_awaited()
-    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
-    assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
-    assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
-    supervisor._terminate_model_replica.assert_awaited_once_with("demo", 1)
+    assert await supervisor.confirm_manual_replica_drain("demo", target_id, "r1")
+    assert (
+        await supervisor.terminate_drained_model_replica("demo", target_id, "r1") == 1
+    )
+    assert (
+        await supervisor.terminate_drained_model_replica("demo", target_id, "r1") == 1
+    )
+    supervisor._terminate_model_replica.assert_awaited_once_with("demo", target_id)
     assert supervisor._upgrade_state.maintenance.idle()
 
 
