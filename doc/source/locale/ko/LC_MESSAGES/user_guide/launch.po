@@ -833,3 +833,7 @@ msgstr ""
 "/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID``로 복제본을 제거하세요. "
 "복제본을 제거하기 전에 드레인 URL에 ``GET`` 또는 ``DELETE``를 보내 상태를 확인하거나 취소할 수 있습니다. "
 "시간이 초과되면 두 복제본으로의 라우팅이 복원됩니다."
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "복제본 삭제가 중단되면 같은 ``drain_id`` 로 다시 시도하세요. API 재시작과 복제본 드레이닝은 동시에 시작할 수 없습니다. 한 작업이 다른 작업을 차단하면 API는 HTTP 409를 반환합니다."

@@ -10,6 +10,7 @@ import re
 import signal
 import uuid
 from bisect import bisect_left
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -30,6 +31,7 @@ from ..model_request_logging import get_model_request_id
 from ..responses import JSONResponse
 
 if TYPE_CHECKING:
+    from ..replica_drain import ReplicaDrainRequests
     from ..restful_api import RESTfulAPI
 
 logger = logging.getLogger(__name__)
@@ -140,7 +142,9 @@ async def get_supervisor_info(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _relaunch_service(request: Request, command: str) -> JSONResponse:
+async def _relaunch_service(
+    request: Request, command: str, tracker: Optional[ReplicaDrainRequests] = None
+) -> JSONResponse:
     from ...deploy.api_host import host_request
 
     try:
@@ -154,7 +158,8 @@ async def _relaunch_service(request: Request, command: str) -> JSONResponse:
             raise ValueError("Expected python_executable, request_id and/or version")
         validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
         validate_upgrade(body.get("version"), body.get("python_executable"))
-        result = await host_request(command, **body)
+        with tracker.admit_relaunch() if tracker is not None else nullcontext():
+            result = await host_request(command, **body)
         return JSONResponse(content=result, status_code=202)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -188,11 +193,7 @@ async def relaunch_api(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
     tracker = getattr(api, "_replica_drain_requests", None)
-    if tracker is not None and tracker.windows:
-        raise HTTPException(
-            status_code=409, detail="A model replica drain is in progress"
-        )
-    return await _relaunch_service(request, "relaunch")
+    return await _relaunch_service(request, "relaunch", tracker)
 
 
 async def get_api_relaunch(

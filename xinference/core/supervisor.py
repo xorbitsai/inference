@@ -270,6 +270,7 @@ class ManualReplicaDrain:
     replica_id: int
     topology: ReplicaInfo
     replicas: Dict[int, xo.ActorRefType]
+    worker: xo.ActorRefType["WorkerActor"]
     status: str = "draining"
 
     def public(self) -> Dict[str, Any]:
@@ -6574,7 +6575,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 or not self._upgrade_state.maintenance.begin()
             ):
                 raise ValueError("The model topology or Supervisor changed")
-            drain = ManualReplicaDrain(request_id, replica_id, info, replicas)
+            drain = ManualReplicaDrain(request_id, replica_id, info, replicas, first)
             self._manual_replica_drains[model_uid] = drain
             return drain.public()
 
@@ -6642,23 +6643,59 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             drain = self._manual_replica_drain(model_uid, replica_id, request_id)
             if drain.status == "succeeded":
                 return 1
-            if drain.status != "drained":
+            if drain.status not in ("drained", "unknown"):
                 raise ValueError("A confirmed replica drain is required")
-            if not await self._verify_manual_replica_drain(model_uid, drain):
+            worker_deleted = drain.status == "unknown" and (
+                await self._manual_drain_target_removed(model_uid, drain)
+            )
+            if not worker_deleted and not await self._verify_manual_replica_drain(
+                model_uid, drain
+            ):
                 raise ValueError("The target replica is no longer idle")
             drain.status = "deleting"
             try:
-                remaining = await self._terminate_model_replica(model_uid, replica_id)
+                if worker_deleted:
+                    remaining = await self._finalize_replica_termination(
+                        model_uid, replica_id
+                    )
+                else:
+                    remaining = await self._terminate_model_replica(
+                        model_uid, replica_id
+                    )
+                if remaining != 1:
+                    raise ValueError("The surviving replica could not be confirmed")
             except BaseException:
                 drain.status = "unknown"
                 raise
-            else:
-                if remaining != 1:
-                    drain.status = "unknown"
-                    raise ValueError("The surviving replica could not be confirmed")
-                drain.status = "succeeded"
-                self._upgrade_state.maintenance.end()
-                return remaining
+            drain.status = "succeeded"
+            self._upgrade_state.maintenance.end()
+            return remaining
+
+    async def _manual_drain_target_removed(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> bool:
+        target_uid = build_replica_model_uid(model_uid, drain.replica_id)
+        # The routing entry can outlive a lost Worker reply, or already be gone
+        # if the following StatusGuard update failed. Check the original Worker.
+        if await drain.worker.get_model_launch_status(target_uid) is not None:
+            return False
+        survivor_id = next(
+            index for index in drain.replicas if index != drain.replica_id
+        )
+        survivor = await self._get_replica_model(model_uid, survivor_id)
+        survivor_uid = build_replica_model_uid(model_uid, survivor_id)
+        info = self._model_uid_to_replica_info.get(model_uid)
+        if (
+            info is not drain.topology
+            or tuple(info.active_replica_ids)
+            not in (tuple(drain.replicas), (survivor_id,))
+            or survivor != drain.replicas[survivor_id]
+            or self._replica_model_uid_to_worker.get(survivor_uid) != drain.worker
+            or self._replica_model_uid_to_worker.get(target_uid)
+            not in (None, drain.worker)
+        ):
+            raise ValueError("The model topology changed during manual drain")
+        return True
 
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
@@ -6711,6 +6748,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if not suppress_exception:
                 raise
 
+        return await self._finalize_replica_termination(model_uid, replica_id)
+
+    async def _finalize_replica_termination(
+        self, model_uid: str, replica_id: int
+    ) -> int:
+        replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
         # terminate_model can synchronously reconnect/replay before returning.

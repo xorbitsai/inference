@@ -956,3 +956,7 @@ msgstr ""
 "o ``DELETE`` sull'URL di drenaggio per verificare o annullare "
 "l'operazione prima della rimozione. Se scade il tempo di attesa, vengono "
 "riattivate entrambe le repliche."
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "Se l’eliminazione di una replica viene interrotta, riprovare con lo stesso ``drain_id``. Il riavvio dell’API e il drenaggio di una replica non possono iniziare contemporaneamente. Se un’operazione blocca l’altra, l’API restituisce HTTP 409."

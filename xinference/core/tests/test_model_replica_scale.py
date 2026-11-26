@@ -969,6 +969,75 @@ async def test_terminate_replica_reconciles_worker_replay_during_delete():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["worker", "worker_reply", "status"])
+async def test_retry_interrupted_drained_replica_deletion(failure):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    survivor = object()
+    target = SimpleNamespace(get_chat_routing_load=AsyncMock(return_value=0))
+    replicas = {"demo-rep0": survivor, "demo-rep1": target}
+    worker.get_model = AsyncMock(side_effect=lambda model_uid: replicas[model_uid])
+    worker.get_model_launch_status = AsyncMock(
+        side_effect=lambda uid: "READY" if uid in replicas else None
+    )
+    supervisor.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_engine": "vLLM"}
+    )
+
+    async def terminate(model_uid):
+        if failure == "worker" and worker.terminate_model.await_count == 1:
+            raise RuntimeError("Worker failed before deletion")
+        replicas.pop(model_uid)
+        if failure == "worker_reply":
+            raise RuntimeError("Worker reply lost after deletion")
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    status_guard = supervisor._status_guard_ref
+    if failure == "status":
+        update_instance = status_guard.update_instance_info
+
+        async def update(model_uid, updates):
+            if status_guard.update_instance_info.await_count == 1:
+                raise RuntimeError("Status update failed after deletion")
+            await update_instance(model_uid, updates)
+
+        status_guard.update_instance_info = AsyncMock(side_effect=update)
+
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    with pytest.raises(RuntimeError, match="deletion"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "unknown"
+    assert not supervisor._upgrade_state.maintenance.idle()
+    assert await supervisor.get_model("demo") is survivor
+
+    if failure == "worker":
+        replicas["demo-rep1"] = object()
+        with pytest.raises(ValueError, match="replica changed"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+        replicas["demo-rep1"] = target
+        target.get_chat_routing_load.return_value = 1
+        with pytest.raises(ValueError, match="no longer idle"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+        worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+        target.get_chat_routing_load.return_value = 0
+
+    for _ in range(2):
+        assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+    assert worker.terminate_model.await_count == (2 if failure == "worker" else 1)
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "succeeded"
+    assert supervisor._upgrade_state.maintenance.idle()
+    assert await supervisor.get_model("demo") is survivor
+    statuses = await status_guard.get_replica_statuses("demo")
+    assert [status.replica_id for status in statuses] == [0]
+    assert status_guard.instance_updates[-1] == (
+        "demo",
+        {"replica": 1, "status": "READY"},
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("active", [False, True])
 async def test_delete_terminated_replica_without_route(active):
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})

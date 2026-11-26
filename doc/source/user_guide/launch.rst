@@ -472,6 +472,10 @@ requests on the selected replica finish. After the drain returns ``drained``, se
 Use ``GET`` or ``DELETE`` on the drain URL to check or cancel the drain before
 replica deletion. A timed-out drain restores routing to both replicas.
 
+Retry an interrupted replica deletion with the same ``drain_id``. An API
+relaunch and a replica drain cannot start concurrently. If either is blocked
+by the other, the API returns HTTP 409.
+
 GPU Allocation Strategy
 =======================
 

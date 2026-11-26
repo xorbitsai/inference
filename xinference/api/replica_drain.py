@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Iterator, Optional
 
+import anyio
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .streaming_outcome import StreamState
@@ -70,8 +72,24 @@ class ReplicaDrainRequests:
     def __init__(self):
         self.active: set[InferenceRequest] = set()
         self.windows: dict[str, DrainWindow] = {}
+        self._relaunch_admissions = 0
+
+    @contextmanager
+    def admit_relaunch(self) -> Iterator[None]:
+        if self.windows:
+            raise RuntimeError("A model replica drain is in progress")
+        self._relaunch_admissions += 1
+        try:
+            # Keep the reservation through the host's reply, including when
+            # the HTTP request is cancelled by its cancel scope.
+            with anyio.CancelScope(shield=True):
+                yield
+        finally:
+            self._relaunch_admissions -= 1
 
     def start(self, model_uid: str) -> DrainWindow:
+        if self._relaunch_admissions:
+            raise ValueError("An API relaunch is already in progress")
         if model_uid in self.windows:
             raise ValueError("A model replica drain is already in progress")
         window = DrainWindow(

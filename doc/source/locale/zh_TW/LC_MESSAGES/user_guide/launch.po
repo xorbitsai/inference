@@ -809,3 +809,7 @@ msgstr ""
 "/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` "
 "移除副本。移除副本前，可對排空 URL 使用 ``GET`` 查詢狀態，或使用 ``DELETE`` "
 "取消排空。排空逾時會恢復將請求送往兩個副本。"
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "如果副本刪除中斷，請使用相同的 ``drain_id`` 重試。API 熱重啟與副本排空無法同時啟動。如果其中一項操作因另一項操作而無法開始，API 會回傳 HTTP 409。"
