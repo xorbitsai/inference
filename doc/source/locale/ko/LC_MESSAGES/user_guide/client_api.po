@@ -443,3 +443,9 @@ msgstr ""
 "``cache_salt`` 로 GPU에 상주하는 접두사를 찾을 수 있습니다. 더 긴 접두사가 있으면 처리 중인 요청이 한 건 더 많은 "
 "복제본을 우선할 수 있습니다. 다른 어댑터는 캐시 정보가 없을 때 부하와 친화도를 사용합니다. 0이 아닌 ``priority`` 를 "
 "명시하면 선호 복제본이 사용 가능하고 여유가 있는 동안 세션 친화도가 유지됩니다."
+
+msgid "Inline PDF attachments"
+msgstr "인라인 PDF 첨부"
+
+msgid "For vision-capable models, Chat Completions accepts Base64 PDF data in a user message's ``file.file_data``. Xinference renders up to 20 PDF pages per request as images, subject to the model's image limits. Install ``xinference[image]`` to enable PDF rendering."
+msgstr "이미지 입력을 지원하는 모델에서는 Chat Completions의 사용자 메시지에 있는 ``file.file_data`` 필드로 Base64 PDF 데이터를 보낼 수 있습니다. Xinference는 모델의 이미지 제한 내에서 요청당 최대 20개 PDF 페이지를 이미지로 렌더링합니다. PDF 렌더링을 활성화하려면 ``xinference[image]``를 설치하세요."

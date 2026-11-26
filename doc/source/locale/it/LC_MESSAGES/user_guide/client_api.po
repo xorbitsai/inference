@@ -471,3 +471,9 @@ msgstr ""
 " carico e l’affinità quando mancano informazioni sulla cache. Una "
 "``priority`` esplicita diversa da zero mantiene l’affinità finché la replica"
 " preferita è disponibile e ha capacità."
+
+msgid "Inline PDF attachments"
+msgstr "Allegati PDF incorporati"
+
+msgid "For vision-capable models, Chat Completions accepts Base64 PDF data in a user message's ``file.file_data``. Xinference renders up to 20 PDF pages per request as images, subject to the model's image limits. Install ``xinference[image]`` to enable PDF rendering."
+msgstr "Per i modelli con capacità visive, Chat Completions accetta dati PDF in Base64 nel campo ``file.file_data`` di un messaggio utente. Xinference converte fino a 20 pagine PDF per richiesta in immagini, entro i limiti di immagini del modello. Installare ``xinference[image]`` per abilitare il rendering dei PDF."

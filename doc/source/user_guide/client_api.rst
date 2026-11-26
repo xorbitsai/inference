@@ -100,6 +100,34 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Inline PDF attachments
+======================
+
+For vision-capable models, Chat Completions accepts Base64 PDF data in a user message's ``file.file_data``. Xinference renders up to 20 PDF pages per request as images, subject to the model's image limits. Install ``xinference[image]`` to enable PDF rendering.
+
+.. code-block:: python
+
+    import base64
+    from pathlib import Path
+
+    pdf = base64.b64encode(Path("report.pdf").read_bytes()).decode("ascii")
+    client.chat.completions.create(
+        model=model_uid,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "file",
+                    "file": {
+                        "filename": "report.pdf",
+                        "file_data": f"data:application/pdf;base64,{pdf}",
+                    },
+                },
+                {"type": "text", "text": "Summarize this report."},
+            ],
+        }],
+    )
+
 Agent cache lifecycle
 =====================
 

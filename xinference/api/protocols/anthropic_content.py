@@ -3,28 +3,20 @@
 
 from __future__ import annotations
 
-import base64
-import io
-import math
-from contextlib import closing
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Union
 
-from ...utils import dependency_import_message
+from .pdf_content import PDFRenderBudget, decode_pdf_base64, render_pdf_pages
 
 
 @dataclass
 class ContentBudget:
     """Share PDF resource accounting and decoded blocks across one request."""
 
-    pages: int = 0
-    pixels: int = 0
-    decoded_bytes: int = 0
-    rendered_bytes: int = 0
+    pdf: PDFRenderBudget = field(default_factory=PDFRenderBudget)
     documents: Dict[int, List[Dict[str, Any]]] = field(default_factory=dict)
     direct_images: int = 0
     tool_result_images: int = 0
-    document_pages: int = 0
     counted_direct_images: Set[int] = field(default_factory=set)
     counted_tool_result_images: Set[int] = field(default_factory=set)
 
@@ -32,21 +24,12 @@ class ContentBudget:
         return {
             "direct_images": self.direct_images,
             "tool_result_images": self.tool_result_images,
-            "document_pages": self.document_pages,
+            "document_pages": self.pdf.pages,
             "document_count": len(self.documents),
             "total_images": (
-                self.direct_images + self.tool_result_images + self.document_pages
+                self.direct_images + self.tool_result_images + self.pdf.pages
             ),
         }
-
-    def add_bytes(self, size: int, *, rendered: bool = False) -> None:
-        from ...model.llm.media import _max_bytes
-
-        name = "rendered_bytes" if rendered else "decoded_bytes"
-        total = getattr(self, name) + size
-        if total > _max_bytes():
-            raise ValueError("PDF input exceeds the request byte limit")
-        setattr(self, name, total)
 
 
 def _image(
@@ -108,73 +91,14 @@ def _document(block: Dict[str, Any], budget: ContentBudget) -> List[Dict[str, An
         data = source.get("data")
         if not isinstance(data, str):
             raise ValueError("PDF documents require base64 data")
-        from ...model.llm.media import _max_bytes
+        return render_pdf_pages(decode_pdf_base64(data, budget.pdf), budget.pdf)
 
-        if len(data) > ((_max_bytes() - budget.decoded_bytes + 2) // 3) * 4:
-            raise ValueError("PDF input exceeds the request byte limit")
-        url = f"data:application/pdf;base64,{data}"
-    else:
-        candidate = source.get("url")
-        if not isinstance(candidate, str) or not candidate.startswith(
-            ("https://", "http://")
-        ):
-            raise ValueError("Document URLs must use http or https")
-        url = candidate
+    url = source.get("url")
+    if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+        raise ValueError("Document URLs must use http or https")
     from ...model.llm.media import load_media_bytes
 
-    raw = load_media_bytes(url)
-    budget.add_bytes(len(raw))
-    try:
-        import pypdfium2 as pdfium
-    except ImportError as exc:
-        raise ValueError(
-            dependency_import_message(
-                "pypdfium2",
-                exc,
-                install_hint='Install with `pip install "xinference[image]"`.',
-            )
-        ) from exc
-    parts: List[Dict[str, Any]] = []
-    from ..pdf_ocr import _pdfium_lock
-
-    # PDFium operations on different documents must also share the OCR lock.
-    try:
-        with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
-            budget.pages += len(pdf)
-            budget.document_pages += len(pdf)
-            if budget.pages > 20:
-                raise ValueError("PDF input supports at most 20 pages per request")
-            for page in pdf:
-                with closing(page):
-                    width, height = page.get_size()
-                    if not all(math.isfinite(v) and v > 0 for v in (width, height)):
-                        raise ValueError(
-                            "PDF page dimensions must be positive and finite"
-                        )
-                    scale = min(1.5, 2048 / max(width, height))
-                    budget.pixels += math.ceil(width * scale) * math.ceil(
-                        height * scale
-                    )
-                    if budget.pixels > 20_000_000:
-                        raise ValueError(
-                            "PDF input exceeds 20000000 rendered pixels per request"
-                        )
-                    with closing(page.render(scale=scale)) as bitmap:
-                        output = io.BytesIO()
-                        bitmap.to_pil().save(output, format="PNG")
-                        budget.add_bytes(output.tell(), rendered=True)
-                        encoded = base64.b64encode(output.getvalue()).decode("ascii")
-                        parts.append(
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/png;base64,{encoded}"
-                                },
-                            }
-                        )
-    except pdfium.PdfiumError as exc:
-        raise ValueError("Invalid PDF document") from exc
-    return parts
+    return render_pdf_pages(load_media_bytes(url), budget.pdf)
 
 
 def normalize_content(
