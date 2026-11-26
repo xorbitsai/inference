@@ -1302,6 +1302,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
         open={tryApiOpen}
         onOpenChange={setTryApiOpen}
         modelUid={activeModel?.id}
+        modelName={activeModel?.model_name}
         ability={tryApiAbility}
       />
       {reloadModelUid && (

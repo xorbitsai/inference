@@ -133,6 +133,7 @@ from .protocols import (
     openai_to_anthropic,
     parse_anthropic_request,
 )
+from .protocols.openai_chat import expand_chat_pdfs
 from .protocols.openai_responses import (
     ResponsesProtocolError,
     ResponsesRequest,
@@ -5716,6 +5717,14 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
         self._check_model_access(request, model_uid, "LLM")
+        try:
+            expanded_messages = await expand_chat_pdfs(messages)
+        except ValueError as exc:
+            raise InferenceRequestRejected(
+                400, str(exc), reason="invalid_pdf_input"
+            ) from exc
+        if expanded_messages is not messages:
+            messages = raw_body["messages"] = expanded_messages
         self._apply_cache_salt(request, raw_body, kwargs, raw_kwargs)
         routing_options = {}
         if routing_key is not None:

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Tuple, Union
 from ...utils import dependency_import_message
 from .diffusers import DiffusersVideoModel
 from .engine_family import SUPPORTED_ENGINES, VideoEngineModel
+from .ltx2 import LTX2VideoModel
 from .minimax_h3 import SGLangMiniMaxH3Model, VLLMMiniMaxH3Model
 from .mlx_video import MLXVideoModel
 from .native import SGLangVideoModel, VLLMVideoModel
@@ -115,7 +116,7 @@ class MLXVideoEngineModel(MLXVideoModel, VideoEngineModel):
 def register_builtin_video_engines() -> None:
     # The first registered engine remains the default for models with several
     # runtimes, preserving the existing diffusers behavior for Wan models.
-    SUPPORTED_ENGINES["diffusers"] = [DiffusersVideoEngineModel]
+    SUPPORTED_ENGINES["diffusers"] = [LTX2VideoModel, DiffusersVideoEngineModel]
     SUPPORTED_ENGINES["MLX"] = [MLXVideoEngineModel]
     SUPPORTED_ENGINES["vLLM"] = [VLLMVideoModel, VLLMMiniMaxH3Model]
     SUPPORTED_ENGINES["SGLang"] = [SGLangVideoModel, SGLangMiniMaxH3Model]

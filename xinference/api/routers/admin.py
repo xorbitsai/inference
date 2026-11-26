@@ -276,6 +276,43 @@ async def relaunch_worker(
         raise HTTPException(status_code=409, detail=str(error))
 
 
+class WorkerHandoffRecoveryRequest(BaseModel):
+    ticket: str
+    target_incarnation: str
+    target_exit_verified: bool = False
+
+
+async def get_pending_worker_handoff(
+    worker_address: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    supervisor = await api._get_supervisor_ref()
+    try:
+        return JSONResponse(
+            content=await supervisor.get_pending_worker_handoff(worker_address)
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="No pending Worker handoff")
+
+
+async def recover_confirmed_worker_handoff(
+    worker_address: str,
+    body: WorkerHandoffRecoveryRequest,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    if not body.target_exit_verified:
+        raise HTTPException(status_code=400, detail="Verify the target process exited")
+    supervisor = await api._get_supervisor_ref()
+    try:
+        result = await supervisor.recover_confirmed_worker_handoff(
+            worker_address, body.ticket, body.target_incarnation
+        )
+        return JSONResponse(content=result)
+    except (WorkerJournalError, asyncio.TimeoutError) as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
 async def get_worker_relaunch(
     operation_id: str, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
@@ -2367,6 +2404,18 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/workers/{worker_address}/relaunch",
         relaunch_worker,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/handoff",
+        get_pending_worker_handoff,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/handoff/recover",
+        recover_confirmed_worker_handoff,
         methods=["POST"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

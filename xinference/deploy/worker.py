@@ -38,6 +38,7 @@ async def start_worker_components(
     standby: bool = False,
     relaunch_operation_id: Optional[str] = None,
     logging_conf: Optional[dict] = None,
+    colocated_metrics: bool = False,
 ):
     gpu_device_indices = []
     env_name = get_available_device_env_name()
@@ -61,6 +62,7 @@ async def start_worker_components(
         standby=standby,
         relaunch_operation_id=relaunch_operation_id,
         logging_conf=logging_conf,
+        colocated_metrics=colocated_metrics,
     )
 
 
@@ -73,6 +75,7 @@ async def _start_worker(
     logging_conf: Any = None,
     replace_worker: Optional[str] = None,
     relaunch_operation_id: Optional[str] = None,
+    colocated_metrics: bool = False,
 ):
     from .utils import create_worker_actor_pool, update_all_formatter_addresses
 
@@ -92,6 +95,7 @@ async def _start_worker(
         standby=replace_worker is not None,
         relaunch_operation_id=relaunch_operation_id,
         logging_conf=logging_conf,
+        colocated_metrics=colocated_metrics,
     )
     if replace_worker is not None:
         from ..core.worker_handoff import HandoffPending
@@ -181,6 +185,9 @@ def main(
             if result:
                 raise SystemExit(result)
             return
+        start_options: dict[str, Any] = {}
+        if replace_worker:
+            start_options["replace_worker"] = replace_worker
         asyncio.run(
             _start_worker(
                 address,
@@ -189,7 +196,7 @@ def main(
                 metrics_exporter_host,
                 metrics_exporter_port,
                 logging_conf,
-                **({"replace_worker": replace_worker} if replace_worker else {}),
+                **start_options,
             )
         )
     except KeyboardInterrupt:
