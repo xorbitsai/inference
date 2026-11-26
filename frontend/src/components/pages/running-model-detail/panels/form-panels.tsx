@@ -41,7 +41,7 @@ import {
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import { getSpeechOptions } from '../speech-options';
 import type { CapabilityFormProps } from '../types';
-import { isJsonObject } from '../utils';
+import { isJsonObject, isLtx25Distilled } from '../utils';
 import { DOCUMENT_UPLOAD_ACCEPT, validateDocumentFile } from '../document-upload-utils';
 
 const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
@@ -359,14 +359,18 @@ function VideoFields({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'
         >
           <Input type="number" />
         </FormField>
-        <InferenceStepsField form={form} model={model} />
-        <FormField
-          name="guidance_scale"
-          label={t('runningModels.detail.guidanceScale')}
-          normalize={normalizeNumberInput}
-        >
-          <Input type="number" min={1} max={20} step={0.1} />
-        </FormField>
+        {!isLtx25Distilled(model.model_name) && (
+          <>
+            <InferenceStepsField form={form} model={model} />
+            <FormField
+              name="guidance_scale"
+              label={t('runningModels.detail.guidanceScale')}
+              normalize={normalizeNumberInput}
+            >
+              <Input type="number" min={1} max={20} step={0.1} />
+            </FormField>
+          </>
+        )}
         <ScalarSeedField form={form} />
       </div>
     </>

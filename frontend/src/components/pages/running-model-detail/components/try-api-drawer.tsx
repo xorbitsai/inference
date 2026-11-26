@@ -35,6 +35,7 @@ interface TryApiDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   modelUid?: string;
+  modelName?: string;
   ability?: ModelAbility;
 }
 
@@ -472,7 +473,8 @@ function generateCodeExample(
 }
 
 function getCodeExample(
-  ability?: ModelAbility
+  ability?: ModelAbility,
+  modelName?: string
 ): { requestApi: string; config: CodeExampleConfig } | null {
   if (ability === ModelAbility.Chat) {
     return {
@@ -488,7 +490,10 @@ function getCodeExample(
 
   return {
     requestApi: capabilityConfig.requestApi,
-    config: capabilityConfig.codeExample,
+    config:
+      typeof capabilityConfig.codeExample === 'function'
+        ? capabilityConfig.codeExample(modelName)
+        : capabilityConfig.codeExample,
   };
 }
 
@@ -501,13 +506,14 @@ export function TryApiDrawer({
   open,
   onOpenChange,
   modelUid = '{MODEL_UID}',
+  modelName,
   ability,
 }: TryApiDrawerProps) {
   const router = useRouter();
   const { t } = useI18n();
   const { canAccessKeysPage } = useMenuAuth();
   const [language, setLanguage] = useState(CODE_LANGUAGE_OPTIONS[0].value);
-  const codeExample = getCodeExample(ability);
+  const codeExample = getCodeExample(ability, modelName);
   const url = codeExample ? `${getApiUrl()}${codeExample.requestApi}` : '';
   const code = useMemo(() => {
     if (!codeExample) return '';

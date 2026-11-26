@@ -44,6 +44,10 @@ export function booleanValue(value: unknown): boolean {
   return value === true;
 }
 
+export function isLtx25Distilled(modelName: string): boolean {
+  return modelName === 'LTX-2.5';
+}
+
 export function positiveNumber(value: unknown): number | undefined {
   const next = numberValue(value, -1);
   return next > 0 ? next : undefined;

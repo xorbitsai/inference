@@ -42,6 +42,7 @@ from ..engine_family import (
     check_engine_by_model_name_and_engine,
     check_engine_by_model_name_and_engine_with_virtual_env,
 )
+from ..ltx2 import LTX2VideoModel
 from ..native import _NativeVideoModel
 
 
@@ -83,7 +84,11 @@ def test_builtin_video_models_register_expected_engines():
                     "model_name": model_name,
                     "model_format": "diffusers",
                     "quantization": "none",
-                    "video_class": DiffusersVideoEngineModel,
+                    "video_class": (
+                        LTX2VideoModel
+                        if model_name in {"LTX-2.5", "LTX-2.5-Dev"}
+                        else DiffusersVideoEngineModel
+                    ),
                     "default_model_config": next(
                         family.default_model_config
                         for family in BUILTIN_VIDEO_MODELS[model_name]
