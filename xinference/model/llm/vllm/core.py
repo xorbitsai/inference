@@ -1591,6 +1591,15 @@ class VLLMModel(WeightCachedModel, LLM):
                             self._engine = XinferenceAsyncLLMEngine.from_engine_args(
                                 engine_args
                             )
+                        elif VLLM_VERSION >= version.parse("0.34.0"):
+                            from .distributed_executor_v1 import (
+                                XinferenceDistributedExecutorV1,
+                            )
+
+                            XinferenceDistributedExecutorV1.configure_engine_args(
+                                engine_args, worker_addresses, self._n_worker
+                            )
+                            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
                         else:
                             from vllm.v1.executor.abstract import Executor
 

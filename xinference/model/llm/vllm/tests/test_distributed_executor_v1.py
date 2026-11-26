@@ -3,6 +3,7 @@
 
 import asyncio
 import importlib.util
+import pickle
 import sys
 import threading
 import time
@@ -40,6 +41,43 @@ def executor_module(monkeypatch):
     monkeypatch.setitem(sys.modules, name, module)
     spec.loader.exec_module(module)
     return module
+
+
+def test_vllm_executor_class_and_placement_survive_spawn(executor_module, monkeypatch):
+    executor_cls = executor_module.XinferenceDistributedExecutorV1
+    caller_config = {"gdn_prefill_backend": "triton"}
+    engine_args = SimpleNamespace(
+        distributed_executor_backend="mp", additional_config=caller_config
+    )
+    executor_cls.configure_engine_args(engine_args, ["node-a:1000", "node-b:1000"], 2)
+
+    assert issubclass(
+        engine_args.distributed_executor_backend, executor_module.Executor
+    )
+    assert caller_config == {"gdn_prefill_backend": "triton"}
+    placement = engine_args.additional_config[executor_module._XOSCAR_PLACEMENT_KEY]
+    assert placement.compile_factors() == {}
+
+    cls, config = pickle.loads(
+        pickle.dumps(
+            (
+                engine_args.distributed_executor_backend,
+                SimpleNamespace(
+                    additional_config=engine_args.additional_config,
+                    parallel_config=None,
+                    scheduler_config=None,
+                ),
+            )
+        )
+    )
+    assert config.additional_config["gdn_prefill_backend"] == "triton"
+    monkeypatch.setattr(cls, "_init_executor", lambda self: None)
+    instance = cls(config)
+    try:
+        assert instance._pool_addresses == ["node-a:1000", "node-b:1000"]
+        assert instance._n_worker == 2
+    finally:
+        instance.shutdown()
 
 
 class Worker:
