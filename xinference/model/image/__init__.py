@@ -83,8 +83,16 @@ def _install():
 
     # register model description
     for model_name, model_specs in BUILTIN_IMAGE_MODELS.items():
-        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
-        IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
+        hf_specs = [spec for spec in model_specs if spec.model_hub == "huggingface"]
+        model_spec = hf_specs[0]
+        if model_spec.model_family == "sensenova_u1" and getattr(
+            model_spec, "quantization", None
+        ):
+            IMAGE_MODEL_DESCRIPTIONS[model_name] = [
+                version for spec in hf_specs for version in spec.to_version_info()
+            ]
+        else:
+            IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(model_spec))
 
     register_builtin_image_engines()
     register_builtin_ocr_engines()

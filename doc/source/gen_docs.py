@@ -474,6 +474,10 @@ def main():
             available_controlnet = None
         model["available_controlnet"] = available_controlnet
         model["model_ability"] = ', '.join(model.get("model_ability"))
+        if model.get("model_family") == "sensenova_u1" and model_src:
+            model["checkpoint_quantizations"] = model_src.get("huggingface", {}).get(
+                "quantizations"
+            )
 
         # Ensure gguf_quantizations is properly formatted (fallback for old format)
         if "gguf_quantizations" not in model:

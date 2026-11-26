@@ -129,6 +129,10 @@ The following is a list of built-in image models in Xinference:
   
    sensenova-u1.6-8b-mot
 
+   sensenova-u1.6-8b-mot-gguf
+
+   sensenova-u1.6-8b-mot-native
+
    stable-diffusion-2-inpainting
   
    stable-diffusion-inpainting

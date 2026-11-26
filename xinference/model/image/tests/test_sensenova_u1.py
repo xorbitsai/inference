@@ -17,6 +17,8 @@
 import contextlib
 import io
 import json
+from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -29,7 +31,12 @@ from PIL import Image
 from ....api.restful_api import RESTfulAPI
 from ....core.model import ModelActor
 from .. import sensenova_u1
-from ..core import create_image_model_instance
+from ..cache_manager import ImageCacheManager
+from ..core import (
+    IMAGE_MODEL_DESCRIPTIONS,
+    create_image_model_instance,
+    match_diffusion,
+)
 from ..engine import TransformersSenseNovaU1ImageModel
 
 
@@ -53,6 +60,111 @@ def test_u16_uses_shared_transformers_image_engine(tmp_path, hub, namespace, rev
     assert model.model_spec.model_id == f"{namespace}/{model_name}"
     assert model.model_spec.model_revision == revision
     assert set(model.model_ability) == {"text2image", "image2image"}
+
+
+@pytest.mark.parametrize(
+    ("suffix", "quantization", "filename"),
+    [
+        ("Native", None, "SenseNova-U1.6-BF16.safetensors"),
+        ("Native", "FP8-E4M3FN-W8A8", "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"),
+        ("Native", "INT8-ConvRot-W8A8", "SenseNova-U1.6-INT8-ConvRot-W8A8.safetensors"),
+        ("GGUF", None, "SenseNova-U1.6-8B-MoT-Q4_0.gguf"),
+        ("GGUF", "Q6_K", "SenseNova-U1.6-8B-MoT-Q6_K.gguf"),
+        ("GGUF", "Q8_0", "SenseNova-U1.6-8B-MoT-Q8_0.gguf"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("hub", "namespace", "revision", "pattern_key", "download_target"),
+    [
+        ("huggingface", "sensenova", "main", "allow_patterns", "huggingface_hub"),
+        (
+            "modelscope",
+            "SenseNova",
+            "master",
+            "allow_file_pattern",
+            "modelscope.hub.snapshot_download",
+        ),
+    ],
+)
+def test_u16_variant_downloads_one_checkpoint(
+    monkeypatch,
+    tmp_path,
+    suffix,
+    quantization,
+    filename,
+    hub,
+    namespace,
+    revision,
+    pattern_key,
+    download_target,
+):
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_CACHE_DIR", str(tmp_path / "cache")
+    )
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path / "models")
+    )
+    model_name = f"SenseNova-U1.6-8B-MoT-{suffix}"
+    expected = {
+        filename,
+        "config.json",
+        "tokenizer_config.json",
+        "vocab.json",
+        "merges.txt",
+        "added_tokens.json",
+        "special_tokens_map.json",
+    }
+    if suffix == "Native" and quantization:
+        expected.add(
+            filename.removesuffix(".safetensors") + ".quantization_config.json"
+        )
+
+    def download(model_id, **kwargs):
+        assert model_id == f"{namespace}/{model_name}"
+        assert kwargs["revision"] == revision
+        assert set(kwargs[pattern_key]) == expected
+        snapshot = Path(kwargs.get("local_dir") or tmp_path / "snapshot")
+        snapshot.mkdir(parents=True, exist_ok=True)
+        for file in expected:
+            (snapshot / file).touch()
+        return str(snapshot)
+
+    mocked_download = Mock(side_effect=download)
+    monkeypatch.setattr(
+        import_module(download_target), "snapshot_download", mocked_download
+    )
+    spec = match_diffusion(model_name, hub, quantization=quantization)
+    assert not ImageCacheManager(spec).get_cache_status()
+
+    model = create_image_model_instance(
+        model_uid="sensenova-variant",
+        model_name=model_name,
+        download_hub=hub,
+        quantization=quantization,
+    )
+
+    assert isinstance(model, TransformersSenseNovaU1ImageModel)
+    assert model.model_ability == ["text2image"]
+    assert model.model_spec.quantization == (
+        quantization or ("BF16" if suffix == "Native" else "Q4_0")
+    )
+    assert set(p.name for p in Path(model._model_path).iterdir()) == expected
+    assert ImageCacheManager(spec).get_cache_status()
+    version = model.model_spec.to_version_info()[0]
+    assert version["model_version"] == f"{model_name}--{model.model_spec.quantization}"
+    assert version["cache_status"]
+    assert len({v["model_version"] for v in IMAGE_MODEL_DESCRIPTIONS[model_name]}) == 3
+    mocked_download.assert_called_once()
+
+
+def test_u16_variant_rejects_unknown_quantization():
+    with pytest.raises(ValueError, match="does not support quantization"):
+        create_image_model_instance(
+            model_uid="sensenova-variant",
+            model_name="SenseNova-U1.6-8B-MoT-GGUF",
+            quantization="Q5_K_M",
+            enable_virtual_env=True,
+        )
 
 
 def _make_model():
