@@ -634,19 +634,21 @@ def _strip_test_envs(launch_args: dict) -> Tuple[dict, Set[str]]:
         return dict(launch_args), set()
 
 
-def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
+def _query_gpu_occupying_pids(device_indices: list) -> Tuple[set, bool]:
     """List PIDs currently occupying GPU memory via pynvml.
 
-    Returns set of int. Gracefully degrades to empty set if pynvml is
-    unavailable.
+    Returns ``(pids, complete)``. ``complete`` is False if pynvml is
+    unavailable or the process query of any device failed, in which case
+    ``pids`` may miss processes.
     """
     try:
         import pynvml
 
         pynvml.nvmlInit()
     except Exception:
-        return set()
+        return set(), False
     pids: set = set()
+    complete = True
     try:
         for idx in device_indices:
             try:
@@ -655,13 +657,23 @@ def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
                     if pro.pid:
                         pids.add(pro.pid)
             except Exception:
+                complete = False
                 continue
     finally:
         try:
             pynvml.nvmlShutdown()
         except Exception:
             pass
-    return pids
+    return pids, complete
+
+
+def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
+    """List PIDs currently occupying GPU memory via pynvml.
+
+    Returns set of int. Gracefully degrades to empty set if pynvml is
+    unavailable.
+    """
+    return _query_gpu_occupying_pids(device_indices)[0]
 
 
 def _snapshot_gpu_free_ratio(device_indices: list) -> float:
@@ -725,6 +737,103 @@ async def _wait_pids_dead(pids: set, timeout: float = 5.0):
         remaining = still_alive
         if remaining:
             await asyncio.sleep(0.2)
+
+
+def _filter_alive_pids(pids: set) -> set:
+    """Return the subset of ``pids`` that are still running (zombies excluded)."""
+    import psutil
+
+    alive = set()
+    for pid in pids:
+        try:
+            p = psutil.Process(pid)
+            if p.is_running() and p.status() != psutil.STATUS_ZOMBIE:
+                alive.add(pid)
+        except Exception:
+            pass
+    return alive
+
+
+def _snapshot_replica_gpu_children(pids: set, device_indices: list) -> set:
+    """Return the descendants of ``pids`` that occupy the given GPUs.
+
+    Must be called before the replica is torn down: a native child such as a
+    spawn-created EngineCore can outlive its parent, and once reparented it
+    can no longer be attributed to the model.
+
+    Every descendant is returned if the process list is not reliable for the
+    replica, since any of them may be the one holding VRAM: the process query
+    of a target GPU failed, or NVML attributes no process on these GPUs to
+    the replica at all (no PID visibility, e.g. inside a container).
+    """
+    import psutil
+
+    descendants: set = set()
+    for pid in pids:
+        try:
+            descendants.update(
+                child.pid for child in psutil.Process(pid).children(recursive=True)
+            )
+        except Exception:
+            continue
+    if not descendants:
+        return set()
+    gpu_pids, complete = _query_gpu_occupying_pids(device_indices)
+    if not complete or not gpu_pids & (descendants | set(pids)):
+        return descendants
+    return descendants & gpu_pids
+
+
+async def _wait_vram_reclaim_after_terminate(
+    device_indices: list,
+    holder_pids: set,
+    model_uid: str = "",
+    timeout: float = _VRAM_RECLAIM_TIMEOUT,
+    interval: float = 1.0,
+) -> bool:
+    """Wait for the VRAM of a terminated replica to be reclaimed.
+
+    The device-wide free ratio cannot tell VRAM still held by the terminated
+    replica apart from VRAM used by other models or applications on the same
+    GPU. Waiting for the ratio alone therefore always runs into ``timeout``
+    on a shared GPU. Only wait while one of ``holder_pids`` (the processes of
+    the terminated replica, its GPU-owning children and the orphans killed
+    for it) is still alive and may release more VRAM.
+
+    Returns False only if a holder is still alive when ``timeout`` expires.
+    """
+    holder_pids = _filter_alive_pids(holder_pids)
+    deadline = time.monotonic() + timeout
+    while holder_pids:
+        free_ratio = _snapshot_gpu_free_ratio(device_indices)
+        if free_ratio < 0:
+            return True
+        if free_ratio >= _VRAM_READY_RATIO:
+            logger.info(
+                "VRAM reclaimed after orphan cleanup for %s, free_ratio=%.2f",
+                model_uid,
+                free_ratio,
+            )
+            return True
+        if time.monotonic() >= deadline:
+            logger.warning(
+                "VRAM still not freed after orphan cleanup + %ds for %s "
+                "(free_ratio=%.2f, alive pids=%s)",
+                timeout,
+                model_uid,
+                free_ratio,
+                sorted(holder_pids),
+            )
+            return False
+        await asyncio.sleep(interval)
+        holder_pids = _filter_alive_pids(holder_pids)
+    logger.debug(
+        "No process of %s is left on GPUs %s; the remaining VRAM usage "
+        "belongs to other processes",
+        model_uid,
+        device_indices,
+    )
+    return True
 
 
 def _stop_reload_children(processes: List[Any]) -> None:
@@ -6890,7 +6999,17 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # model_spec["accelerators"] (allocated devices when gpu_idx=None
         # and _create_subpool() auto-selected GPUs).
         _gpu_indices_for_terminate: list = []
+        # PIDs of this replica, captured before the bookkeeping below is
+        # dropped, so the VRAM wait can tell its leftovers from other users
+        # of the same GPU.
+        _replica_pids_for_terminate: set = set()
         if not is_model_die:
+            _replica_pids_for_terminate.update(
+                self._model_uid_to_subpool_pids.get(model_uid, ())
+            )
+            _replica_pid = self._model_uid_to_pid.get(model_uid)
+            if _replica_pid is not None:
+                _replica_pids_for_terminate.add(_replica_pid)
             _launch_args = self._model_uid_to_launch_args.get(model_uid)
             if _launch_args:
                 _gpu_indices_for_terminate = _parse_gpu_indices(
@@ -6902,6 +7021,21 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     _gpu_indices_for_terminate = [
                         int(dev) for dev in _model_spec["accelerators"]
                     ]
+            if _gpu_indices_for_terminate and _replica_pids_for_terminate:
+                # A GPU-owning child can outlive the replica and get
+                # reparented, so it has to be recorded before the teardown.
+                try:
+                    _replica_pids_for_terminate |= await asyncio.to_thread(
+                        _snapshot_replica_gpu_children,
+                        set(_replica_pids_for_terminate),
+                        _gpu_indices_for_terminate,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Failed to snapshot GPU children of %s",
+                        model_uid,
+                        exc_info=True,
+                    )
 
         try:
             await checkpoint()
@@ -7031,38 +7165,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             model_uid,
                             _killed,
                         )
-                    else:
-                        logger.warning(
-                            "No vllm/enginecore orphans found on GPU, "
-                            "but VRAM still held for %s (free_ratio=%.2f)",
-                            model_uid,
-                            _free_ratio,
-                        )
-                    # Wait for VRAM reclaim after orphan cleanup
-                    _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
-                    while time.monotonic() < _vram_deadline:
-                        await asyncio.sleep(1.0)
-                        _free_ratio = _snapshot_gpu_free_ratio(
-                            _gpu_indices_for_terminate
-                        )
-                        if _free_ratio < 0:
-                            break
-                        if _free_ratio >= _VRAM_READY_RATIO:
-                            logger.info(
-                                "VRAM reclaimed after orphan cleanup "
-                                "for %s, free_ratio=%.2f",
-                                model_uid,
-                                _free_ratio,
-                            )
-                            break
-                    else:
-                        logger.warning(
-                            "VRAM still not freed after orphan cleanup "
-                            "+ %ds for %s (free_ratio=%.2f)",
-                            _VRAM_RECLAIM_TIMEOUT,
-                            model_uid,
-                            _snapshot_gpu_free_ratio(_gpu_indices_for_terminate),
-                        )
+                    # Wait for VRAM reclaim, but only while a process of this
+                    # replica (or an orphan killed above) can still release it.
+                    await _wait_vram_reclaim_after_terminate(
+                        _gpu_indices_for_terminate,
+                        (_replica_pids_for_terminate | set(_killed)) - _exclude_pids,
+                        model_uid=model_uid,
+                    )
         except Exception:
             logger.warning("Orphan cleanup failed for %s", model_uid, exc_info=True)
 
