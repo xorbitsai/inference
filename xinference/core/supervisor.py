@@ -264,6 +264,22 @@ class InitialModelLaunch:
     services: Dict[str, List[xo.ActorRefType]] = field(default_factory=dict)
 
 
+@dataclass
+class ManualReplicaDrain:
+    request_id: str
+    replica_id: int
+    topology: ReplicaInfo
+    replicas: Dict[int, xo.ActorRefType]
+    status: str = "draining"
+
+    def public(self) -> Dict[str, Any]:
+        return {
+            "request_id": self.request_id,
+            "replica_id": self.replica_id,
+            "status": self.status,
+        }
+
+
 def model_service_address(owner):
     from .supervisor_control import model_service_address as selected_address
 
@@ -416,6 +432,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # xinference:model_unexpected_termination gauge in the API process.
         self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
         self._replica_autoscalers: Dict[str, Any] = {}
+        self._manual_replica_drains: Dict[str, ManualReplicaDrain] = {}
         self._autostart_task: Optional[asyncio.Task] = None
         self._autostart_requested = False
         self._autostart_lock = asyncio.Lock()
@@ -5958,6 +5975,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         operation = self._initial_model_launches.get(model_uid)
         async with self._get_model_replica_lock(model_uid):
+            SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             if self._initial_model_launches.get(model_uid) is not operation:
                 raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
             if (
@@ -6154,6 +6172,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         """Add one replica while serializing scale changes for this model."""
         async with self._get_model_replica_lock(model_uid):
             SupervisorActor._check_manual_autoscaling(self, model_uid)
+            SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             return await self._add_model_replica(
                 model_uid, replica_config, model_engine=model_engine, n_gpu=n_gpu
             )
@@ -6177,6 +6196,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         async with self._get_model_replica_lock(model_uid):
             SupervisorActor._check_manual_autoscaling(self, model_uid)
+            SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             results: List[Dict[str, Any]] = []
             try:
                 for index in range(replica):
@@ -6485,9 +6505,154 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     ) -> int:
         async with self._get_model_replica_lock(model_uid):
             SupervisorActor._check_manual_autoscaling(self, model_uid)
+            SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             return await self._terminate_model_replica(
                 model_uid, replica_id, suppress_exception
             )
+
+    def _check_manual_replica_drain_idle(self, model_uid: str) -> None:
+        drain = getattr(self, "_manual_replica_drains", {}).get(model_uid)
+        if drain is not None and drain.status not in ("cancelled", "succeeded"):
+            raise ValueError("A manual replica drain is in progress")
+
+    async def begin_manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> Dict[str, Any]:
+        async with self._get_model_replica_lock(model_uid):
+            existing = self._manual_replica_drains.get(model_uid)
+            if existing is not None and existing.request_id == request_id:
+                if existing.replica_id != replica_id:
+                    raise ValueError("The request ID belongs to a different replica")
+                return existing.public()
+            self._check_manual_replica_drain_idle(model_uid)
+            self._check_manual_autoscaling(model_uid)
+            self._check_model_reload_idle(model_uid)
+            info = self._model_uid_to_replica_info.get(model_uid)
+            if (
+                info is None
+                or info.active_replica_ids != [0, 1]
+                or replica_id != 1
+                or model_uid in self._pd_model_mapping
+                or model_uid in self._initial_model_launches
+            ):
+                raise ValueError(
+                    "Manual drain requires two fixed replicas and target 1"
+                )
+            first, second = (
+                self._replica_model_uid_to_worker.get(
+                    build_replica_model_uid(model_uid, i)
+                )
+                for i in (0, 1)
+            )
+            if first is None or isinstance(first, (list, tuple)) or first != second:
+                raise ValueError(
+                    "Manual drain requires both replicas on the same Worker"
+                )
+            descriptions = await asyncio.gather(
+                *(
+                    self.describe_model(
+                        model_uid,
+                        selected_replica_uid=build_replica_model_uid(model_uid, i),
+                    )
+                    for i in (0, 1)
+                )
+            )
+            if any(
+                desc.get("model_type") != "LLM"
+                or str(desc.get("model_engine", "")).lower() != "vllm"
+                for desc in descriptions
+            ):
+                raise ValueError("Manual drain requires a vLLM language model")
+            replicas = {i: await self._get_replica_model(model_uid, i) for i in (0, 1)}
+            if (
+                self._model_uid_to_replica_info.get(model_uid) is not info
+                or info.active_replica_ids != [0, 1]
+                or not self._upgrade_state.maintenance.begin()
+            ):
+                raise ValueError("The model topology or Supervisor changed")
+            drain = ManualReplicaDrain(request_id, replica_id, info, replicas)
+            self._manual_replica_drains[model_uid] = drain
+            return drain.public()
+
+    def get_manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> Dict[str, Any]:
+        return self._manual_replica_drain(model_uid, replica_id, request_id).public()
+
+    def _manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> ManualReplicaDrain:
+        drain = self._manual_replica_drains.get(model_uid)
+        if (
+            drain is None
+            or drain.replica_id != replica_id
+            or drain.request_id != request_id
+        ):
+            raise ValueError("Manual replica drain was not found")
+        return drain
+
+    async def _verify_manual_replica_drain(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> bool:
+        info = self._model_uid_to_replica_info.get(model_uid)
+        if info is not drain.topology or info.active_replica_ids != [0, 1]:
+            raise ValueError("The model topology changed during manual drain")
+        for replica_id, original in drain.replicas.items():
+            if await self._get_replica_model(model_uid, replica_id) != original:
+                raise ValueError("A replica changed during manual drain")
+        load = await drain.replicas[drain.replica_id].get_chat_routing_load()
+        return type(load) is int and load == 0
+
+    async def confirm_manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> bool:
+        async with self._get_model_replica_lock(model_uid):
+            drain = self._manual_replica_drain(model_uid, replica_id, request_id)
+            if drain.status == "drained":
+                return True
+            if drain.status != "draining":
+                raise ValueError("The manual replica drain is not in progress")
+            if not await self._verify_manual_replica_drain(model_uid, drain):
+                return False
+            drain.status = "drained"
+            return True
+
+    async def cancel_manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> Dict[str, Any]:
+        async with self._get_model_replica_lock(model_uid):
+            drain = self._manual_replica_drain(model_uid, replica_id, request_id)
+            if drain.status in ("draining", "drained"):
+                drain.status = "cancelled"
+                self._upgrade_state.maintenance.end()
+            elif drain.status != "cancelled":
+                raise ValueError("The replica deletion can no longer be cancelled")
+            return drain.public()
+
+    async def terminate_drained_model_replica(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> int:
+        async with self._get_model_replica_lock(model_uid):
+            drain = self._manual_replica_drain(model_uid, replica_id, request_id)
+            if drain.status == "succeeded":
+                return 1
+            if drain.status != "drained":
+                raise ValueError("A confirmed replica drain is required")
+            if not await self._verify_manual_replica_drain(model_uid, drain):
+                raise ValueError("The target replica is no longer idle")
+            drain.status = "deleting"
+            try:
+                remaining = await self._terminate_model_replica(model_uid, replica_id)
+            except BaseException:
+                drain.status = "unknown"
+                raise
+            else:
+                if remaining != 1:
+                    drain.status = "unknown"
+                    raise ValueError("The surviving replica could not be confirmed")
+                drain.status = "succeeded"
+                self._upgrade_state.maintenance.end()
+                return remaining
 
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
@@ -7027,7 +7192,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             if state is not None:
                 candidates = sorted(candidates, key=state.should_avoid)
-                candidates = [r for r in candidates if r not in state.draining]
+            candidates = [
+                replica
+                for replica in candidates
+                if not SupervisorActor._replica_is_draining(self, model_uid, replica)
+            ]
             last_error: Exception = ModelNotReadyError(
                 f"Model {model_uid} has no available replica"
             )
@@ -7048,31 +7217,57 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         raise
                     stopping = stopping or exc
                 else:
-                    if uid in self._replica_model_uid_to_worker:
+                    if uid in self._replica_model_uid_to_worker and not (
+                        SupervisorActor._replica_is_draining(
+                            self, model_uid, replica_id
+                        )
+                    ):
                         return model, False
             raise stopping if stopping is not None else last_error
         first = next(replica_info.scheduler)
-        if state is None:
-            return await self._get_replica_model(model_uid, first), False
-        if first not in state.draining and not state.should_avoid(first):
-            return await self._get_replica_model(model_uid, first), False
+        if state is None and not SupervisorActor._replica_is_draining(
+            self, model_uid, first
+        ):
+            model = await self._get_replica_model(model_uid, first)
+            if not SupervisorActor._replica_is_draining(self, model_uid, first):
+                return model, False
 
         # Advance the round robin once per request, including when all
         # replicas are congested and the preferred route is the fallback.
         ids = replica_info.active_replica_ids
-        start = ids.index(first)
-        fallback = None if first in state.draining else first
-        for offset in range(1, len(ids)):
+        start = ids.index(first) if first in ids else 0
+        fallback = None
+        for offset in range(len(ids)):
             replica_id = ids[(start + offset) % len(ids)]
-            if replica_id in state.draining:
+            if SupervisorActor._replica_is_draining(self, model_uid, replica_id):
                 continue
-            if not state.should_avoid(replica_id):
-                return await self._get_replica_model(model_uid, replica_id), False
+            if state is None or not state.should_avoid(replica_id):
+                model = await self._get_replica_model(model_uid, replica_id)
+                if not SupervisorActor._replica_is_draining(
+                    self, model_uid, replica_id
+                ):
+                    return model, False
+                continue
             if fallback is None:
                 fallback = replica_id
-        if fallback is not None:
-            return await self._get_replica_model(model_uid, fallback), False
+        if fallback is not None and not SupervisorActor._replica_is_draining(
+            self, model_uid, fallback
+        ):
+            model = await self._get_replica_model(model_uid, fallback)
+            if not SupervisorActor._replica_is_draining(self, model_uid, fallback):
+                return model, False
         raise ModelNotReadyError(f"Model {model_uid} has no available replica")
+
+    def _replica_is_draining(self, model_uid: str, replica_id: int) -> bool:
+        state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        if state is not None and replica_id in state.draining:
+            return True
+        drain = getattr(self, "_manual_replica_drains", {}).get(model_uid)
+        return (
+            drain is not None
+            and drain.replica_id == replica_id
+            and drain.status not in ("cancelled", "succeeded")
+        )
 
     async def _rank_chat_replicas(
         self, model_uid: str, info: ReplicaInfo, preferred: int, request: dict
@@ -7151,8 +7346,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         routing_request: Optional[dict] = None,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         routes = info.routing_keys
-        state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
-        draining = state.draining if state is not None else ()
+
+        def is_draining(replica: int) -> bool:
+            return SupervisorActor._replica_is_draining(self, model_uid, replica)
+
         preferred = routes.get(routing_key) if routing_key is not None else None
         if preferred is None or preferred not in info.active_replica_ids:
             preferred = next(info.scheduler)
@@ -7239,7 +7436,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if replica not in models
                 and replica not in tried
                 and replica in info.active_replica_ids
-                and replica not in draining
+                and not is_draining(replica)
             }
             pending = set(tasks)
             try:
@@ -7258,7 +7455,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         async with reservation_guard(), aclosing(lookup_candidates()) as lookups:
             async for replica, lookup in lookups:
-                if replica in tried or replica in draining:
+                if replica in tried or is_draining(replica):
                     continue
                 tried.add(replica)
                 try:
@@ -7355,7 +7552,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if (
                     current_info is not info
                     or replica not in info.active_replica_ids
-                    or replica in draining
+                    or is_draining(replica)
                 ):
                     if reserved:
                         await release_reservation(model)
@@ -7378,7 +7575,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             busy is not None
             and self._model_uid_to_replica_info.get(model_uid) is info
             and busy[0] in info.active_replica_ids
-            and busy[0] not in draining
+            and not is_draining(busy[0])
         ):
             # Preserve the model's normal admission/error handling when every
             # reachable replica is at its limit or reloading.

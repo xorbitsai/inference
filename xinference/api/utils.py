@@ -31,6 +31,7 @@ from .model_request_logging import (
     InferenceRequestRejected,
     get_current_model_request_id,
 )
+from .replica_drain import track_model_lookup
 
 logger = logging.getLogger(__name__)
 
@@ -147,16 +148,20 @@ async def require_model(
     ) as supervisor:
         request_id = get_current_model_request_id()
         options: dict[str, Any] = {} if for_inference else {"for_inference": False}
+        lookup = track_model_lookup(model_uid) if for_inference else None
         if request_id is None:
-            return await supervisor.get_model(model_uid, **options)
-        model_ref = await actor_call(
-            supervisor,
-            "get_model",
-            model_uid,
-            _rpc_correlation_id=request_id,
-            **options,
-        )
-        return correlate_model_ref(model_ref, request_id)
+            model_ref = await supervisor.get_model(model_uid, **options)
+        else:
+            model_ref = await actor_call(
+                supervisor,
+                "get_model",
+                model_uid,
+                _rpc_correlation_id=request_id,
+                **options,
+            )
+        if lookup is not None:
+            lookup.selected(model_ref)
+        return correlate_model_ref(model_ref, request_id) if request_id else model_ref
 
 
 async def require_chat_model(
@@ -173,23 +178,29 @@ async def require_chat_model(
         get_supervisor_ref, model_uid, report_error_event
     ) as supervisor:
         request_id = get_current_model_request_id()
+        lookup = track_model_lookup(model_uid)
         options: dict[str, Any] = (
             {"routing_request": routing_request} if routing_request else {}
         )
         if request_id is None:
-            return await supervisor.get_chat_model(
+            model_ref, reserved = await supervisor.get_chat_model(
                 model_uid, routing_key, reservation_id, **options
             )
-        model_ref, reserved = await actor_call(
-            supervisor,
-            "get_chat_model",
-            model_uid,
-            routing_key,
-            reservation_id,
-            _rpc_correlation_id=request_id,
-            **options,
-        )
-        return correlate_model_ref(model_ref, request_id), reserved
+        else:
+            model_ref, reserved = await actor_call(
+                supervisor,
+                "get_chat_model",
+                model_uid,
+                routing_key,
+                reservation_id,
+                _rpc_correlation_id=request_id,
+                **options,
+            )
+        if lookup is not None:
+            lookup.selected(model_ref)
+        if request_id is not None:
+            model_ref = correlate_model_ref(model_ref, request_id)
+        return model_ref, reserved
 
 
 @asynccontextmanager

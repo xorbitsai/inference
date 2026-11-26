@@ -187,6 +187,11 @@ async def _list_service_relaunches(command: str) -> JSONResponse:
 async def relaunch_api(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
+    tracker = getattr(api, "_replica_drain_requests", None)
+    if tracker is not None and tracker.windows:
+        raise HTTPException(
+            status_code=409, detail="A model replica drain is in progress"
+        )
     return await _relaunch_service(request, "relaunch")
 
 

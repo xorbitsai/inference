@@ -162,6 +162,7 @@ from .schemas import (
     UpdateModelSpecRequest,
     WorldGenerationRequest,
 )
+from .replica_drain import ReplicaDrainMiddleware, ReplicaDrainRequests
 from .streaming_outcome import (
     FailureOrigin,
     StreamState,
@@ -1142,6 +1143,10 @@ class RESTfulAPI(CancelMixin):
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
+        self._replica_drain_requests = ReplicaDrainRequests()
+        self._app.add_middleware(
+            ReplicaDrainMiddleware, tracker=self._replica_drain_requests
+        )
         # Initialize allowed IP list once
         self._init_allowed_ip_list()
 
@@ -2824,13 +2829,22 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def terminate_model_replica(
-        self, model_uid: str, replica_id: int
+        self,
+        model_uid: str,
+        replica_id: int,
+        drain_id: Optional[str] = None,
     ) -> JSONResponse:
         try:
             assert self._app is not None
-            remaining_replicas = await (
-                await self._get_supervisor_ref()
-            ).terminate_model_replica(model_uid, replica_id)
+            supervisor = await self._get_supervisor_ref()
+            if drain_id is None:
+                remaining_replicas = await supervisor.terminate_model_replica(
+                    model_uid, replica_id
+                )
+            else:
+                remaining_replicas = await supervisor.terminate_drained_model_replica(
+                    model_uid, replica_id, drain_id
+                )
             if remaining_replicas == 0:
                 self._app.router.routes = [
                     route
@@ -2854,6 +2868,100 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    async def begin_model_replica_drain(
+        self,
+        model_uid: str,
+        replica_id: int,
+        request_id: str = Query(..., min_length=1, max_length=128),
+        timeout: float = Query(300, gt=0, le=3600),
+    ) -> JSONResponse:
+        from ..core.utils import build_replica_model_uid
+        from ..deploy.api_host import API_HOST_ENV, host_request
+
+        supervisor = await self._get_supervisor_ref()
+        tracker = self._replica_drain_requests
+        try:
+            window = tracker.start(model_uid)
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        completed = False
+        started = False
+        try:
+            target = build_replica_model_uid(model_uid, replica_id).encode()
+            with anyio.fail_after(timeout):
+                if os.environ.get(API_HOST_ENV):
+                    operations = await host_request("list")
+                    if any(
+                        operation["status"] not in ("succeeded", "failed")
+                        for operation in operations
+                    ):
+                        raise RuntimeError(
+                            "Wait for the previous API to finish draining"
+                        )
+                started = True
+                result = await supervisor.begin_manual_replica_drain(
+                    model_uid, replica_id, request_id
+                )
+                if result["status"] != "draining":
+                    completed = True
+                    return JSONResponse(content=result)
+                # Requests starting lookups after this acknowledgement can only
+                # be assigned to the survivor. Keep the preceding window.
+                window.collecting = False
+                while not (
+                    tracker.drained(window, model_uid, target)
+                    and await supervisor.confirm_manual_replica_drain(
+                        model_uid, replica_id, request_id
+                    )
+                ):
+                    await asyncio.sleep(0.1)
+                completed = True
+                return JSONResponse(content={**result, "status": "drained"})
+        except (ValueError, ModelReloadInProgress) as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        except TimeoutError as e:
+            raise HTTPException(
+                status_code=408, detail="Replica drain timed out"
+            ) from e
+        except RuntimeError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        finally:
+            tracker.stop(model_uid)
+            if started and not completed:
+                with anyio.move_on_after(5, shield=True):
+                    try:
+                        await supervisor.cancel_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        )
+                    except Exception:
+                        logger.info(
+                            "Could not cancel manual replica drain", exc_info=True
+                        )
+
+    async def get_model_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> JSONResponse:
+        supervisor = await self._get_supervisor_ref()
+        try:
+            result = await supervisor.get_manual_replica_drain(
+                model_uid, replica_id, request_id
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return JSONResponse(content=result)
+
+    async def cancel_model_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> JSONResponse:
+        supervisor = await self._get_supervisor_ref()
+        try:
+            result = await supervisor.cancel_manual_replica_drain(
+                model_uid, replica_id, request_id
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return JSONResponse(content=result)
 
     @staticmethod
     async def _iter_openai_sse_bytes(

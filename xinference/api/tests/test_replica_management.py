@@ -13,6 +13,7 @@
 # limitations under the License.
 # CI: linux
 
+import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -21,7 +22,71 @@ import pytest
 from fastapi import HTTPException
 
 from ...core.exceptions import ModelReloadInProgress
+from ..replica_drain import (
+    ReplicaDrainMiddleware,
+    ReplicaDrainRequests,
+    track_model_lookup,
+)
 from ..restful_api import RESTfulAPI
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_tracks_through_stream_completion():
+    tracker = ReplicaDrainRequests()
+    looked_up = asyncio.Event()
+    selected = asyncio.Event()
+    finished = asyncio.Event()
+
+    async def app(_scope, _receive, _send):
+        lookup = track_model_lookup("demo")
+        looked_up.set()
+        await selected.wait()
+        lookup.selected(SimpleNamespace(uid=b"demo-rep1"))
+        await finished.wait()
+
+    middleware = ReplicaDrainMiddleware(app, tracker)
+    task = asyncio.create_task(
+        middleware({"type": "http", "method": "POST"}, AsyncMock(), AsyncMock())
+    )
+    await looked_up.wait()
+    window = tracker.start("demo")
+    window.collecting = False
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    selected.set()
+    await asyncio.sleep(0)
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    assert tracker.drained(window, "demo", b"demo-rep0")
+    finished.set()
+    await task
+    assert tracker.drained(window, "demo", b"demo-rep1")
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_rejects_uncertain_stream_outcome():
+    tracker = ReplicaDrainRequests()
+    selected = asyncio.Event()
+    disconnected = asyncio.Event()
+
+    async def app(_scope, receive, _send):
+        track_model_lookup("demo").selected(SimpleNamespace(uid=b"demo-rep1"))
+        selected.set()
+        await disconnected.wait()
+        await receive()
+
+    middleware = ReplicaDrainMiddleware(app, tracker)
+    task = asyncio.create_task(
+        middleware(
+            {"type": "http", "method": "POST"},
+            AsyncMock(return_value={"type": "http.disconnect"}),
+            AsyncMock(),
+        )
+    )
+    await selected.wait()
+    window = tracker.start("demo")
+    disconnected.set()
+    await task
+    with pytest.raises(RuntimeError, match="no confirmed outcome"):
+        tracker.drained(window, "demo", b"demo-rep1")
 
 
 @pytest.fixture
@@ -30,6 +95,23 @@ def replica_api():
     api._uid_to_model_name = {}
     api._app = SimpleNamespace(router=SimpleNamespace(routes=[]))
     return api
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_timeout_cancels_without_deleting(replica_api, monkeypatch):
+    monkeypatch.delenv("XINFERENCE_API_HOST", raising=False)
+    replica_api._replica_drain_requests = ReplicaDrainRequests()
+    supervisor = AsyncMock()
+    supervisor.begin_manual_replica_drain.return_value = {"status": "draining"}
+    supervisor.confirm_manual_replica_drain.return_value = False
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    with pytest.raises(HTTPException) as raised:
+        await replica_api.begin_model_replica_drain("demo", 1, "r1", timeout=0.02)
+    assert raised.value.status_code == 408
+    supervisor.cancel_manual_replica_drain.assert_awaited_once_with("demo", 1, "r1")
+    supervisor.terminate_drained_model_replica.assert_not_awaited()
+    assert not replica_api._replica_drain_requests.windows
 
 
 @pytest.mark.asyncio

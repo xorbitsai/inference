@@ -334,6 +334,11 @@ class ModelReloadMixin:
         self._check_model_reload_idle(model_uid)
         async with self._get_model_replica_lock(model_uid):
             self._check_model_reload_idle(model_uid)
+            check_replica_drain = getattr(
+                self, "_check_manual_replica_drain_idle", None
+            )
+            if check_replica_drain is not None:
+                check_replica_drain(model_uid)
             targets = self._get_reload_targets(model_uid)
             patches = []
             for uid, worker in targets:

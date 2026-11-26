@@ -27,8 +27,51 @@ from ..exceptions import ModelNotReadyError
 from ..progress_tracker import ProgressTrackerActor
 from ..replica_config import DeviceConfig, ReplicaConfig
 from ..supervisor import ReplicaInfo, SupervisorActor
+from ..supervisor_upgrade import SupervisorMaintenance
 from ..utils import build_replica_model_uid
 from ..worker import ModelStatus, WorkerActor
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_excludes_fixed_replica_then_deletes():
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._model_uid_to_replica_info = {"demo": supervisor._build_replica_info(2)}
+    info = supervisor._model_uid_to_replica_info["demo"]
+    info.routing_keys["sticky"] = 1
+    supervisor._pd_model_mapping = {}
+    supervisor._initial_model_launches = {}
+    supervisor._model_replica_locks = {}
+    supervisor._model_reload_tasks = {}
+    supervisor._manual_replica_drains = {}
+    supervisor._upgrade_state = SimpleNamespace(maintenance=SupervisorMaintenance())
+    worker = object()
+    supervisor._replica_model_uid_to_worker = {"demo-rep0": worker, "demo-rep1": worker}
+    supervisor.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_engine": "vLLM"}
+    )
+    survivor = SimpleNamespace(reserve_chat_request=AsyncMock(return_value=True))
+    target = SimpleNamespace(get_chat_routing_load=AsyncMock(side_effect=[2, 0, 0]))
+    supervisor._get_replica_model = AsyncMock(
+        side_effect=lambda _uid, replica, **_: (survivor, target)[replica]
+    )
+    supervisor._terminate_model_replica = AsyncMock(return_value=1)
+
+    assert (await supervisor.begin_manual_replica_drain("demo", 1, "r1"))[
+        "status"
+    ] == "draining"
+    for _ in range(4):
+        assert await supervisor.get_model("demo") is survivor
+    model, reserved = await supervisor.get_chat_model("demo", "sticky", "request")
+    assert model is survivor and reserved
+    with pytest.raises(ValueError, match="drain is in progress"):
+        await supervisor.terminate_model_replica("demo", 1)
+    assert not await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    supervisor._terminate_model_replica.assert_not_awaited()
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+    assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+    supervisor._terminate_model_replica.assert_awaited_once_with("demo", 1)
+    assert supervisor._upgrade_state.maintenance.idle()
 
 
 class _LegacyChatReplica(xo.Actor):
