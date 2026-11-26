@@ -1,6 +1,8 @@
 # CI: linux
 import json
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import MethodType
 from unittest.mock import AsyncMock
 
@@ -569,43 +571,82 @@ def make_chat_app(api):
 
 
 @pytest.mark.asyncio
-async def test_responses_virtual_model_forwards_reasoning_effort(monkeypatch):
+@pytest.mark.parametrize("tokenizer", ["test-tokenizer", "deepseek-tokenizer"])
+@pytest.mark.parametrize(
+    "family,effort,status,expected",
+    [
+        ("qwen3", "medium", 200, None),
+        ("glm-5.3", "medium", 200, "high"),
+        ("glm-5.3", "xhigh", 400, None),
+    ],
+)
+async def test_responses_virtual_model_reasoning_effort(
+    monkeypatch, tmp_path, tokenizer, family, effort, status, expected
+):
+    from xinference.router.app import create_app as create_router_app
+    from xinference.router.tests.test_app import make_config
+
+    from .test_openai_responses import _family_description
+
     monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
-    supervisor = FakeSupervisor({"available": True, "endpoint": "http://router:10081"})
-    supervisor.get_model = AsyncMock()
-    supervisor.describe_model = AsyncMock()
-    api = make_rest_api(supervisor)
+    resolution = {"available": True, "endpoint": "http://router"}
+    api = make_rest_api(FakeSupervisor(resolution))
     app = FastAPI()
     app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
 
-    def upstream_handler(request):
-        assert request.url.path == "/v1/chat/completions"
-        body = json.loads(request.content)
-        assert body["model"] == "virtual-model"
-        assert body.get("reasoning_effort") == "high"
-        assert "chat_template_kwargs" not in body
-        return httpx.Response(200, json={"choices": []})
+    model_uid = "long-model" if tokenizer == "test-tokenizer" else "short-model"
+    model = AsyncMock(uid=f"{model_uid}-rep0".encode())
+    model.is_vllm_backend.return_value = False
+    model.chat.return_value = '{"choices": [{"message": {"content": "pong"}}]}'
+    backend = FakeSupervisor(None)
+    backend.get_model = AsyncMock(return_value=model)
+    backend.describe_model = AsyncMock(return_value=_family_description(family))
+    backend_transport = httpx.ASGITransport(app=make_chat_app(make_rest_api(backend)))
+
+    config = replace(
+        make_config(tmp_path),
+        logical_model="virtual-model",
+        require_auth=False,
+        tokenizer_asset_revision="",
+        tokenizer_asset_fingerprint="",
+    )
+    if tokenizer == "deepseek-tokenizer":
+        assets = Path(__file__).parents[2] / "router" / "tokenizer_assets"
+        config = replace(config, tokenizer_path=assets / "deepseek_v4_flash_0731")
+    router = create_router_app(config)
+    reasoning = {"effort": effort, "summary": "auto"}
 
     async with (
-        httpx.AsyncClient(transport=httpx.MockTransport(upstream_handler)) as upstream,
+        router.router.lifespan_context(router),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=router)) as upstream,
         httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client,
     ):
+        snapshot = router.state.runtime.current
+        await snapshot.client.aclose()
+        snapshot.client = httpx.AsyncClient(transport=backend_transport)
         api._token_router_client = upstream
         response = await client.post(
             "/v1/responses",
-            json={
-                "model": "virtual-model",
-                "input": "hello",
-                "reasoning": {"effort": "high"},
-            },
+            json={"model": "virtual-model", "input": "hello", "reasoning": reasoning},
         )
 
-    assert response.status_code == 200, response.text
-    assert supervisor.resolved_model_uids == ["virtual-model"]
-    supervisor.get_model.assert_not_awaited()
-    supervisor.describe_model.assert_not_awaited()
+    assert response.status_code == status, response.text
+    backend.describe_model.assert_awaited_once_with(
+        model_uid, selected_replica_uid=model.uid.decode()
+    )
+    if status == 400:
+        model.chat.assert_not_awaited()
+        return
+    assert response.json()["reasoning"] == reasoning
+    model.chat.assert_awaited_once()
+    call = model.chat.await_args
+    for arguments in (call.args[1], call.kwargs["raw_params"]):
+        assert "reasoning_effort" not in arguments
+        assert arguments.get("chat_template_kwargs") == (
+            None if expected is None else {"reasoning_effort": expected}
+        )
 
 
 def make_anthropic_app(api):

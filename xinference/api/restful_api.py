@@ -104,6 +104,7 @@ from ..core.rpc_context import actor_call, correlate_model_ref
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..request_priority import CHAT_PRIORITY_HINT, is_interactive_priority_hint
+from ..router.backend import RESPONSES_EFFORT_HEADER
 from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
@@ -1743,6 +1744,8 @@ class RESTfulAPI(CancelMixin):
             ),
             json=raw_body,
         )
+        if "reasoning_effort" in raw_body and request.url.path.endswith("/responses"):
+            upstream_request.headers[RESPONSES_EFFORT_HEADER] = "1"
         upstream_response = await client.send(upstream_request, stream=True)
         return upstream_response, request_id
 
@@ -5812,6 +5815,10 @@ class RESTfulAPI(CancelMixin):
             QWEN_TOOL_CALL_FAMILY,
         )
 
+        responses_effort = getattr(request, "headers", {}).get(RESPONSES_EFFORT_HEADER)
+        if responses_effort == "1" and not desc.get("reasoning_effort"):
+            kwargs.pop("reasoning_effort", None)
+            raw_kwargs.pop("reasoning_effort", None)
         try:
             controls_requested = has_reasoning_controls(raw_kwargs)
             if controls_requested:

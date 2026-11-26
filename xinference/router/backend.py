@@ -8,12 +8,14 @@ import httpx
 
 from .constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 
+RESPONSES_EFFORT_HEADER = "x-xinference-responses-effort"
 FORWARDED_REQUEST_HEADERS = {
     "accept",
     "content-type",
     "user-agent",
     "x-request-id",
     "authorization",
+    RESPONSES_EFFORT_HEADER,
 }
 FORWARDED_RESPONSE_HEADERS = {
     "cache-control",

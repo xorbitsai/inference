@@ -170,6 +170,9 @@ class DeepSeekV4TokenEstimator:
         try:
             prompt = encode_messages(messages, **kwargs)
         except Exception as exc:
+            if not enable_thinking and payload.get("_optional_effort"):
+                omit = {"_optional_effort", "reasoning_effort"}
+                return self.estimate({k: payload[k] for k in payload if k not in omit})
             raise TokenizationError(
                 f"DeepSeek-V4 chat rendering failed: {exc}"
             ) from exc

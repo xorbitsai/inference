@@ -122,7 +122,8 @@ def make_assets(tmp_path: Path) -> Path:
     encoding.mkdir()
     (encoding / "encoding_dsv4.py").write_text(
         "def encode_messages(messages, thinking_mode, reasoning_effort=None):\n"
-        "    return ' '.join(str(m.get('content', '')) for m in messages)\n"
+        "    prefix = 'hello ' * 100 if reasoning_effort else ''\n"
+        "    return prefix + ' '.join(str(m.get('content', '')) for m in messages)\n"
     )
     return tmp_path
 
