@@ -26,6 +26,7 @@ import queue
 import re
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -4223,7 +4224,49 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # we specify python_path explicitly
                 # sometimes uv would find other versions.
                 python_path = pathlib.Path(sys.executable)
-            virtual_env_manager.create_env(python_path=python_path)
+            from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+            if (
+                cancel_event is not None
+                and type(virtual_env_manager) is UVVirtualEnvManager
+            ):
+                if not virtual_env_manager.exists_env():
+                    # xoscar tracks dependency installs, but uv venv is synchronous.
+                    command = [
+                        virtual_env_manager._get_uv_path(),
+                        "venv",
+                        env_path,
+                        "--system-site-packages",
+                    ]
+                    if python_path is not None:
+                        command.extend(["--python", str(python_path)])
+                    env_exists = os.path.lexists(env_path)
+                    if env_exists:
+                        command.append("--allow-existing")
+                    with subprocess.Popen(command) as process:
+                        while process.poll() is None:
+                            if cancel_event.wait(0.1):
+                                process.kill()
+                                process.wait()
+                                break
+                        if cancel_event.is_set():
+                            if not env_exists:
+                                virtual_env_manager.remove_env()
+                            elif process.returncode:
+                                # exists_env() treats pyvenv.cfg as proof of creation.
+                                # Invalidate the partial env while preserving its directory.
+                                (pathlib.Path(env_path) / "pyvenv.cfg").unlink(
+                                    missing_ok=True
+                                )
+                            raise RuntimeError(
+                                "Launch cancelled during virtual environment creation"
+                            )
+                        if process.returncode:
+                            raise subprocess.CalledProcessError(
+                                process.returncode, command
+                            )
+            else:
+                virtual_env_manager.create_env(python_path=python_path)
 
             if cancel_event is not None and cancel_event.is_set():
                 raise RuntimeError(
@@ -4359,7 +4402,6 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         swallowed so a missing package or uninstall hiccup does not abort the
         launch.
         """
-        import subprocess
 
         from .virtual_env_manager import resolve_virtualenv_python_path
 

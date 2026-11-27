@@ -223,3 +223,86 @@ async def test_cancel_creation_waiter_before_environment_write(tmp_path, monkeyp
             await asyncio.gather(launch, return_exceptions=True)
     factory.assert_not_called()
     assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("existing_directory", [False, True])
+async def test_cancel_running_uv_venv(tmp_path, monkeypatch, existing_directory):
+    import os
+    import sys
+
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    from xinference.core.worker import WorkerActor, _exclusive_venv_path_lock
+
+    env = tmp_path / "env"
+    existing_file = env / "existing.txt"
+    if existing_directory:
+        env.mkdir()
+        existing_file.write_text("keep")
+    started = tmp_path / "started"
+    uv = tmp_path / "uv"
+    uv.write_text(
+        f"#!{sys.executable}\n"
+        "import os, pathlib, sys, time\n"
+        "env = pathlib.Path(sys.argv[2])\n"
+        "env.mkdir(exist_ok=True)\n"
+        "(env / 'pyvenv.cfg').touch()\n"
+        f"pathlib.Path({str(started)!r}).write_text(str(os.getpid()))\n"
+        "time.sleep(30)\n"
+    )
+    uv.chmod(0o755)
+    monkeypatch.setattr(
+        UVVirtualEnvManager, "_get_uv_path", staticmethod(lambda: str(uv))
+    )
+    cancelled = threading.Event()
+    creation = asyncio.create_task(
+        asyncio.to_thread(
+            WorkerActor._create_virtual_env_manager, True, "uv", str(env), cancelled
+        )
+    )
+
+    async def wait_for_uv():
+        while not started.exists() or not started.read_text():
+            if creation.done():
+                await creation
+                pytest.fail("uv venv exited before cancellation")
+            await asyncio.sleep(0.01)
+        return int(started.read_text())
+
+    try:
+        pid = await asyncio.wait_for(wait_for_uv(), 5)
+        cancelled.set()
+        with pytest.raises(RuntimeError, match="cancelled during virtual environment"):
+            await asyncio.wait_for(asyncio.shield(creation), 5)
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, 0)
+        with _exclusive_venv_path_lock(str(env)):
+            assert env.exists() == existing_directory
+            assert not UVVirtualEnvManager(env).exists_env()
+            if existing_directory:
+                assert existing_file.read_text() == "keep"
+
+        uv.write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, sys\n"
+            "env = pathlib.Path(sys.argv[2])\n"
+            "assert not env.exists() or '--allow-existing' in sys.argv\n"
+            "(env / 'bin').mkdir(parents=True, exist_ok=True)\n"
+            "(env / 'bin' / 'python').symlink_to(sys.executable)\n"
+            "(env / 'pyvenv.cfg').touch()\n"
+        )
+        manager = await asyncio.to_thread(
+            WorkerActor._create_virtual_env_manager,
+            True,
+            "uv",
+            str(env),
+            threading.Event(),
+        )
+        assert manager.exists_env()
+        assert os.path.exists(manager.get_python_path())
+        if existing_directory:
+            assert existing_file.read_text() == "keep"
+    finally:
+        cancelled.set()
+        await asyncio.gather(creation, return_exceptions=True)
