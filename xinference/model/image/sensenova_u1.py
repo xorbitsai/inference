@@ -197,14 +197,14 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
     ):
         import torch
 
-        if getattr(self._model_spec, "quantization", None) != "BF16":
-            from sensenova_u1.utils.quant_runtime import load_quant
-
+        quantization = getattr(self._model_spec, "quantization", None)
+        if quantization != "BF16":
+            device = torch.device(self._device)
             if (
                 self._vram_mode != "full"
                 or device_map
                 or max_memory
-                or torch.device(self._device).type != "cuda"
+                or device.type != "cuda"
                 or dtype != torch.bfloat16
             ):
                 raise ValueError(
@@ -215,6 +215,17 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
                 raise ValueError(
                     "SenseNova Native FP8/INT8 does not support LoRA merging."
                 )
+            if quantization == "FP8-E4M3FN-W8A8" and torch.version.hip is None:
+                # Match the CUDA capability check in torch._scaled_mm.
+                major, minor = torch.cuda.get_device_capability(device)
+                if (major, minor) < (8, 9):
+                    raise ValueError(
+                        "SenseNova Native FP8 requires CUDA compute capability "
+                        f"8.9 or newer, but device {str(device)!r} has {major}.{minor}."
+                    )
+
+            from sensenova_u1.utils.quant_runtime import load_quant
+
             return load_quant(checkpoint, self._device)
 
         from accelerate import init_empty_weights, load_checkpoint_and_dispatch

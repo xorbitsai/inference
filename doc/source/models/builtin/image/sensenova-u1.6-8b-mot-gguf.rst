@@ -24,3 +24,8 @@ Q4_0, Q6_K, Q8_0. The default is
 ``Q4_0``::
 
    xinference launch --model-name SenseNova-U1.6-8B-MoT-GGUF --model-type image --quantization Q8_0
+
+The default ``vram_mode=balanced`` requires CUDA or XPU for layer offload.
+On CPU or MPS, use ``--vram_mode full``::
+
+   xinference launch --model-name SenseNova-U1.6-8B-MoT-GGUF --model-type image --vram_mode full

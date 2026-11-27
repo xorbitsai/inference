@@ -1,0 +1,51 @@
+# Xinference documentation translations.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 18:16+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 1 ? 0 : n != 0 && n % 1000000 == 0"
+" ? 1 : 2);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:5
+msgid "SenseNova-U1.6-8B-MoT"
+msgstr "SenseNova-U1.6-8B-MoT"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:7
+msgid "**Model Name:** SenseNova-U1.6-8B-MoT"
+msgstr "**Nombre del modelo:** SenseNova-U1.6-8B-MoT"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:8
+msgid "**Model Family:** sensenova_u1"
+msgstr "**Familia del modelo:** sensenova_u1"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:9
+msgid "**Abilities:** text2image, image2image"
+msgstr "**Capacidades:** text2image, image2image"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:10
+msgid "**Available ControlNet:** None"
+msgstr "**ControlNet disponible:** Ninguno"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:13
+msgid "Specifications"
+msgstr "Especificaciones"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:15
+msgid "**Model ID:** sensenova/SenseNova-U1.6-8B-MoT"
+msgstr "**ID del modelo:** sensenova/SenseNova-U1.6-8B-MoT"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "Ejecute el siguiente comando para iniciar el modelo::"

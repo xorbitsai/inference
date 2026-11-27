@@ -55,12 +55,13 @@ class CacheManager:
             os.unlink(cache_dir)
         return link_model_uri(src_root, cache_dir)
 
+    def _link_snapshot(self, download_dir: str, cache_dir: str) -> None:
+        from .utils import create_symlink
+
+        create_symlink(download_dir, cache_dir)
+
     def _cache(self) -> str:
-        from .utils import (
-            IS_NEW_HUGGINGFACE_HUB,
-            create_symlink,
-            retry_snapshot_download,
-        )
+        from .utils import IS_NEW_HUGGINGFACE_HUB, retry_snapshot_download
 
         if (
             hasattr(self._model_family, "model_uri")
@@ -97,7 +98,6 @@ class CacheManager:
                 revision=self._model_family.model_revision,
                 **cache_config,
             )
-            create_symlink(download_dir, cache_dir)
         else:
             from huggingface_hub import snapshot_download as hf_download
 
@@ -116,8 +116,8 @@ class CacheManager:
                 revision=self._model_family.model_revision,
                 **use_symlinks,
             )
-            if IS_NEW_HUGGINGFACE_HUB:
-                create_symlink(download_dir, cache_dir)
+        if from_modelscope or IS_NEW_HUGGINGFACE_HUB:
+            self._link_snapshot(download_dir, cache_dir)
         return cache_dir
 
     def cache(self) -> str:

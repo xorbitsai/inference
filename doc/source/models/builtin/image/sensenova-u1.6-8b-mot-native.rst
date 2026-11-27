@@ -26,3 +26,4 @@ BF16, FP8-E4M3FN-W8A8, INT8-ConvRot-W8A8. The default is
    xinference launch --model-name SenseNova-U1.6-8B-MoT-Native --model-type image --quantization INT8-ConvRot-W8A8
 
 FP8 and INT8 require CUDA, BF16 compute, and ``vram_mode=full``.
+On NVIDIA GPUs, FP8 also requires CUDA compute capability 8.9 or later.

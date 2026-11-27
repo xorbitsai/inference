@@ -32,8 +32,14 @@ Select a checkpoint with ``--quantization``. Available values:
 ``{{ checkpoint_quantizations[0] }}``::
 
    xinference launch --model-name {{ model_name }} --model-type image --quantization {{ checkpoint_quantizations[-1] }}
-{% if 'FP8-E4M3FN-W8A8' in checkpoint_quantizations %}
+{% if default_model_config.vram_mode == 'balanced' %}
+The default ``vram_mode=balanced`` requires CUDA or XPU for layer offload.
+On CPU or MPS, use ``--vram_mode full``::
+
+   xinference launch --model-name {{ model_name }} --model-type image --vram_mode full
+{% elif 'FP8-E4M3FN-W8A8' in checkpoint_quantizations %}
 FP8 and INT8 require CUDA, BF16 compute, and ``vram_mode=full``.
+On NVIDIA GPUs, FP8 also requires CUDA compute capability 8.9 or later.
 {% endif %}
 {% endif -%}
 {% if gguf_quantizations %}

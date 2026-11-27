@@ -215,6 +215,44 @@ def test_u16_gguf_validates_offload_device_before_loading(
         assert loader.call_args.kwargs["for_offload"] is requires_offload
 
 
+@pytest.mark.parametrize(
+    ("capability", "supported"), [((8, 0), False), ((8, 9), True), ((9, 0), True)]
+)
+def test_u16_native_fp8_validates_cuda_capability_before_loading(
+    monkeypatch, tmp_path, capability, supported
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    quant_runtime = import_module("sensenova_u1.utils.quant_runtime")
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(quant_runtime, "load_quant", loader)
+    get_device_capability = Mock(return_value=capability)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", get_device_capability)
+    monkeypatch.setattr(torch.version, "hip", None)
+    model = create_image_model_instance(
+        model_uid="sensenova-native-fp8",
+        model_name="SenseNova-U1.6-8B-MoT-Native",
+        quantization="FP8-E4M3FN-W8A8",
+        model_path=str(tmp_path),
+        device="cuda:1",
+        vram_mode="full",
+    )
+
+    if supported:
+        model.load()
+        loader.assert_called_once_with(
+            str(tmp_path / "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"), "cuda:1"
+        )
+    else:
+        with pytest.raises(
+            ValueError, match=r"FP8.*compute capability 8\.9.*cuda:1.*8\.0"
+        ):
+            model.load()
+        loader.assert_not_called()
+    get_device_capability.assert_called_once_with(torch.device("cuda:1"))
+
+
 def _make_model():
     model_spec = SimpleNamespace(
         model_ability=["text2image", "image2image"],

@@ -41,6 +41,20 @@ class ImageCacheManager(CacheManager):
             )
         return super().get_cache_status()
 
+    def _link_snapshot(self, download_dir: str, cache_dir: str) -> None:
+        from ..utils import symlink_local_file
+
+        if not self._checkpoint_files:
+            super()._link_snapshot(download_dir, cache_dir)
+            return
+
+        # Hub download filters do not remove files already in a shared snapshot.
+        for filename in self._checkpoint_files:
+            source = os.path.join(download_dir, filename)
+            if not os.path.isfile(source):
+                raise FileNotFoundError(f"Missing required checkpoint file: {source}")
+            symlink_local_file(source, cache_dir, filename)
+
     def cache_ocr_gguf(self) -> str:
         """Download one GGUF quantization and its vision projector."""
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
