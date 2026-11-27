@@ -484,6 +484,14 @@ msgstr "``glm-5``, ``glm-5.1``"
 msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 msgstr "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 
+#: doc/source/user_guide/backends.rst:175
+msgid "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+msgstr "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+
+#: doc/source/user_guide/backends.rst:176
+msgid "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+msgstr "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+
 #: ../../source/user_guide/backends.rst:179
 msgid ""
 "Besides LLMs, vLLM can also serve embedding models. Model families whose "

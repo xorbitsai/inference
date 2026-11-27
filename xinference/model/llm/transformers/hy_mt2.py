@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ....types import LoRA, PytorchModelConfig
 from ...utils import allow_trust_remote_code
@@ -67,6 +67,23 @@ class HyMT2PytorchModel(PytorchChatModel):
         config.setdefault("torch_dtype", "bfloat16")
         config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
         return config  # type: ignore
+
+    def apply_quantization_config(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if (
+            self._device == "mps"
+            and self.model_family.model_name in HY_MT3_MODEL_NAMES
+            and self.model_spec.model_format == "fp8"
+            and self.model_spec.quantization_method == "compressed-tensors"
+        ):
+            raise ValueError(
+                f"{self.model_family.model_name} FP8 is unsupported on MPS with "
+                "Transformers. Set device=cpu or use CUDA with device=cuda. "
+                "For Apple GPU inference, use the BF16 checkpoint with Transformers "
+                "or the GGUF checkpoint with llama.cpp."
+            )
+        return super().apply_quantization_config(kwargs)
 
     @classmethod
     def match_json(

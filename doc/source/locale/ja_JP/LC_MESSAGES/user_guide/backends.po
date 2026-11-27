@@ -20,6 +20,14 @@ msgstr "既定の extra は ``tensorrt-llm==1.2.1`` に固定されています�
 msgid "With ``xllamacpp`` v2026.11.12361 and later, Xinference uses native llama.cpp GPU memory fitting. Leave ``n_gpu_layers=-1``, ``fit_params=True`` and ``tensor_split`` at its default to enable automatic placement and startup retries after recoverable GPU allocation failures. Explicit layer counts and fitting settings are preserved. Use ``n_gpu_layers=0`` for CPU inference."
 msgstr "``xllamacpp`` v2026.11.12361 以降では、Xinference は llama.cpp のネイティブ GPU メモリ調整機能を使用します。``n_gpu_layers=-1``、``fit_params=True``、および既定の ``tensor_split`` を維持すると、自動配置と、回復可能な GPU メモリ割り当て失敗後の起動再試行が有効になります。明示的なレイヤー数と調整設定は保持されます。CPU 推論には ``n_gpu_layers=0`` を使用してください。"
 
+#: doc/source/user_guide/backends.rst:175
+msgid "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+msgstr "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+
+#: doc/source/user_guide/backends.rst:176
+msgid "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+msgstr "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+
 #: ../../source/user_guide/backends.rst:62
 msgid "Legacy ``xllamacpp`` versions continue to use the Python GPU layer estimator, based on Ollama. If estimation fails, Xinference attempts to offload all layers to the GPU. Memory estimates can still result in out-of-memory errors."
 msgstr "従来の ``xllamacpp`` は、Ollama に基づく Python の GPU レイヤー推定機能を引き続き使用します。推定に失敗すると、Xinference はすべてのレイヤーを GPU にオフロードしようとします。メモリ推定を使用しても、メモリ不足エラーが発生する場合があります。"

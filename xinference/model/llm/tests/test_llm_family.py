@@ -18,7 +18,7 @@ import shutil
 import tempfile
 from contextlib import nullcontext
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from packaging import version
@@ -2889,6 +2889,55 @@ def test_hy_mt2_remote_code_policy():
     custom_family.is_builtin = False
     custom_model = HyMT2PytorchModel("hy-mt2-custom-test", custom_family, "/tmp/hy-mt2")
     assert custom_model._pytorch_model_config["trust_remote_code"] is False
+
+
+@pytest.mark.parametrize("model_name, size", [("Hy-MT3-1.8B", 2), ("Hy-MT3-7B", 7)])
+@pytest.mark.parametrize(
+    "model_format, device, rejects_mps",
+    [
+        ("fp8", "mps", True),
+        ("fp8", "auto", True),
+        ("fp8", "cpu", False),
+        ("fp8", "cuda", False),
+        ("pytorch", "mps", False),
+    ],
+)
+def test_hy_mt3_transformers_fp8_device(
+    monkeypatch, model_name, size, model_format, device, rejects_mps
+):
+    from importlib import import_module
+
+    from ... import utils as model_utils
+    from ..transformers.hy_mt2 import HyMT2PytorchModel
+
+    transformers_core = import_module("xinference.model.llm.transformers.core")
+    family = match_llm(
+        model_name,
+        model_format=model_format,
+        model_size_in_billions=size,
+        quantization="fp8" if model_format == "fp8" else "none",
+        download_hub="huggingface",
+    )
+    assert family is not None
+    monkeypatch.setattr(model_utils, "get_available_device", lambda: "mps")
+    monkeypatch.setattr(
+        model_utils,
+        "is_device_available",
+        lambda candidate: candidate in {"cpu", "mps", "cuda"},
+    )
+    monkeypatch.setattr(transformers_core, "gpu_count", lambda: int(device == "cuda"))
+    model = HyMT2PytorchModel("hy-mt3-test", family, "/tmp/hy-mt3", {"device": device})
+    load_checkpoint = Mock(side_effect=RuntimeError("checkpoint loading reached"))
+    monkeypatch.setattr(model, "_load_model", load_checkpoint)
+
+    if rejects_mps:
+        with pytest.raises(ValueError, match="FP8.*MPS.*device=cpu"):
+            model.load()
+        load_checkpoint.assert_not_called()
+    else:
+        with pytest.raises(RuntimeError, match="checkpoint loading reached"):
+            model.load()
+        load_checkpoint.assert_called_once()
 
 
 def test_is_valid_file_uri():

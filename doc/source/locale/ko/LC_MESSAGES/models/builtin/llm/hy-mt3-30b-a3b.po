@@ -1,0 +1,154 @@
+# Hy-MT3 translations for the ko locale.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 00:00+0000\n"
+"PO-Revision-Date: 2026-11-27 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ko\n"
+"Language-Team: ko\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:5
+msgid "Hy-MT3-30B-A3B"
+msgstr "Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:7
+msgid "**Context Length:** 8192"
+msgstr "**컨텍스트 길이:** 8192"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:8
+msgid "**Model Name:** Hy-MT3-30B-A3B"
+msgstr "**모델 이름:** Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**언어:** 영어, 중국어"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:10
+msgid "**Abilities:** chat"
+msgstr "**기능:** 채팅"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:11
+msgid ""
+"**Description:** Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation "
+"model from Tencent Hunyuan. It supports 102 languages and follows translation "
+"instructions."
+msgstr ""
+"**설명:** Hy-MT3-30B-A3B는 텐센트 혼위안의 혼합 전문가(MoE) 방식의 다국어 번역 모델입니다. 102개 언어를 지원하며 번역 "
+"지시를 따릅니다."
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:14
+msgid "Specifications"
+msgstr "사양"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:18
+msgid "Model Spec 1 (pytorch, 30 Billion)"
+msgstr "모델 사양 1 (pytorch, 300억 매개변수)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**모델 형식:** pytorch"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:21
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:37
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:53
+msgid "**Model Size (in billions):** 30"
+msgstr "**모델 크기(10억 매개변수 단위):** 30"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:22
+msgid "**Quantizations:** none"
+msgstr "**양자화 방식:** none"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:23
+msgid "**Engines**: vLLM, Transformers, SGLang"
+msgstr "**추론 엔진**: vLLM, Transformers, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:24
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B"
+msgstr "**모델 ID:** tencent/Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B>`__,"
+" `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B>`__"
+msgstr ""
+"**모델 저장소**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:27
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:43
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:59
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr "다음 명령으로 모델을 실행하세요. ``${quantization}`` 을 위에 나열된 양자화 방식 중 하나로 바꾸세요::"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:34
+msgid "Model Spec 2 (fp8, 30 Billion)"
+msgstr "모델 사양 2 (fp8, 300억 매개변수)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**모델 형식:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:38
+msgid "**Quantizations:** fp8"
+msgstr "**양자화 방식:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:39
+msgid "**Engines**: vLLM, SGLang"
+msgstr "**추론 엔진**: vLLM, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:40
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B-FP8"
+msgstr "**모델 ID:** tencent/Hy-MT3-30B-A3B-FP8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-"
+"FP8>`__"
+msgstr ""
+"**모델 저장소**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-FP8>`__,"
+" `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-FP8>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:50
+msgid "Model Spec 3 (ggufv2, 30 Billion)"
+msgstr "모델 사양 3 (ggufv2, 300억 매개변수)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:52
+msgid "**Model Format:** ggufv2"
+msgstr "**모델 형식:** ggufv2"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:54
+msgid "**Quantizations:** Q4_K_M, Q8_0, IQ2"
+msgstr "**양자화 방식:** Q4_K_M, Q8_0, IQ2"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:55
+msgid "**Engines**: llama.cpp"
+msgstr "**추론 엔진**: llama.cpp"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:56
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B-GGUF"
+msgstr "**모델 ID:** tencent/Hy-MT3-30B-A3B-GGUF"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:57
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-"
+"A3B-GGUF>`__"
+msgstr ""
+"**모델 저장소**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-"
+"A3B-GGUF>`__"

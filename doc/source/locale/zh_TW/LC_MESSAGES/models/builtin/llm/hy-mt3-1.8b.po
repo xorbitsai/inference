@@ -1,0 +1,148 @@
+# Hy-MT3 translations for the zh_TW locale.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 00:00+0000\n"
+"PO-Revision-Date: 2026-11-27 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:5
+msgid "Hy-MT3-1.8B"
+msgstr "Hy-MT3-1.8B"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:7
+msgid "**Context Length:** 8192"
+msgstr "**上下文長度:** 8192"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:8
+msgid "**Model Name:** Hy-MT3-1.8B"
+msgstr "**模型名稱:** Hy-MT3-1.8B"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**語言:** 英語、中文"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:10
+msgid "**Abilities:** chat"
+msgstr "**能力:** 對話"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:11
+msgid ""
+"**Description:** Hy-MT3-1.8B is a lightweight dense multilingual translation model"
+" from Tencent Hunyuan. It supports 102 languages and follows translation "
+"instructions."
+msgstr "**說明:** Hy-MT3-1.8B 是騰訊混元的輕量級稠密多語言翻譯模型，支援 102 種語言，能遵循翻譯指示。"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:14
+msgid "Specifications"
+msgstr "規格"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:18
+msgid "Model Spec 1 (pytorch, 2 Billion)"
+msgstr "模型規格 1（pytorch，20 億參數）"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**模型格式:** pytorch"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:21
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:37
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:53
+msgid "**Model Size (in billions):** 2"
+msgstr "**模型大小（十億參數）:** 2"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:22
+msgid "**Quantizations:** none"
+msgstr "**量化方式:** none"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:23
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:39
+msgid "**Engines**: vLLM, Transformers, SGLang"
+msgstr "**推論引擎**: vLLM, Transformers, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:24
+msgid "**Model ID:** tencent/Hy-MT3-1.8B"
+msgstr "**模型 ID:** tencent/Hy-MT3-1.8B"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B>`__"
+msgstr ""
+"**模型儲存庫**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:27
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:43
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:59
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr "執行以下命令啟動模型，請將 ``${quantization}`` 替換為上方列出的其中一種量化方式::"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:34
+msgid "Model Spec 2 (fp8, 2 Billion)"
+msgstr "模型規格 2（fp8，20 億參數）"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**模型格式:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:38
+msgid "**Quantizations:** fp8"
+msgstr "**量化方式:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:40
+msgid "**Model ID:** tencent/Hy-MT3-1.8B-FP8"
+msgstr "**模型 ID:** tencent/Hy-MT3-1.8B-FP8"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-"
+"FP8>`__"
+msgstr ""
+"**模型儲存庫**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B-FP8>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-FP8>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:50
+msgid "Model Spec 3 (ggufv2, 2 Billion)"
+msgstr "模型規格 3（ggufv2，20 億參數）"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:52
+msgid "**Model Format:** ggufv2"
+msgstr "**模型格式:** ggufv2"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:54
+msgid "**Quantizations:** Q4_K_M, Q8_0"
+msgstr "**量化方式:** Q4_K_M, Q8_0"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:55
+msgid "**Engines**: llama.cpp"
+msgstr "**推論引擎**: llama.cpp"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:56
+msgid "**Model ID:** tencent/Hy-MT3-1.8B-GGUF"
+msgstr "**模型 ID:** tencent/Hy-MT3-1.8B-GGUF"
+
+#: doc/source/models/builtin/llm/hy-mt3-1.8b.rst:57
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-"
+"GGUF>`__"
+msgstr ""
+"**模型儲存庫**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-1.8B-GGUF>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-GGUF>`__"

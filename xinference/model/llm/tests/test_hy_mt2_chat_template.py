@@ -15,6 +15,7 @@
 # CI: linux
 import sys
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -111,35 +112,182 @@ def test_hy_mt3_matches_all_weight_variants(
 
 
 @pytest.mark.parametrize("size", ["1.8B", "7B", "30B-A3B"])
-def test_hy_mt3_engine_formats(monkeypatch, size):
+@pytest.mark.parametrize(
+    "enable_virtual_env, registered",
+    [(False, True), (True, True), (True, False)],
+)
+def test_hy_mt3_engine_formats(
+    monkeypatch, tmp_path, size, enable_virtual_env, registered
+):
     from packaging.version import Version
 
+    from .... import constants
+    from .. import generate_engine_config_by_model_family
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+    from ..llama_cpp.core import XllamaCppModel
+    from ..llm_family import LLM_ENGINES
     from ..sglang import core as sglang_core
     from ..transformers.hy_mt2 import HyMT2PytorchModel
+    from ..trt_llm.core import TRTLLMModel
     from ..vllm import core as vllm_core
 
     name = f"Hy-MT3-{size}"
     family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == name)
-    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
-    monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version("0.29.0"))
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", False)
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", registered)
     monkeypatch.setattr(
-        vllm_core, "VLLM_SUPPORTED_CHAT_MODELS", list(family.architectures)
+        vllm_core, "VLLM_VERSION", Version("0.29.0") if registered else None
     )
-    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(
+        vllm_core,
+        "VLLM_SUPPORTED_CHAT_MODELS",
+        list(family.architectures) if registered else [],
+    )
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", registered)
+    monkeypatch.setitem(
+        sys.modules, "xllamacpp", SimpleNamespace(__version__="2026.10.11870")
+    )
+    engine_classes = {
+        "Transformers": HyMT2PytorchModel,
+        "vLLM": vllm_core.VLLMChatModel,
+        "SGLang": sglang_core.SGLANGChatModel,
+        "llama.cpp": XllamaCppModel,
+        "TRT-LLM": TRTLLMModel,
+    }
+    engines = {name: {}}
+    if registered:
+        for engine_class in engine_classes.values():
+            monkeypatch.setattr(
+                engine_class, "check_lib", classmethod(lambda cls: True)
+            )
+        generate_engine_config_by_model_family(family, engines)
+    monkeypatch.setitem(LLM_ENGINES, name, engines[name])
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
 
     for spec in family.model_specs:
-        model_format = spec.model_format
-        expected_transformers = model_format == "pytorch" or (
-            model_format == "fp8" and size != "30B-A3B"
+        supported_engines = {
+            "pytorch": {"Transformers", "vLLM", "SGLang"},
+            "fp8": {"vLLM", "SGLang"},
+            "ggufv2": {"llama.cpp"},
+        }[spec.model_format]
+        if spec.model_format == "fp8" and size != "30B-A3B":
+            supported_engines.add("Transformers")
+        launch_options = dict(
+            model_uid="hy-mt3-test",
+            model_name=name,
+            model_format=spec.model_format,
+            model_size_in_billions=spec.model_size_in_billions,
+            quantization=spec.quantization,
+            enable_virtual_env=enable_virtual_env,
         )
-        match_args = (family, spec, spec.quantization)
-        assert (HyMT2PytorchModel.match_json(*match_args) is True) == (
-            expected_transformers
+        for engine, engine_class in engine_classes.items():
+            cache.reset_mock()
+            if engine in supported_engines:
+                model = create_llm_model_instance(model_engine=engine, **launch_options)
+                assert type(model) is engine_class
+                cache.assert_called_once()
+            else:
+                error = f"cannot be run on engine {engine}"
+                if engine == "TRT-LLM" and enable_virtual_env:
+                    error = "Engine TRT-LLM is not listed in virtualenv packages"
+                with pytest.raises(ValueError, match=error):
+                    create_llm_model_instance(model_engine=engine, **launch_options)
+                cache.assert_not_called()
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_hy_mt3_cache_only_allows_older_runtime_for_supported_checkpoint(
+    monkeypatch, tmp_path, enable_virtual_env
+):
+    from .... import constants
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+    from ..llama_cpp.core import XllamaCppModel
+    from ..llm_family import LLM_ENGINES
+
+    name = "Hy-MT3-30B-A3B"
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", False)
+    monkeypatch.setitem(LLM_ENGINES, name, {})
+    monkeypatch.setitem(
+        sys.modules, "xllamacpp", SimpleNamespace(__version__="2026.7.10068")
+    )
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+
+    launch_options = dict(
+        model_uid="hy-mt3-cache-only-test",
+        model_name=name,
+        model_format="ggufv2",
+        model_size_in_billions=30,
+        quantization="Q4_K_M",
+        enable_virtual_env=enable_virtual_env,
+        _xinference_cache_only=True,
+    )
+    with pytest.raises(ValueError, match="cannot be run on engine vLLM"):
+        create_llm_model_instance(model_engine="vLLM", **launch_options)
+    cache.assert_not_called()
+
+    model = create_llm_model_instance(model_engine="llama.cpp", **launch_options)
+    assert type(model) is XllamaCppModel
+    cache.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "enable_virtual_env, cache_only", [(False, False), (False, True), (True, False)]
+)
+def test_hy_mt3_vllm_launch_checks_requested_runtime(
+    monkeypatch, tmp_path, enable_virtual_env, cache_only
+):
+    from packaging.version import Version
+
+    from .... import constants
+    from .. import generate_engine_config_by_model_family
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+    from ..llm_family import LLM_ENGINES
+    from ..vllm import core as vllm_core
+
+    name = "Hy-MT3-30B-A3B"
+    family = match_llm(name, "pytorch", 30, "none")
+    assert family is not None
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version("0.19.1"))
+    monkeypatch.setattr(vllm_core, "VLLM_SUPPORTED_CHAT_MODELS", [])
+    monkeypatch.setattr(
+        vllm_core.VLLMChatModel, "check_lib", classmethod(lambda cls: True)
+    )
+
+    # Registration uses the global virtualenv default and can therefore list
+    # vLLM even when the host package cannot run the model on its own.
+    engines = {}
+    generate_engine_config_by_model_family(family, engines)
+    assert engines[name]["vLLM"][0]["llm_class"] is vllm_core.VLLMChatModel
+    monkeypatch.setitem(LLM_ENGINES, name, engines[name])
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+
+    launch_options = dict(
+        model_uid="hy-mt3-vllm-runtime-test",
+        model_name=name,
+        model_engine="vLLM",
+        model_format="pytorch",
+        model_size_in_billions=30,
+        quantization="none",
+        enable_virtual_env=enable_virtual_env,
+        _xinference_cache_only=cache_only,
+    )
+    if not enable_virtual_env and not cache_only:
+        with pytest.raises(ValueError, match=r"requires vLLM >= 0\.21\.0"):
+            create_llm_model_instance(**launch_options)
+        cache.assert_not_called()
+    else:
+        assert (
+            type(create_llm_model_instance(**launch_options)) is vllm_core.VLLMChatModel
         )
-        for engine in (vllm_core.VLLMChatModel, sglang_core.SGLANGChatModel):
-            assert (engine.match_json(*match_args) is True) == (
-                model_format != "ggufv2"
-            )
+        cache.assert_called_once()
 
 
 @pytest.mark.parametrize(

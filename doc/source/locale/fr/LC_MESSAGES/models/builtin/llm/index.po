@@ -787,3 +787,40 @@ msgstr "conversation, vision, appels d’outils, raisonnement, mode de réflexio
 #: ../../models/builtin/llm/index.rst
 msgid "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
 msgstr ""
+
+#: doc/source/models/builtin/llm/index.rst:334
+msgid ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+msgstr ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+
+#: doc/source/models/builtin/llm/index.rst:337
+msgid ""
+"Hy-MT3-1.8B is a lightweight dense multilingual translation model from Tencent "
+"Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr ""
+"Hy-MT3-1.8B est un modèle dense et léger de traduction multilingue de Tencent "
+"Hunyuan. Il prend en charge 102 langues et suit les consignes de traduction."
+
+#: doc/source/models/builtin/llm/index.rst:339
+msgid ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+msgstr ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+
+#: doc/source/models/builtin/llm/index.rst:342
+msgid ""
+"Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation model from Tencent"
+" Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr ""
+"Hy-MT3-30B-A3B est un modèle à mélange d’experts de traduction multilingue de "
+"Tencent Hunyuan. Il prend en charge 102 langues et suit les consignes de "
+"traduction."
+
+#: doc/source/models/builtin/llm/index.rst:344
+msgid ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+msgstr ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+
+#: doc/source/models/builtin/llm/index.rst:347
+msgid ""
+"Hy-MT3-7B is a dense multilingual translation model from Tencent Hunyuan. It "
+"supports 102 languages and follows translation instructions."
+msgstr ""
+"Hy-MT3-7B est un modèle dense de traduction multilingue de Tencent Hunyuan. Il "
+"prend en charge 102 langues et suit les consignes de traduction."

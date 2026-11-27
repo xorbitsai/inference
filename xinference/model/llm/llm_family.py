@@ -778,6 +778,7 @@ def check_engine_by_spec_parameters_with_virtual_env(
     from ..utils import (
         _collect_virtualenv_engine_markers,
         _collect_virtualenv_installable_engines,
+        virtualenv_discovery_var,
     )
 
     def get_model_engine_from_spell(engine_str: str) -> str:
@@ -804,21 +805,29 @@ def check_engine_by_spec_parameters_with_virtual_env(
     def _select_engine_class_fallback(
         engine_classes: List[Type[LLM]],
         family: "LLMFamilyV2",
+        spec: "LLMSpecV1",
     ) -> Optional[Type[LLM]]:
         if not engine_classes:
             return None
-        if model_engine.lower() == "trt-llm":
-            # Installing dependencies cannot extend this adapter's model support.
-            spec = _select_llm_spec(family)
-            return next(
-                (
-                    cls
-                    for cls in engine_classes
-                    if spec is not None
-                    and cls.match_json(family, spec, quantization) is True
-                ),
-                None,
-            )
+        if model_engine.lower() == "trt-llm" or model_name in HY_MT3_MODEL_NAMES:
+            # On-demand installation satisfies runtime dependencies but cannot
+            # extend the engine's checkpoint support.
+            token = virtualenv_discovery_var.set(True)
+            try:
+                return next(
+                    (
+                        cls
+                        for cls in engine_classes
+                        if cls.match_json(family, spec, quantization) is True
+                    ),
+                    None,
+                )
+            finally:
+                virtualenv_discovery_var.reset(token)
+        logger.warning(
+            "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+            model_engine,
+        )
         abilities = set(getattr(family, "model_ability", []) or [])
         preferred_tokens: List[Tuple[str, ...]] = []
         if any(a in abilities for a in ("vision", "audio", "omni")):
@@ -861,7 +870,7 @@ def check_engine_by_spec_parameters_with_virtual_env(
             for engine_name, engine_classes in SUPPORTED_ENGINES.items():
                 if engine_name.lower() == model_engine.lower() and engine_classes:
                     engine_cls = _select_engine_class_fallback(
-                        engine_classes, llm_family
+                        engine_classes, llm_family, llm_spec
                     )
                     if engine_cls is None:
                         raise ValueError(
@@ -869,10 +878,6 @@ def check_engine_by_spec_parameters_with_virtual_env(
                             f"with format {model_format}, size {model_size_in_billions} "
                             f"and quantization {quantization}."
                         )
-                    logger.warning(
-                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
-                        model_engine,
-                    )
                     return engine_cls
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = LLM_ENGINES[model_name][model_engine]
@@ -900,17 +905,15 @@ def check_engine_by_spec_parameters_with_virtual_env(
             )
         for engine_name, engine_classes in SUPPORTED_ENGINES.items():
             if engine_name.lower() == model_engine.lower() and engine_classes:
-                engine_cls = _select_engine_class_fallback(engine_classes, llm_family)
+                engine_cls = _select_engine_class_fallback(
+                    engine_classes, llm_family, llm_spec
+                )
                 if engine_cls is None:
                     raise ValueError(
                         f"Model {model_name} cannot be run on engine {model_engine}, "
                         f"with format {model_format}, size {model_size_in_billions} "
                         f"and quantization {quantization}."
                     )
-                logger.warning(
-                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
-                    model_engine,
-                )
                 return engine_cls
     raise ValueError(
         f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
