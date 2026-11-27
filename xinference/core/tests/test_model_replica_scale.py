@@ -412,6 +412,9 @@ class _FakeStatusGuard:
             )
         )
 
+    async def get_instance_info(self, model_uid: str):
+        return [SimpleNamespace(instance_created_ts=1, n_worker=1)]
+
     async def update_instance_info(self, model_uid: str, updates):
         self.instance_updates.append((model_uid, updates))
 
@@ -719,6 +722,23 @@ async def test_scale_up_default_replica_uid_uses_new_replica_id():
 
 
 @pytest.mark.asyncio
+async def test_scale_up_reusing_dead_replica_id_clears_unexpected_down_marker():
+    launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    # Replica 1 went down with a dead worker; only replica 0 is still active.
+    supervisor._unexpected_down_replicas = {("demo", 1): "demo"}
+    config = ReplicaConfig(
+        devices=[DeviceConfig(worker_ip=worker.address, n_gpu="auto")]
+    )
+
+    result = await supervisor.add_model_replica("demo", config)
+
+    assert result["replica_id"] == 1
+    assert supervisor._unexpected_down_replicas == {}
+
+
+@pytest.mark.asyncio
 async def test_scale_up_rejects_duplicate_replica_uid():
     launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
     worker = _FakeScaleWorker("worker-0:9978", launch_args)
@@ -832,11 +852,18 @@ async def test_scale_up_reconciles_worker_replay_during_launch(
 async def test_failed_scale_up_cleans_replica_replayed_during_load():
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
     supervisor = _make_supervisor([worker], worker.launch_args)
+    # Replica 1 went down with a dead worker; scale-up reuses its id.
+    supervisor._unexpected_down_replicas = {("demo", 1): "demo"}
 
     async def fail_load(model_uid):
-        supervisor._rebuild_worker_replica_state(
+        # The worker reconnects and reports the replica before its load ends.
+        await supervisor._restore_worker_inventory(
             worker,
-            [{"replica_model_uid": uid} for uid in ("demo-rep0", model_uid)],
+            replica_states=[
+                {"replica_model_uid": uid, "n_worker": 1, "shard": 0}
+                for uid in ("demo-rep0", model_uid)
+            ],
+            apply_filter=False,
         )
         raise RuntimeError("load failed")
 
@@ -849,6 +876,9 @@ async def test_failed_scale_up_cleans_replica_replayed_during_load():
     assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
     statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
     assert [status.replica_id for status in statuses] == [0]
+    # The replacement never served, so replica 1 is still down.
+    assert supervisor._unexpected_down_replicas == {("demo", 1): "demo"}
+    assert supervisor._replicas_loading == set()
 
 
 @pytest.mark.asyncio

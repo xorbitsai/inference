@@ -412,3 +412,9 @@ msgstr ""
 "針對使用 vLLM Xavier 混合 GPU 或分層連接器的文字提示，Xinference 可用提示詞元和 ``cache_salt`` 比對仍駐留於"
 " GPU 的前綴。較長的前綴可讓多處理一個請求的副本獲得優先。其他配接器在快取資訊不可用時依照負載和親和選擇。明確指定非零的 ``priority`` "
 "時，首選副本可用且仍有空間便維持工作階段親和。"
+
+msgid "Inline PDF attachments"
+msgstr "內嵌 PDF 附件"
+
+msgid "For vision-capable models, Chat Completions accepts Base64 PDF data in a user message's ``file.file_data``. Xinference renders up to 20 PDF pages per request as images, subject to the model's image limits. Install ``xinference[image]`` to enable PDF rendering."
+msgstr "對於支援視覺輸入的模型，Chat Completions 接受使用者訊息中 ``file.file_data`` 欄位內的 Base64 PDF 資料。Xinference 每個請求最多將 20 頁 PDF 轉譯成圖片，並遵循模型的圖片輸入限制。安裝 ``xinference[image]`` 即可啟用 PDF 轉譯。"

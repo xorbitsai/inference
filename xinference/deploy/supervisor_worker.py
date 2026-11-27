@@ -20,6 +20,15 @@ def main():
     path.unlink()
     baseline = SystemSettings.from_dict(configuration["settings"])
     apply_system_settings(baseline)
+    if "observability" in configuration:
+        from ..core.observability_settings_store import (
+            ObservabilitySettings,
+            apply_observability_settings,
+        )
+
+        apply_observability_settings(
+            ObservabilitySettings.from_dict(configuration["observability"])
+        )
     logging_conf = configuration.get("logging_conf")
     from .utils import update_all_formatter_addresses, update_logging_config_addresses
 

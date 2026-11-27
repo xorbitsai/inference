@@ -10,7 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { createRelaunchRequestId } from '@/lib/relaunch-request-id';
 import request from '@/lib/request';
+import { isOperationFinished } from '@/lib/operation-status';
+
+import { useOperationCompletion } from '@/hooks/use-operation-completion';
 
 type Service = 'api' | 'supervisor';
 
@@ -38,10 +42,6 @@ const SERVICES = {
   api: { start: '/v1/api/relaunch', history: '/v1/api-relaunches' },
   supervisor: { start: '/v1/supervisor/relaunch', history: '/v1/supervisor-relaunches' },
 };
-
-function finished(job: ServiceRelaunchOperation): boolean {
-  return job.status === 'succeeded' || job.status === 'failed';
-}
 
 function errorMessage(error: unknown): string {
   if (isAxiosError(error)) {
@@ -71,7 +71,7 @@ function useServiceRelaunches(service: Service) {
           setError('');
           setRetrying(false);
           setAvailable(true);
-          again = data.some((job) => !finished(job));
+          again = data.some((job) => !isOperationFinished(job.status));
         }
       } catch (err) {
         if (active) {
@@ -99,7 +99,7 @@ function useServiceRelaunches(service: Service) {
     operations,
     error,
     retrying,
-    canStart: available && !operations.some((job) => !finished(job)),
+    canStart: available && !operations.some((job) => !isOperationFinished(job.status)),
     refresh: () => setRevision((value) => value + 1),
     addOperation: (job: ServiceRelaunchOperation) => {
       setOperations((current) => [
@@ -111,9 +111,16 @@ function useServiceRelaunches(service: Service) {
   };
 }
 
-function ServiceRelaunchControl({ service }: { service: Service }) {
+function ServiceRelaunchControl({
+  service,
+  onCompleted,
+}: {
+  service: Service;
+  onCompleted?: () => void;
+}) {
   const { t } = useI18n();
   const state = useServiceRelaunches(service);
+  useOperationCompletion(state.operations, onCompleted);
   const [open, setOpen] = useState(false);
   const [python, setPython] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -123,8 +130,7 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   const prefix = 'clusterInfo.serviceRelaunch';
   useEffect(() => {
     if (!open) return;
-    requestId.current =
-      crypto.randomUUID?.() ?? `${service}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    requestId.current = createRelaunchRequestId(service);
     setPython('');
     setSubmitError('');
   }, [open, service]);
@@ -252,14 +258,14 @@ function ServiceRelaunchControl({ service }: { service: Service }) {
   );
 }
 
-export function ServiceRelaunchPanel() {
+export function ServiceRelaunchPanel({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { globalReady } = useGlobal();
   const { isAdmin } = useMenuAuth();
   if (!globalReady || !isAdmin) return null;
   return (
     <div className="mt-4 grid gap-4 lg:grid-cols-2">
-      <ServiceRelaunchControl service="api" />
-      <ServiceRelaunchControl service="supervisor" />
+      <ServiceRelaunchControl service="api" onCompleted={onCompleted} />
+      <ServiceRelaunchControl service="supervisor" onCompleted={onCompleted} />
     </div>
   );
 }

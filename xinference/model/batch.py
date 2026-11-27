@@ -16,6 +16,7 @@ import asyncio
 import inspect
 import logging
 import types
+from dataclasses import dataclass
 from typing import Optional
 
 from xoscar.batch import _ExtensibleWrapper
@@ -24,6 +25,13 @@ from ..constants import XINFERENCE_BATCH_INTERVAL, XINFERENCE_BATCH_SIZE
 from ..core.replica_load import ReplicaRequestQueue, batch_queue_budget
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class BatchRequestError:
+    """A failure belonging to one result in an otherwise successful batch."""
+
+    error: Exception
 
 
 def _get_batch_queue_budget() -> Optional[float]:
@@ -256,7 +264,11 @@ class BatchMixin:
                 # running. Skipping completed futures prevents InvalidStateError
                 # from terminating the processor and stalling later requests.
                 for future, result in zip(active_futures, results):
-                    if not future.done():
+                    if future.done():
+                        continue
+                    if isinstance(result, BatchRequestError):
+                        future.set_exception(result.error)
+                    else:
                         future.set_result(result)
 
     def _wrap_method(self):

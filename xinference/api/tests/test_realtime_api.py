@@ -14,25 +14,31 @@
 
 
 import asyncio
-from contextlib import asynccontextmanager
+import json
+from contextlib import ExitStack, asynccontextmanager
+from dataclasses import replace
 from itertools import cycle
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import aiohttp
 import pytest
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, WebSocketDisconnect
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from ...core.realtime.protocol import RealtimeError
+from ...core.realtime.protocol import RealtimeError, RealtimeLimits
 from ...core.supervisor import ReplicaInfo, SupervisorActor
 from ...core.tests.test_realtime_runtime import (
     CONFIG,
     FakeModel,
+    FakeSession,
     RealtimeRuntime,
     wait_empty,
 )
+from .. import realtime as gateway
 from ..routers.realtime import register_routes
+from .test_audio_capabilities import replicated_audio
 
 
 @asynccontextmanager
@@ -114,6 +120,32 @@ async def test_gateway_common_protocol(task_name):
         service.actor.get_realtime_endpoint.assert_awaited_once()
 
 
+async def test_capabilities_then_connect_uses_both_replicas():
+    async with replicated_audio() as audio:
+        register_routes(audio.api)
+        app = FastAPI()
+        app.include_router(audio.api._router)
+
+        def connect():
+            with TestClient(app) as client, ExitStack() as connections:
+                for _ in range(2):
+                    response = client.get("/v1/models/custom/audio/capabilities")
+                    assert response.status_code == 200
+                    assert response.json() == audio.capabilities
+                    ws = connections.enter_context(
+                        client.websocket_connect("/v1/models/custom/realtime")
+                    )
+                    ws.send_json(CONFIG)
+                    event = ws.receive_json()
+                    assert event["event"] == "session.started", event
+                assert [runtime.active_count for runtime in audio.runtimes] == [1, 1]
+
+        # Keep the backend runtimes' event loop running while TestClient blocks.
+        await asyncio.wait_for(asyncio.to_thread(connect), 10)
+        for runtime in audio.runtimes:
+            await wait_empty(runtime)
+
+
 async def test_autoscaled_realtime_skips_full_or_draining_replica():
     async with serve_gateway() as service:
         supervisor = service.supervisor
@@ -161,6 +193,55 @@ async def test_gateway_media_frame_below_limit_completes():
             assert (await ws.receive_json(timeout=2))["reason"] == "completed"
             await ws.close()
         await wait_empty(service.runtime)
+
+
+@pytest.mark.parametrize("extra_bytes", [0, 1], ids=["at-limit", "over-limit"])
+async def test_gateway_output_message_size_boundary(monkeypatch, extra_bytes):
+    limit = 512
+
+    async def echo_text(session, frame):
+        await session.emit({"text": frame.decode("ascii")})
+
+    monkeypatch.setattr(FakeSession, "receive_input", echo_text)
+    monkeypatch.setattr(
+        gateway,
+        "RealtimeLimits",
+        lambda: replace(RealtimeLimits(), max_output_bytes=limit),
+    )
+    async with replicated_audio(replica_count=1) as audio:
+        # The backend may send exactly what the gateway accepts, or one byte more.
+        runtime = audio.runtimes[0]
+        runtime.limits = replace(runtime.limits, max_output_bytes=limit + extra_bytes)
+        register_routes(audio.api)
+        app = FastAPI()
+        app.include_router(audio.api._router)
+
+        def connect():
+            with (
+                TestClient(app) as client,
+                client.websocket_connect("/v1/models/custom/realtime") as ws,
+            ):
+                ws.send_json(CONFIG)
+                assert ws.receive_json()["event"] == "session.started"
+                # Measure the output envelope with a one-byte frame, then size the
+                # next frame so the output message is exactly limit + extra_bytes.
+                ws.send_bytes(b"x")
+                envelope = len(ws.receive_text().encode("utf-8")) - 1
+                ws.send_bytes(b"x" * (limit + extra_bytes - envelope))
+                message = ws.receive_text()
+                event = json.loads(message)
+                if extra_bytes == 0:
+                    assert event["event"] == "output", event
+                    assert len(message.encode("utf-8")) == limit
+                else:
+                    assert event["event"] == "error", event
+                    assert event["code"] == "endpoint_unavailable"
+                    with pytest.raises(WebSocketDisconnect) as error:
+                        ws.receive_text()
+                    assert error.value.code == 1011
+
+        await asyncio.wait_for(asyncio.to_thread(connect), 10)
+        await wait_empty(runtime)
 
 
 @pytest.mark.parametrize(
@@ -242,9 +323,9 @@ async def test_gateway_disconnect_releases_runtime():
         await wait_empty(service.runtime)
 
 
+@pytest.mark.usefixtures("isolated_system_settings")
 @pytest.mark.parametrize("allowed", [False, True])
 async def test_ip_allowlist_through_real_api_stack(monkeypatch, tmp_path, allowed):
-    from ...core import system_settings_store
     from .. import restful_api
 
     monkeypatch.setattr(restful_api, "is_auth_advanced", lambda: False)
@@ -254,11 +335,9 @@ async def test_ip_allowlist_through_real_api_stack(monkeypatch, tmp_path, allowe
         ("XINFERENCE_AUTH_DB_PATH", "auth.db"),
         ("XINFERENCE_LAUNCH_HISTORY_DB_PATH", "history.db"),
         ("XINFERENCE_MONITOR_CONFIG_DB_PATH", "monitor.db"),
-        ("XINFERENCE_SYSTEM_SETTINGS_PATH", "settings.json"),
     ):
         monkeypatch.setattr(restful_api, name, str(tmp_path / filename))
     monkeypatch.setattr(restful_api.RESTfulAPI, "_allowed_ip_list", None)
-    monkeypatch.setattr(system_settings_store, "_store", None)
     monkeypatch.setattr(
         restful_api,
         "XINFERENCE_ALLOWED_IPS",

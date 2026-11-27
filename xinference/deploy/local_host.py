@@ -141,9 +141,16 @@ class LocalHost(APIHost):
         )
         deadline = time.monotonic() + STARTUP_TIMEOUT
         while self.cluster.pid not in self.owner.workers:
-            if self.cluster.poll() is not None or time.monotonic() >= deadline:
+            if (exit_code := self.cluster.poll()) is not None:
                 raise RuntimeError(
-                    "Local cluster failed to start: " + diagnostics.read()
+                    "Local cluster failed to start: process exited with code "
+                    f"{exit_code}: " + diagnostics.read()
+                )
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    "Local cluster failed to start: not ready after "
+                    f"{STARTUP_TIMEOUT:g} seconds (set XINFERENCE_STARTUP_TIMEOUT "
+                    "to wait longer): " + diagnostics.read()
                 )
             await asyncio.sleep(0.05)
         if not await asyncio.to_thread(

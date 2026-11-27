@@ -1,0 +1,37 @@
+[
+  {
+    "version": 2,
+    "model_name": "Yuanbao-Reranker-0.6B",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh"
+    ],
+    "max_tokens": 8192,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Yuanbao-Search/Yuanbao-Reranker-0.6B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1794788413,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.51.3 ; #engine# == \"sentence_transformers\"",
+        "accelerate ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

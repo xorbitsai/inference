@@ -471,44 +471,49 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
             if value is not None:
                 files.append((key, (None, value)))
 
-        # Handle single image or multiple images using requests format
-        if isinstance(images, list):
-            # Validate image list is not empty
-            if len(images) == 0:
-                raise ValueError("Image list cannot be empty")
-            # Multiple images - send as image[] array
-            for i, img in enumerate(images):
-                if isinstance(img, str):
+        try:
+            # Handle single image or multiple images using requests format
+            if isinstance(images, list):
+                # Validate image list is not empty
+                if len(images) == 0:
+                    raise ValueError("Image list cannot be empty")
+                # Multiple images - send as image[] array
+                for i, img in enumerate(images):
+                    if isinstance(img, str):
+                        # File path - open file
+                        f = open(img, "rb")
+                        files.append(
+                            (f"images[]", (f"image_{i}", f, "application/octet-stream"))
+                        )
+                    else:
+                        # Binary data
+                        files.append(
+                            (
+                                f"images[]",
+                                (f"image_{i}", img, "application/octet-stream"),
+                            )
+                        )
+            else:
+                # Single image
+                if isinstance(images, str):
                     # File path - open file
-                    f = open(img, "rb")
-                    files.append(
-                        (f"images[]", (f"image_{i}", f, "application/octet-stream"))
-                    )
+                    f = open(images, "rb")
+                    files.append(("images", ("image", f, "application/octet-stream")))
                 else:
                     # Binary data
                     files.append(
-                        (f"images[]", (f"image_{i}", img, "application/octet-stream"))
+                        ("images", ("image", images, "application/octet-stream"))
                     )
-        else:
-            # Single image
-            if isinstance(images, str):
-                # File path - open file
-                f = open(images, "rb")
-                files.append(("images", ("image", f, "application/octet-stream")))
-            else:
-                # Binary data
-                files.append(("images", ("image", images, "application/octet-stream")))
 
-        if mask is not None:
-            if isinstance(mask, str):
-                # File path - open file
-                f = open(mask, "rb")
-                files.append(("mask", ("mask", f, "application/octet-stream")))
-            else:
-                # Binary data
-                files.append(("mask", ("mask", mask, "application/octet-stream")))
+            if mask is not None:
+                if isinstance(mask, str):
+                    # File path - open file
+                    f = open(mask, "rb")
+                    files.append(("mask", ("mask", f, "application/octet-stream")))
+                else:
+                    # Binary data
+                    files.append(("mask", ("mask", mask, "application/octet-stream")))
 
-        try:
             response = self.session.post(url, files=files, headers=self.auth_headers)
             if response.status_code != 200:
                 raise RuntimeError(

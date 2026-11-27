@@ -301,28 +301,28 @@ msgstr ""
 "使用 ``--model-engine`` 選擇影片執行引擎。對於同時提供這兩種引擎的模型，預設仍使用 "
 "``diffusers``。例如，可明確指定以下任一引擎啟動 Wan2.2-A14B："
 
-#: ../../source/models/model_abilities/video.rst:98
-msgid ""
-"The ``MLX`` engine uses `Blaizzy/mlx-video <https://github.com/Blaizzy"
-"/mlx-video>`_ and is available on Apple Silicon with Python 3.11 or "
-"newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the LTX-2/LTX-2.3"
-" distilled and dev models listed above. The LTX models are MLX-only in "
-"Xinference."
-msgstr ""
-"``MLX`` 引擎使用 `Blaizzy/mlx-video <https://github.com/Blaizzy/mlx-"
-"video>`_，支援搭載 Apple Silicon 的裝置，需要 Python 3.11 或更新版本。它支援 Wan2.1 "
-"文字生成影片、Wan2.2 文字/圖片/文字加圖片生成影片，以及上述 LTX-2/LTX-2.3 distilled 和 dev 模型。在 "
-"Xinference 中，LTX 模型僅支援 MLX 引擎。"
-
 #: ../../source/models/model_abilities/video.rst:104
 msgid ""
-"Wan2.1's official checkpoints are converted to the native MLX layout on "
-"first load and the converted copy is reused by later launches. This first"
-" launch therefore needs additional time and disk space. Wan2.2 and LTX "
-"use pre-converted checkpoints."
+"The ``MLX`` engine uses `Blaizzy/mlx-video <https://github.com/Blaizzy/mlx-"
+"video>`_ and is available on Apple Silicon with Python 3.11 or newer. It "
+"supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the LTX-2/LTX-2.3 distilled "
+"and dev models listed above. LTX-2 and LTX-2.3 are MLX-only in Xinference."
 msgstr ""
-"首次載入 Wan2.1 官方檢查點時，會將其轉換為 MLX "
-"原生格式，後續啟動會重複使用轉換後的副本。因此，首次啟動需要額外的時間和磁碟空間。Wan2.2 和 LTX 使用預先轉換的檢查點。"
+"``MLX`` 引擎使用 `Blaizzy/mlx-video <https://github.com/Blaizzy/mlx-"
+"video>`_，可在配備 Apple 晶片且使用 Python 3.11 或更新版本的裝置上執行。它支援 Wan2.1 文字生成影片、Wan2.2 "
+"文字／圖片／文字加圖片生成影片，以及上述 LTX-2/LTX-2.3 蒸餾版和開發版。在 Xinference 中，LTX-2 和 LTX-2.3 "
+"只支援 MLX 引擎。"
+
+#: ../../source/models/model_abilities/video.rst:110
+msgid ""
+"Wan2.1's official checkpoints are converted to the native MLX layout on "
+"first load and the converted copy is reused by later launches. This first "
+"launch therefore needs additional time and disk space. Wan2.2 and the MLX "
+"LTX models use pre-converted checkpoints."
+msgstr ""
+"Wan2.1 的官方檢查點在首次載入時會轉換為 MLX "
+"原生格式，後續啟動會重複使用轉換完成的副本。因此，首次啟動需要額外的時間和磁碟空間。Wan2.2 和使用 MLX 的 LTX "
+"模型採用預先轉換的檢查點。"
 
 #: ../../source/models/model_abilities/video.rst:109
 msgid ""
@@ -609,3 +609,236 @@ msgstr ""
 "保持原生精度。FP8 使用各引擎原生的縮放實作，不能視為完全相同的量化方案。省略此選項或選擇 ``auto`` "
 "會保留進階參數與引擎預設值（Diffusers 為 INT4，SGLang 和 vLLM 為 "
 "BF16）。切換引擎時保留明確選擇的精度，不支援的值會被拒絕。"
+
+#: ../../source/models/model_abilities/video.rst:183
+msgid "Xinference provides two official-only LTX-2.5 configurations:"
+msgstr "Xinference 提供兩種僅使用官方權重的 LTX-2.5 設定："
+
+#: ../../source/models/model_abilities/video.rst:185
+msgid ""
+"``LTX-2.5`` loads the Distilled BF16 transformer and is the recommended "
+"default. It uses the exact eight-value sigma schedule published by "
+"Lightricks and Hugging Face."
+msgstr ""
+"``LTX-2.5`` 載入蒸餾版（Distilled）BF16 Transformer，是建議的預設設定。它原樣使用 Lightricks 和 "
+"Hugging Face 發布的八值 sigma 排程。"
+
+#: ../../source/models/model_abilities/video.rst:188
+msgid ""
+"``LTX-2.5-Dev`` loads the Full/Dev BF16 transformer from "
+"``transformer_full`` and uses the official guided scheduler configuration."
+msgstr ""
+"``LTX-2.5-Dev`` 從 ``transformer_full`` 載入完整版（Full/Dev）BF16 "
+"Transformer，並使用官方的引導排程器設定。"
+
+#: ../../source/models/model_abilities/video.rst:191
+msgid ""
+"Both configurations use the official Diffusers-format repository from "
+"`Hugging Face <https://huggingface.co/Lightricks/LTX-2.5-Diffusers>`_ or "
+"`ModelScope <https://modelscope.cn/models/Lightricks/LTX-2.5-Diffusers>`_. "
+"The separate `ModelScope native checkpoint repository "
+"<https://modelscope.cn/models/Lightricks/LTX-2.5>`_ uses the ``ltx-"
+"pipelines`` split format and cannot be loaded directly by "
+"``LTX2ConditionPipeline``; Xinference therefore uses Lightricks' official "
+"Diffusers-format mirror. Xinference does not register third-party, "
+"modified, repacked, GGUF, INT8, FP8, or NVFP4 checkpoints for these models "
+"and only loads the official BF16 files. The LTX adapter rejects custom "
+"``model_path`` overrides and alternate-weight options it receives."
+msgstr ""
+"兩種設定都使用 `Hugging Face "
+"<https://huggingface.co/Lightricks/LTX-2.5-Diffusers>`_ 或 `ModelScope "
+"<https://modelscope.cn/models/Lightricks/LTX-2.5-Diffusers>`_ 上的官方 "
+"Diffusers 格式存放庫。另一個 `ModelScope 原生檢查點存放庫 "
+"<https://modelscope.cn/models/Lightricks/LTX-2.5>`_ 採用 ``ltx-pipelines`` "
+"的拆分格式，無法由 ``LTX2ConditionPipeline`` 直接載入，因此 Xinference 使用 Lightricks 的官方 "
+"Diffusers 格式鏡像。Xinference 不為這兩個模型註冊第三方、修改版、重新封裝、GGUF、INT8、FP8 或 NVFP4 "
+"檢查點，只載入官方 BF16 檔案。LTX 介接器拒絕自訂 ``model_path`` 覆寫與替代權重選項。"
+
+#: ../../source/models/model_abilities/video.rst:204
+msgid "Access and dependencies"
+msgstr "存取權限與相依套件"
+
+#: ../../source/models/model_abilities/video.rst:206
+msgid ""
+"When downloading from Hugging Face, the official repository is gated. "
+"Before launching the model from that hub:"
+msgstr "Hugging Face 上的官方存放庫有存取限制。從該平台載入模型前："
+
+#: ../../source/models/model_abilities/video.rst:209
+msgid "Open the official model page and accept its access terms."
+msgstr "開啟官方模型頁面，並接受存取條款。"
+
+#: ../../source/models/model_abilities/video.rst:210
+msgid ""
+"Authenticate the Xinference process with a Hugging Face token that can read"
+" the gated repository."
+msgstr "使用能讀取該受限存放庫的 Hugging Face 權杖驗證 Xinference 程序。"
+
+#: ../../source/models/model_abilities/video.rst:212
+msgid ""
+"Keep model virtual environments enabled. Xinference pins the official "
+"Diffusers LTX-2.5 implementation to a tested PyPI release."
+msgstr "保持模型虛擬環境啟用。Xinference 將 Diffusers 的官方 LTX-2.5 實作固定在經過驗證的 PyPI 版本。"
+
+#: ../../source/models/model_abilities/video.rst:215
+msgid ""
+"The runtime requires Python 3.10 or newer, PyTorch 2.7 or newer, a "
+"BF16-capable accelerator, PyAV, and an FFmpeg build with H.264/AAC "
+"encoding. The official model pack is large, and CPU offload is enabled by "
+"default. Downloading and running it also requires substantial disk space "
+"and system RAM."
+msgstr ""
+"執行環境需要 Python 3.10 或更新版本、PyTorch 2.7 或更新版本、支援 BF16 的加速器、PyAV，以及支援 H.264/AAC"
+" 編碼的 FFmpeg。官方模型套件很大，CPU 卸載預設啟用。下載與執行需要充足的磁碟空間和系統記憶體。"
+
+#: ../../source/models/model_abilities/video.rst:221
+msgid ""
+"Model CPU offload still moves the complete roughly 38 GB transformer onto "
+"one accelerator while it runs. On an accelerator that cannot hold that "
+"component, launch with ``sequential_cpu_offload=true``; it uses "
+"substantially less device memory but is slower. This adapter does not "
+"implement LTX's native distributed transformer sharding."
+msgstr ""
+"即使啟用模型層級的 CPU 卸載，執行時仍會將約 38 GB 的整個 Transformer 移到單一加速器。如果加速器容納不下該元件，請用 "
+"``sequential_cpu_offload=true`` 載入模型。此方式可大幅減少裝置記憶體用量，但處理速度較慢。此介接器未實作 LTX "
+"原生的分散式 Transformer 分片。"
+
+#: ../../source/models/model_abilities/video.rst:229
+msgid ""
+"The LTX-2.5 weights use the `LTX-2.x Community License "
+"<https://github.com/Lightricks/LTX-2/blob/main/LICENSE.md>`_, not "
+"Xinference's Apache license. Review that license before use. In particular,"
+" organizations at or above the license's revenue threshold may require a "
+"separate commercial agreement. This documentation is not legal advice."
+msgstr ""
+"LTX-2.5 權重採用 `LTX-2.x Community License "
+"<https://github.com/Lightricks/LTX-2/blob/main/LICENSE.md>`_，而非 Xinference "
+"的 Apache 授權。使用前請查閱該授權。營收達到或超過授權規定門檻的組織，可能需要另行簽訂商業協議。本文不構成法律建議。"
+
+#: ../../source/models/model_abilities/video.rst:236
+msgid "Generation behavior"
+msgstr "生成行為"
+
+#: ../../source/models/model_abilities/video.rst:238
+msgid ""
+"The default request generates 121 frames at 960x544 and 24 FPS. The MP4 "
+"output contains LTX-2.5's synchronized generated audio; the audio sampling "
+"rate is read from the official vocoder configuration instead of being hard-"
+"coded."
+msgstr ""
+"預設請求以 960x544 解析度和 24 FPS 生成 121 個影格。輸出的 MP4 包含 LTX-2.5 "
+"生成的同步音訊；音訊取樣率取自官方聲碼器設定，不使用固定值。"
+
+#: ../../source/models/model_abilities/video.rst:242
+msgid "LTX-2.5 generation has the following constraints:"
+msgstr "LTX-2.5 生成有以下限制："
+
+#: ../../source/models/model_abilities/video.rst:244
+msgid "``width`` and ``height`` must be positive multiples of 32."
+msgstr "``width`` 和 ``height`` 必須是 32 的正整數倍。"
+
+#: ../../source/models/model_abilities/video.rst:245
+msgid ""
+"``fps``/``frame_rate`` must be a positive integer so the generated audio "
+"and encoded video retain the same timing."
+msgstr "``fps`` / ``frame_rate`` 必須是正整數，以確保生成的音訊與編碼後的影片保持同步。"
+
+#: ../../source/models/model_abilities/video.rst:247
+msgid "An explicit ``num_frames`` must satisfy ``num_frames % 8 == 1``."
+msgstr "明確指定的 ``num_frames`` 必須滿足 ``num_frames % 8 == 1``。"
+
+#: ../../source/models/model_abilities/video.rst:248
+msgid ""
+"The default is 121 frames. Explicitly pass ``num_frames=None`` from Python,"
+" or ``\"num_frames\": null`` inside the REST ``kwargs`` JSON, to enable the"
+" official duration head for a single prompt. Use ``min_seconds`` and "
+"``max_seconds`` to bound the prediction. Prompt batches must specify an "
+"integer ``num_frames``."
+msgstr ""
+"預設值為 121 個影格。若要為單一提示詞啟用官方時長預測頭，請在 Python 中明確傳入 ``num_frames=None``，或在 REST "
+"API 的 ``kwargs`` JSON 中指定 ``\"num_frames\": null``。使用 ``min_seconds`` 和 "
+"``max_seconds`` 限制預測範圍。批次提示詞必須指定整數 ``num_frames``。"
+
+#: ../../source/models/model_abilities/video.rst:253
+msgid ""
+"Distilled generation always uses the official fixed sigma schedule and "
+"fixed guidance values. It rejects ``num_inference_steps``, custom "
+"timesteps, custom sigma schedules, and incompatible guidance values rather "
+"than silently degrading quality. Because classifier-free guidance is "
+"disabled in this configuration, ``negative_prompt`` is ignored; it is "
+"effective with ``LTX-2.5-Dev``."
+msgstr ""
+"蒸餾版一律使用官方固定的 sigma 排程和固定引導值。它會拒絕 ``num_inference_steps``、自訂時間步、自訂 sigma "
+"排程和不相容的引導值，避免在未提示的情況下降低生成品質。由於此設定停用了無分類器引導，``negative_prompt`` 會被忽略；此參數在 "
+"``LTX-2.5-Dev`` 中有效。"
+
+#: ../../source/models/model_abilities/video.rst:259
+msgid ""
+"Prompt enhancement is not supported. Xinference skips the prompt-enhancer "
+"weights when downloading and loading the model."
+msgstr "不支援提示詞強化。Xinference 下載與載入模型時會略過提示詞強化權重。"
+
+#: ../../source/models/model_abilities/video.rst:261
+msgid ""
+"Image conditions use the official LTX-2.5 compression behavior (CRF 18 by "
+"default). Pass ``image_crf=0`` to explicitly disable recompression."
+msgstr "條件圖片採用官方 LTX-2.5 壓縮方式（預設 CRF 為 18）。傳入 ``image_crf=0`` 可明確停用重新壓縮。"
+
+#: ../../source/models/model_abilities/video.rst:265
+msgid "Implementation scope"
+msgstr "實作範圍"
+
+#: ../../source/models/model_abilities/video.rst:267
+msgid ""
+"This integration targets the official LTX-2.5 support in the tested Hugging"
+" Face Diffusers release and the official Diffusers-format checkpoint. It "
+"covers all three video abilities currently exposed by Xinference: text-to-"
+"video, image-to-video, and first/last-frame interpolation, including "
+"synchronized audio."
+msgstr ""
+"此整合以經過驗證的 Hugging Face Diffusers 發行版本所提供的官方 LTX-2.5 實作及官方 Diffusers "
+"格式檢查點為基礎。它涵蓋 Xinference 目前提供的三種影片功能：文字生成影片、圖片生成影片和首尾影格之間的插補，並包含同步音訊。"
+
+#: ../../source/models/model_abilities/video.rst:273
+msgid ""
+"It does not claim bit-for-bit or sampler-equivalent output with Lightricks'"
+" separate native ``ltx-pipelines`` v1.2 production recipes. In particular, "
+"Xinference currently uses the official Diffusers convolutional VAE path, "
+"provides the Diffusers latent-upscaler recipe only for the Distilled model,"
+" and does not expose the native diffusion decoder, Dev two-stage recipe, "
+"audio/video editing pipelines, or native multi-GPU execution."
+msgstr ""
+"此整合不保證輸出會與 Lightricks 另行提供的原生 ``ltx-pipelines`` v1.2 "
+"正式環境流程逐位元相同，也不保證取樣器行為等效。Xinference 目前採用官方 Diffusers 的卷積 VAE 路徑，且僅為蒸餾版提供 "
+"Diffusers 潛在表示升頻流程，不提供原生擴散解碼器、Dev 兩階段流程、音訊／影片編輯管線或原生多 GPU 執行。"
+
+#: ../../source/models/model_abilities/video.rst:280
+msgid "For example, a text-to-video request can use the model defaults::"
+msgstr "例如，以下文字生成影片的請求使用模型預設設定::"
+
+#: ../../source/models/model_abilities/video.rst:290
+msgid "Distilled two-stage generation"
+msgstr "蒸餾版兩階段生成"
+
+#: ../../source/models/model_abilities/video.rst:292
+msgid ""
+"``LTX-2.5`` also supports the official latent spatial upscaler. Set "
+"``two_stage=true`` to generate the first stage at half resolution, upscale "
+"its video latents by 2x, and refine them with the official stage-two sigma "
+"schedule. For this mode, ``width`` and ``height`` are the final output size"
+" and must be multiples of 64; ``num_frames`` must be explicit. For example,"
+" the following uses a 960x544 first stage and produces 1920x1088 output::"
+msgstr ""
+"``LTX-2.5`` 也支援官方潛在表示空間升頻器。設定 ``two_stage=true`` 後，第一階段以一半的解析度生成，將影片潛在表示放大 "
+"2 倍，再依官方第二階段 sigma 排程細化。在這個模式下，``width`` 和 ``height`` 表示最終輸出尺寸，必須是 64 "
+"的倍數；也必須明確指定 ``num_frames``。以下範例第一階段使用 960x544，最終輸出為 1920x1088::"
+
+#: ../../source/models/model_abilities/video.rst:307
+msgid ""
+"``two_stage`` is not available for ``LTX-2.5-Dev``. The Dev model is "
+"exposed as the official Full/SFT single-stage configuration; it is intended"
+" for users who need guided generation rather than the fastest distilled "
+"path."
+msgstr ""
+"``LTX-2.5-Dev`` 不支援 ``two_stage``。Dev 模型採用官方 Full/SFT "
+"單階段設定，適合需要引導式生成、而非追求蒸餾版最快速度的使用者。"

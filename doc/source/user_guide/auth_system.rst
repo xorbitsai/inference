@@ -257,11 +257,16 @@ Everything above is also available from dedicated pages in the web UI:
 * **Security Settings**: view and tune brute-force protection (login/API-key
   failure rate limits) and unban blocked IPs or keys (requires ``admin``).
   See :ref:`user_guide_audit_security` for details.
-* **System Settings**: view model download configuration with
-  ``settings:read``; saving changes or restoring defaults additionally
-  requires ``settings:write``.
+* **System Settings**: view the independent model download and observability
+  configuration tabs with ``settings:read``; saving changes or restoring
+  defaults in either tab additionally requires ``settings:write``.
 * **Audit Center**: browse recorded API activity (requires ``admin``). See
   :ref:`user_guide_audit_security`.
+
+Administrators can choose **Restart and apply** in **System Settings > Observability**
+to save the form and restart Supervisor followed by API while retaining model
+processes. The button disappears after both components have loaded the saved
+configuration; a failed replacement keeps the previous component serving.
 
 Http Status Code
 ================

@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import venv
 from pathlib import Path
 from types import SimpleNamespace
@@ -738,49 +739,218 @@ class DummyActorRef:
         self.address = address
 
 
+class _HeartbeatSupervisorRef:
+    def __init__(self, outcomes):
+        # Each outcome is None (success) or an exception to raise.
+        self.outcomes = list(outcomes)
+        self.calls = 0
+
+    async def _next(self):
+        self.calls += 1
+        outcome = self.outcomes.pop(0)
+        if outcome is not None:
+            raise outcome
+
+    async def receive_heartbeat(self, worker_address: str):
+        await self._next()
+
+    async def report_worker_status(self, worker_address: str, status):
+        await self._next()
+
+
+class _HeartbeatWorker:
+    heartbeat = WorkerActor.heartbeat
+    _run_on_actor_loop = WorkerActor._run_on_actor_loop
+    _ownership_metadata = WorkerActor._ownership_metadata
+    _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+    _call_supervisor = WorkerActor._call_supervisor
+    _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+
+    def __init__(self, supervisor_ref):
+        self.address = "test://worker"
+        self._actor_loop = None
+        self._supervisor_init_lock = None
+        self._supervisor_ref = supervisor_ref
+        self._supervisor_ref_address = "test://supervisor"
+        self._supervisor_ref_lock = threading.Lock()
+        self._supervisor_ref_generation = 0
+        self._supervisor_last_contact = None
+        self._registered = True
+        self._status_guard_ref = object()
+        self._event_collector_ref = object()
+        self._cache_tracker_ref = object()
+        self._progress_tracker_ref = object()
+
+    async def _get_supervisor_ref_with_generation(self, add_worker=True):
+        assert self._supervisor_ref is not None
+        return self._supervisor_ref, self._supervisor_ref_generation
+
+    def backdate_last_contact(self, seconds):
+        self._supervisor_last_contact = (
+            self._supervisor_ref_generation,
+            time.monotonic() - seconds,
+        )
+
+    def assert_refs_kept(self, supervisor_ref):
+        assert self._supervisor_ref is supervisor_ref
+        assert self._registered
+        assert self._status_guard_ref is not None
+
+    def assert_refs_cleared(self):
+        assert self._supervisor_ref is None
+        assert not self._registered
+        assert self._status_guard_ref is None
+        assert self._event_collector_ref is None
+        assert self._cache_tracker_ref is None
+        assert self._progress_tracker_ref is None
+
+
+def _set_unreachable_budget(monkeypatch, timeout, threshold, interval):
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_TIMEOUT", timeout)
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD", threshold
+    )
+    monkeypatch.setattr(worker_module, "XINFERENCE_HEALTH_CHECK_INTERVAL", interval)
+
+
+def test_supervisor_unreachable_budget_follows_supervisor_formula(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    assert worker_module._supervisor_unreachable_budget() == 35
+
+
 @pytest.mark.asyncio
-async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
-    class FailingSupervisorRef:
-        async def receive_heartbeat(self, worker_address: str):
-            raise ConnectionRefusedError("stale supervisor address")
+async def test_worker_heartbeat_fast_failures_within_budget_keep_refs(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # Instant connection errors, more of them than the failure threshold: the
+    # budget is time, not a count, so the registration survives.
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [ConnectionRefusedError("refused"), xo.ServerClosed("closed")] * 4
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
 
-    class DummyWorker:
-        heartbeat = WorkerActor.heartbeat
-        _run_on_actor_loop = WorkerActor._run_on_actor_loop
-        _ownership_metadata = WorkerActor._ownership_metadata
-        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
-        _call_supervisor = WorkerActor._call_supervisor
-        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+    for _ in range(8):
+        with pytest.raises((ConnectionRefusedError, xo.ServerClosed)):
+            await worker.heartbeat()
+        worker.assert_refs_kept(supervisor_ref)
+    assert supervisor_ref.calls == 8
 
-        def __init__(self):
-            self.address = "test://worker"
-            self._actor_loop = None
-            self._supervisor_init_lock = None
-            self._supervisor_ref = FailingSupervisorRef()
-            self._supervisor_ref_address = "test://supervisor"
-            self._supervisor_ref_lock = threading.Lock()
-            self._supervisor_ref_generation = 0
-            self._registered = True
-            self._status_guard_ref = object()
-            self._event_collector_ref = object()
-            self._cache_tracker_ref = object()
-            self._progress_tracker_ref = object()
 
-        async def _get_supervisor_ref_with_generation(self, add_worker=True):
-            assert not add_worker
-            return self._supervisor_ref, self._supervisor_ref_generation
+@pytest.mark.asyncio
+async def test_worker_heartbeat_failure_past_budget_clears_refs(monkeypatch, caplog):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [ConnectionRefusedError("stale supervisor address")] * 2
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
 
-    worker = DummyWorker()
-
-    with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+    with pytest.raises(ConnectionRefusedError):
         await worker.heartbeat()
+    worker.assert_refs_kept(supervisor_ref)
 
-    assert worker._supervisor_ref is None
-    assert not worker._registered
-    assert worker._status_guard_ref is None
-    assert worker._event_collector_ref is None
-    assert worker._cache_tracker_ref is None
-    assert worker._progress_tracker_ref is None
+    # The Supervisor has now been unreachable longer than it waits before
+    # declaring this worker dead.
+    worker.backdate_last_contact(36)
+    with caplog.at_level(logging.WARNING, logger=worker_module.logger.name):
+        with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+            await worker.heartbeat()
+    worker.assert_refs_cleared()
+    assert worker._supervisor_last_contact is None
+    assert "ConnectionRefusedError(stale supervisor address)" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_zero_budget_clears_on_first_failure(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=0, threshold=1, interval=0)
+    worker = _HeartbeatWorker(_HeartbeatSupervisorRef([asyncio.TimeoutError()]))
+
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
+async def test_worker_supervisor_success_resets_unreachable_window(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef(
+        [asyncio.TimeoutError(), None, asyncio.TimeoutError()]
+    )
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    worker.backdate_last_contact(30)
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    # Any successful Supervisor RPC on this generation restarts the window.
+    await worker._call_supervisor(
+        "report_worker_status", worker.address, {}, add_worker=True
+    )
+    worker.backdate_last_contact(0)
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    worker.assert_refs_kept(supervisor_ref)
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_supervisor_error_clears_refs_immediately(
+    monkeypatch,
+):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # Not a transport error: the heartbeat target is gone, so keep the old
+    # clear-and-re-register behaviour.
+    worker = _HeartbeatWorker(_HeartbeatSupervisorRef([xo.ActorNotExist("supervisor")]))
+
+    with pytest.raises(xo.ActorNotExist):
+        await worker.heartbeat()
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
+async def test_worker_status_report_not_registered_clears_refs_immediately(
+    monkeypatch,
+):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    # A restarted Supervisor answers report_worker_status with
+    # WorkerNotRegisteredError; re-register right away, whatever the budget.
+    worker = _HeartbeatWorker(
+        _HeartbeatSupervisorRef([supervisor_module.WorkerNotRegisteredError("w")])
+    )
+
+    with pytest.raises(supervisor_module.WorkerNotRegisteredError):
+        await worker._call_supervisor(
+            "report_worker_status", worker.address, {}, add_worker=True
+        )
+    worker.assert_refs_cleared()
+
+
+@pytest.mark.asyncio
+async def test_worker_status_report_transport_failure_keeps_refs(monkeypatch):
+    _set_unreachable_budget(monkeypatch, timeout=0, threshold=1, interval=0)
+    supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    # Status reports ride on the heartbeat's verdict: even with no budget, a
+    # timed-out status upload does not drop the registration.
+    with pytest.raises(asyncio.TimeoutError):
+        await worker._call_supervisor(
+            "report_worker_status", worker.address, {}, add_worker=True
+        )
+    worker.assert_refs_kept(supervisor_ref)
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_unreachable_window_restarts_after_ref_refresh(
+    monkeypatch,
+):
+    _set_unreachable_budget(monkeypatch, timeout=10, threshold=5, interval=5)
+    supervisor_ref = _HeartbeatSupervisorRef([asyncio.TimeoutError()])
+    worker = _HeartbeatWorker(supervisor_ref)
+
+    worker.backdate_last_contact(100)
+    # A registration published in between bumps the generation; time spent
+    # failing against the old generation must not count toward the new one.
+    worker._supervisor_ref_generation += 1
+    with pytest.raises(asyncio.TimeoutError):
+        await worker.heartbeat()
+    worker.assert_refs_kept(supervisor_ref)
 
 
 @pytest.mark.asyncio
@@ -2219,6 +2389,193 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
     api_statuses = await supervisor.get_replica_statuses("model-a")
     assert api_statuses[0]["replica_uid"] == "primary"
     assert api_statuses[0]["gpu_idx"] == [0]
+
+
+def _reconnect_replica_state(replica_model_uid: str, **overrides) -> dict:
+    state = {
+        "replica_model_uid": replica_model_uid,
+        "n_worker": 1,
+        "shard": 0,
+        "model_uid": "model-a",
+        "model_name": "qwen3",
+        "model_version": None,
+        "model_ability": [],
+        "status": LaunchStatus.READY.name,
+        "created_ts": 1710000100,
+        "instance_created_ts": 1710000100,
+    }
+    state.update(overrides)
+    return state
+
+
+async def _supervisor_with_stored_instance(monkeypatch, replica_uids):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    await supervisor._status_guard_ref.set_instance_info(
+        "model-a",
+        InstanceInfo(
+            model_name="qwen3",
+            model_uid="model-a",
+            model_version="qwen3--8b--pytorch--none",
+            model_ability=["generate", "chat"],
+            replica=len(replica_uids),
+            status=LaunchStatus.READY.name,
+            instance_created_ts=1710000000,
+        ),
+    )
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    return supervisor
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconnect_keeps_unreported_identity_fields(
+    monkeypatch, caplog
+):
+    replica_uids = ["model-a-rep0"]
+    supervisor = await _supervisor_with_stored_instance(monkeypatch, replica_uids)
+    # A worker that lost nothing but cannot report the version/ability it was
+    # launched with (the stored record is the only source of truth for them).
+    replica_states = [
+        {
+            key: value
+            for key, value in _reconnect_replica_state(replica_uids[0]).items()
+            if key != "model_name"
+        }
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "qwen3"
+    assert instance_info.model_version == "qwen3--8b--pytorch--none"
+    assert instance_info.model_ability == ["generate", "chat"]
+    # Fields the worker does report still update.
+    assert instance_info.status == LaunchStatus.READY.name
+    assert instance_info.replica == 1
+    assert instance_info.instance_created_ts == 1710000000
+    (replica_status,) = await supervisor._status_guard_ref.get_replica_statuses(
+        "model-a"
+    )
+    assert replica_status.worker_address == "worker-1"
+    assert replica_status.replica_model_uid == "model-a-rep0"
+
+    assert (
+        "Worker worker-1 re-registered model model-a without reporting "
+        "model_name, model_version, model_ability; keeping the stored value(s)"
+    ) in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconnect_applies_reported_identity_fields(
+    monkeypatch, caplog
+):
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    supervisor = await _supervisor_with_stored_instance(monkeypatch, replica_uids)
+    # The first replica has no version; the second one does, and wins over the
+    # stored value. Only model_ability is missing everywhere and kept.
+    replica_states = [
+        _reconnect_replica_state(replica_uids[0], model_name="qwen3-renamed"),
+        _reconnect_replica_state(
+            replica_uids[1], model_version="qwen3--8b--pytorch--awq"
+        ),
+    ]
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "qwen3-renamed"
+    assert instance_info.model_version == "qwen3--8b--pytorch--awq"
+    assert instance_info.model_ability == ["generate", "chat"]
+    assert instance_info.replica == 2
+    assert (
+        "Worker worker-1 re-registered model model-a without reporting "
+        "model_ability; keeping the stored value(s)"
+    ) in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_without_stored_instance_uses_defaults(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={"model-a-rep0": {"model_uid": "model-a-rep0", "address": "worker-1"}},
+    )
+
+    async def fake_actor_ref(address, uid):
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    replica_state = {
+        key: value
+        for key, value in _reconnect_replica_state("model-a-rep0").items()
+        if key != "model_name"
+    }
+
+    await supervisor.add_worker("worker-1", replica_states=[replica_state])
+
+    (instance_info,) = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert instance_info.model_name == "model-a"
+    assert instance_info.model_version is None
+    assert instance_info.model_ability == []
+    assert instance_info.replica == 1
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_after_eviction_clears_unexpected_down_marker(
+    monkeypatch,
+):
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={uid: {"model_uid": uid, "address": "worker-1"} for uid in replica_uids},
+    )
+
+    async def fake_actor_ref(address, uid):
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    states = [_reconnect_replica_state(uid) for uid in replica_uids]
+    await supervisor.add_worker("worker-1", replica_states=states)
+
+    # The health check declares the worker dead after a long network blip.
+    assert await supervisor._remove_dead_worker(
+        "worker-1", supervisor._worker_address_to_worker["worker-1"]
+    )
+    assert set(supervisor._unexpected_down_replicas) == {
+        ("model-a", 0),
+        ("model-a", 1),
+    }
+
+    # It comes back with only rep0 still running and re-registers.
+    await supervisor.add_worker("worker-1", replica_states=states[:1])
+
+    assert supervisor._replica_model_uid_to_worker["model-a-rep0"] is worker_ref
+    assert set(supervisor._unexpected_down_replicas) == {("model-a", 1)}
 
 
 def test_prepare_virtual_env_without_engine_vars():

@@ -779,3 +779,7 @@ msgstr ""
 "直接使用 HTTP 的用戶端必須向 ``POST /token`` 傳送 JSON 物件，其中 ``username`` 和 "
 "``password`` 欄位必須為字串。表單編碼、格式錯誤或非物件的請求主體以及非字串憑證會傳回 ``400 Bad "
 "Request``；憑證錯誤會傳回 ``401 Unauthorized``。"
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "管理員可在 **系統設定 > 可觀測性** 中選擇 **重新啟動並生效**，儲存目前表單並依序重新啟動 Supervisor 與 API，同時保留模型程序。只有兩個元件都載入已儲存的設定後，按鈕才會消失；替換失敗時，原元件會繼續提供服務。"

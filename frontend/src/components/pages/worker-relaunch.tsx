@@ -6,6 +6,7 @@ import { Server } from 'lucide-react';
 import { ComponentRestartDialog } from '@/components/pages/component-restart-dialog';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
+import { isOperationFinished } from '@/lib/operation-status';
 
 export interface WorkerRelaunchOperation {
   operation_id: string;
@@ -48,7 +49,7 @@ export function useWorkerRelaunches(enabled: boolean) {
         if (active) {
           setOperations(data);
           setError('');
-          pending = data.some((job) => !['succeeded', 'failed'].includes(job.status));
+          pending = data.some((job) => !isOperationFinished(job.status));
         }
       } catch (err) {
         if (active) setError(relaunchError(err));
@@ -65,7 +66,7 @@ export function useWorkerRelaunches(enabled: boolean) {
   }, [enabled, revision]);
   const busyAddresses = new Set(
     operations
-      .filter((job) => !['succeeded', 'failed'].includes(job.status))
+      .filter((job) => !isOperationFinished(job.status))
       .flatMap((job) => [job.source_worker, job.target_worker])
   );
   return {

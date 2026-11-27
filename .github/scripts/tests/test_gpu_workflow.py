@@ -161,6 +161,7 @@ class TestGPUWorkflow(unittest.TestCase):
                     )
                     for package, needed in (
                         ("tensorizer", "llm" in groups),
+                        ("einops", bool({"llm", "embedding"} & set(groups))),
                         ("FlagEmbedding==1.3.5", "embedding" in groups),
                         ("diffusers==0.35.1", bool({"audio", "image"} & set(groups))),
                         ("funasr==1.2.7", "audio" in groups),
@@ -173,6 +174,15 @@ class TestGPUWorkflow(unittest.TestCase):
                         any(tool == "sudo" for tool, _, _ in calls), "audio" in groups
                     )
                     self.assertEqual(len(installs), 2 if "embedding" in groups else 1)
+                    if "embedding" in groups:
+                        self.assertTrue(
+                            any(
+                                tool == "python"
+                                and args[0] == "-c"
+                                and "import einops" in args[1]
+                                for tool, args, _ in calls
+                            )
+                        )
                     self.assertTrue(
                         all(
                             constraint

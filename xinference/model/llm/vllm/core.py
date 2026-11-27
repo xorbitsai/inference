@@ -101,7 +101,9 @@ from ..utils import (
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
+    continuous_usage_requested,
     generate_completion_chunk,
+    with_continuous_usage,
 )
 from ..weight_cache import WeightCachedModel
 from .utils import vllm_check
@@ -228,7 +230,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
-MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
+MINICPMV47_MIN_VLLM_VERSION = version.parse("0.32.0")
 
 
 def _is_gpt_oss_model(model_family: Optional["LLMFamilyV2"]) -> bool:
@@ -1589,6 +1591,15 @@ class VLLMModel(WeightCachedModel, LLM):
                             self._engine = XinferenceAsyncLLMEngine.from_engine_args(
                                 engine_args
                             )
+                        elif VLLM_VERSION >= version.parse("0.34.0"):
+                            from .distributed_executor_v1 import (
+                                XinferenceDistributedExecutorV1,
+                            )
+
+                            XinferenceDistributedExecutorV1.configure_engine_args(
+                                engine_args, worker_addresses, self._n_worker
+                            )
+                            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
                         else:
                             from vllm.v1.executor.abstract import Executor
 
@@ -3387,6 +3398,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -3430,11 +3442,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 full_prompt, generate_config, tools, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if parse_harmony:
                 from ..harmony import async_stream_harmony_chat_completion_chunks
 
                 raw_stream = self._async_to_chat_completion_chunks(
-                    agen, None, chat_template_kwargs
+                    agen, None, stream_ctx
                 )
                 return async_stream_harmony_chat_completion_chunks(
                     raw_stream,
@@ -3443,11 +3456,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 )
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs, tools
+                    agen, stream_ctx, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, parser, chat_template_kwargs
+                    agen, parser, stream_ctx
                 )
             if parallel_tool_calls is False:
                 return cast(
@@ -3533,8 +3546,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if effective_version < MINICPMV47_MIN_VLLM_VERSION:
                 return (
                     False,
-                    "MiniCPM-V-4.7 requires vLLM nightly "
-                    "0.31.1rc1.dev281+gc85616efc or newer (PR #58674)",
+                    f"MiniCPM-V-4.7 requires vLLM >= {MINICPMV47_MIN_VLLM_VERSION}; "
+                    f"found {effective_version}",
                 )
             _append_unique(
                 supported_architectures, "MiniCPMV4_7ForConditionalGeneration"
@@ -4001,6 +4014,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
+        continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
@@ -4034,13 +4048,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 request_id=request_id,
             )
             assert isinstance(agen, AsyncGenerator)
+            stream_ctx = with_continuous_usage(chat_template_kwargs, continuous_usage)
             if tools:
                 result_stream = self._async_to_tool_completion_chunks(
-                    agen, chat_template_kwargs, tools
+                    agen, stream_ctx, tools
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, parser, chat_template_kwargs
+                    agen, parser, stream_ctx
                 )
             if parallel_tool_calls is False:
                 return cast(

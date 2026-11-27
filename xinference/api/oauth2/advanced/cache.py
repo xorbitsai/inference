@@ -14,7 +14,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from .auth_store import AuthStore
@@ -26,6 +26,16 @@ logger = logging.getLogger(__name__)
 class ModelPermission:
     permission_type: str
     permission_value: Optional[str] = None
+
+
+def parse_expires_at(value: str) -> datetime:
+    """Parse an API key expiry into the naive UTC time ``utcnow()`` compares with."""
+    if isinstance(value, str) and value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    expires_at = datetime.fromisoformat(value)
+    if expires_at.tzinfo is not None:
+        expires_at = expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+    return expires_at
 
 
 @dataclass
@@ -91,7 +101,7 @@ class ApiKeyCache:
         expires_at = None
         if k.get("expires_at"):
             try:
-                expires_at = datetime.fromisoformat(k["expires_at"])
+                expires_at = parse_expires_at(k["expires_at"])
             except (ValueError, TypeError):
                 pass
         model_perms = [

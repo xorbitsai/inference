@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 """
 Tests for ``EmbeddingModel._truncate_sentences`` (B1).
@@ -191,6 +192,10 @@ def test_truncate_nested_token_array_sliced():
     model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
     result = model._truncate_sentences([[1, 2, 3, 4], [5, 6, 7, 8, 9]], 2)
     assert result == [[1, 2], [5, 6]]
+    # A token array next to a text (batched requests) must not slice the text
+    # by characters
+    mixed = model._truncate_sentences([[1, 2, 3, 4], LONG_TEXT], 2)
+    assert mixed == [[1, 2], model._truncate_sentences(LONG_TEXT, 2)]
 
 
 def test_truncate_token_array_not_stringified():

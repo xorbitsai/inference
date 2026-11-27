@@ -19,8 +19,19 @@ import logging
 import os
 import time
 from abc import abstractmethod
-from collections import defaultdict
-from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union, cast
+from collections import defaultdict, deque
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from xoscar import extensible
 
@@ -35,11 +46,29 @@ from ..._compat import (
 from ...device_utils import empty_cache
 from ...types import Embedding, EmbeddingUsage
 from ...utils import make_hashable
+from ..batch import BatchRequestError
 from ..core import VirtualEnvSettings
+from ..llm.context_length import ContextLengthExceeded
 from ..utils import ModelInstanceInfoMixin
 from .embed_family import match_embedding
 
 logger = logging.getLogger(__name__)
+
+
+# How many distinct undecodable token ids an error message lists.
+_MAX_SHOWN_INVALID_IDS = 10
+
+
+def _is_token_array(item) -> bool:
+    return isinstance(item, list) and len(item) > 0 and isinstance(item[0], int)
+
+
+def _decode_token_array(enc, line) -> str:
+    # Decode each token into bytes, join them, then read them as UTF-8.
+    return b"".join(enc.decode_single_token_bytes(token) for token in line).decode(
+        "utf-8"
+    )
+
 
 # Used for check whether the model is cached.
 # Init when registering all the builtin models.
@@ -242,33 +271,116 @@ class EmbeddingModel(abc.ABC):
         Load embedding model
         """
 
+    # Engines that decode token arrays with tiktoken (see
+    # ``_fix_langchain_openai_inputs``) set this so that ``validate_input`` can
+    # reject undecodable ids for one request before it joins a shared batch.
+    _decodes_token_arrays = False
+    # Engines whose tokenizer only accepts text (flag) set this so token arrays
+    # are rejected for that request instead of failing the shared batch.
+    _rejects_token_arrays = False
+
+    def validate_input(self, sentences, truncate_prompt_tokens=None) -> None:
+        """Reject token arrays the engine could not handle, for ONE request.
+
+        The engines run over a batch shared with other requests, where one bad
+        input would fail every caller. Raises ``InvalidModelRequestError`` (an
+        HTTP 400) instead. Decoding engines are checked on the ids that will
+        actually be decoded, i.e. after ``truncate_prompt_tokens`` is applied.
+        """
+        if not isinstance(sentences, list):
+            return
+        from ...core.exceptions import InvalidModelRequestError
+
+        if self._rejects_token_arrays:
+            if any(_is_token_array(line) for line in sentences):
+                raise InvalidModelRequestError(
+                    "Token arrays are not supported by this embedding engine; "
+                    "send the input as text."
+                )
+            return
+        if not self._decodes_token_arrays:
+            return
+        n_tokens = self._effective_token_limit(truncate_prompt_tokens)
+        arrays = [
+            line[:n_tokens] if n_tokens is not None else line
+            for line in sentences
+            if _is_token_array(line)
+        ]
+        arrays = [line for line in arrays if line]
+        if not arrays:
+            # tiktoken is optional: only token arrays need it.
+            return
+        import tiktoken
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        # Only the first ``_MAX_SHOWN_INVALID_IDS`` distinct ids are reported, so
+        # stop once one more distinct id shows up: the work stays linear and a
+        # request full of invalid ids cannot hold up the actor's event loop.
+        unknown: List[int] = []  # encounter order, for the message
+        seen: Set[Any] = set()
+        for line in arrays:
+            for token in line:
+                try:
+                    enc.decode_single_token_bytes(token)
+                except (KeyError, OverflowError, TypeError, ValueError):
+                    try:
+                        if token in seen:
+                            continue
+                        seen.add(token)
+                    except TypeError:  # unhashable id
+                        token = repr(token)
+                        if token in seen:
+                            continue
+                        seen.add(token)
+                    unknown.append(token)
+                    if len(unknown) > _MAX_SHOWN_INVALID_IDS:
+                        break
+            if len(unknown) > _MAX_SHOWN_INVALID_IDS:
+                break
+            if not unknown:
+                try:
+                    _decode_token_array(enc, line)
+                except UnicodeDecodeError:
+                    raise InvalidModelRequestError(
+                        "Token ids do not decode to valid UTF-8 text with the "
+                        "cl100k_base tokenizer."
+                    ) from None
+        if unknown:
+            shown = ", ".join(str(t) for t in unknown[:_MAX_SHOWN_INVALID_IDS])
+            raise InvalidModelRequestError(
+                f"Token ids not recognized by the cl100k_base tokenizer used to "
+                f"decode token arrays: {shown}"
+                f"{', ...' if len(unknown) > _MAX_SHOWN_INVALID_IDS else ''}."
+            )
+
     def _fix_langchain_openai_inputs(
         self,
         sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
-        # Check if sentences is a two-dimensional list of integers
-        if (
-            isinstance(sentences, list)
-            and len(sentences) > 0
-            and isinstance(sentences[0], list)
-            and len(sentences[0]) > 0
-            and isinstance(sentences[0][0], int)
+        # Check if any element is a list of integers (token ids); decode per
+        # element so token arrays can share a batch with texts. An empty list is
+        # a token array that ``truncate_prompt_tokens=0`` sliced to nothing: it
+        # decodes to the empty string, one embedding per token array.
+        if isinstance(sentences, list) and any(
+            _is_token_array(s) or s == [] for s in sentences
         ):
             # List[List[int]] stands for encoded inputs
-            import tiktoken
-
-            enc = tiktoken.get_encoding("cl100k_base")
-            lines_decoded = []
+            enc = None
+            lines_decoded: List[Any] = []
 
             for line in sentences:
+                if line == []:
+                    lines_decoded.append("")
+                    continue
+                if not _is_token_array(line):
+                    lines_decoded.append(line)
+                    continue
+                if enc is None:
+                    import tiktoken
+
+                    enc = tiktoken.get_encoding("cl100k_base")
                 try:
-                    # Decode each token into bytes, then join them into a complete string
-                    output = b"".join(
-                        enc.decode_single_token_bytes(token) for token in line
-                    )
-                    # Convert the byte sequence into a UTF-8 encoded string
-                    decoded_line = output.decode("utf-8")
-                    lines_decoded.append(decoded_line)
+                    lines_decoded.append(_decode_token_array(enc, line))
                 except (ValueError, TypeError, UnicodeDecodeError) as e:
                     raise ValidationError([ErrorWrapper(e, loc=ROOT_KEY)], self)
 
@@ -353,7 +465,9 @@ class EmbeddingModel(abc.ABC):
         results_with_index = []
 
         # 2. Process each group separately
-        for key, group in grouped.items():
+        pending_groups = deque(grouped.values())
+        while pending_groups:
+            group = pending_groups.popleft()
             sentences = group["sentences"]
             kwargs = group["kwargs"]
             offsets = group["offsets"]
@@ -367,7 +481,24 @@ class EmbeddingModel(abc.ABC):
             if truncate_prompt_tokens is not None:
                 sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
 
-            embedding_list = self._create_embedding(sentences, **kwargs)
+            try:
+                embedding_list = self._create_embedding(sentences, **kwargs)
+            except ContextLengthExceeded as exc:
+                if len(indices) == 1:
+                    results_with_index.append((indices[0], BatchRequestError(exc)))
+                else:
+                    # The engine rejected a merged group. Retry each caller's
+                    # inputs together to identify which request exceeded its limit.
+                    pending_groups.extend(
+                        {
+                            "sentences": sentences[offset : offset + count],
+                            "offsets": [(0, count)],
+                            "kwargs": kwargs,
+                            "indices": [index],
+                        }
+                        for (offset, count), index in zip(offsets, indices)
+                    )
+                continue
             usage = embedding_list.get("usage", {})
             token_counts = (
                 embedding_list.token_counts
@@ -491,29 +622,30 @@ class EmbeddingModel(abc.ABC):
         must not stringify structured inputs (that would corrupt them -- e.g.
         ``[[1, 2, 3]]`` embedded as the literal text ``"[[1,"``).
         """
-        if truncate_prompt_tokens is None:
+        n_tokens = self._effective_token_limit(truncate_prompt_tokens)
+        if n_tokens is None:
             return sentences
 
-        # Resolve the effective token limit, matching vLLM LLM ``_tokenize``:
-        #   None  -> no truncation (handled above)
-        #   >0    -> cap at N tokens
-        #   ==0   -> explicit max_length=0 (empty input)
-        #   <0    -> cap at the model's own max_tokens
-        n_tokens: Optional[int]
-        if truncate_prompt_tokens > 0:
-            n_tokens = truncate_prompt_tokens
-        elif truncate_prompt_tokens == 0:
-            n_tokens = 0
-        else:  # <0: cap at the model's own max_tokens
-            n_tokens = getattr(self.model_family, "max_tokens", None)
-            if not n_tokens:  # None / 0 -> unknown, give up truncation safely
-                logger.debug(
-                    "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
-                    self._model_uid,
-                )
-                return sentences
-
         return self._truncate_value(sentences, n_tokens)
+
+    def _effective_token_limit(
+        self, truncate_prompt_tokens: Optional[int]
+    ) -> Optional[int]:
+        """Resolve ``truncate_prompt_tokens`` to a token count, matching vLLM LLM
+        ``_tokenize``: ``None`` -> no truncation, ``>0`` -> cap at N tokens,
+        ``==0`` -> empty input, ``<0`` -> cap at the model's own max_tokens."""
+        if truncate_prompt_tokens is None:
+            return None
+        if truncate_prompt_tokens >= 0:
+            return truncate_prompt_tokens
+        n_tokens = getattr(self.model_family, "max_tokens", None)
+        if not n_tokens:  # None / 0 -> unknown, give up truncation safely
+            logger.debug(
+                "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
+                self._model_uid,
+            )
+            return None
+        return n_tokens
 
     def _truncate_value(self, value: Any, n_tokens: int) -> Any:
         """Recursively truncate ``value`` to ``n_tokens`` while preserving its
@@ -521,9 +653,6 @@ class EmbeddingModel(abc.ABC):
         # Token arrays: a single doc as a flat list of token ids.
         if isinstance(value, list) and len(value) > 0 and isinstance(value[0], int):
             return value[:n_tokens]
-        # Multiple docs, each a list of token ids.
-        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
-            return [inner[:n_tokens] for inner in value]
         # Multimodal / structured: truncate ONLY the ``text`` field. The
         # other Jina multimodal fields (``image`` / ``video`` / ``audio``)
         # carry URLs, file paths or base64 payloads; truncating them corrupts

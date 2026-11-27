@@ -133,6 +133,12 @@ class HostedServer(Server):
         self.begin_drain()
 
     async def notify(self, state, **fields):
+        if state == "ready":
+            from ..core.observability_settings_store import observability_runtime_state
+
+            fields["observability"] = observability_runtime_state(
+                self.api._observability_settings_store.get_runtime()
+            )
         self.writer.write(json.dumps({"state": state, **fields}).encode() + b"\n")
         await self.writer.drain()
 
@@ -145,6 +151,9 @@ class HostedServer(Server):
         try:
             await super().shutdown(sockets=sockets)
         finally:
+            from ..core.otel import shutdown_otel
+
+            await asyncio.to_thread(shutdown_otel)
             if self.control_task is not None:
                 self.control_task.cancel()
                 await asyncio.gather(self.control_task, return_exceptions=True)
@@ -178,6 +187,20 @@ def main():
 
     baseline = asyncio.run(host_request("settings", operation="baseline"))
     apply_system_settings(SystemSettings.from_dict(baseline))
+    from ..core.observability_settings_store import (
+        ObservabilitySettings,
+        apply_observability_settings,
+    )
+
+    try:
+        baseline = asyncio.run(
+            host_request("observability-settings", operation="baseline")
+        )
+    except ValueError as error:
+        if str(error) != "Unknown API host command":
+            raise
+    else:
+        apply_observability_settings(ObservabilitySettings.from_dict(baseline))
     api = RESTfulAPI(
         configuration["supervisor_address"],
         configuration["host"],

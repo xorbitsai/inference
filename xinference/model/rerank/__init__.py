@@ -178,6 +178,7 @@ def _install():
 
     from .llama_cpp.core import XllamaCppRerankModel
     from .sentence_transformers.core import SentenceTransformerRerankModel
+    from .transformers.core import NemotronTransformersRerankModel
     from .vllm.core import VLLMRerankModel
 
     extend_classes_once(SENTENCE_TRANSFORMER_CLASSES, [SentenceTransformerRerankModel])
@@ -186,6 +187,7 @@ def _install():
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
+    SUPPORTED_ENGINES["transformers"] = [NemotronTransformersRerankModel]
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
 
     # Distribution-specific engines are appended after the built-ins.

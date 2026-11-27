@@ -46,6 +46,8 @@ export interface CapabilityConfig {
   icon: LucideIcon;
   requestApi: string;
   initialValues?: FormValues;
+  /** Return stable overrides so the form resets only when its model defaults change. */
+  getInitialValueOverrides?: (model: RunningModelDetail) => FormValues | undefined;
   showProgress?: boolean;
   stream?: boolean;
   submitLabel?: string;
@@ -56,7 +58,7 @@ export interface CapabilityConfig {
     context: TransformContext
   ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
   responseType?: 'blob' | 'audio-stream';
-  codeExample?: CodeExampleConfig;
+  codeExample?: CodeExampleConfig | ((modelName?: string) => CodeExampleConfig);
 }
 
 export interface ChatSettings {

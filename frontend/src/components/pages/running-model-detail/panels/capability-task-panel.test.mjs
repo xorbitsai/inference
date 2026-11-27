@@ -5,6 +5,7 @@ import test from 'node:test';
 import { runInThisContext } from 'node:vm';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { JSDOM } from 'jsdom';
 import ts from 'typescript';
 
@@ -61,6 +62,94 @@ test('image and video requests apply the selected Lightning mode and its step de
   }
 });
 
+test('Try API generates valid Python payloads for both LTX-2.5 variants', (t) => {
+  const Module = require('node:module');
+  const drawerPath = require.resolve('../components/try-api-drawer.tsx');
+  const originalRequire = Module.prototype.require;
+  const previousCssLoader = require.extensions['.css'];
+  const passThrough = ({ children }) => children;
+  const empty = () => null;
+  let code;
+  const mocks = {
+    'next/navigation': { useRouter: () => ({}) },
+    '@/hooks/use-menu-auth': { useMenuAuth: () => ({ canAccessKeysPage: true }) },
+    '@/contexts/i18n-context': { useI18n: () => ({ t: (key) => key }) },
+    '@/components/ui/sheet': {
+      Sheet: passThrough,
+      SheetClose: passThrough,
+      SheetContent: passThrough,
+      SheetDescription: passThrough,
+      SheetHeader: passThrough,
+      SheetTitle: passThrough,
+    },
+    '@/components/ui/tabs': {
+      Tabs: passThrough,
+      TabsContent: passThrough,
+      TabsList: empty,
+      TabsTrigger: empty,
+    },
+    '@/components/ui/json-syntax-highlighter': {
+      JSONSyntaxHighlighter: (props) => {
+        code = props.code;
+        return null;
+      },
+    },
+  };
+  Module.prototype.require = function (id) {
+    return this.filename === drawerPath && Object.hasOwn(mocks, id)
+      ? mocks[id]
+      : originalRequire.call(this, id);
+  };
+  require.extensions['.css'] = empty;
+  t.after(() => {
+    Module.prototype.require = originalRequire;
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+    delete require.cache[drawerPath];
+  });
+
+  const { TryApiDrawer } = require(drawerPath);
+  const distilled = { width: 960, height: 544, num_frames: 121, fps: 24, seed: 11 };
+  const otherVideo = {
+    width: 512,
+    height: 512,
+    num_frames: 16,
+    fps: 8,
+    num_inference_steps: 25,
+    guidance_scale: 7.5,
+    seed: 11,
+  };
+  for (const [ability, endpoint, files] of [
+    ['text2video', '/v1/video/generations', []],
+    ['image2video', '/v1/video/generations/image', ['image']],
+    ['firstlastframe2video', '/v1/video/generations/flf', ['first_frame', 'last_frame']],
+  ]) {
+    for (const [modelName, expected] of [
+      ['LTX-2.5', distilled],
+      ['LTX-2.5-Dev', { ...distilled, num_inference_steps: 30, guidance_scale: 3 }],
+      ['Wan2.2-A14B', otherVideo],
+    ]) {
+      code = undefined;
+      renderToStaticMarkup(
+        React.createElement(TryApiDrawer, {
+          open: true,
+          ability,
+          modelName,
+          modelUid: 'custom-video-uid',
+          onOpenChange: empty,
+        })
+      );
+      assert.ok(code.includes(`${endpoint}"`));
+      assert.ok(code.includes('"model": "custom-video-uid"'));
+      assert.ok(code.includes(files.length ? 'data=data, files=files' : 'json=data'));
+      for (const file of files) assert.ok(code.includes(`"${file}": open(`));
+      const kwargs = code.match(/^\s*"kwargs": json\.dumps\((.*)\),/m);
+      assert.ok(kwargs, `${ability}: ${modelName} should include generation kwargs`);
+      assert.deepEqual(JSON.parse(kwargs[1]), expected, `${ability}: ${modelName}`);
+    }
+  }
+});
+
 function mountTestDom(t) {
   const dom = new JSDOM('<div id="root"></div>');
   const previous = {};
@@ -84,6 +173,313 @@ function mountTestDom(t) {
   });
   return { dom, root };
 }
+
+test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling controls', async (t) => {
+  const { dom, root } = mountTestDom(t);
+  const previousCssLoader = require.extensions['.css'];
+  require.extensions['.css'] = () => {};
+  t.after(() => {
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+  });
+  const { I18nProvider } = require('@/contexts/i18n-context');
+  const request = require('@/lib/request').default;
+  const { CAPABILITY_CONFIGS } = require('../capability-config.tsx');
+  const CapabilityTaskPanel = require('./capability-task-panel.tsx').default;
+  const post = t.mock.method(request, 'post', async () => ({ data: [] }));
+  const file = new File(['image'], 'frame.png', { type: 'image/png' });
+  const ltxDefaults = { width: 960, height: 544, num_frames: 121, fps: 24, seed: -1 };
+
+  for (const [ability, uploadFields] of [
+    ['text2video', []],
+    ['image2video', ['image']],
+    ['firstlastframe2video', ['first_frame', 'last_frame']],
+  ]) {
+    const { formPanel: VideoPanel, ...capability } = CAPABILITY_CONFIGS[ability];
+    let form;
+    const config = {
+      ...capability,
+      formPanel: (props) => {
+        form = props.form;
+        return React.createElement(VideoPanel, props);
+      },
+    };
+
+    for (const [model_name, expectedKwargs] of [
+      [
+        'Wan2.2',
+        {
+          width: 512,
+          height: 512,
+          num_frames: 16,
+          fps: 8,
+          num_inference_steps: 25,
+          guidance_scale: 7.5,
+          seed: -1,
+        },
+      ],
+      ['LTX-2.5-Dev', { ...ltxDefaults, num_inference_steps: 30, guidance_scale: 3 }],
+      ['LTX-2.5', ltxDefaults],
+    ]) {
+      await act(async () => {
+        root.render(
+          React.createElement(
+            I18nProvider,
+            null,
+            React.createElement(CapabilityTaskPanel, {
+              key: ability,
+              config,
+              model: { model_name, model_type: 'video' },
+              modelUid: 'video-uid',
+            })
+          )
+        );
+      });
+      await act(async () => {
+        form.setFieldValue('prompt', 'A cat in a garden');
+        for (const field of uploadFields) {
+          form.setFieldValue(field, [{ file }]);
+        }
+      });
+      const submitAndAssert = async () => {
+        await act(async () => {
+          document
+            .querySelector('form')
+            .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        });
+        assert.equal(post.mock.callCount(), 1, `${ability}: ${model_name}`);
+        const [endpoint, body] = post.mock.calls[0].arguments;
+        post.mock.resetCalls();
+        assert.equal(endpoint, capability.requestApi);
+        assert.equal(body instanceof FormData, uploadFields.length > 0);
+        for (const field of uploadFields) assert.equal(await body.get(field).text(), 'image');
+        const { request_id, ...kwargs } = JSON.parse(
+          body instanceof FormData ? body.get('kwargs') : body.kwargs
+        );
+        assert.match(request_id, /^request-/);
+        assert.deepEqual(kwargs, expectedKwargs, `${ability}: ${model_name}`);
+      };
+      await submitAndAssert();
+
+      if (model_name === 'LTX-2.5') {
+        assert.equal(form.hasFieldValue('num_inference_steps'), false);
+        assert.equal(form.hasFieldValue('guidance_scale'), false);
+        await act(async () =>
+          form.setFieldsValue({ num_inference_steps: 25, guidance_scale: 7.5 })
+        );
+        await submitAndAssert();
+      }
+    }
+  }
+});
+
+function enablePcmPlayback(
+  window,
+  AudioContext = class {
+    createMediaStreamDestination() {}
+  }
+) {
+  window.AudioContext = AudioContext;
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'srcObject', { configurable: true });
+}
+
+test('switching ZONOS3-Mini formats and engines clears unavailable streaming', async (t) => {
+  const { dom, root } = mountTestDom(t);
+  const { Form } = require('@/components/ui/form');
+  const { I18nProvider } = require('@/contexts/i18n-context');
+  const { createForm } = require('@/hooks/use-form');
+  const { SpeechPanel } = require('./form-panels.tsx');
+  enablePcmPlayback(dom.window);
+
+  const model = { model_name: 'ZONOS3-Mini', model_ability: ['text2audio'], model_lang: ['en'] };
+  const form = createForm();
+  const initialValues = { response_format: 'mp3', stream: false };
+  const render = (model_engine) =>
+    act(async () => {
+      root.render(
+        React.createElement(
+          I18nProvider,
+          null,
+          React.createElement(
+            Form,
+            { form, initialValues },
+            React.createElement(SpeechPanel, { form, model: { ...model, model_engine } })
+          )
+        )
+      );
+    });
+  const set = (name, value) => act(async () => form.setFieldValue(name, value));
+  const streaming = () => document.querySelector('[role="switch"]');
+
+  await render('GGML');
+  assert.equal(streaming(), null);
+  await set('response_format', 'pcm');
+  assert.ok(streaming());
+  await set('stream', true);
+  assert.equal(streaming().getAttribute('aria-checked'), 'true');
+  await set('response_format', 'wav');
+  assert.equal(streaming(), null);
+  assert.notEqual(form.getFieldValue('stream'), true);
+
+  await set('response_format', 'pcm');
+  assert.equal(streaming().getAttribute('aria-checked'), 'false');
+  await set('stream', true);
+  await render('transformers');
+  assert.equal(streaming(), null);
+  assert.notEqual(form.getFieldValue('stream'), true);
+  assert.equal(form.getFieldValue('response_format'), 'mp3');
+});
+
+test('ZONOS3-Mini JSON and upload requests omit engine-incompatible values', (t) => {
+  const { dom } = mountTestDom(t);
+  const previousCssLoader = require.extensions['.css'];
+  require.extensions['.css'] = () => {};
+  t.after(() => {
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+  });
+  const { CAPABILITY_CONFIGS } = require('../capability-config.tsx');
+  enablePcmPlayback(dom.window);
+  const { transformValues } = CAPABILITY_CONFIGS.text2audio;
+  const values = {
+    input: 'test',
+    response_format: 'pcm',
+    stream: true,
+    language: 'zh',
+    prompt_text: 'stale transcript',
+    speed: 2,
+    seed: 17,
+  };
+  for (const engine of ['transformers', 'SGLang-Omni', 'MLX', 'GGML']) {
+    const model = {
+      model_name: 'ZONOS3-Mini',
+      model_ability: ['text2audio', 'text2audio_voice_cloning'],
+      model_engine: engine,
+    };
+    const { response_format, stream, speed, kwargs } = transformValues({
+      modelUid: 'tts',
+      model,
+      values,
+    });
+    assert.equal(response_format, engine === 'transformers' ? 'mp3' : 'pcm');
+    assert.equal(stream, engine !== 'transformers');
+    assert.equal(speed, 1);
+    const expectedKwargs = engine === 'SGLang-Omni' ? { seed: 17 } : { seed: 17, language: 'zh' };
+    assert.deepEqual(JSON.parse(kwargs), expectedKwargs);
+
+    const upload = transformValues({
+      modelUid: 'tts',
+      model,
+      values: { ...values, prompt_speech: [{ file: new File(['sample'], 'reference.wav') }] },
+    });
+    assert.equal(upload.get('response_format'), response_format);
+    assert.equal(upload.get('stream'), String(stream));
+    assert.equal(upload.get('speed'), '1');
+    assert.equal(upload.get('prompt_speech').name, 'reference.wav');
+    assert.deepEqual(JSON.parse(upload.get('kwargs')), expectedKwargs);
+
+    const wav = transformValues({
+      modelUid: 'tts',
+      model,
+      values: { ...values, response_format: 'wav' },
+    });
+    assert.equal(wav.stream, false);
+  }
+
+  delete dom.window.AudioContext;
+  const fallback = transformValues({
+    modelUid: 'tts',
+    model: { model_name: 'ZONOS3-Mini', model_ability: ['text2audio'], model_engine: 'MLX' },
+    values,
+  });
+  assert.equal(fallback.stream, false);
+  assert.equal(fallback.response_format, 'mp3');
+});
+
+test('ZONOS3-Mini PCM chunks play live and produce a 44.1 kHz mono 16-bit WAV', async (t) => {
+  const { dom } = mountTestDom(t);
+  const { AudioStreamSession } = require('../audio-stream.ts');
+  const sources = [];
+  const buffers = [];
+  const mediaStream = { getTracks: () => [{ stop: () => {} }] };
+  let closed = false;
+  let started = false;
+  enablePcmPlayback(
+    dom.window,
+    class {
+      currentTime = 0;
+      async resume() {
+        started = true;
+      }
+      async close() {
+        closed = true;
+      }
+      createMediaStreamDestination() {
+        return { stream: mediaStream };
+      }
+      createBuffer(channels, sampleCount, rate) {
+        const samples = new Float32Array(sampleCount);
+        buffers.push({ channels, samples, rate });
+        return { duration: sampleCount / rate, getChannelData: () => samples };
+      }
+      createBufferSource() {
+        const source = {
+          connect() {},
+          disconnect() {},
+          start(time) {
+            this.time = time;
+          },
+        };
+        sources.push(source);
+        return source;
+      }
+    }
+  );
+
+  const session = new AudioStreamSession('pcm', 44100);
+  assert.equal(session.result().playbackStream, mediaStream);
+  assert.equal(started, true);
+  const samples = Uint8Array.of(0, 128, 0, 64, 255, 127);
+  let controller;
+  const input = new ReadableStream({
+    start: (streamController) => {
+      controller = streamController;
+    },
+  });
+  const wavPromise = session.consume(input);
+  controller.enqueue(samples.slice(0, 3));
+  await Promise.resolve();
+  assert.deepEqual(Array.from(buffers[0].samples), [-1]);
+  controller.enqueue(samples.slice(3));
+  controller.close();
+
+  const wav = await wavPromise;
+  assert.equal(wav.type, 'audio/wav');
+  assert.deepEqual(
+    buffers.map((buffer) => [buffer.channels, buffer.rate]),
+    [
+      [1, 44100],
+      [1, 44100],
+    ]
+  );
+  assert.deepEqual(Array.from(buffers[1].samples), [0.5, 32767 / 32768]);
+  assert.equal(sources[1].time, sources[0].time + 1 / 44100);
+  assert.equal(session.result().playbackStream, mediaStream);
+  sources[0].onended();
+  assert.equal(closed, false);
+  sources[1].onended();
+  assert.equal(closed, true);
+  assert.equal(session.result().playbackStream, undefined);
+
+  const file = Buffer.from(await wav.arrayBuffer());
+  assert.equal(file.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(file.toString('ascii', 8, 12), 'WAVE');
+  assert.equal(file.readUInt16LE(22), 1);
+  assert.equal(file.readUInt32LE(24), 44100);
+  assert.equal(file.readUInt16LE(34), 16);
+  assert.equal(file.readUInt32LE(40), samples.length);
+  assert.deepEqual(file.subarray(44), Buffer.from(samples));
+});
 
 test('a custom Lightning checkpoint requires steps while Lightning is enabled', async (t) => {
   const { dom, root } = mountTestDom(t);

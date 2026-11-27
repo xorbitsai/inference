@@ -5,7 +5,7 @@ import copy
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..._compat import BaseModel, Field, validator
+from ..._compat import BaseModel, Field, StrictInt, validator
 
 # Families whose chat template reads thinking_budget itself. For Seed-OSS, 0
 # closes reasoning in the prompt; it is never an engine token budget.
@@ -13,9 +13,18 @@ TEMPLATE_THINKING_BUDGET_FAMILIES = frozenset({"seed-oss"})
 
 
 class ReasoningEffortConfig(BaseModel):
+    """Declared effort names, optional integer range and explicit aliases.
+
+    An alias maps a declared name to an integer in ``integer_range`` or to
+    another declared name the template renders natively (for example an
+    OpenAI-standard ``medium`` on a model without that level). Aliases are part
+    of the published capability, so a client can see what a name resolves to;
+    undeclared names are still rejected.
+    """
+
     values: List[str]
     integer_range: Optional[Tuple[int, int]] = None
-    aliases: Dict[str, int] = Field(default_factory=dict)
+    aliases: Dict[str, Union[StrictInt, str]] = Field(default_factory=dict)
 
     @validator("values")
     def validate_values(cls, value):
@@ -35,16 +44,20 @@ class ReasoningEffortConfig(BaseModel):
 
     @validator("aliases")
     def validate_aliases(cls, value, values):
+        names = values.get("values", [])
         bounds = values.get("integer_range")
-        if value and (
-            bounds is None
-            or any(
-                name not in values.get("values", [])
-                or not bounds[0] <= number <= bounds[1]
-                for name, number in value.items()
-            )
-        ):
-            raise ValueError("aliases must map declared names into integer_range")
+        for name, target in value.items():
+            if name not in names:
+                raise ValueError("aliases must map declared names")
+            if isinstance(target, str):
+                # One hop to a name the template renders itself: no chains,
+                # no self-reference, no undeclared target.
+                if target == name or target not in names or target in value:
+                    raise ValueError(
+                        "a name alias must point to another declared, unaliased name"
+                    )
+            elif bounds is None or not bounds[0] <= target <= bounds[1]:
+                raise ValueError("aliases must map declared names into integer_range")
         return value
 
     def normalize(self, value: Any, parameter: str) -> Union[str, int]:

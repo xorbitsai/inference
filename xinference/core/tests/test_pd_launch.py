@@ -1638,6 +1638,105 @@ async def test_lmcache_rejects_sharded_launch_before_worker_launch(launch_runtim
 
 
 @pytest.mark.asyncio
+async def test_sharded_launch_explicit_defaults_match_omitted(launch_runtime):
+    supervisor, _, actors, _ = launch_runtime
+    supervisor.is_local_deployment = lambda: False
+    supervisor._launch_builtin_sharded_model = AsyncMock(return_value="pd")
+    kwargs = launch_kwargs()
+    kwargs.pop("replica_config")
+    kwargs.update(n_worker=2, max_model_len=4096)
+    await supervisor.launch_builtin_model(**kwargs)
+    omitted = supervisor._launch_builtin_sharded_model.await_args
+
+    await supervisor.launch_builtin_model(
+        **kwargs,
+        enable_xavier=False,
+        xavier_cache_backend="native",
+        xavier_cache_backend_config={},
+        xavier_cache_bytes=None,
+        xavier_gpu_cache_bytes=None,
+        transfer_backend_type="xavier",
+        vllm_transfer_backend_type=" XAVIER ",
+    )
+    assert supervisor._launch_builtin_sharded_model.await_count == 2
+    assert supervisor._launch_builtin_sharded_model.await_args == omitted
+    assert omitted.kwargs["max_model_len"] == 4096
+    assert not actors
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang", "MLX"])
+async def test_sharded_launch_rejects_xavier_before_worker_rpcs(launch_runtime, engine):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor.is_local_deployment = lambda: False
+    for worker in workers:
+        worker.get_model_registration = AsyncMock(return_value=None)
+        worker.get_model_count = AsyncMock(return_value=0)
+        worker.launch_builtin_model.return_value = (worker.address, None)
+    kwargs = launch_kwargs()
+    kwargs.pop("replica_config")
+    kwargs.update(
+        model_engine=engine,
+        model_format="mlx" if engine == "MLX" else "pytorch",
+        n_worker=2,
+        enable_xavier=True,
+    )
+    with pytest.raises(ValueError, match="Xavier requires one worker per replica"):
+        await supervisor.launch_builtin_model(**kwargs)
+
+    supervisor._resolve_download_hub_from_workers.assert_not_awaited()
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        assert not worker.mock_calls
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engine,options,message",
+    [
+        ("TRT-LLM", {}, "TRT-LLM currently requires one worker per replica"),
+        (
+            "vLLM",
+            {"xavier_cache_backend_config": {"disk_path": "/cache"}},
+            "The native Xavier backend takes no backend options",
+        ),
+        (
+            "vLLM",
+            {"transfer_backend_type": "nixl"},
+            "NIXL requires explicit prefill and decode replica roles",
+        ),
+        (
+            "vLLM",
+            {"xavier_cache_bytes": 8192},
+            "xavier_cache_bytes requires Xavier shared CPU caching",
+        ),
+        (
+            "vLLM",
+            {"xavier_gpu_cache_bytes": 0},
+            "xavier_gpu_cache_bytes requires Xavier",
+        ),
+    ],
+)
+async def test_sharded_launch_rejects_unsupported_options_before_dispatch(
+    launch_runtime, engine, options, message
+):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor.is_local_deployment = lambda: False
+    supervisor._launch_builtin_sharded_model = AsyncMock(return_value="pd")
+    kwargs = launch_kwargs()
+    kwargs.pop("replica_config")
+    kwargs.update(model_engine=engine, n_worker=2, **options)
+    with pytest.raises(ValueError, match=message):
+        await supervisor.launch_builtin_model(**kwargs)
+    supervisor._launch_builtin_sharded_model.assert_not_awaited()
+    supervisor._resolve_download_hub_from_workers.assert_not_awaited()
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "engines",
     [("vLLM", "SGLang"), ("SGLang", "MLX"), ("vLLM", "TRT-LLM"), ("TRT-LLM", "MLX")],

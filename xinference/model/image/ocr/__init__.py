@@ -40,6 +40,7 @@ from .vllm import (
     VLLMOvisOCR3Model,
     VLLMPaddleOCRVLModel,
     VLLMTeleOCRModel,
+    VLLMUnlimitedOCR2Model,
 )
 from .xiaomi_ocr import XiaomiOCRModel
 
@@ -92,6 +93,7 @@ def register_builtin_ocr_engines() -> None:
         VLLMOvisOCR2Model,
         VLLMOvisOCR3Model,
         VLLMTeleOCRModel,
+        VLLMUnlimitedOCR2Model,
     ]
     SUPPORTED_ENGINES["llama.cpp"] = [LlamaCppTeleOCRModel, LlamaCppMiniCPMOCRModel]
     SUPPORTED_ENGINES["sglang"] = [SGLangOvisOCR3Model, SGLangMiniCPMOCRModel]

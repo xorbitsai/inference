@@ -811,3 +811,7 @@ msgstr ""
 "オブジェクトを ``POST /token`` "
 "に送信する必要があります。フォームエンコード、不正な形式、オブジェクト以外の本文、文字列以外の認証情報には ``400 Bad Request``"
 " が返されます。認証情報が正しくない場合は ``401 Unauthorized`` が返されます。"
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "管理者は **システム設定 > オブザーバビリティ** の **再起動して適用** を選択してフォームを保存し、モデルプロセスを維持したまま Supervisor、API の順に再起動できます。両方のコンポーネントが保存済みの設定を読み込むとボタンが消えます。置き換えに失敗した場合、以前のコンポーネントが引き続きリクエストを処理します。"

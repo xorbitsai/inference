@@ -24,16 +24,20 @@ import typing
 import uuid
 import weakref
 from collections import OrderedDict, defaultdict
+from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
+    Awaitable,
     Callable,
     Coroutine,
     DefaultDict,
     Dict,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -51,7 +55,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
-    XINFERENCE_ENABLE_OTEL,
+    XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -284,6 +288,21 @@ def model_service_address(owner):
     return selected_address(owner)
 
 
+async def _await_handoff_status_update(update: Awaitable[Any]) -> None:
+    task = asyncio.ensure_future(update)
+    task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+    try:
+        done, _ = await asyncio.wait({task}, timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT)
+        if not done:
+            raise asyncio.TimeoutError
+        task.result()
+    finally:
+        if not task.done():
+            # Cancel on either the RPC deadline or cancellation of the scan.
+            # Do not wait for an unresponsive actor's cancellation reply.
+            task.cancel()
+
+
 class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActor):
     def __getattribute__(self, name):
         value = super().__getattribute__(name)
@@ -357,6 +376,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
         self._extension_worker_resources: Dict[str, Dict[str, Any]] = {}
+        self._pending_worker_names: Dict[str, str] = {}
         self._worker_metadata: Dict[str, Dict[str, Any]] = {}
         self._worker_metadata_generation: Dict[str, int] = {}
         self._worker_metadata_next_generation = 0
@@ -399,6 +419,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        # Scale-up replicas (base_model_uid, replica_index) still in
+        # launch/wait_for_load; inventory replay must not clear their markers.
+        self._replicas_loading: Set[Tuple[str, int]] = set()
         self._async_launch_tasks: Set[asyncio.Task] = set()
         self._initial_model_launches: Dict[str, InitialModelLaunch] = {}
         # Active download-only operations, used only for dispatch cancellation.
@@ -890,7 +913,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         return affected_replica_uids
 
     async def _mark_affected_replicas_terminated(
-        self, affected_replica_uids: List[str]
+        self, affected_replica_uids: List[str], *, strict: bool = False
     ) -> Set[str]:
         base_uids_affected: Set[str] = set()
         for replica_model_uid in affected_replica_uids:
@@ -901,17 +924,22 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             base_uids_affected.add(base_uid)
             if self._status_guard_ref is not None:
                 try:
-                    await self._status_guard_ref.update_replica_status(
+                    update = self._status_guard_ref.update_replica_status(
                         base_uid,
                         replica_id,
                         {"status": LaunchStatus.TERMINATED.name},
                     )
+                    if strict:
+                        await _await_handoff_status_update(update)
+                    else:
+                        await update
                 except Exception:
-                    pass
+                    if strict:
+                        raise
         return base_uids_affected
 
     async def _reconcile_affected_model_statuses(
-        self, base_uids_affected: Set[str]
+        self, base_uids_affected: Set[str], *, strict: bool = False
     ) -> None:
         if self._status_guard_ref is None:
             return
@@ -923,13 +951,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 else {"replica": 0, "status": LaunchStatus.TERMINATED.name}
             )
             try:
-                await self._status_guard_ref.update_instance_info(base_uid, updates)
+                update = self._status_guard_ref.update_instance_info(base_uid, updates)
+                if strict:
+                    await _await_handoff_status_update(update)
+                else:
+                    await update
             except Exception:
+                if strict:
+                    raise
                 logger.warning(
                     "Failed to reconcile %s in status guard", base_uid, exc_info=True
                 )
 
-    async def _handle_dead_worker(self, worker_address: str) -> List[str]:
+    async def _handle_dead_worker(
+        self, worker_address: str, *, reconcile_models: Optional[Iterable[str]] = None
+    ) -> List[str]:
         """Shared cleanup for a worker that has gone away — heartbeat-dead,
         reverse-channel-dead, or graceful remove_worker.
 
@@ -948,9 +984,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         affected_replica_uids = await self._record_unexpected_down_replicas(
             worker_address
         )
-        base_uids_affected = await self._mark_affected_replicas_terminated(
-            affected_replica_uids
-        )
+        if reconcile_models is None:
+            base_uids_affected = await self._mark_affected_replicas_terminated(
+                affected_replica_uids
+            )
+        else:
+            base_uids_affected = await self._mark_affected_replicas_terminated(
+                affected_replica_uids, strict=True
+            )
 
         for replica_uid in affected_replica_uids:
             base_uid, _ = parse_replica_model_uid(replica_uid)
@@ -963,7 +1004,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 and base_uid not in self._model_uid_to_replica_info
             ):
                 await self._cleanup_distributed_actors(base_uid)
-        await self._reconcile_affected_model_statuses(base_uids_affected)
+        if reconcile_models is None:
+            await self._reconcile_affected_model_statuses(base_uids_affected)
+        else:
+            await self._reconcile_affected_model_statuses(
+                base_uids_affected.union(reconcile_models), strict=True
+            )
         return affected_replica_uids
 
     def _clear_unexpected_down_replicas(self, model_uid: str) -> None:
@@ -1133,23 +1179,33 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if replica_info is not None
                 else len(set(replica_indexes))
             )
-            model_name = next(
+            # Identity fields are None when no replica reported a usable value.
+            # The worker fills gaps with defaults (None version, empty ability
+            # list), so those are treated as "not reported" rather than as facts.
+            model_name: Optional[str] = next(
                 (
                     state.get("model_name")
                     for state in states
                     if isinstance(state.get("model_name"), str)
+                    and state.get("model_name")
                 ),
-                model_uid,
-            )
-            model_version = next(
-                (state.get("model_version") for state in states),
                 None,
             )
-            model_ability: List[str] = []
+            model_version: Optional[str] = next(
+                (
+                    state.get("model_version")
+                    for state in states
+                    if state.get("model_version") is not None
+                ),
+                None,
+            )
+            model_ability: Optional[List[str]] = None
             for state in states:
                 candidate_ability = state.get("model_ability")
-                if isinstance(candidate_ability, list) and all(
-                    isinstance(item, str) for item in candidate_ability
+                if (
+                    isinstance(candidate_ability, list)
+                    and candidate_ability
+                    and all(isinstance(item, str) for item in candidate_ability)
                 ):
                     model_ability = candidate_ability
                     break
@@ -1174,28 +1230,45 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             if existing_infos:
                 existing_info = existing_infos[0]
-                await self._status_guard_ref.update_instance_info(
-                    model_uid,
-                    {
-                        "model_name": model_name,
-                        "model_version": model_version,
-                        "model_ability": model_ability,
-                        "replica": inferred_replica_count,
-                        "status": LaunchStatus.READY.name,
-                        "instance_created_ts": min(
-                            existing_info.instance_created_ts, instance_created_ts
-                        ),
-                        "n_worker": max(existing_info.n_worker or 1, n_worker),
-                    },
-                )
+                updates: Dict[str, Any] = {
+                    "replica": inferred_replica_count,
+                    "status": LaunchStatus.READY.name,
+                    "instance_created_ts": min(
+                        existing_info.instance_created_ts, instance_created_ts
+                    ),
+                    "n_worker": max(existing_info.n_worker or 1, n_worker),
+                }
+                # Re-registration replays what the worker knows, which is a
+                # subset of what the launch recorded. Merge instead of replace:
+                # an identity field the worker did not report keeps its stored
+                # value, so a transient reconnect cannot erase it.
+                preserved_fields = []
+                for field, reported in (
+                    ("model_name", model_name),
+                    ("model_version", model_version),
+                    ("model_ability", model_ability),
+                ):
+                    if reported is not None:
+                        updates[field] = reported
+                    elif getattr(existing_info, field, None) not in (None, []):
+                        preserved_fields.append(field)
+                if preserved_fields:
+                    logger.warning(
+                        "Worker %s re-registered model %s without reporting %s; "
+                        "keeping the stored value(s)",
+                        worker_address,
+                        model_uid,
+                        ", ".join(preserved_fields),
+                    )
+                await self._status_guard_ref.update_instance_info(model_uid, updates)
             else:
                 await self._status_guard_ref.set_instance_info(
                     model_uid,
                     InstanceInfo(
-                        model_name=model_name,
+                        model_name=model_name or model_uid,
                         model_uid=model_uid,
                         model_version=model_version,
-                        model_ability=model_ability,
+                        model_ability=model_ability or [],
                         replica=inferred_replica_count,
                         status=LaunchStatus.READY.name,
                         instance_created_ts=instance_created_ts,
@@ -1229,11 +1302,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     async def __post_create__(self):
         from ..extensions import get_extensions
+        from .observability_settings_store import ObservabilitySettingsStore
+
+        self._observability_runtime = (
+            ObservabilitySettingsStore._settings_from_environment(dict(os.environ))
+        )
 
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._uptime = time.time()
-        if XINFERENCE_ENABLE_OTEL:
+        from .. import constants as xinference_constants
+
+        if xinference_constants.XINFERENCE_ENABLE_OTEL:
             try:
                 from .otel import setup_otel
 
@@ -1408,6 +1488,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     def supervisor_upgrade_info(self):
         from .. import __version__
+        from .observability_settings_store import observability_runtime_state
         from .supervisor_upgrade import PROTOCOL_VERSION
 
         return {
@@ -1415,6 +1496,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             "pid": os.getpid(),
             "version": __version__,
             "ready": self._supervisor_prepared,
+            "observability": observability_runtime_state(self._observability_runtime),
         }
 
     async def pause_supervisor(self):
@@ -1545,17 +1627,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             entries = [entry for entry in entries if entry.get("enabled", True)]
             if not entries:
                 return None
-            if not self._worker_address_to_worker:
-                for entry in entries:
-                    model_uid = entry["launch"]["model_uid"]
-                    self._autostart_model_states[model_uid] = {
-                        **self._autostart_model_states.get(model_uid, {}),
-                        "status": "waiting_worker",
-                        "message": "Waiting for worker registration.",
-                    }
-                logger.info("Autostart waits for worker registration.")
-                return None
-
             semaphore = asyncio.Semaphore(1)
             retry_delays: List[float] = []
 
@@ -1636,7 +1707,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
         registry = getattr(self, "_worker_ownership", None)
         if registry is not None and any(
-            (state.get("recovered") or registry.protected(source))
+            registry.protected(source)
             and launch["model_uid"] in state.get("models", [])
             for source, state in registry.pending.items()
         ):
@@ -1699,7 +1770,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
         retry_interval = float(entry.get("retry_interval_seconds", 30))
 
-        model_status = await self._get_autostart_model_status(model_uid)
+        if await SupervisorHandoffMixin._wait_for_worker_handoffs(self, model_uid):
+            state.update(
+                status="waiting_worker",
+                message="Waiting for worker handoff.",
+            )
+            return retry_interval
+
+        model_status = (
+            await self._get_autostart_model_status(model_uid)
+            if self._worker_address_to_worker
+            else None
+        )
         if model_status == LaunchStatus.READY.name:
             state.update(
                 {
@@ -1721,6 +1803,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 }
             )
             return retry_interval
+
+        if not self._worker_address_to_worker:
+            state.update(
+                status="waiting_worker",
+                message="Waiting for worker registration.",
+            )
+            return None
 
         if self._autostart_waiting_for_worker(launch):
             state.update(
@@ -1939,6 +2028,18 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     info["mem_used"] = None
                     info["mem_available"] = None
                     info["mem_total"] = None
+                info["gpus"] = [
+                    {
+                        "index": str(index),
+                        "name": gpu.name,
+                        "utilization": gpu.gpu_util,
+                        "memory_used": gpu.mem_used_bytes,
+                        "memory_total": gpu.mem_total_bytes,
+                        "memory_available": gpu.mem_free_bytes,
+                    }
+                    for index, gpu in worker_status.status.items()
+                    if isinstance(gpu, GPUStatus)
+                ]
                 info["gpu_vram_total"] = vram_total
                 info["gpu_utilization"] = _get_average_gpu_utilization(
                     worker_status.status
@@ -3572,8 +3673,41 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             await self._recover_failed_initial_model_launch(model_uid)
 
         if n_worker > 1:  # type: ignore
-            if kwargs.get("xavier_cache_backend") not in (None, "native"):
+            from ..model.llm.vllm.xavier.transport import (
+                normalize_xavier_transport_backend,
+            )
+            from ..model.llm.xavier.backends.config import normalize_cache_backend
+            from ..model.llm.xavier.transport import validate_gpu_cache_budget
+
+            # Shards bypass the single-worker Xavier setup below. Consume its
+            # defaults and reject unsupported options before dispatching workers.
+            if kwargs.get("xavier_cache_backend") == "lmcache":
                 raise ValueError("The LMCache backend requires one worker per replica")
+            normalize_cache_backend(
+                kwargs.pop("xavier_cache_backend", None),
+                kwargs.pop("xavier_cache_backend_config", None),
+            )
+            transport_backend = normalize_xavier_transport_backend(
+                kwargs.pop(
+                    "vllm_transfer_backend_type",
+                    kwargs.pop("transfer_backend_type", None),
+                )
+            )
+            if transport_backend == "nixl":
+                raise ValueError(
+                    "NIXL requires explicit prefill and decode replica roles"
+                )
+            if kwargs.pop("enable_xavier", False):
+                raise ValueError("Xavier requires one worker per replica")
+            if kwargs.pop("xavier_cache_bytes", None) is not None:
+                raise ValueError(
+                    "xavier_cache_bytes requires Xavier shared CPU caching and a positive integer"
+                )
+            validate_gpu_cache_budget(
+                kwargs.pop("xavier_gpu_cache_bytes", None), False, replica
+            )
+            if (model_engine or "").lower() == "trt-llm":
+                raise ValueError("TRT-LLM currently requires one worker per replica")
             # distributed inference
             return await self._launch_builtin_sharded_model(
                 model_uid,
@@ -5735,6 +5869,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 await asyncio.sleep(0.1)
                 continue
             try:
+                await SupervisorHandoffMixin._check_abandoned_worker_handoffs(self)
                 dead_nodes = []
                 dead_worker_refs = {}
                 dead_worker_generations = {}
@@ -6391,6 +6526,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._workers_launching[worker_address] = (
             self._workers_launching.get(worker_address, 0) + 1
         )
+        self._replicas_loading.add((model_uid, new_replica_id))
         try:
             await target_worker_ref.launch_builtin_model(**modified_args)
             await target_worker_ref.wait_for_load(new_replica_uid)
@@ -6429,6 +6565,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
             raise
         finally:
+            self._replicas_loading.discard((model_uid, new_replica_id))
             current = self._workers_launching.get(worker_address, 1) - 1
             if current <= 0:
                 self._workers_launching.pop(worker_address, None)
@@ -6448,6 +6585,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if new_replica_id not in replica_info.active_replica_ids:
             replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
+        # The id can be one a dead worker took down; it is serving again.
+        self._unexpected_down_replicas.pop((model_uid, new_replica_id), None)
 
         # ---- 11. Update status guard ---------------------------------------------
         # Note: update_replica_status does NOT bump instance_info.replica, so we
@@ -6916,9 +7055,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     @log_async(logger=logger)
     async def get_model(
-        self, model_uid: str, routing_key: Optional[str] = None
+        self,
+        model_uid: str,
+        routing_key: Optional[str] = None,
+        *,
+        for_inference: bool = True,
     ) -> xo.ActorRefType["ModelActor"]:
-        model, _ = await self._select_model(model_uid, routing_key)
+        model, _ = await self._select_model(
+            model_uid, routing_key, for_inference=for_inference
+        )
         return model
 
     @log_async(logger=logger, ignore_kwargs=["routing_request"])
@@ -6966,12 +7111,31 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
         raise RealtimeError("endpoint_unavailable", "Model is not ready", 1013)
 
+    async def _is_replica_stopping(self, uid: str) -> bool:
+        """Whether the worker routed for ``uid`` reports it as stopping or stopped.
+
+        Only the worker's own answer counts: a failed or unanswered read is not.
+        The call is direct: ``actor_call`` would add a metadata keyword that
+        ``WorkerActor.get_model_status`` does not accept.
+        """
+        try:
+            route = self._replica_model_uid_to_worker[uid]
+            worker = route[0] if isinstance(route, (list, tuple)) else route
+            status = await xo.wait_for(
+                worker.get_model_status(uid), XINFERENCE_GET_MODEL_RPC_TIMEOUT
+            )
+        except Exception:
+            return False
+        return getattr(status, "model_state", None) in ("stopping", "stopped")
+
     async def _select_model(
         self,
         model_uid: str,
         routing_key: Optional[str],
         reservation_id: Optional[str] = None,
         routing_request: Optional[dict] = None,
+        *,
+        for_inference: bool = True,
     ) -> Tuple[xo.ActorRefType["ModelActor"], bool]:
         if model_uid in self._pd_model_mapping:
             if model_uid not in self._pd_roles:
@@ -6988,13 +7152,49 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        if routing_key is not None or (
-            routing_request is not None and len(replica_info.active_replica_ids) > 1
+        if for_inference and (
+            routing_key is not None
+            or (
+                routing_request is not None and len(replica_info.active_replica_ids) > 1
+            )
         ):
             return await self._get_affinity_model(
                 model_uid, replica_info, routing_key, reservation_id, routing_request
             )
         state = getattr(self, "_replica_autoscalers", {}).get(model_uid)
+        if not for_inference:
+            # One full cycle preserves the next turn for every iterator holder.
+            candidates = list(
+                itertools.islice(
+                    replica_info.scheduler, len(replica_info.active_replica_ids)
+                )
+            )
+            if state is not None:
+                candidates = sorted(candidates, key=state.should_avoid)
+                candidates = [r for r in candidates if r not in state.draining]
+            last_error: Exception = ModelNotReadyError(
+                f"Model {model_uid} has no available replica"
+            )
+            stopping: Optional[Exception] = None
+            has_sibling = len(candidates) > 1
+            for replica_id in candidates:
+                uid = build_replica_model_uid(model_uid, replica_id)
+                try:
+                    model = await self._get_replica_model(model_uid, replica_id)
+                except ModelNotReadyError as exc:
+                    last_error = exc
+                except Exception as exc:
+                    # A sole candidate keeps the ordinary lookup timeout.
+                    is_stopping = has_sibling and await self._is_replica_stopping(uid)
+                    if uid not in self._replica_model_uid_to_worker:
+                        continue
+                    if not is_stopping:
+                        raise
+                    stopping = stopping or exc
+                else:
+                    if uid in self._replica_model_uid_to_worker:
+                        return model, False
+            raise stopping if stopping is not None else last_error
         first = next(replica_info.scheduler)
         if state is None:
             return await self._get_replica_model(model_uid, first), False
@@ -7024,18 +7224,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replicas = (preferred, *(r for r in info.active_replica_ids if r != preferred))
 
         async def probe(replica):
+            model = None
             try:
-                model = await self._get_replica_model(model_uid, replica)
-                return model, await model.get_chat_routing_load()
+                model = await self._get_replica_model(
+                    model_uid, replica, rpc_timeout=_CHAT_ROUTING_PROBE_TIMEOUT
+                )
+                return model, await xo.wait_for(
+                    model.get_chat_routing_load(), _CHAT_ROUTING_PROBE_TIMEOUT
+                )
             except Exception:
                 # Missing signals (including rolling upgrades) keep the usual
                 # affinity and reservation path available.
-                return None, None
+                return model, None
 
-        snapshots = await asyncio.wait_for(
-            asyncio.gather(*(probe(replica) for replica in replicas)),
-            _CHAT_ROUTING_PROBE_TIMEOUT,
-        )
+        # Worker lookup already bounds each RPC. Keep load deadlines local too:
+        # cancelling a group can wait forever for an actor's CancelMessage reply
+        # and discards useful snapshots from healthy replicas.
+        snapshots = await asyncio.gather(*(probe(replica) for replica in replicas))
         models = {
             replica: model
             for replica, (model, _) in zip(replicas, snapshots)
@@ -7047,7 +7252,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if type(load) is int
         }
         if not loads:
-            return list(replicas), models
+            return sorted(replicas, key=lambda replica: replica not in models), models
         cached, prompt_length = {}, 0
         tracker = getattr(self, "_block_tracker_mapping", {}).get(model_uid)
         model = next((model for model, _ in snapshots if model is not None), None)
@@ -7055,19 +7260,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
             async def match():
                 config = request["config"]
-                tokens = await model.get_chat_routing_tokens(
-                    request["messages"], config
+                tokens = await xo.wait_for(
+                    model.get_chat_routing_tokens(request["messages"], config),
+                    _CHAT_ROUTING_PROBE_TIMEOUT,
                 )
                 if not tokens:
                     return {}, 0
-                return await tracker.match_routing_prefixes(
-                    tokens, config.get("cache_salt")
-                ), len(tokens)
+                cached = await xo.wait_for(
+                    tracker.match_routing_prefixes(tokens, config.get("cache_salt")),
+                    _CHAT_ROUTING_PROBE_TIMEOUT,
+                )
+                return cached, len(tokens)
 
             try:
-                cached, prompt_length = await asyncio.wait_for(
-                    match(), _CHAT_ROUTING_PROBE_TIMEOUT
-                )
+                cached, prompt_length = await match()
             except Exception:
                 logger.debug("Chat routing cache probe unavailable", exc_info=True)
 
@@ -7118,6 +7324,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             tuple(info.active_replica_ids),
         )
         models: Dict[int, Any] = {}
+        ranked = None
         if routing_request and len(info.active_replica_ids) > 1:
             try:
                 ranked, models = await self._rank_chat_replicas(
@@ -7130,6 +7337,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         last_error: Optional[Exception] = None
         preserve_route = False
         tried = set()
+        reserved_model = None
 
         async def release_reservation(model) -> None:
             try:
@@ -7140,31 +7348,146 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             except Exception:
                 logger.debug("Chat reservation cleanup failed", exc_info=True)
 
-        for replica in candidates:
-            if replica in tried or replica in draining:
-                continue
-            tried.add(replica)
+        @asynccontextmanager
+        async def reservation_guard() -> AsyncGenerator[None, None]:
             try:
-                try:
-                    model = models.get(replica)
-                    if model is None:
-                        model = await self._get_replica_model(model_uid, replica)
-                except Exception as exc:
-                    cause = getattr(exc, "__wrapped__", exc)
-                    if type(cause) is not Exception:
-                        raise
-                    # Retained Workers report last_error as a plain Exception.
-                    # Confirm the diagnostic, or its removal during cleanup.
-                    status = await xo.wait_for(
-                        self.get_model_status(
-                            build_replica_model_uid(model_uid, replica)
-                        ),
-                        _AFFINITY_CAPACITY_TIMEOUT,
+                yield
+            except BaseException:
+                if reserved_model is not None:
+                    cleanup = asyncio.create_task(release_reservation(reserved_model))
+                    # Keep ownership through repeated cancellation. The helper's
+                    # RPC deadline bounds this wait, without an outer timer.
+                    while not cleanup.done():
+                        try:
+                            await asyncio.shield(cleanup)
+                        except asyncio.CancelledError:
+                            pass
+                raise
+
+        async def lookup_candidates() -> (
+            AsyncGenerator[Tuple[int, Optional[asyncio.Task]], None]
+        ):
+            if ranked is None:
+                for replica in candidates:
+                    yield replica, None
+                return
+            # Reuse reachable refs before starting ordinary worker lookups.
+            for replica in ranked:
+                if replica in models:
+                    yield replica, None
+            tasks = {
+                asyncio.create_task(
+                    self._get_replica_model(model_uid, replica, rpc_timeout=None)
+                ): replica
+                for replica in ranked
+                if replica not in models
+                and replica not in tried
+                and replica in info.active_replica_ids
+                and replica not in draining
+            }
+            pending = set(tasks)
+            try:
+                while pending:
+                    done, pending = await asyncio.wait(
+                        pending, return_when=asyncio.FIRST_COMPLETED
                     )
-                    if status is not None and (
-                        not status.last_error or status.last_error not in str(exc)
-                    ):
-                        raise
+                    for task in tasks:
+                        if task in done:
+                            yield tasks[task], task
+            finally:
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        async with reservation_guard(), aclosing(lookup_candidates()) as lookups:
+            async for replica, lookup in lookups:
+                if replica in tried or replica in draining:
+                    continue
+                tried.add(replica)
+                try:
+                    try:
+                        model = models.get(replica)
+                        if lookup is not None:
+                            model = await lookup
+                        elif model is None:
+                            model = await self._get_replica_model(
+                                model_uid, replica, rpc_timeout=None
+                            )
+                    except Exception as exc:
+                        cause = getattr(exc, "__wrapped__", exc)
+                        if type(cause) is not Exception:
+                            raise
+                        # Retained Workers report last_error as a plain Exception.
+                        # Confirm the diagnostic, or its removal during cleanup.
+                        status = await xo.wait_for(
+                            self.get_model_status(
+                                build_replica_model_uid(model_uid, replica)
+                            ),
+                            _AFFINITY_CAPACITY_TIMEOUT,
+                        )
+                        if status is not None and (
+                            not status.last_error or status.last_error not in str(exc)
+                        ):
+                            raise
+                        logger.warning(
+                            "Skipping unavailable chat replica %s",
+                            build_replica_model_uid(model_uid, replica),
+                            exc_info=True,
+                        )
+                        last_error = exc
+                        continue
+                    available = True
+                    reserved = False
+                    if len(info.active_replica_ids) > 1:
+                        try:
+                            needs_capacity_probe = reservation_id is None
+                            if reservation_id is not None:
+                                try:
+                                    reserved = available = await xo.wait_for(
+                                        model.reserve_chat_request(reservation_id),
+                                        _AFFINITY_CAPACITY_TIMEOUT,
+                                    )
+                                    if reserved:
+                                        reserved_model = model
+                                except asyncio.TimeoutError:
+                                    # The actor may have committed before the reply timed out.
+                                    await release_reservation(model)
+                                    raise
+                                except AttributeError as exc:
+                                    if (
+                                        "has no attribute 'reserve_chat_request'"
+                                        not in str(exc)
+                                    ):
+                                        raise
+                                    needs_capacity_probe = True
+                            if needs_capacity_probe:
+                                available = await xo.wait_for(
+                                    model.can_accept_chat_request(),
+                                    _AFFINITY_CAPACITY_TIMEOUT,
+                                )
+                        except asyncio.TimeoutError:
+                            # A slow probe does not establish that a live actor is
+                            # unavailable. Keep it as a fallback and retain affinity.
+                            available = False
+                            if replica == preferred:
+                                preserve_route = True
+                        except AttributeError as exc:
+                            # Supervisor upgrades retain actors from older versions.
+                            if "has no attribute 'can_accept_chat_request'" not in str(
+                                exc
+                            ):
+                                raise
+                except ModelNotReadyError:
+                    continue
+                except (
+                    RuntimeError,
+                    ValueError,
+                    ConnectionError,
+                    asyncio.TimeoutError,
+                    xo.ActorNotExist,
+                    xo.ServerClosed,
+                ) as exc:
                     logger.warning(
                         "Skipping unavailable chat replica %s",
                         build_replica_model_uid(model_uid, replica),
@@ -7172,82 +7495,29 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     )
                     last_error = exc
                     continue
-                available = True
-                reserved = False
-                if len(info.active_replica_ids) > 1:
-                    try:
-                        needs_capacity_probe = reservation_id is None
-                        if reservation_id is not None:
-                            try:
-                                reserved = available = await xo.wait_for(
-                                    model.reserve_chat_request(reservation_id),
-                                    _AFFINITY_CAPACITY_TIMEOUT,
-                                )
-                            except asyncio.TimeoutError:
-                                # The actor may have committed before the reply timed out.
-                                await release_reservation(model)
-                                raise
-                            except AttributeError as exc:
-                                if (
-                                    "has no attribute 'reserve_chat_request'"
-                                    not in str(exc)
-                                ):
-                                    raise
-                                needs_capacity_probe = True
-                        if needs_capacity_probe:
-                            available = await xo.wait_for(
-                                model.can_accept_chat_request(),
-                                _AFFINITY_CAPACITY_TIMEOUT,
-                            )
-                    except asyncio.TimeoutError:
-                        # A slow probe does not establish that a live actor is
-                        # unavailable. Keep it as a fallback and retain affinity.
-                        available = False
-                        if replica == preferred:
-                            preserve_route = True
-                    except AttributeError as exc:
-                        # Supervisor upgrades retain actors from older versions.
-                        if "has no attribute 'can_accept_chat_request'" not in str(exc):
-                            raise
-            except ModelNotReadyError:
-                continue
-            except (
-                RuntimeError,
-                ValueError,
-                ConnectionError,
-                asyncio.TimeoutError,
-                xo.ActorNotExist,
-                xo.ServerClosed,
-            ) as exc:
-                logger.warning(
-                    "Skipping unavailable chat replica %s",
-                    build_replica_model_uid(model_uid, replica),
-                    exc_info=True,
-                )
-                last_error = exc
-                continue
-            current_info = self._model_uid_to_replica_info.get(model_uid)
-            if (
-                current_info is not info
-                or replica not in info.active_replica_ids
-                or replica in draining
-            ):
-                if reserved:
-                    await release_reservation(model)
-                if current_info is not info:
-                    break
-                continue
-            if available:
-                # A concurrent request may already have moved or evicted this key.
+                current_info = self._model_uid_to_replica_info.get(model_uid)
                 if (
-                    routing_key is not None
-                    and not preserve_route
-                    and routes.get(routing_key) == preferred
+                    current_info is not info
+                    or replica not in info.active_replica_ids
+                    or replica in draining
                 ):
-                    routes[routing_key] = replica
-                return model, reserved
-            if busy is None:
-                busy = (replica, model)
+                    if reserved:
+                        await release_reservation(model)
+                        reserved_model = None
+                    if current_info is not info:
+                        break
+                    continue
+                if available:
+                    # A concurrent request may already have moved or evicted this key.
+                    if (
+                        routing_key is not None
+                        and not preserve_route
+                        and routes.get(routing_key) == preferred
+                    ):
+                        routes[routing_key] = replica
+                    return model, reserved
+                if busy is None:
+                    busy = (replica, model)
         if (
             busy is not None
             and self._model_uid_to_replica_info.get(model_uid) is info
@@ -7264,7 +7534,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
     async def _get_replica_model(
-        self, model_uid: str, replica_id: int
+        self,
+        model_uid: str,
+        replica_id: int,
+        *,
+        rpc_timeout: Optional[float] = None,
     ) -> xo.ActorRefType["ModelActor"]:
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
@@ -7289,6 +7563,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 replica_model_uid,
                 worker_ref,
                 "get_model",
+                rpc_timeout=rpc_timeout,
                 model_uid=replica_model_uid,
             )
         except ModelNotReadyError:
@@ -7768,6 +8043,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
         finally:
+            from .otel import shutdown_otel
+
+            await asyncio.to_thread(shutdown_otel)
             if control is not None:
                 await control.invoke("close")
 
@@ -7942,6 +8220,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         from ..extensions import get_extensions
 
         expected = {extension.name for extension in get_extensions()}
+        reserved_name = None
         try:
             try:
                 resources = await worker_ref.get_extension_resources()
@@ -7958,6 +8237,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 resources = None
             if set((resources or {}).get("extensions", {})) != expected:
                 raise RuntimeError("Worker and supervisor extensions must match")
+            worker_id = (resources or {}).get("worker_id")
+            if worker_id:
+                self._check_worker_name(worker_id, worker_address)
+                self._pending_worker_names[worker_id] = worker_address
+                reserved_name = worker_id
             control = getattr(self, "_controller_control", None)
             if control is not None:
                 worker_ref = await control.register(worker_ref)
@@ -7974,6 +8258,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             self._extension_worker_resources.pop(worker_address, None)
             self._discard_worker_metadata(worker_address)
             raise
+        finally:
+            if reserved_name is not None:
+                self._pending_worker_names.pop(reserved_name, None)
         if resources is not None:
             self._extension_worker_resources[worker_address] = resources
         else:
@@ -8084,6 +8371,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        # A replayed replica is running again (e.g. the worker was evicted by
+        # the health check and came back): clear its worker-failure marker so
+        # the unexpected-termination gauge stops reporting it as down. A
+        # scale-up replica can be reported before its load finishes; that
+        # launch clears the marker itself once wait_for_load() succeeds.
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if (
+                state.get("n_worker", 1) == 1
+                and isinstance(replica_model_uid, str)
+                and replica_model_uid in self._replica_model_uid_to_worker
+            ):
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is not None and parsed not in self._replicas_loading:
+                    self._unexpected_down_replicas.pop(parsed, None)
         for row in normalized:
             policy = row.get("replica_autoscaling", row.get("embedding_autoscaling"))
             uid = row.get("model_uid")
@@ -8108,6 +8410,17 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     )
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
+
+    def get_registered_worker_resources(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                **resources,
+                "address": address,
+                "colocated": address == self._local_worker_address,
+            }
+            for address, resources in self._extension_worker_resources.copy().items()
+            if address in self._worker_address_to_worker
+        ]
 
     def get_worker_resource_policy(self, worker_address: str) -> List[int]:
         from ..extensions import filter_worker_resources
@@ -9156,6 +9469,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         *,
         check_runtime_instances: bool = True,
     ) -> Dict[str, Any]:
+        from .model_runtime import get_model_runtime_info
+
         errors: List[str] = []
         warnings: List[str] = []
         asset_id = str(config.get("tokenizer_asset_id") or "").strip()
@@ -9211,13 +9526,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
 
         running_models = await self.list_models()
+        backend_entries = self._token_router_backend_entries(config)
+        runtime_model_uids = {
+            str(backend.get("model_uid") or "")
+            for _, backend in backend_entries
+            if isinstance(backend.get("max_context_tokens"), int)
+        } & running_models.keys()
+        # Share one probe window across backends and allow for missing replica lists.
+        runtime_infos = await asyncio.gather(
+            *(
+                get_model_runtime_info(self, model_uid)
+                for model_uid in runtime_model_uids
+            ),
+            return_exceptions=True,
+        )
+        runtime_contexts = {
+            model_uid: info["runtime_context_length"]
+            for model_uid, info in zip(runtime_model_uids, runtime_infos)
+            if isinstance(info, dict) and info["runtime_context_length"] is not None
+        }
         compatible_models = {
             str(name).strip().casefold()
             for name in asset_validation.get("compatible_models", [])
             if str(name).strip()
         }
         backend_models: Dict[str, Dict[str, Any]] = {}
-        for backend_id, backend in self._token_router_backend_entries(config):
+        for backend_id, backend in backend_entries:
             model_uid = str(backend.get("model_uid") or "")
             model_info = running_models.get(model_uid)
             if model_info is None:
@@ -9256,7 +9590,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     f"asset {asset_id}: {model_name or model_uid}"
                 )
             configured_context = backend.get("max_context_tokens")
-            actual_context = model_info.get("context_length")
+            actual_context = runtime_contexts.get(
+                model_uid, model_info.get("context_length")
+            )
             if (
                 isinstance(configured_context, int)
                 and isinstance(actual_context, int)

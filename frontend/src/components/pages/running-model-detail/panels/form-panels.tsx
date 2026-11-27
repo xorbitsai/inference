@@ -39,14 +39,19 @@ import {
   parseImageSeeds,
 } from '../image-seed-utils';
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
+import { getSpeechOptions } from '../speech-options';
 import type { CapabilityFormProps } from '../types';
-import { isJsonObject } from '../utils';
+import { isJsonObject, isLtx25Distilled } from '../utils';
 import { DOCUMENT_UPLOAD_ACCEPT, validateDocumentFile } from '../document-upload-utils';
 
 const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
   label: value.toUpperCase(),
   value,
 }));
+const PCM_SPEECH_RESPONSE_FORMAT_OPTIONS = [
+  ...SPEECH_RESPONSE_FORMAT_OPTIONS,
+  { label: 'PCM', value: 'pcm' },
+];
 
 const FISH_SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'pcm'].map((value) => ({
   label: value.toUpperCase(),
@@ -354,14 +359,18 @@ function VideoFields({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'
         >
           <Input type="number" />
         </FormField>
-        <InferenceStepsField form={form} model={model} />
-        <FormField
-          name="guidance_scale"
-          label={t('runningModels.detail.guidanceScale')}
-          normalize={normalizeNumberInput}
-        >
-          <Input type="number" min={1} max={20} step={0.1} />
-        </FormField>
+        {!isLtx25Distilled(model.model_name) && (
+          <>
+            <InferenceStepsField form={form} model={model} />
+            <FormField
+              name="guidance_scale"
+              label={t('runningModels.detail.guidanceScale')}
+              normalize={normalizeNumberInput}
+            >
+              <Input type="number" min={1} max={20} step={0.1} />
+            </FormField>
+          </>
+        )}
         <ScalarSeedField form={form} />
       </div>
     </>
@@ -951,10 +960,25 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
 export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const { t } = useI18n();
   const isMusicGeneration = model.model_ability.includes(ModelAbility.Text2music);
+  const format = useWatch('response_format', form);
+  const { acceptsLanguage, canStream, isZonos3, offerPcm, responseFormat } = getSpeechOptions(
+    model,
+    format
+  );
+  const stream = useWatch('stream', form);
+  useEffect(() => {
+    if (format === 'pcm' && responseFormat !== 'pcm') {
+      form.setFieldValue('response_format', responseFormat);
+    }
+    if (!canStream && stream) form.setFieldValue('stream', false);
+  }, [canStream, form, format, responseFormat, stream]);
+
   const speechResponseFormatOptions =
     model.model_family === 'FishAudio'
       ? FISH_SPEECH_RESPONSE_FORMAT_OPTIONS
-      : SPEECH_RESPONSE_FORMAT_OPTIONS;
+      : offerPcm
+        ? PCM_SPEECH_RESPONSE_FORMAT_OPTIONS
+        : SPEECH_RESPONSE_FORMAT_OPTIONS;
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
   const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
   const supportedLanguages = model.model_lang ?? [];
@@ -963,7 +987,8 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const hasPromptSpeech =
     supportsVoiceCloning && Array.isArray(promptSpeech) && promptSpeech.length > 0;
   const showPromptSpeech = supportsVoiceCloning;
-  const showPromptText = supportsVoiceCloning && (!supportsVoiceDesign || hasPromptSpeech);
+  const showPromptText =
+    !isZonos3 && supportsVoiceCloning && (!supportsVoiceDesign || hasPromptSpeech);
   const showVoiceInstruction = supportsVoiceDesign && !hasPromptSpeech;
   const showInstruct = showVoiceInstruction || isMusicGeneration;
   const instructLabel = isMusicGeneration
@@ -1000,24 +1025,28 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           >
             <Input />
           </FormField>
-          <FormField
-            name="speed"
-            label={t('runningModels.detail.speed')}
-            normalize={normalizeNumberInput}
-          >
-            <Input type="number" min={0.5} max={2} step={0.1} />
-          </FormField>
-          <FormField
-            name="stream"
-            label={t('runningModels.detail.streaming')}
-            valuePropName="checked"
-            layout="horizontal"
-            className="flex h-full items-center"
-            tooltip={t('runningModels.detail.streamingTooltip')}
-          >
-            <Switch />
-          </FormField>
-          {supportedLanguages.length > 0 && (
+          {!isZonos3 && (
+            <FormField
+              name="speed"
+              label={t('runningModels.detail.speed')}
+              normalize={normalizeNumberInput}
+            >
+              <Input type="number" min={0.5} max={2} step={0.1} />
+            </FormField>
+          )}
+          {canStream && (
+            <FormField
+              name="stream"
+              label={t('runningModels.detail.streaming')}
+              valuePropName="checked"
+              layout="horizontal"
+              className="flex h-full items-center"
+              tooltip={t('runningModels.detail.streamingTooltip')}
+            >
+              <Switch />
+            </FormField>
+          )}
+          {acceptsLanguage && supportedLanguages.length > 0 && (
             <FormField name="language" label={t('runningModels.detail.language')}>
               <Select options={languageOptions} placeholder={t('runningModels.detail.optional')} />
             </FormField>

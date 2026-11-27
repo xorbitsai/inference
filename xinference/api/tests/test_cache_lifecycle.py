@@ -7,12 +7,14 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
+import httpx
 import pytest
 from fastapi import HTTPException
 
 from .. import restful_api
 from ..restful_api import RESTfulAPI
 from .test_llm_request_abort import _new_api
+from .test_model_request_logging import _app
 
 
 class _Request:
@@ -76,6 +78,48 @@ async def test_chat_invalid_cache_session_returns_400(monkeypatch, session):
     assert caught.value.status_code == 400
     supervisor.update_cache_session.assert_not_awaited()
     model.chat.assert_not_awaited()
+
+
+@pytest.fixture
+async def control_client():
+    api = _new_api()
+    get_supervisor = AsyncMock()
+    api._get_supervisor_ref = get_supervisor
+    app = _app("/v1/models/{model_uid}/cache_sessions", api.update_cache_session)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+        headers={"content-type": "application/json"},
+    ) as client:
+        yield client, get_supervisor
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(b'{"id": "agent"', id="malformed-json"),
+        pytest.param(b"", id="empty-body"),
+        pytest.param(b"\xff", id="invalid-utf8"),
+    ],
+)
+async def test_control_unreadable_json_returns_400(control_client, body: bytes):
+    client, get_supervisor = control_client
+    response = await client.post("/v1/models/model/cache_sessions", content=body)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Request body must be valid JSON"}
+    get_supervisor.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_control_invalid_cache_session_returns_400(control_client):
+    client, get_supervisor = control_client
+    response = await client.post("/v1/models/model/cache_sessions", content=b"[]")
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "cache_session must be an object"}
+    get_supervisor.assert_not_awaited()
 
 
 @pytest.mark.asyncio

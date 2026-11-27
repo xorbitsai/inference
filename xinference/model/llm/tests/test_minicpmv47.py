@@ -162,7 +162,7 @@ def test_virtualenv_engine_discovery(virtualenv_worker):
     "engine,expected",
     [
         ("Transformers", "transformers>=5.18.0"),
-        ("vllm", "vllm==0.31.1rc1.dev281+gc85616efc"),
+        ("vllm", "vllm>=0.32.0"),
         ("sglang", "sglang>=0.5.23"),
         ("llama.cpp", "xllamacpp>=2026.10.11870"),
     ],
@@ -188,9 +188,8 @@ def test_virtualenv_requirements(engine, expected):
         assert "qwen-omni-utils>=0.0.9" in prepared
         assert "audioread" in prepared
         assert "#system_numpy#" in prepared
-        assert family.virtualenv.extra_index_url.endswith(
-            "/c85616efc6f0eaa50ca1f1a09c32368aedffd3d8"
-        )
+        assert family.virtualenv.extra_index_url is None
+        assert family.virtualenv.index_strategy is None
     else:
         assert "qwen-omni-utils>=0.0.9" not in prepared
         assert "audioread" not in prepared
@@ -625,12 +624,13 @@ async def test_vllm_rejects_invalid_frame_limit(frame_limit):
     "installed_version,accepted",
     [
         ("0.31.0", False),
-        ("0.31.1rc1.dev280", False),
-        ("0.31.1rc1.dev281+gc85616efc", True),
-        ("0.31.1", True),
+        ("0.31.1rc1.dev281+gc85616efc", False),
+        ("0.32.0rc1", False),
+        ("0.32.0", True),
+        ("0.32.1", True),
     ],
 )
-def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, accepted):
+def test_vllm_release_gate(virtualenv_worker, monkeypatch, installed_version, accepted):
     monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: False)
     monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
     monkeypatch.setattr(vllm_core, "VLLM_VERSION", Version(installed_version))
@@ -638,7 +638,8 @@ def test_vllm_nightly_gate(virtualenv_worker, monkeypatch, installed_version, ac
     result = vllm_core.VLLMMultiModel.match_json(family, family.model_specs[0], "none")
     assert (result is True) is accepted
     if not accepted:
-        assert "PR #58674" in result[1]
+        assert "requires vLLM >= 0.32.0" in result[1]
+        assert installed_version in result[1]
 
 
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])

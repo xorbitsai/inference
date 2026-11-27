@@ -27,9 +27,11 @@
     "test:model-favorites": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/model-favorites.integration.test.tsx",
     "test:worker-relaunch": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/worker-relaunch.integration.test.tsx",
     "test:service-relaunch": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/service-relaunch.integration.test.tsx",
+    "test:system-settings": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/system-settings/restart.test.ts src/components/pages/system-settings/settings.integration.test.tsx",
     "test:software-update": "node --require ./scripts/register-test-typescript.cjs --test src/components/layout/software-update.integration.test.tsx",
     "test:sidebar": "node --require ./scripts/register-test-typescript.cjs --test src/components/layout/sidebar.integration.test.tsx",
-    "test:user-management": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/user-management/authorization.integration.test.tsx"
+    "test:user-management": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/user-management/authorization.integration.test.tsx",
+    "test:cluster-gpu": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/cluster-information/cluster-gpu-panel.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

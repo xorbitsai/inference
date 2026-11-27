@@ -96,7 +96,8 @@ async def realtime_session(api, websocket: WebSocket, model_uid: str) -> None:
                 descriptor["endpoint"],
                 headers={"Authorization": "Bearer " + descriptor["ticket"]},
                 heartbeat=25,
-                max_msg_size=limits.max_output_bytes,
+                # aiohttp treats max_msg_size as an exclusive limit.
+                max_msg_size=limits.max_output_bytes + 1,
                 compress=0,
             ) as backend:
                 await backend.send_json(config)

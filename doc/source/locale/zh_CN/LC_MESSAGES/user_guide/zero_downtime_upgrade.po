@@ -624,3 +624,7 @@ msgstr "``restore_worker(..., coordinators=...)`` 接受 ``-rank0`` UID 的列�
 
 msgid "Providers must await ``call()`` directly in the callback task; task-spawning wrappers such as ``asyncio.wait_for`` and ``asyncio.shield`` are unsupported. Local port restore methods require provider-owned ordering while management is paused. Explicit coordinator UIDs are selected by the caller separately from replica filtering, because a Worker may host only a coordinator."
 msgstr "提供方必须在回调所在任务中直接 await ``call()``；不支持 ``asyncio.wait_for``、``asyncio.shield`` 等创建任务的包装。管理操作暂停期间，本地端口的恢复方法由提供方负责排序。调用方应独立于副本过滤选择显式 coordinator UID，因为 Worker 可能只承载 coordinator。"
+
+#: ../source/user_guide/zero_downtime_upgrade.rst:137
+msgid "After API, Supervisor or Worker replacement finishes, the Web UI refreshes cluster resource data. See :ref:`cluster_information` for GPU metrics and navigation."
+msgstr "API、Supervisor 或 Worker 替换完成后，Web UI 会刷新集群资源数据。GPU 指标与页面操作说明见 :ref:`cluster_information`。"

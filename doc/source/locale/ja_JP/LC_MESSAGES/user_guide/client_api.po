@@ -132,3 +132,9 @@ msgstr ""
 "``cache_salt`` から GPU 常駐プレフィックスを照合できます。長いプレフィックスがあるレプリカは、処理中のリクエストが 1 "
 "件多くても優先されることがあります。他のアダプターはキャッシュ情報がない場合、負荷とアフィニティを使います。明示的なゼロ以外の ``priority``"
 " は、優先レプリカが利用可能で空きがある間、セッションアフィニティを保ちます。"
+
+msgid "Inline PDF attachments"
+msgstr "インライン PDF 添付"
+
+msgid "For vision-capable models, Chat Completions accepts Base64 PDF data in a user message's ``file.file_data``. Xinference renders up to 20 PDF pages per request as images, subject to the model's image limits. Install ``xinference[image]`` to enable PDF rendering."
+msgstr "画像入力に対応するモデルでは、Chat Completions のユーザーメッセージの ``file.file_data`` に Base64 でエンコードした PDF を指定できます。Xinference はモデルの画像入力制限の範囲内で、リクエストごとに最大 20 ページの PDF を画像に変換します。PDF のレンダリングを有効にするには ``xinference[image]`` をインストールしてください。"

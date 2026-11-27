@@ -992,3 +992,7 @@ msgstr ""
 "Formularkodierte, fehlerhafte oder nicht als Objekt vorliegende "
 "Anfragetexte sowie Anmeldedaten mit anderen Datentypen führen zu ``400 "
 "Bad Request``; falsche Anmeldedaten führen zu ``401 Unauthorized``."
+
+#: ../../source/user_guide/auth_system.rst:267
+msgid "Administrators can choose **Restart and apply** in **System Settings > Observability** to save the form and restart Supervisor followed by API while retaining model processes. The button disappears after both components have loaded the saved configuration; a failed replacement keeps the previous component serving."
+msgstr "Administratoren können unter **Systemeinstellungen > Beobachtbarkeit** die Aktion **Neu starten und anwenden** wählen, um das Formular zu speichern und zuerst Supervisor und dann API neu zu starten. Modellprozesse laufen weiter. Die Schaltfläche verschwindet, sobald beide Komponenten die gespeicherte Konfiguration geladen haben; bei einem fehlgeschlagenen Austausch bleibt die vorherige Komponente verfügbar."

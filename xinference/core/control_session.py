@@ -82,6 +82,8 @@ READ_ONLY_WORKER_RPCS = frozenset(
         "worker_handoff_protocol",
         "worker_handoff_status",
         "worker_handoff_ready",
+        "worker_handoff_in_progress",
+        "worker_handoff_process_identity",
         "worker_replacement_safe_to_stop",
         "worker_package_upgrade_protocol",
         "worker_relaunch_state",
@@ -214,10 +216,15 @@ class SessionBoundSupervisorRef:
         return self._ref.__reduce__()
 
     def __getattr__(self, name: str) -> Any:
-        from .supervisor_control import READS
+        from .supervisor_control import READS, ROUTER_NODE_WATCHES
 
         method = getattr(self._ref, name)
-        if name.startswith("_") or name in READS or not callable(method):
+        if (
+            name.startswith("_")
+            or name in READS
+            or name in ROUTER_NODE_WATCHES
+            or not callable(method)
+        ):
             return method
         # Initial registration precedes the first session installation.
         if self._fence.session is None:

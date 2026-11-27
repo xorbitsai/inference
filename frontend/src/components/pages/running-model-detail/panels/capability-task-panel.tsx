@@ -31,7 +31,8 @@ import type {
 } from '@/types/services';
 import type { FormValues } from '@/types/form';
 
-import { AudioStreamSession } from '../audio-stream';
+import { AudioStreamSession, isAudioStreamResult, pcmAudioToWav } from '../audio-stream';
+import { getSpeechOptions } from '../speech-options';
 import type { CapabilityConfig } from '../types';
 import { booleanValue, createId, stringValue } from '../utils';
 
@@ -68,7 +69,15 @@ function audioFileName(modelName: string, blob: Blob) {
 const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTaskPanelProps>(
   ({ config, model, modelUid }, ref) => {
     const { t } = useI18n();
-    const form = useMemo(() => createForm(), []);
+    const overrides = config.getInitialValueOverrides?.(model);
+    // Changing initialValues alone does not replace mounted field values.
+    const { form, modelDefaults } = useMemo(
+      () => ({ form: createForm(), modelDefaults: overrides }),
+      [overrides]
+    );
+    const initialValues = modelDefaults
+      ? { ...config.initialValues, ...modelDefaults }
+      : config.initialValues;
     const runTokenRef = useRef(0);
     const activeRequestRef = useRef<
       { modelUid: string; requestId: string; runToken: number } | undefined
@@ -209,10 +218,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       setProgressTiming(showLiveProgress ? { elapsed_seconds: 0, eta_seconds: null } : undefined);
 
       const values = form.getFieldsValue();
-      const streamAudio = config.responseType === 'audio-stream' && booleanValue(values.stream);
-      const audioStreamSession = streamAudio
-        ? new AudioStreamSession(stringValue(values.response_format, 'mp3'))
-        : undefined;
+      const speechOptions =
+        config.responseType === 'audio-stream'
+          ? getSpeechOptions(model, values.response_format)
+          : undefined;
+      const audioStreamSession =
+        speechOptions?.canStream && booleanValue(values.stream)
+          ? new AudioStreamSession(speechOptions.responseFormat, speechOptions.pcmSampleRate)
+          : undefined;
 
       if (audioStreamSession) {
         audioStreamRef.current = audioStreamSession;
@@ -300,7 +313,9 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           streamResponseStarted = true;
           return audioStreamSession.consume(stream, () => {
             if (runTokenRef.current === runToken) {
-              setResult(audioStreamSession.result());
+              setResult((previous: unknown) =>
+                audioStreamSession.result(isAudioStreamResult(previous) ? previous.file : undefined)
+              );
             }
           });
         }
@@ -326,13 +341,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
             return;
           }
 
-          setResult(
-            response instanceof Blob
-              ? new File([response], audioFileName(model.model_name, response), {
-                  type: response.type,
-                })
-              : response
-          );
+          if (response instanceof Blob) {
+            const blob = speechOptions?.pcmSampleRate
+              ? pcmAudioToWav(response, speechOptions.pcmSampleRate)
+              : response;
+            setResult(new File([blob], audioFileName(model.model_name, blob), { type: blob.type }));
+          } else {
+            setResult(response);
+          }
           setResultValues(values);
         })
         .catch((error: unknown) => {
@@ -451,8 +467,8 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
             form={form}
             initialValues={
               model.lightning_inference_steps !== undefined
-                ? { ...config.initialValues, use_lightning: true, num_inference_steps: '' }
-                : config.initialValues
+                ? { ...initialValues, use_lightning: true, num_inference_steps: '' }
+                : initialValues
             }
             onFinish={submit}
             className="flex-1 min-h-0 flex flex-col"

@@ -21,6 +21,11 @@ def get_model_version(rerank_model: "RerankModelFamilyV2") -> str:
     return rerank_model.model_name
 
 
+def is_qwen3_reranker(model_name: str) -> bool:
+    name = model_name.lower()
+    return any(family in name for family in ("qwen3", "r3-rerank", "yuanbao-reranker"))
+
+
 instruction_cfg = {
     "minicpm-reranker": "Query: ",
 }

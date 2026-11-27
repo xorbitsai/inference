@@ -1,0 +1,22 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: it\n"
+
+#: ../source/user_guide/cluster_information.rst:3
+msgid "Cluster information"
+msgstr "Informazioni sul cluster"
+
+#: ../source/user_guide/cluster_information.rst:6
+msgid "Open **Cluster Information** to inspect Worker, Supervisor and Router nodes. Search Workers by node address or GPU model, and switch between GPU grid and list views."
+msgstr "Aprire **Informazioni sul cluster** per esaminare i nodi Worker, Supervisor e Router. Cercare i Worker per indirizzo del nodo o modello di GPU e passare dalla griglia all’elenco delle GPU."
+
+#: ../source/user_guide/cluster_information.rst:8
+msgid "The GPU grid shows up to four cards per row and two rows per page on wide screens, or two cards per row on narrow screens. Use the arrows to see additional devices, and select a card to see its model and used, total and available GPU memory. Each card shows GPU utilization and memory usage; progress bars turn red above 90%. Null or non-finite readings are shown as unavailable; backend zero sentinels can still appear as 0% utilization."
+msgstr "La griglia mostra fino a quattro schede per riga e due righe per pagina sugli schermi ampi, oppure due schede per riga sugli schermi stretti. Usare le frecce per visualizzare gli altri dispositivi e selezionare una scheda per vedere il modello e la memoria GPU utilizzata, totale e disponibile. Ogni scheda mostra utilizzo di GPU e memoria; le barre diventano rosse oltre il 90%. I valori nulli o non finiti sono indicati come non disponibili; se il backend usa zero come valore sostitutivo, l’utilizzo della GPU può comunque apparire come 0%."
+
+#: ../source/user_guide/cluster_information.rst:10
+msgid "Detailed cluster API"
+msgstr "API dettagliata del cluster"
+
+#: ../source/user_guide/cluster_information.rst:13
+msgid "``GET /v1/cluster/info?detailed=true`` includes a ``gpus`` array for each Worker. Each device reports ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available``. ``index`` is an opaque device key (for example, ``\"gpu-0\"`` or ``\"gpu-0-0\"``), not a numeric ordinal. Utilization is a percentage and memory values are in bytes. Memory without explicitly normalized measurements is ``null``, including legacy Worker reports and backend placeholders. Some backends return zero for unsupported utilization, which cannot be distinguished from measured 0%. Compact responses keep their existing structure."
+msgstr "``GET /v1/cluster/info?detailed=true`` include un array ``gpus`` per ogni Worker. Ogni dispositivo riporta ``index``, ``name``, ``utilization``, ``memory_used``, ``memory_total``, ``memory_available``. ``index`` è una chiave opaca del dispositivo (ad esempio ``\"gpu-0\"`` / ``\"gpu-0-0\"``), non un indice numerico. L’utilizzo è espresso in percentuale e la memoria in byte. In assenza di misurazioni esplicitamente normalizzate, la memoria è ``null``, anche nei rapporti dei Worker precedenti e nei valori sostitutivi del backend. Alcuni backend restituiscono zero per l’utilizzo non supportato, che non è distinguibile da un utilizzo misurato dello 0%. Le risposte compatte mantengono la struttura esistente."

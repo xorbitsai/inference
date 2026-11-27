@@ -22,7 +22,17 @@ export interface ClusterUIConfig {
   oidc_enabled: boolean;
   token_router_enabled?: boolean;
 }
+export interface ClusterGPUInfo {
+  index: string;
+  name: string;
+  utilization: number | null;
+  memory_used: number | null;
+  memory_total: number | null;
+  memory_available: number | null;
+}
+
 export interface ClusterInfo {
+  gpus?: ClusterGPUInfo[];
   node_type: 'Supervisor' | 'Worker';
   ip_address: string;
   ip?: string;

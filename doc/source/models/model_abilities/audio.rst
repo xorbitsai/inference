@@ -91,6 +91,10 @@ runtime with ``--model-engine``:
   computers with Apple silicon.
 * ``Audio8-TTS-Realistic-0.6b`` uses ``transformers`` on CPU or CUDA by default.
   Linux with NVIDIA GPUs also supports ``SGLang-Omni``.
+* :ref:`ZONOS3-Mini <models_builtin_zonos3-mini>`
+
+  * `MLX (zonos3-mlx-server) <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/mlx>`_
+  * `GGML (zonos3-server) <https://github.com/Zyphra/ZONOS3-Mini/tree/main/servers/ggml>`_
 
 For example:
 
@@ -120,6 +124,7 @@ Text to audio (TTS)
 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
 * :ref:`Audio8-TTS-Realistic-0.6b <models_builtin_audio8-tts-realistic-0.6b>`
+* :ref:`ZONOS3-Mini <models_builtin_zonos3-mini>`
 
 **Models supporting voice design** (natural-language voice description):
 
@@ -143,6 +148,7 @@ Speaker embeddings
 **Models supporting voice cloning** (requires reference audio):
 
 * :ref:`Audio8-TTS-Realistic-0.6b <models_builtin_audio8-tts-realistic-0.6b>`
+* :ref:`ZONOS3-Mini <models_builtin_zonos3-mini>`
 * :ref:`Breeze-TTS-2 <models_builtin_breeze-tts-2>`
 * :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`

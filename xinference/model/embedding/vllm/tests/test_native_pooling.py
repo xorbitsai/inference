@@ -17,10 +17,11 @@
 import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
+from ....llm.context_length import ContextLengthExceeded
 from ..core import VLLMEmbeddingModel
 
 
@@ -169,6 +170,144 @@ async def test_native_truncation_and_stop(model):
     assert result["usage"]["total_tokens"] == 3
     model.stop()
     model._model.shutdown.assert_called_once()
+
+
+_RENDERER_CONTEXT_ERROR = (
+    "This model's maximum context length is 32768 tokens. However, your prompt "
+    "contains at least 32769 input tokens, which exceeds this limit even without "
+    "any output tokens. Please reduce the length of the input prompt."
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unfinished", [False, True])
+async def test_sync_context_rejection_in_shared_batch(make_model, unfinished):
+    family = SimpleNamespace(model_name="bge-m3", model_specs=[None])
+    model = VLLMEmbeddingModel("replica", "/model", family, batch_interval=0.05)
+    engine_error = ValueError(_RENDERER_CONTEXT_ERROR)
+    batches = []
+
+    def embed(prompts, **kwargs):
+        batches.append(prompts)
+        if "overlong" in prompts:
+            raise engine_error
+        return [output(prompt) for prompt in prompts]
+
+    model._model = SimpleNamespace(
+        embed=embed,
+        llm_engine=SimpleNamespace(has_unfinished_requests=lambda: unfinished),
+    )
+    try:
+        invalid, valid = await asyncio.gather(
+            model.create_embedding(["overlong", "ok"], model_uid="public"),
+            model.create_embedding(["abc", "de"], model_uid="public"),
+            return_exceptions=True,
+        )
+    finally:
+        task = model._process_batch_task
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
+    assert sorted(batches[0]) == ["abc", "de", "ok", "overlong"]
+    if unfinished:
+        assert invalid is engine_error and valid is engine_error
+        assert len(batches) == 1
+    else:
+        assert isinstance(invalid, ContextLengthExceeded)
+        assert invalid.input_tokens == 32769 and invalid.max_model_len == 32768
+        assert invalid.__context__ is None
+        assert sorted(batches[1:]) == [["abc", "de"], ["overlong", "ok"]]
+        assert valid["model"] == "public"
+        assert [item["index"] for item in valid["data"]] == [0, 1]
+        assert [item["embedding"] for item in valid["data"]] == [[3.0], [2.0]]
+        assert valid["usage"]["prompt_tokens"] == 5
+
+
+@pytest.fixture
+def vllm_validation_error(monkeypatch):
+    """A vLLM exception type importable only in the model process."""
+    exceptions = ModuleType("vllm.exceptions")
+    error_type = type(
+        "VLLMValidationError", (ValueError,), {"__module__": "vllm.exceptions"}
+    )
+    exceptions.VLLMValidationError = error_type
+    monkeypatch.setitem(sys.modules, "vllm.exceptions", exceptions)
+    return error_type
+
+
+async def _cross_actor_boundary_without_vllm(error: BaseException):
+    """Serialize like a model actor, then decode where vLLM is not importable."""
+    import xoscar.backends.message  # noqa: F401  (installs tblib chain pickling)
+    from xoscar.serialization import deserialize, serialize
+
+    serialized = serialize(error)
+    if asyncio.iscoroutine(serialized):
+        serialized = await serialized
+    with patch.dict(sys.modules, {"vllm": None, "vllm.exceptions": None}):
+        result = deserialize(*serialized)
+        if asyncio.iscoroutine(result):
+            result = await result
+    return result
+
+
+@pytest.mark.asyncio
+async def test_native_overlong_input_raises_context_length_error(
+    model, vllm_validation_error
+):
+    cancelled = set()
+    pending_started = asyncio.Event()
+
+    async def encode(prompt, params, request_id):
+        if prompt == "overlong":
+            await pending_started.wait()
+            raise vllm_validation_error(_RENDERER_CONTEXT_ERROR)
+        pending_started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.add(prompt)
+            raise
+        yield output(prompt)
+
+    model._model.encode = encode
+    with pytest.raises(ContextLengthExceeded) as raised:
+        await asyncio.wait_for(
+            model.create_embedding(["overlong", "pending"], model_uid="public"), 1
+        )
+
+    error = raised.value
+    assert (error.input_tokens, error.max_model_len) == (32769, 32768)
+    assert error.diagnostic_code == "VLLM_PROMPT_LENGTH_REJECTED"
+    assert "max_model_len=32768" in str(error)
+    assert error.__cause__ is None and error.__context__ is None
+    assert cancelled == {"pending"}
+
+    # The raw engine error cannot be decoded where vLLM is not importable.
+    with pytest.raises(ModuleNotFoundError):
+        await _cross_actor_boundary_without_vllm(
+            vllm_validation_error(_RENDERER_CONTEXT_ERROR)
+        )
+    crossed = await _cross_actor_boundary_without_vllm(error)
+    assert isinstance(crossed, ContextLengthExceeded)
+    assert (crossed.input_tokens, crossed.max_model_len) == (32769, 32768)
+
+
+@pytest.mark.asyncio
+async def test_native_other_engine_errors_are_not_normalized(
+    model, vllm_validation_error
+):
+    engine_error = vllm_validation_error(
+        "max_tokens=8192 cannot be greater than max_model_len=4096."
+    )
+
+    async def encode(prompt, params, request_id):
+        raise engine_error
+        yield  # pragma: no cover
+
+    model._model.encode = encode
+    with pytest.raises(vllm_validation_error) as raised:
+        await model.create_embedding(["input"])
+    assert raised.value is engine_error
 
 
 def test_native_load_removes_xinference_batch_options(model):

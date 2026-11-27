@@ -133,3 +133,95 @@ def test_huggingface_cache_root_requires_unambiguous_snapshot(tmp_path):
 
     with pytest.raises(ValueError, match="Multiple Hugging Face snapshots"):
         _resolve_config_and_dir(str(cache_root))
+
+
+@pytest.mark.parametrize(
+    "quantization_config, model_format, quantization",
+    [
+        (
+            {
+                "quant_method": "fp8",
+                "activation_scheme": "dynamic",
+                "weight_block_size": [128, 128],
+            },
+            "fp8",
+            "FP8",
+        ),
+        (
+            {"quant_method": "bitsandbytes", "load_in_4bit": True},
+            "bnb",
+            "4-bit",
+        ),
+        (
+            {"quant_method": "bitsandbytes", "load_in_8bit": True},
+            "bnb",
+            "8-bit",
+        ),
+    ],
+)
+def test_auto_register_quantization_without_bits(
+    tmp_path, quantization_config, model_format, quantization
+):
+    model_dir = tmp_path / "quantized-model"
+    _write_config(
+        model_dir,
+        {
+            "max_position_embeddings": 4096,
+            "model_size_in_billions": 8,
+            "quantization_config": quantization_config,
+        },
+    )
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert result["model_specs"][0]["model_format"] == model_format
+    assert result["model_specs"][0]["quantization"] == quantization
+
+
+@pytest.fixture
+def windows_default_encoding(monkeypatch):
+    # Text files opened without an encoding use the locale encoding, which is
+    # cp1252 or gbk on Windows. Reproduce that on every platform.
+    import builtins
+
+    from xinference.model.llm import config_parser
+
+    def _open(file, mode="r", *args, **kwargs):
+        if "b" not in mode and "encoding" not in kwargs and not args[1:2]:
+            kwargs["encoding"] = "cp1252"
+        return builtins.open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(config_parser, "open", _open, raising=False)
+
+
+def test_auto_register_reads_utf8_tokenizer_config(tmp_path, windows_default_encoding):
+    model_dir = tmp_path / "deepseek-r1-distill"
+    _write_config(
+        model_dir,
+        {"max_position_embeddings": 4096, "model_size_in_billions": 7},
+    )
+    template = "{{ '<｜begin▁of▁sentence｜>' + messages[0]['content'] }}"
+    (model_dir / "tokenizer_config.json").write_text(
+        json.dumps({"chat_template": template}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert "chat" in result["model_ability"]
+
+
+def test_auto_register_reads_utf8_chat_template_file(
+    tmp_path, windows_default_encoding
+):
+    model_dir = tmp_path / "deepseek-r1-distill"
+    _write_config(
+        model_dir,
+        {"max_position_embeddings": 4096, "model_size_in_billions": 7},
+    )
+    template = "{{ '<｜begin▁of▁sentence｜>' + messages[0]['content'] }}"
+    (model_dir / "chat_template.jinja").write_text(template, encoding="utf-8")
+
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
+
+    assert "chat" in result["model_ability"]

@@ -400,6 +400,9 @@ class SGLangMiniMaxH3Model(
             num_outputs_per_prompt=n,
             save_output=True,
             output_path=workdir,
+            # Without a name, SGLang builds one from the first 100 characters
+            # of the prompt and logs the path with every request.
+            output_file_name=uuid.uuid4().hex,
             output_mode="decoded_files",
             return_frames=False,
         )

@@ -25,6 +25,10 @@ The following is a list of built-in video models in Xinference:
 
    ltx-2.3-distilled
 
+   ltx-2.5
+
+   ltx-2.5-dev
+
    minimax-h3
   
    wan2.1-1.3b
