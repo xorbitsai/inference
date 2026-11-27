@@ -867,3 +867,7 @@ msgstr "如果 Worker 交接时转移了原来保留的副本，删除可以继�
 #: ../../source/user_guide/launch.rst:485
 msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
 msgstr "Supervisor 移除 Worker 并将原部署从路由中摘除后，排空状态会变为 ``cancelled``。如果要缩容替换部署，请发起新的排空。"
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Worker 重新注册时，如果 Supervisor 能确认仍是同一个 Worker 和原来保留的副本，就会保留排空记录。新 Worker 进程在同一地址注册时，旧排空会被取消。"

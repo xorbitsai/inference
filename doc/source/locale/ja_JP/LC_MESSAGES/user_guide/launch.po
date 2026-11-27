@@ -76,3 +76,7 @@ msgstr "元の稼働中のレプリカが後継 Worker に引き継がれてい�
 #: ../../source/user_guide/launch.rst:485
 msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
 msgstr "Supervisor が Worker を除外し、元のデプロイをルーティングから外すと、ドレインは ``cancelled`` になります。代わりにデプロイされたモデルのレプリカ数を減らすには、新しいドレインを開始してください。"
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Worker が再登録するとき、Supervisor が同じ Worker と元の稼働中のレプリカを確認できれば、ドレインは継続します。同じアドレスに新しい Worker プロセスが登録されると、以前のドレインはキャンセルされます。"

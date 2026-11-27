@@ -1169,6 +1169,107 @@ async def test_worker_eviction_cancels_drain_without_touching_redeployment(reply
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("registration", ["replay", "restart", "recreated_target"])
+async def test_worker_registration_reconciles_interrupted_drain(
+    monkeypatch, registration
+):
+    import json
+
+    from fastapi import HTTPException
+
+    from ...api.replica_drain import ReplicaDrainRequests
+    from ...api.restful_api import RESTfulAPI
+
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    survivor = object()
+    target = SimpleNamespace(get_chat_routing_load=AsyncMock(return_value=0))
+    models = {"demo-rep0": survivor, "demo-rep1": target}
+    worker.get_model = AsyncMock(side_effect=lambda model_uid: models[model_uid])
+    worker.get_model_launch_status = AsyncMock(
+        side_effect=lambda uid: "READY" if uid in models else None
+    )
+    supervisor.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_engine": "vLLM"}
+    )
+    supervisor._schedule_autostart = lambda: None
+    supervisor._ownership_registry().incarnations[worker.address] = "original"
+    replacement = SimpleNamespace(address=worker.address, terminate_model=AsyncMock())
+    replacement_model = object()
+    replacement.get_model = AsyncMock(return_value=replacement_model)
+    replacement.get_model_launch_status = AsyncMock(return_value=None)
+    registering = replacement if registration == "restart" else worker
+    incarnation = "replacement" if registration == "restart" else "original"
+    registering.worker_incarnation = AsyncMock(return_value=incarnation)
+    registering.get_extension_resources = AsyncMock(return_value={"extensions": {}})
+    registering.get_node_metadata = AsyncMock(
+        return_value={"software_version": "4.2.1"}
+    )
+    registering.update_system_settings = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=registering))
+    monkeypatch.delenv("XINFERENCE_API_HOST", raising=False)
+    inventory = [{"replica_model_uid": uid} for uid in models]
+
+    async def terminate(model_uid):
+        await supervisor.add_worker(
+            worker.address,
+            replica_states=[] if registration == "restart" else inventory,
+            incarnation=incarnation,
+        )
+        if registration == "restart":
+            raise ConnectionError("Worker exited during deletion")
+        models.pop(model_uid)
+        if registration == "recreated_target":
+            models[model_uid] = replacement_model
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._app = SimpleNamespace()
+    api._replica_drain_requests = ReplicaDrainRequests()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    response = await api.begin_model_replica_drain("demo", 1, "r1", timeout=1)
+    assert json.loads(response.body)["status"] == "drained"
+
+    if registration == "replay":
+        for _ in range(2):
+            response = await asyncio.wait_for(
+                api.terminate_model_replica("demo", 1, "r1"), timeout=2
+            )
+            assert json.loads(response.body) == {"remaining_replicas": 1}
+        assert (
+            supervisor.get_manual_replica_drain("demo", 1, "r1")["status"]
+            == "succeeded"
+        )
+        assert await supervisor.get_model("demo") is survivor
+    else:
+        with pytest.raises(HTTPException) as failure:
+            await asyncio.wait_for(api.terminate_model_replica("demo", 1, "r1"), 2)
+        if registration == "restart":
+            assert failure.value.status_code == 500
+            assert "demo" not in supervisor._model_uid_to_replica_info
+            await supervisor.add_worker(
+                worker.address, replica_states=inventory, incarnation=incarnation
+            )
+        else:
+            assert failure.value.status_code == 400
+        assert (
+            supervisor.get_manual_replica_drain("demo", 1, "r1")["status"]
+            == "cancelled"
+        )
+        with pytest.raises(HTTPException) as retry:
+            await api.terminate_model_replica("demo", 1, "r1")
+        assert retry.value.status_code == 400
+        assert await supervisor._get_replica_model("demo", 1) is replacement_model
+        replacement.terminate_model.assert_not_awaited()
+        replacement.get_model_launch_status.assert_not_awaited()
+    worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+    assert supervisor._upgrade_state.maintenance.idle()
+    await asyncio.wait_for(supervisor._upgrade_state.pause(), timeout=1)
+    supervisor._upgrade_state.resume()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("active", [False, True])
 async def test_delete_terminated_replica_without_route(active):
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})

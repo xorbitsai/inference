@@ -968,3 +968,7 @@ msgstr "La cancellazione può riprendere dopo il passaggio a un nuovo Worker se 
 #: ../../source/user_guide/launch.rst:485
 msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
 msgstr "Quando il Supervisor rimuove il Worker e toglie la distribuzione originale dal routing, il drenaggio passa allo stato ``cancelled``. Per ridurre il numero di repliche di una distribuzione sostitutiva, avviare un nuovo drenaggio."
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Quando un Worker si registra di nuovo, il Supervisor mantiene il drenaggio se può verificare che il Worker è lo stesso e che la replica originale rimasta in servizio è ancora presente. La registrazione di un nuovo processo Worker allo stesso indirizzo annulla il drenaggio precedente."

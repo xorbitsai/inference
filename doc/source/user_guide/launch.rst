@@ -486,6 +486,10 @@ When the Supervisor evicts the Worker and removes the original deployment
 from routing, the drain becomes ``cancelled``. Start a new drain to scale down
 a replacement deployment.
 
+For a Worker re-registration, the Supervisor preserves a drain when it can
+verify the same Worker and the original surviving replica. Registration by a
+new Worker process at the same address cancels the old drain.
+
 GPU Allocation Strategy
 =======================
 

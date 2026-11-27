@@ -192,7 +192,7 @@ def shared_registry_operation(method):
     return checked
 
 
-def worker_message(*, registration=False):
+def worker_message(*, registration=False, forward_incarnation=False):
     def decorate(method):
         @functools.wraps(method)
         async def checked(self, worker_address, *args, incarnation=None, **kwargs):
@@ -214,6 +214,8 @@ def worker_message(*, registration=False):
                         != incarnation
                     ):
                         raise RuntimeError("Stale worker registration")
+                if forward_incarnation:
+                    kwargs["incarnation"] = incarnation
                 result = await method(self, worker_address, *args, **kwargs)
                 if registration and incarnation:
                     previous = registry.incarnations.get(worker_address)

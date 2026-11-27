@@ -6677,6 +6677,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if await self._get_replica_model(model_uid, replica_id) != original:
                 raise ValueError("A replica changed during manual drain")
         load = await drain.replicas[drain.replica_id].get_chat_routing_load()
+        if self._model_uid_to_replica_info.get(model_uid) is not info:
+            raise ValueError("The model topology changed during manual drain")
         return type(load) is int and load == 0
 
     async def confirm_manual_replica_drain(
@@ -6748,7 +6750,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self, model_uid: str, drain: ManualReplicaDrain
     ) -> bool:
         target_uid = build_replica_model_uid(model_uid, drain.replica_id)
-        worker = drain.worker
+        worker, topology = drain.worker, drain.topology
         # The routing entry can outlive a lost Worker reply, or already be gone
         # if the following StatusGuard update failed. Check the recorded owner.
         if await worker.get_model_launch_status(target_uid) is not None:
@@ -6757,16 +6759,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             index for index in drain.replicas if index != drain.replica_id
         )
         survivor = await self._get_replica_model(model_uid, survivor_id)
-        survivor_uid = build_replica_model_uid(model_uid, survivor_id)
         info = self._model_uid_to_replica_info.get(model_uid)
         if (
-            info is not drain.topology
+            info is not topology
+            or drain.topology is not topology
             or tuple(info.active_replica_ids)
             not in (tuple(drain.replicas), (survivor_id,))
             or survivor != drain.replicas[survivor_id]
             or drain.worker != worker
-            or self._replica_model_uid_to_worker.get(survivor_uid) != worker
-            or self._replica_model_uid_to_worker.get(target_uid) not in (None, worker)
+            or not self._manual_drain_routes_match(model_uid, drain, worker)
         ):
             raise ValueError("The model topology changed during manual drain")
         return True
@@ -6820,6 +6821,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if not isinstance(worker_refs, (list, tuple)):
             worker_refs = [worker_refs]
 
+        topology = drain.topology if drain is not None else None
         try:
             for worker_ref in worker_refs:
                 await worker_ref.terminate_model(model_uid=replica_model_uid)
@@ -6827,6 +6829,22 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if not suppress_exception:
                 raise
 
+        if drain is not None and drain.topology is not topology:
+            # A reconnect may have replayed the target while deletion was in
+            # flight. Confirm that this UID is gone before dropping its route.
+            self._check_manual_replica_deletion(model_uid, drain)
+            owner, replayed_topology = drain.worker, drain.topology
+            target_status = await owner.get_model_launch_status(replica_model_uid)
+            self._check_manual_replica_deletion(model_uid, drain)
+            if drain.worker is not owner or drain.topology is not replayed_topology:
+                raise ValueError(
+                    "The deployment changed during manual replica deletion"
+                )
+            if target_status is not None:
+                self._finish_manual_replica_drain(drain, "cancelled")
+                raise ValueError(
+                    "The deployment changed during manual replica deletion"
+                )
         return await self._finalize_replica_termination(
             model_uid, replica_id, drain=drain
         )
@@ -6837,18 +6855,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         if (
             drain.status != "deleting"
             or self._model_uid_to_replica_info.get(model_uid) is not drain.topology
+            or not self._manual_drain_routes_match(model_uid, drain, drain.worker)
         ):
             raise ValueError("The deployment changed during manual replica deletion")
+
+    def _manual_drain_routes_match(
+        self,
+        model_uid: str,
+        drain: ManualReplicaDrain,
+        owner: xo.ActorRefType["WorkerActor"],
+    ) -> bool:
         for replica_id in drain.replicas:
             worker = self._replica_model_uid_to_worker.get(
                 build_replica_model_uid(model_uid, replica_id)
             )
-            if worker != drain.worker and (
+            if worker != owner and (
                 replica_id != drain.replica_id or worker is not None
             ):
-                raise ValueError(
-                    "The deployment changed during manual replica deletion"
-                )
+                return False
+        return True
 
     async def _finalize_replica_termination(
         self,
@@ -8401,13 +8426,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._worker_metadata_refresh_tasks[worker_address] = task
 
     @log_async(logger=logger)
-    @worker_message(registration=True)
+    @worker_message(registration=True, forward_incarnation=True)
     async def add_worker(
         self,
         worker_address: str,
         replica_states: Optional[List[Dict[str, Any]]] = None,
         replica_model_uids: Optional[List[str]] = None,
         _xinference_control_context=None,
+        *,
+        incarnation: Optional[str] = None,
     ):
         if _xinference_control_context is not None:
             from .control_session import ControlContext, ControlSessionRejected
@@ -8422,7 +8449,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             async with control.fence.command(command):
                 # worker_message already holds the per-Worker registration lock.
                 return await inspect.unwrap(SupervisorActor.add_worker)(
-                    self, worker_address, replica_states, replica_model_uids
+                    self,
+                    worker_address,
+                    replica_states,
+                    replica_model_uids,
+                    incarnation=incarnation,
                 )
         from .worker import WorkerActor
 
@@ -8514,7 +8545,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
 
         await SupervisorActor._restore_worker_inventory(
-            self, worker_ref, replica_states=replica_states, apply_filter=False
+            self,
+            worker_ref,
+            replica_states=replica_states,
+            apply_filter=False,
+            incarnation=incarnation,
         )
         logger.debug("Worker %s has been added successfully", worker_address)
         if metadata_retry_required and self._is_current_worker_metadata_generation(
@@ -8550,6 +8585,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replica_model_uids=None,
         *,
         apply_filter=True,
+        incarnation: Optional[str] = None,
     ):
         """Apply one reported Worker snapshot through normal registration cleanup."""
         worker_address = worker_ref.address
@@ -8582,7 +8618,67 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             affected_replica_uids
         )
 
+        drains = getattr(self, "_manual_replica_drains", {})
+        retained: Dict[str, ManualReplicaDrain] = {}
+        if (
+            drains
+            and self._ownership_registry().incarnations.get(worker_address)
+            == incarnation
+        ):
+            for model_uid, drain in list(drains.items()):
+                if drain.worker != worker_ref or drain.status in (
+                    "cancelled",
+                    "succeeded",
+                ):
+                    continue
+                survivor_id = next(i for i in drain.replicas if i != drain.replica_id)
+                survivor_uid = build_replica_model_uid(model_uid, survivor_id)
+                if survivor_uid not in reported_uids:
+                    continue
+                try:
+                    survivor = await xo.wait_for(
+                        worker_ref.get_model(model_uid=survivor_uid),
+                        XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+                    )
+                except Exception:
+                    logger.debug(
+                        "Could not confirm drain survivor %s during replay",
+                        survivor_uid,
+                        exc_info=True,
+                    )
+                else:
+                    if survivor == drain.replicas[survivor_id]:
+                        retained[model_uid] = drain
+        retained = {
+            uid: drain
+            for uid, drain in retained.items()
+            if self._model_uid_to_replica_info.get(uid) is drain.topology
+        }
+
+        # Route publication and drain reconciliation must stay synchronous.
+        # The pending DELETE may be waiting on this add_worker call.
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        for model_uid, drain in drains.items():
+            if drain.worker.address != worker_address or drain.status in (
+                "cancelled",
+                "succeeded",
+            ):
+                continue
+            info = self._model_uid_to_replica_info.get(model_uid)
+            if (
+                retained.get(model_uid) is drain
+                and info is not None
+                and set(info.active_replica_ids).issubset(drain.replicas)
+                and (
+                    drain.replica_id in info.active_replica_ids
+                    or drain.status in ("deleting", "unknown")
+                )
+                and self._manual_drain_routes_match(model_uid, drain, worker_ref)
+            ):
+                drain.topology = info
+                drain.worker = worker_ref
+            else:
+                self._finish_manual_replica_drain(drain, "cancelled")
         # A replayed replica is running again (e.g. the worker was evicted by
         # the health check and came back): clear its worker-failure marker so
         # the unexpected-termination gauge stops reporting it as down. A
