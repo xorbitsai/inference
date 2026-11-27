@@ -15,6 +15,7 @@
 import json
 import sys
 from copy import deepcopy
+from inspect import signature
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -51,13 +52,11 @@ QWEN3_VL_CONFIG = {
         "rope_scaling": dict(AXES, rope_type="default"),
     },
 }
-SCALING = {
-    "rope_type": "yarn",
-    "factor": 4.0,
-    "original_max_position_embeddings": 32768,
-}
+SCALING_FIELDS = {"factor": 4.0, "original_max_position_embeddings": 32768}
+SCALING = {"rope_type": "yarn", **SCALING_FIELDS}
 BASE_FIELDS = {"rope_theta": CHECKPOINT_THETA, "partial_rotary_factor": 0.5}
 UNRELATED_OVERRIDE = {"max_position_embeddings": 65536}
+YARN_ERROR = r"YaRN.*mrope_section.*>=0\.12\.0,<0\.17\.0.*0\.11\.2 or >=0\.17\.0"
 
 
 def _write_checkpoint(path: Path, config: dict) -> Path:
@@ -211,24 +210,55 @@ def test_rope_scaling_resolves_separate_checkpoint_text_config(
 
 
 @pytest.mark.parametrize("key", ["rope_type", "type"])
-@pytest.mark.parametrize("requested", ["linear", "mrope"])
-def test_rope_scaling_rejects_invalid_mrope(tmp_path, versions, key, requested):
-    versions("5.22.2" if requested == "linear" else "4.57.6")
-    checkpoint = QWEN3_VL_CONFIG if requested == "linear" else QWEN3_CONFIG
-    model = _model(_write_checkpoint(tmp_path, checkpoint))
-    overrides = {"text_config": dict(UNRELATED_OVERRIDE)}
-    scaling = {key: requested, "factor": 2.0}
+@pytest.mark.parametrize(
+    ("vllm", "mode", "requested", "error"),
+    [
+        ("0.11.2", "mrope", "yarn", None),
+        pytest.param("0.12.0", "mrope", "yarn", YARN_ERROR, id="0.12.0-mrope-yarn"),
+        pytest.param("0.16.0", "mrope", "yarn", YARN_ERROR, id="0.16.0-mrope-yarn"),
+        ("0.17.0", "mrope", "yarn", None),
+        ("0.13.0", "mrope", None, None),
+        ("0.13.0", "text", "yarn", None),
+        pytest.param("0.13.0", "caller", "yarn", YARN_ERROR, id="0.13.0-caller-yarn"),
+        ("0.34.0", "mrope", "linear", "linear.*mrope_section"),
+        ("0.34.0", "text", "mrope", "mrope.*mrope_section"),
+    ],
+)
+def test_mrope_compatibility(tmp_path, versions, key, vllm, mode, requested, error):
+    versions("4.57.6", patch_rope=vllm != "0.11.2", vllm=vllm)
+    nested = mode != "text"
+    checkpoint = QWEN3_VL_CONFIG if nested else QWEN3_CONFIG
+    model = _model(_write_checkpoint(tmp_path, checkpoint), multimodal=nested)
+    target = dict(UNRELATED_OVERRIDE)
+    overrides = {"text_config": target} if nested else target
+    scaling = SCALING_FIELDS | ({key: requested} if requested else {})
+    if mode == "caller":
+        target["rope_scaling"] = scaling
+        scaling = {"factor": SCALING["factor"]}
     launch = dict(hf_overrides=overrides, rope_scaling=scaling)
-    with pytest.raises(ValueError, match=f"{requested}.*mrope_section"):
-        model._sanitize_model_config(launch)
-    assert launch["hf_overrides"] is overrides
-    assert overrides == {"text_config": UNRELATED_OVERRIDE}
+    if error:
+        original = deepcopy(overrides)
+        with pytest.raises(ValueError, match=error):
+            model._sanitize_model_config(launch)
+        assert launch["hf_overrides"] is overrides and overrides == original
+        return
+    result = model._sanitize_model_config(launch)["hf_overrides"]
+    actual = result["text_config"] if nested else result
+    expected = dict(SCALING, rope_type=requested or "default")
+    assert actual["rope_scaling"] == ({**AXES, **expected} if nested else expected)
+    assert {k: actual[k] for k in UNRELATED_OVERRIDE} == UNRELATED_OVERRIDE
+    assert ("rope_parameters" in actual) == (vllm != "0.11.2")
 
 
-@pytest.mark.parametrize("saved", ["openpangu", "mrope", None])
+@pytest.mark.parametrize("saved", ["openpangu", "mrope", "yarn", None])
 def test_rope_scaling_factor_only_keeps_saved_type(tmp_path, versions, saved):
     versions("4.57.6", patch_rope=True, vllm="0.12.0")
     params = dict(AXES, rope_type=saved) if saved else {}
+    if saved == "yarn":
+        params.update(SCALING_FIELDS)
+        with pytest.raises(ValueError, match=YARN_ERROR):
+            _rope_overrides(tmp_path, {"rope_scaling": params}, {"factor": 2.0})
+        versions("4.57.6", patch_rope=True, vllm="0.17.0")
     overrides = _rope_overrides(tmp_path, {"rope_scaling": params}, {"factor": 2.0})
     expected = dict(params, factor=2.0)
     if saved == "mrope":
@@ -359,9 +389,18 @@ def test_rope_scaling_legacy_rotary(tmp_path, key, requested):
     ],
 )
 def test_rope_scaling_builds_rotary_with_checkpoint_base(tmp_path, mode, rotary_class):
-    release = version.parse(pytest.importorskip("vllm").__version__).public
-    if release == "0.12.0" or (release == "0.13.0" and mode in {"mrope", "openpangu"}):
-        pytest.skip("vLLM 0.12.0 needs rotary_dim, 0.13.0 fails M-RoPE YaRN/OpenPangu")
+    release = version.parse(pytest.importorskip("vllm").__version__)
+    nested = mode != "text"
+    checkpoint = deepcopy(QWEN3_VL_CONFIG) if nested else QWEN3_CONFIG
+    scaling = dict(SCALING, original_max_position_embeddings=128)
+    if mode == "openpangu":
+        checkpoint["text_config"]["rope_scaling"]["rope_type"] = "openpangu"
+        scaling = {"factor": 2.0}
+    if mode == "mrope" and version.parse("0.12.0") <= release < version.parse("0.17.0"):
+        with pytest.raises(ValueError, match=YARN_ERROR):
+            _rope_overrides(tmp_path, checkpoint, scaling)
+        return
+
     from vllm.transformers_utils import config as config_utils
 
     if not hasattr(config_utils, "set_default_rope_theta"):
@@ -370,24 +409,25 @@ def test_rope_scaling_builds_rotary_with_checkpoint_base(tmp_path, mode, rotary_
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.model_executor.layers.rotary_embedding import get_rope
 
-    nested = mode != "text"
-    checkpoint = deepcopy(QWEN3_VL_CONFIG) if nested else QWEN3_CONFIG
-    scaling = dict(SCALING, original_max_position_embeddings=128)
-    if mode == "openpangu":
-        checkpoint["text_config"]["rope_scaling"]["rope_type"] = "openpangu"
-        scaling = {"factor": 2.0}
     overrides = _rope_overrides(tmp_path, checkpoint, scaling)
     model_config = AsyncEngineArgs(
         model=str(tmp_path), hf_overrides=overrides
     ).create_model_config()
     config = model_config.hf_text_config
     config_utils.set_default_rope_theta(config, default_theta=1000000)
+    params = config.rope_parameters
+    kwargs = dict(max_position=config.max_position_embeddings, rope_parameters=params)
+    if "rotary_dim" in signature(get_rope).parameters:
+        kwargs["rotary_dim"] = config.head_dim
     with set_current_vllm_config(
         VllmConfig(model_config=model_config, device_config=DeviceConfig(device="cpu"))
     ):
-        length = config.max_position_embeddings
-        params = config.rope_parameters
-        rotary = get_rope(config.head_dim, max_position=length, rope_parameters=params)
+        try:
+            rotary = get_rope(config.head_dim, **kwargs)
+        except ValueError as exc:
+            if mode == "openpangu" and str(exc) == f"Unknown RoPE scaling type {mode}":
+                pytest.skip(f"vLLM {release} does not support openpangu ({exc})")
+            raise
 
     assert type(rotary).__name__ == rotary_class
     assert rotary.base == (QWEN3_VL_THETA if nested else CHECKPOINT_THETA)
@@ -395,5 +435,5 @@ def test_rope_scaling_builds_rotary_with_checkpoint_base(tmp_path, mode, rotary_
     assert params["rope_type"] == expected_type
     if nested:
         assert {key: params[key] for key in AXES} == AXES
-    if mode == "mrope":
+    if mode != "openpangu":
         assert rotary.scaling_factor == SCALING["factor"]

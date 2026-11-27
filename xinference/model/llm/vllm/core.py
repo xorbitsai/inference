@@ -2069,6 +2069,14 @@ class VLLMModel(WeightCachedModel, LLM):
         ):
             detail = f"{rope_type!r} is unsupported for multimodal RoPE (mrope_section)"
             raise ValueError(detail)
+        if "mrope_section" in parameters and rope_type == "yarn":
+            if VLLM_VERSION is not None and (
+                version.parse("0.12.0") <= VLLM_VERSION < version.parse("0.17.0")
+            ):
+                raise ValueError(
+                    "YaRN with multimodal RoPE (mrope_section) is unsupported on vLLM "
+                    ">=0.12.0,<0.17.0. Use vLLM 0.11.2 or >=0.17.0."
+                )
         if rope_type == "mrope":
             if "mrope_section" not in parameters:
                 raise ValueError("'mrope' requires multimodal RoPE (mrope_section)")
