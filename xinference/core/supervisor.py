@@ -7067,6 +7067,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 and (state is None or replica_id not in state.draining)
             )
 
+        retried: Set[int] = set()
+
+        def retry_if_replaced(replica_id: int) -> None:
+            # Registered or scaled up again during its lookup: the reply came
+            # from an older instance, so ask the current one once, after the rest.
+            current = instances.get((model_uid, replica_id))
+            if replica_id not in retried and routable(replica_id, current):
+                retried.add(replica_id)
+                candidates.append(replica_id)
+
         for replica_id in candidates:
             # A replica can start draining while an earlier lookup is pending.
             if state is not None and replica_id in state.draining:
@@ -7085,6 +7095,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 uid = build_replica_model_uid(model_uid, replica_id)
                 is_stopping = attempts > 1 and await self._is_replica_stopping(uid)
                 if not routable(replica_id, instance):
+                    retry_if_replaced(replica_id)
                     continue
                 if not is_stopping:
                     raise
@@ -7092,6 +7103,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 continue
             if routable(replica_id, instance):
                 return model, False
+            retry_if_replaced(replica_id)
         raise stopping if stopping is not None else last_error
 
     async def _rank_chat_replicas(
@@ -8238,6 +8250,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        # The reported model actors may have replaced the ones a pending lookup
+        # reached, so every replayed replica starts a new instance.
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if isinstance(replica_model_uid, str):
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is not None:
+                    self._replica_instances[parsed] = (
+                        self._replica_instances.get(parsed, 0) + 1
+                    )
         # A replayed replica is running again (e.g. the worker was evicted by
         # the health check and came back): clear its worker-failure marker so
         # the unexpected-termination gauge stops reporting it as down. A

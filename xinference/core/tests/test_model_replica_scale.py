@@ -752,6 +752,71 @@ async def test_inference_fallback_skips_replica_stopping_during_scale_down():
         await asyncio.wait_for(scale_down, 2)
 
 
+async def _replay_during_held_lookup(worker, supervisor, runtime, replace, new_worker):
+    # Hold replica 2's lookup reply after the worker obtained its reference,
+    # then register the worker's inventory (all three replicas) again.
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        ref = runtime.get_model(model_uid)
+        if model_uid == "demo-rep2" and not entered.is_set():
+            entered.set()
+            await release.wait()
+        return ref
+
+    worker.get_model = get_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    held = runtime._model_uid_to_model["demo-rep2"]
+    if replace:
+        runtime._model_uid_to_model["demo-rep2"] = object()
+    registered = worker
+    if new_worker:
+        registered = _FakeScaleWorker(worker.address, worker.launch_args)
+        registered.get_model = get_model
+    await supervisor._restore_worker_inventory(
+        registered,
+        replica_states=[
+            {"replica_model_uid": f"demo-rep{i}", "n_worker": 1, "shard": 0}
+            for i in range(3)
+        ],
+        apply_filter=False,
+    )
+    assert supervisor._replica_model_uid_to_worker["demo-rep2"] is registered
+    release.set()
+    return held, await asyncio.wait_for(task, 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("new_worker", [False, True])
+async def test_inference_fallback_discards_reply_from_before_worker_registration(
+    new_worker,
+):
+    # Replica 2's model actor is replaced and the worker (the same process, or
+    # a new one at the same address) registers it again while the reply of the
+    # lookup is held. The removed actor must not be returned.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    removed, model = await _replay_during_held_lookup(
+        worker, supervisor, runtime, replace=True, new_worker=new_worker
+    )
+    assert model is not removed
+    assert model is runtime._model_uid_to_model["demo-rep0"]
+
+
+@pytest.mark.asyncio
+async def test_inference_fallback_retries_replica_registered_during_lookup():
+    # Only replica 2 is ready, and its registration replays while the lookup
+    # reply is held. The reply is dropped, but the current instance is asked
+    # once more, so the request is still served.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    runtime._model_uid_to_model_status["demo-rep0"].model_state = "loading"
+    held, model = await _replay_during_held_lookup(
+        worker, supervisor, runtime, replace=False, new_worker=False
+    )
+    assert model is held
+    assert model is runtime._model_uid_to_model["demo-rep2"]
+
+
 @pytest.mark.asyncio
 async def test_progress_includes_unrouted_replica_until_real_load_completion():
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
