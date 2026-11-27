@@ -29,7 +29,9 @@ from .... import constants
 from ....core import worker as worker_module
 from ....core.worker import WorkerActor
 from ...cache_manager import CacheManager
-from .. import BUILTIN_VIDEO_MODELS, load_model_family_from_json, ltx2, ltx25_checkpoint
+from .. import BUILTIN_VIDEO_MODELS
+from .. import cache_manager as video_cache
+from .. import load_model_family_from_json, ltx2, ltx25_checkpoint
 from ..cache_manager import VideoCacheManager
 from ..core import create_video_model_instance
 from ..engine_family import VIDEO_ENGINES
@@ -37,6 +39,30 @@ from ..engine_family import VIDEO_ENGINES
 HUBS = ("huggingface", "modelscope")
 REVISIONS = {"huggingface": "main", "modelscope": "master"}
 VARIANTS = ("dev", "distilled")
+
+
+def test_legacy_base_copy_is_published_only_when_complete(tmp_path, monkeypatch):
+    source = tmp_path / "legacy" / "weights"
+    _write_fixture(source)
+    dest = tmp_path / "variant" / "weights"
+    copy2 = video_cache.shutil.copy2
+    monkeypatch.setattr(
+        video_cache.os, "link", Mock(side_effect=OSError("unsupported"))
+    )
+
+    def fail_during_copy(source, temp_path):
+        temp_path.write_bytes(b"partial")
+        raise OSError("out of disk space")
+
+    monkeypatch.setattr(video_cache.shutil, "copy2", fail_during_copy)
+    with pytest.raises(OSError, match="out of disk space"):
+        video_cache._preserve_legacy_base_file(source, dest)
+    assert source.is_file()
+    assert not list(dest.parent.iterdir())
+
+    monkeypatch.setattr(video_cache.shutil, "copy2", copy2)
+    video_cache._preserve_legacy_base_file(source, dest)
+    assert dest.read_bytes() == source.read_bytes()
 
 
 def _checkpoint_name(variant: str) -> str:
@@ -105,14 +131,14 @@ def hub_cache(monkeypatch, tmp_path):
         / "models--PhaiModelLab--Phai-M1"
         / "snapshots"
         / "commit",
-        "modelscope": ms_root / "models" / "PhaiModelLab--Phai-M1",
+        "modelscope": ms_root / "models" / "PhaiModelLab" / "Phai-M1",
     }
     base_snapshots = {
         "huggingface": hf_root
         / "models--Lightricks--LTX-2.5-Diffusers"
         / "snapshots"
         / "base",
-        "modelscope": ms_root / "models" / "Lightricks--LTX-2.5-Diffusers",
+        "modelscope": ms_root / "models" / "Lightricks" / "LTX-2___5-Diffusers",
     }
     state = SimpleNamespace(
         checkpoint_calls=[],
@@ -339,8 +365,9 @@ async def test_worker_phai_m1_pre_download_supports_offline_launch(
 @pytest.mark.parametrize("hub", HUBS)
 @pytest.mark.parametrize("first", VARIANTS)
 @pytest.mark.parametrize("removed", VARIANTS)
-async def test_worker_phai_m1_deletes_only_selected_variant(
-    catalog, hub_cache, hub, first, removed
+@pytest.mark.parametrize("shared_reference", [False, True])
+async def test_worker_phai_m1_reclaims_cache_after_last_reference(
+    catalog, hub_cache, tmp_path, hub, first, removed, shared_reference
 ):
     second = "distilled" if first == "dev" else "dev"
     managers = {
@@ -353,20 +380,43 @@ async def test_worker_phai_m1_deletes_only_selected_variant(
     survivor = "distilled" if removed == "dev" else "dev"
     checkpoint, base = cached_paths[removed]
     other_checkpoint, other_base = cached_paths[survivor]
-    assert base == other_base
+    assert base != other_base
     assert hub_cache.base_calls == [hub]
     source = checkpoint.resolve()
     sibling_source = other_checkpoint.resolve()
     assert source != sibling_source
 
-    cache_dir = managers[removed].get_cache_dir()
+    base_sources = {
+        filename: (base / filename).resolve(strict=True)
+        for filename in ltx25_checkpoint.LTX25_BASE_FILES
+    }
+    snapshot = hub_cache.base_snapshots[hub]
+    for filename, target in base_sources.items():
+        assert target == (snapshot / filename).resolve(strict=True)
+        assert (other_base / filename).resolve(strict=True) == target
+
+    preserved = set()
+    if shared_reference:
+        target = base_sources["scheduler/scheduler_config.json"]
+        external_link = tmp_path / "cache" / "v2" / "other-model" / target.name
+        external_link.parent.mkdir(parents=True)
+        external_link.symlink_to(target)
+        preserved.add(target)
+
+    cache_dirs = {
+        catalog[hub, variant].model_name: manager.get_cache_dir()
+        for variant, manager in managers.items()
+    }
     tracker = SimpleNamespace(
-        list_deletable_models=AsyncMock(return_value=cache_dir),
+        list_deletable_models=AsyncMock(
+            side_effect=lambda version, address: cache_dirs[version]
+        ),
         confirm_and_remove_model=AsyncMock(),
     )
     worker = SimpleNamespace(address="127.0.0.1:0", _cache_tracker_ref=tracker)
     worker.list_deletable_models = partial(WorkerActor.list_deletable_models, worker)
     model_version = f"Phai-M1-{removed}"
+    cache_dir = cache_dirs[model_version]
 
     assert set(await worker.list_deletable_models(model_version)) == {
         cache_dir,
@@ -378,8 +428,69 @@ async def test_worker_phai_m1_deletes_only_selected_variant(
     )
     assert not source.exists()
     assert not Path(cache_dir).exists()
+    assert not base.exists()
     assert not managers[removed].get_cache_status()
     assert sibling_source.is_file()
-    assert other_checkpoint.is_file()
+    assert all(target.is_file() for target in base_sources.values())
+
+    hub_cache.offline = True
     assert managers[survivor].get_cache_status()
-    assert all((base / name).is_file() for name in ltx25_checkpoint.LTX25_BASE_FILES)
+    assert tuple(map(Path, managers[survivor].cache_phai_m1())) == (
+        other_checkpoint,
+        other_base,
+    )
+    assert other_checkpoint.is_file()
+    assert all((other_base / filename).is_file() for filename in base_sources)
+
+    survivor_version = f"Phai-M1-{survivor}"
+    reclaimable = set(base_sources.values()) - preserved
+    assert set(await worker.list_deletable_models(survivor_version)) == {
+        cache_dirs[survivor_version],
+        str(sibling_source),
+        *(str(path) for path in reclaimable),
+    }
+    assert await WorkerActor.confirm_and_remove_model(worker, survivor_version)
+    assert not sibling_source.exists()
+    assert not other_checkpoint.exists()
+    assert not other_base.exists()
+    assert not managers[survivor].get_cache_status()
+    assert all(not path.exists() for path in reclaimable)
+    assert (snapshot / "unused.safetensors").is_file()
+    if shared_reference:
+        assert external_link.is_file()
+        assert external_link.resolve(strict=True) == target
+
+
+@pytest.mark.parametrize("hub", HUBS)
+def test_phai_m1_reuses_legacy_shared_base_without_orphaning_links(
+    catalog, hub_cache, tmp_path, hub
+):
+    legacy_base = tmp_path / "cache" / "v2" / f"Phai-M1-LTX-2.5-{hub}"
+    for filename in ltx25_checkpoint.LTX25_BASE_FILES:
+        source = _write_fixture(hub_cache.base_snapshots[hub] / filename)
+        link = legacy_base / filename
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(source)
+
+    managers = [VideoCacheManager(catalog[hub, variant]) for variant in VARIANTS]
+    for variant, manager in zip(VARIANTS, managers):
+        source = _write_fixture(
+            hub_cache.phai_snapshots[hub] / _remote_checkpoint(hub, variant)
+        )
+        destination = Path(manager.get_cache_dir()) / _checkpoint_name(variant)
+        destination.parent.mkdir(parents=True)
+        destination.symlink_to(source)
+
+    hub_cache.offline = True
+    dev_base, distilled_base = (
+        Path(manager.cache_phai_m1()[1]) for manager in managers
+    )
+
+    assert dev_base != distilled_base
+    assert not legacy_base.exists()
+    for base in (dev_base, distilled_base):
+        for filename in ltx25_checkpoint.LTX25_BASE_FILES:
+            assert (base / filename).resolve(strict=True) == (
+                hub_cache.base_snapshots[hub] / filename
+            )
+    assert all(manager.get_cache_status() for manager in managers)
