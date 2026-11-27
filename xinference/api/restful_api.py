@@ -3906,6 +3906,61 @@ class RESTfulAPI(CancelMixin):
         status_code = 429 if "Rate limit reached" in message else 500
         return cls._responses_error(status_code, message, code=code)
 
+    async def _preflight_responses_forced_tools(
+        self, request: Request, model: Any, model_uid: str, kwargs: Dict[str, Any]
+    ) -> Union[Dict[str, Any], JSONResponse, None]:
+        """Run the DeepSeek V4.1 forced-tool preflight Chat Completions uses.
+
+        Returns the prepared config, an error response, or None when the
+        request does not need the preflight.
+        """
+        from ..model.llm.tool_controls import (
+            is_deepseek_v41_forced_tool_choice,
+            is_forced_tool_choice,
+        )
+
+        if not is_forced_tool_choice(kwargs):
+            return None
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            desc = await supervisor_ref.describe_model(
+                model_uid, selected_replica_uid=model.uid.decode()
+            )
+            # The P/D router reports vLLM compatibility for non-vLLM engines too.
+            if not (
+                (desc.get("model_engine") or "vllm").lower() == "vllm"
+                and is_deepseek_v41_forced_tool_choice(kwargs, desc.get("model_family"))
+                and await model.is_vllm_backend()
+            ):
+                return None
+            prepared = await model.prepare_reasoning_request(kwargs)
+            if isinstance(prepared, (str, bytes)):
+                prepared = json.loads(prepared)
+            if not isinstance(prepared, dict):
+                raise ValueError("Invalid reasoning preflight response")
+            error = prepared.get("error")
+            if error is None:
+                return prepared
+            if (
+                not isinstance(error, dict)
+                or error.get("status") not in {400, 501}
+                or not isinstance(error.get("message"), str)
+            ):
+                raise ValueError("Invalid reasoning preflight error")
+        except ModelNotReadyError:
+            return self._responses_error(
+                503,
+                "Model is loading, please retry later",
+                headers={"Retry-After": "30"},
+            )
+        except Exception:
+            logger.exception("Responses forced-tool preflight failed")
+            return self._responses_error(
+                503, "Reasoning request preflight is temporarily unavailable"
+            )
+        mark_inference_rejection(request, "reasoning_preflight")
+        return self._responses_error(error["status"], error["message"])
+
     async def create_response(self, request: Request) -> Response:
         try:
             raw_body = await request.json()
@@ -3971,6 +4026,15 @@ class RESTfulAPI(CancelMixin):
             if key not in {"model", "messages"}
         }
         raw_kwargs = dict(kwargs)
+        preflight = await self._preflight_responses_forced_tools(
+            request, model, model_uid, kwargs
+        )
+        if isinstance(preflight, JSONResponse):
+            return preflight
+        if preflight is not None:
+            kwargs = preflight
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if not req.stream:
             try:

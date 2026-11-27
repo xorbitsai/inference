@@ -2429,6 +2429,72 @@ async def test_pd_deepseek_v41_openai_forced_tool_routing(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
+@pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
+@pytest.mark.parametrize("family", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "name": "time"}, "auto"],
+    ids=["required", "named", "auto"],
+)
+async def test_pd_deepseek_v41_responses_forced_tool_routing(
+    monkeypatch, stream, engine, family, choice
+):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    api, model, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, engine, family
+    )
+    _mock_decoder_reasoning_preflight(decode, object.__new__(VLLMMultiModel), family)
+    if stream:
+
+        async def chunks():
+            return
+            yield
+
+        decode.chat.return_value = chunks()
+        router_chat = model.chat.side_effect
+
+        async def chat(*args, **kwargs):
+            result = await router_chat(*args, **kwargs)
+            # No actor pool exists to destroy the generator on collection.
+            result._gc_destroy = False
+            return result
+
+        model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "input": "What time is it?",
+            "stream": stream,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "name": "time", "parameters": {}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    response = await api.create_response(request)
+
+    if engine == "vLLM" and choice != "auto":
+        assert response.status_code == 501
+        error = json.loads(response.body)["error"]
+        assert "not supported for P/D" in error["message"]
+        decode.prepare_reasoning_request.assert_awaited_once()
+        prefill.chat.assert_not_awaited()
+        decode.chat.assert_not_awaited()
+        return
+
+    assert response.status_code == 200
+    decode.prepare_reasoning_request.assert_not_awaited()
+    expected = choice
+    if isinstance(choice, dict):
+        expected = {"type": "function", "function": {"name": "time"}}
+    for replica in (prefill, decode):
+        replica.chat.assert_awaited_once()
+        assert replica.chat.await_args.args[1]["tool_choice"] == expected
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "choice",
     ["required", {"type": "function", "function": {"name": "time"}}],
