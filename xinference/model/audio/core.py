@@ -356,7 +356,15 @@ def create_audio_model_instance(
     if model_spec.model_family == "yue2" and model_spec.model_name not in AUDIO_ENGINES:
         raise ValueError("YuE2 requires an NVIDIA CUDA device.")
 
-    if (model_spec.engine or "").lower() == "vllm":
+    if cache_only and (model_engine or model_spec.engine or "").lower() == "vllm":
+        from .vllm import VLLMQwen3ASRAudioModel
+
+        # The download worker uses the model's metadata without loading vLLM.
+        if VLLMQwen3ASRAudioModel.is_model_family_supported(model_spec):
+            audio_cls = VLLMQwen3ASRAudioModel
+            model_engine = "vLLM"
+
+    if audio_cls is None and (model_spec.engine or "").lower() == "vllm":
         available_engines = AUDIO_ENGINES.get(model_spec.model_name, {})
         has_vllm_engine = any(engine.lower() == "vllm" for engine in available_engines)
         if not has_vllm_engine:
@@ -376,7 +384,9 @@ def create_audio_model_instance(
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
     # engines keep the legacy dispatch below.
-    if model_spec.model_name in AUDIO_ENGINES or model_engine is not None:
+    if audio_cls is None and (
+        model_spec.model_name in AUDIO_ENGINES or model_engine is not None
+    ):
         from .engine_family import (
             check_engine_by_model_name_and_engine,
             check_engine_by_model_name_and_engine_with_virtual_env,

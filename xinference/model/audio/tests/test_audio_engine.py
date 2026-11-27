@@ -16,9 +16,10 @@
 
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -1107,9 +1108,88 @@ def test_oruk_fourier_without_linux_cuda_is_rejected_before_download(
     cache.assert_not_called()
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize(
+    ("model_name", "model_engine", "model_id", "revision"),
+    [
+        (
+            "Oruk-Fourier-2B",
+            None,
+            "oruk/oruk-fourier-2b",
+            "8c2a8871f1304aa2f634da4fb95e24438c4945b9",
+        ),
+        (
+            "Oruk-Fourier-2B",
+            "vllm",
+            "oruk/oruk-fourier-2b",
+            "8c2a8871f1304aa2f634da4fb95e24438c4945b9",
+        ),
+        ("Qwen3-ASR-0.6B", "vLLM", "Qwen/Qwen3-ASR-0.6B", "main"),
+    ],
+)
+async def test_vllm_asr_cache_only_download_on_cpu(
+    tmp_path, enable_virtual_env, model_name, model_engine, model_id, revision
+):
+    from ....core.worker import DownloadInfo, WorkerActor
+
+    worker = SimpleNamespace(
+        _upload_download_progress=Mock(), update_cache_status=AsyncMock()
+    )
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(asr_vllm, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "get_cache_dir", return_value=str(tmp_path)),
+        patch.object(
+            CacheManager, "cache", autospec=True, return_value=str(tmp_path)
+        ) as cache,
+        patch.object(VLLMQwen3ASRAudioModel, "load") as load,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS[model_name]:
+            generate_engine_config_by_model_name(model_spec)
+
+        model, downloader = await WorkerActor._download_model_files(
+            worker,
+            operation_uid="cache-asr",
+            request_id="caching-cache-asr",
+            download_info=DownloadInfo(),
+            progressor=nullcontext(),
+            model_type="audio",
+            model_name=model_name,
+            model_engine=model_engine,
+            model_format="pytorch",
+            model_size_in_billions=None,
+            quantization=None,
+            peft_model_config=None,
+            download_hub="huggingface",
+            model_path=None,
+            model_kwargs={"enable_virtual_env": enable_virtual_env},
+            completion_stage="completed",
+        )
+
+    cache.assert_called_once()
+    cached_spec = cache.call_args.args[0]._model_family
+    assert (cached_spec.model_id, cached_spec.model_revision) == (model_id, revision)
+    assert downloader.done
+    assert isinstance(model, VLLMQwen3ASRAudioModel)
+    assert model.model_family.model_engine == "vLLM"
+    load.assert_not_called()
+    worker.update_cache_status.assert_awaited_once_with(
+        model_name,
+        {
+            "model_version": model_name,
+            "model_file_location": str(tmp_path),
+            "cache_status": True,
+        },
+    )
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+@pytest.mark.parametrize("cache_only", [False, True])
 def test_oruk_fourier_rejects_non_vllm_engine_without_cuda_before_download(
-    enable_virtual_env,
+    enable_virtual_env, cache_only
 ):
     with (
         patch.object(engine_platform, "system", return_value="Linux"),
@@ -1130,6 +1210,7 @@ def test_oruk_fourier_rejects_non_vllm_engine_without_cuda_before_download(
                 "Oruk-Fourier-2B",
                 model_engine="transformers",
                 enable_virtual_env=enable_virtual_env,
+                _xinference_cache_only=cache_only,
             )
     cache.assert_not_called()
 
