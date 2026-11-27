@@ -112,27 +112,20 @@ Xinference 支持不同引擎的副本在同一模型 ID 下同时提供服务�
 
 ## 近期更新
 
-[查看 v4.2.0 发布说明](https://github.com/xorbitsai/inference/releases/tag/v4.2.0)
+[查看 v4.3.0 发布说明](https://github.com/xorbitsai/inference/releases/tag/v4.3.0)
 
 <details>
-<summary>最近两个版本新增的内置模型（v4.1、v4.2）</summary>
+<summary>最近两个版本新增的内置模型（v4.2、v4.3）</summary>
 
+- 内置支持 [ZONOS3-Mini](https://huggingface.co/Zyphra/ZONOS3-Mini): [#6172](https://github.com/xorbitsai/inference/pull/6172)
+- 内置支持 [Nemotron-3.5-Rerank-8B](https://huggingface.co/nvidia/Nemotron-3.5-Rerank-8B-BF16): [#6143](https://github.com/xorbitsai/inference/pull/6143)
+- 内置支持 Yuanbao-Reranker 系列（[0.6B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-0.6B)、[4B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-4B)、[8B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-8B)）: [#6137](https://github.com/xorbitsai/inference/pull/6137)
+- 内置支持 [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image): [#6125](https://github.com/xorbitsai/inference/pull/6125)
+- 内置支持 [dots.tts.edit-v1.1](https://huggingface.co/dots-studio/dots.tts.edit): [#6117](https://github.com/xorbitsai/inference/pull/6117)
 - 内置支持 [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b): [#6003](https://github.com/xorbitsai/inference/pull/6003)
 - 内置支持 [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0): [#5916](https://github.com/xorbitsai/inference/pull/5916)
 - 内置支持 [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3): [#5914](https://github.com/xorbitsai/inference/pull/5914)
 - 内置支持 [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2): [#5913](https://github.com/xorbitsai/inference/pull/5913)
-- 内置支持 [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein): [#5792](https://github.com/xorbitsai/inference/pull/5792)
-- 内置支持 FIBO 2.0 系列（[Dev](https://huggingface.co/briaai/Fibo-2.0-dev)、[Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)）: [#5790](https://github.com/xorbitsai/inference/pull/5790)
-- 内置支持 Ming-3.0 TTS 系列（[Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny)、[0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)）: [#5788](https://github.com/xorbitsai/inference/pull/5788)
-- 内置支持 [Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0): [#5764](https://github.com/xorbitsai/inference/pull/5764)
-- 内置支持 [MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT): [#5755](https://github.com/xorbitsai/inference/pull/5755)
-- 内置支持 [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017): [#5753](https://github.com/xorbitsai/inference/pull/5753)
-- 内置支持 Iris-3B 系列（[Base](https://huggingface.co/speridlabs/iris-3b)、[Turbo](https://huggingface.co/speridlabs/iris-3b/tree/main/turbo)）: [#5686](https://github.com/xorbitsai/inference/pull/5686)
-- 内置支持 MiniCPM-V-4.7 系列（[1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B)、[35B-A3B](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B)）: [#5676](https://github.com/xorbitsai/inference/pull/5676)
-- 内置支持 Qwen3.8-Flash-Next 系列（[Base](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)、[FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)）: [#5673](https://github.com/xorbitsai/inference/pull/5673)
-- 内置支持 GLM-5.3 系列（[BF16](https://huggingface.co/zai-org/GLM-5.3-BF16)、[FP8](https://huggingface.co/zai-org/GLM-5.3)）: [#5666](https://github.com/xorbitsai/inference/pull/5666)
-- 内置支持 [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo): [#5665](https://github.com/xorbitsai/inference/pull/5665)
-- 内置支持 [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash): [#5661](https://github.com/xorbitsai/inference/pull/5661)
 
 </details>
 

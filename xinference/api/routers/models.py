@@ -224,6 +224,19 @@ def register_routes(api: "RESTfulAPI") -> None:
         methods=["DELETE"],
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
+    for method, endpoint in (
+        ("POST", api.begin_model_replica_drain),
+        ("GET", api.get_model_replica_drain),
+        ("DELETE", api.cancel_model_replica_drain),
+    ):
+        router.add_api_route(
+            "/v1/models/{model_uid}/replicas/{replica_id}/drain",
+            endpoint,
+            methods=[method],
+            dependencies=(
+                [Security(auth, scopes=["models:write"])] if is_auth else None
+            ),
+        )
     router.add_api_route(
         "/v1/models/{model_uid}/requests/{request_id}/abort",
         api.abort_request,

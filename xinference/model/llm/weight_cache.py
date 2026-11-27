@@ -16,12 +16,14 @@
 
 import copy
 import dataclasses
+import hashlib
 import json
 import logging
 import math
 import os
 import signal
 import socket
+import string
 import subprocess
 import sys
 import tempfile
@@ -42,6 +44,27 @@ def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
         index: (total, processes)
         for index, (total, _, processes) in _gpu_memory_snapshot().items()
     }
+
+
+def _gpu_cannot_be_queried(pynvml, error) -> bool:
+    """Whether an NVML error is specific to one GPU that cannot be queried.
+
+    The GPU has fallen off the bus (often reported as an unknown error), needs a
+    reset, lacks power, or has an interrupt problem. Other errors concern the
+    driver or the call, not one GPU.
+    """
+    codes = {
+        getattr(pynvml, name, None)
+        for name in (
+            "NVML_ERROR_GPU_IS_LOST",
+            "NVML_ERROR_UNKNOWN",
+            "NVML_ERROR_RESET_REQUIRED",
+            "NVML_ERROR_INSUFFICIENT_POWER",
+            "NVML_ERROR_IRQ_ISSUE",
+        )
+    }
+    codes.discard(None)
+    return getattr(error, "value", None) in codes
 
 
 def _gpu_memory_snapshot():
@@ -75,23 +98,113 @@ def _gpu_memory_snapshot():
         pynvml.nvmlInit()
         try:
             for index in range(pynvml.nvmlDeviceGetCount()):
-                handle = pynvml.nvmlDeviceGetHandleByIndex(index)
-                processes = {
-                    process.pid: process.usedGpuMemory
-                    for process in pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
-                }
                 try:
-                    memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
-                except (pynvml.NVMLError, AttributeError):
-                    memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+                    processes = {
+                        process.pid: process.usedGpuMemory
+                        for process in pynvml.nvmlDeviceGetComputeRunningProcesses(
+                            handle
+                        )
+                    }
+                    try:
+                        memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+                    except (pynvml.NVMLError, AttributeError):
+                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                except pynvml.NVMLError as e:
+                    if not _gpu_cannot_be_queried(pynvml, e):
+                        raise
+                    # The snapshot covers every GPU on the host, so one that
+                    # cannot be queried (for example one that has fallen off the
+                    # bus) must not fail it for the GPUs the model uses.
+                    logger.warning(
+                        "Skipping GPU %d in the memory snapshot: %s", index, e
+                    )
+                    continue
                 devices[index] = (memory.total, memory.free, processes)
         finally:
             pynvml.nvmlShutdown()
     return devices
 
 
+_ACCOUNTING_ERROR = (
+    "Cannot account for the weight cache daemon's GPU memory. "
+    "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
+    "driver process memory accounting to this container."
+)
+
+
+def _gpu_uuids() -> Optional[Dict[int, str]]:
+    """NVML UUID of each NVIDIA GPU that can be queried, by NVML index.
+
+    None on ROCm, where there is no NVML to read UUIDs from.
+    """
+    import torch
+
+    if torch.version.hip:
+        return None
+    import pynvml
+
+    uuids = {}
+    pynvml.nvmlInit()
+    try:
+        for index in range(pynvml.nvmlDeviceGetCount()):
+            try:
+                handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+                uuid = pynvml.nvmlDeviceGetUUID(handle)
+            except pynvml.NVMLError as e:
+                if not _gpu_cannot_be_queried(pynvml, e):
+                    raise
+                continue
+            uuids[index] = uuid.decode() if isinstance(uuid, bytes) else uuid
+    finally:
+        pynvml.nvmlShutdown()
+    return uuids
+
+
+VLLM_SOCKET_PREFIX = "vllm_weight_cache_"
+# Hex lengths of the md5 and sha256 digests vLLM may name its sockets with.
+_UUID_DIGEST_LENGTHS = (32, 64)
+
+
+def _daemon_gpus(socket_paths) -> Optional[Set[int]]:
+    """NVML indices of the GPUs the vLLM daemon serves, from its socket names.
+
+    vLLM names each rank's socket after a hash of the GPU's NVML UUID (md5, or
+    sha256 under FIPS), so this does not depend on CUDA and NVML ordering. None
+    when no socket carries such a hash, or on ROCm, so the caller falls back to
+    counting. Raises when any hash does not match a GPU NVML can query, since
+    counting would then measure whichever GPUs remain.
+    """
+    digests = set()
+    for path in socket_paths:
+        name = Path(path).name
+        if name.startswith(VLLM_SOCKET_PREFIX) and name.endswith(".sock"):
+            # Drop a role suffix such as `_draft`.
+            digest = name[len(VLLM_SOCKET_PREFIX) : -len(".sock")].split("_")[0]
+            if len(digest) in _UUID_DIGEST_LENGTHS and all(
+                c in string.hexdigits for c in digest
+            ):
+                digests.add(digest.lower())
+    if not digests:
+        return None
+    uuids = _gpu_uuids()
+    if uuids is None:
+        return None
+    index_by_digest = {}
+    for index, uuid in uuids.items():
+        for algorithm in ("md5", "sha256"):
+            hashed = hashlib.new(algorithm, uuid.encode(), usedforsecurity=False)
+            index_by_digest[hashed.hexdigest()] = index
+    if not digests.issubset(index_by_digest):
+        raise RuntimeError(_ACCOUNTING_ERROR)
+    return {index_by_digest[d] for d in digests}
+
+
 def _cached_memory_fraction(
-    pid: int, baseline: Optional[Dict[int, Set[int]]] = None
+    pid: int,
+    baseline: Optional[Dict[int, Set[int]]] = None,
+    ranks: int = 1,
+    devices: Optional[Set[int]] = None,
 ) -> float:
     """Largest per-device reservation owned by the daemon, including its ranks.
 
@@ -101,14 +214,18 @@ def _cached_memory_fraction(
     import psutil
 
     pids = {pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))}
+    snapshot = _gpu_process_memory()
     fractions = []
-    for index, (total, processes) in _gpu_process_memory().items():
+    for index, (total, processes) in snapshot.items():
         owners = pids
         if baseline is not None:
             # Driver PIDs may belong to the host namespace. Snapshot before
             # preload, then count new driver PIDs before any engine is started.
             # Concurrent new processes conservatively increase the reservation.
-            owners = set(processes) - baseline.get(index, set())
+            # A GPU missing from either snapshot has no PID delta.
+            if index not in baseline:
+                continue
+            owners = set(processes) - baseline[index]
         used = sum(
             memory
             for process, memory in processes.items()
@@ -116,12 +233,17 @@ def _cached_memory_fraction(
         )
         if used:
             fractions.append(used / total)
-    if not fractions or not all(0 < value < 1 for value in fractions):
-        raise RuntimeError(
-            "Cannot account for the weight cache daemon's GPU memory. "
-            "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
-            "driver process memory accounting to this container."
-        )
+    unmeasured = False
+    if baseline is not None:
+        if devices is not None:
+            # Each GPU the daemon serves must be in both snapshots.
+            unmeasured = not devices <= set(baseline) & set(snapshot)
+        else:
+            # Unknown assignment: when the snapshots cover different GPUs, one
+            # the daemon's ranks use may be among the unmeasured ones.
+            unmeasured = set(baseline) != set(snapshot) and len(fractions) < ranks
+    if not fractions or not all(0 < value < 1 for value in fractions) or unmeasured:
+        raise RuntimeError(_ACCOUNTING_ERROR)
     return max(fractions)
 
 
@@ -351,7 +473,10 @@ class WeightCacheDaemon:
                         self._ready_paths = list(self.directory.glob("*.ready"))
                         if baseline is not None:
                             self._memory_fraction = _cached_memory_fraction(
-                                self.process.pid, baseline
+                                self.process.pid,
+                                baseline,
+                                ranks,
+                                _daemon_gpus(self._socket_paths),
                             )
                         return
                 time.sleep(0.1)

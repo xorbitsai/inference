@@ -812,6 +812,56 @@ msgstr "배포를 제출하면 복제본을 준비하거나 로드하는 동안�
 msgid "Before a replacement starts, reload waits for earlier engines to retire only if they share GPU allocations on the same Worker or an engine process. Replicas on independent Workers or disjoint known GPUs can update while earlier requests finish. If placement is unknown, this wait is limited to 300 seconds; expiry returns a partial error that can be retried, while existing requests and cleanup continue. Required retirement-wait support is checked before any replica changes; restart models without that support."
 msgstr "교체를 시작하기 전에 다시 로드는 동일한 Worker의 GPU 할당 또는 엔진 프로세스를 공유하는 경우에만 이전 엔진의 종료를 기다립니다. 독립적인 Worker 또는 서로 겹치지 않는 것으로 확인된 GPU의 복제본은 이전 요청이 완료되는 동안 업데이트할 수 있습니다. 배치를 알 수 없으면 이 대기는 300초로 제한되며, 시간이 만료되면 재시도 가능한 부분 오류를 반환하지만 기존 요청과 정리는 계속됩니다. 필요한 종료 대기 기능의 지원 여부는 복제본을 변경하기 전에 확인합니다. 이 기능을 지원하지 않는 모델은 다시 시작하세요."
 
+#: ../../source/user_guide/launch.rst:466
+msgid ""
+"To drain either replica of a fixed pair of vLLM language model replicas "
+"on one Worker, send ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. Send "
+"all inference for this model through one API process and let any "
+"previous API finish its requests before starting a drain. New requests "
+"go to the surviving replica while existing requests on the selected "
+"replica finish. After the drain returns ``drained``, send ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` to remove the "
+"selected replica. Use ``GET`` or ``DELETE`` on the drain URL to check or "
+"cancel the drain before replica deletion. A timed-out drain restores "
+"routing to both replicas."
+msgstr ""
+"한 Worker에서 실행 중인 고정 vLLM 언어 모델 복제본 두 개 중 하나를 드레인하려면 ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``\\ 를 "
+"전송하세요. 이 모델의 모든 추론을 하나의 API 프로세스로 보내고 기존 API가 요청을 끝낸 뒤에 드레인을 시작하세요. 선택한 "
+"복제본이 기존 요청을 처리하는 동안 새 요청은 남은 복제본으로 전달됩니다. ``drained``\\ 가 반환되면 ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID``\\ 로 복제본을 제거하세요. "
+"복제본을 제거하기 전에 드레인 URL에 ``GET`` 또는 ``DELETE``\\ 를 보내 상태를 확인하거나 취소할 수 있습니다. "
+"시간이 초과되면 두 복제본으로의 라우팅이 복원됩니다."
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "복제본 삭제가 중단되면 같은 ``drain_id`` 로 다시 시도하세요. API 재시작과 복제본 드레이닝은 동시에 시작할 수 없습니다. 한 작업이 다른 작업을 차단하면 API는 HTTP 409를 반환합니다."
+
+#: ../../source/user_guide/launch.rst:479
+msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
+msgstr "기존에 살아 있던 복제본이 새 Worker로 이전되었다면 Worker 인계 후에도 삭제를 계속할 수 있습니다. 호스팅된 배포에서 다른 API 프로세스가 실행 중이면 드레이닝 요청은 HTTP 409를 반환합니다. 재시작에 실패한 대체 프로세스도 포함됩니다. 이전 API Host가 실패 후 프로세스 종료를 확인할 수 없으면 API 재시작을 정상적으로 완료한 뒤 드레이닝을 다시 시도하세요."
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Supervisor가 Worker를 제외하고 기존 배포를 라우팅에서 제거하면 드레이닝은 ``cancelled`` 상태가 됩니다. 대체 배포의 복제본 수를 줄이려면 새 드레이닝을 시작하세요."
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Worker가 다시 등록할 때 Supervisor가 동일한 Worker와 기존에 살아 있던 복제본을 확인할 수 있으면 드레이닝이 유지됩니다. 새 Worker 프로세스가 같은 주소에 등록되면 기존 드레이닝이 취소됩니다."
+
+#: ../../source/user_guide/launch.rst:493
+msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
+msgstr "Worker가 온라인 상태인 동안 쌍의 복제본 하나가 종료되거나 Worker가 복제본을 다시 생성하면 드레이닝은 ``cancelled`` 상태가 되고 나머지 복제본은 계속 서비스합니다. 중단된 삭제로 선택한 복제본이 이미 제거된 경우 Supervisor는 해당 라우팅도 제거합니다."
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "아무도 갱신하지 않는 드레이닝은 Supervisor가 취소하고 라우팅을 복원합니다. ``draining`` 상태의 드레이닝은 API 프로세스가 폴링을 멈춘 뒤 30초가 지나면 만료되며, ``drained`` 상태의 복제본은 300초 안에 삭제해야 합니다. 진행 중이거나 결과를 알 수 없는 삭제는 만료되지 않으므로 같은 ``drain_id``\\ 로 다시 시도하세요. 각 ``request_id``\\ 는 하나의 드레이닝을 나타냅니다. 드레이닝이 ``succeeded`` 또는 ``cancelled``\\ 가 된 후에는 다음 드레이닝에 새 ID를 사용하세요."
+
+#: ../../source/user_guide/launch.rst:505
+msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
+msgstr "드레이닝이 끝나지 않은 동안에는 모델이 오프라인이 되었더라도 해당 모델 UID가 예약된 상태로 유지됩니다. 이 UID로 실행하려는 요청은 거부되며 Autostart는 대기합니다. 같은 ``drain_id``\\ 로 삭제를 다시 시도하면 정리가 끝나고 UID가 해제됩니다."
+
 #: ../../source/user_guide/launch.rst:20
 msgid "To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup."
-msgstr "``GET /v1/models/instances``에서 ``launch_id``를 가져와 ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``를 전송합니다. 412이면 목록을 새로 고치고 대상을 확인합니다. 409가 중지 중임을 나타내면 목록에서 정리 진행 상황을 확인합니다. 정리가 등록되지 않았다면 현재 ID로 다시 요청합니다. 이미 제거되었다면 원래 ID로 재시도해도 성공합니다. 정리 후 실패 기록은 ID 없이 DELETE로 삭제합니다."
+msgstr "``GET /v1/models/instances``\\ 에서 ``launch_id``\\ 를 가져와 ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``\\ 를 전송합니다. 412이면 목록을 새로 고치고 대상을 확인합니다. 409가 중지 중임을 나타내면 목록에서 정리 진행 상황을 확인합니다. 정리가 등록되지 않았다면 현재 ID로 다시 요청합니다. 이미 제거되었다면 원래 ID로 재시도해도 성공합니다. 정리 후 실패 기록은 ID 없이 DELETE로 삭제합니다."

@@ -788,6 +788,56 @@ msgstr "提交部署後，對話框立即顯示等待提示與已用時間，涵
 msgid "Before a replacement starts, reload waits for earlier engines to retire only if they share GPU allocations on the same Worker or an engine process. Replicas on independent Workers or disjoint known GPUs can update while earlier requests finish. If placement is unknown, this wait is limited to 300 seconds; expiry returns a partial error that can be retried, while existing requests and cleanup continue. Required retirement-wait support is checked before any replica changes; restart models without that support."
 msgstr "開始替換前，僅當先前的引擎共用同一 Worker 上的 GPU 配置或同一個引擎程序時，重新載入才會等待這些引擎結束。位於獨立 Worker 或已知互不重疊的 GPU 上的副本，可以在先前請求完成期間更新。如果無法確定部署位置，此等待最多持續 300 秒；逾時後會傳回可重試的部分錯誤，現有請求和清理仍會繼續。任何副本發生變更之前，都會檢查所需的引擎結束等待功能；請重新啟動不支援此功能的模型。"
 
+#: ../../source/user_guide/launch.rst:466
+msgid ""
+"To drain either replica of a fixed pair of vLLM language model replicas "
+"on one Worker, send ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. Send "
+"all inference for this model through one API process and let any "
+"previous API finish its requests before starting a drain. New requests "
+"go to the surviving replica while existing requests on the selected "
+"replica finish. After the drain returns ``drained``, send ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` to remove the "
+"selected replica. Use ``GET`` or ``DELETE`` on the drain URL to check or "
+"cancel the drain before replica deletion. A timed-out drain restores "
+"routing to both replicas."
+msgstr ""
+"若要排空同一個 Worker 上固定執行的兩個 vLLM 語言模型副本中的任一副本，請傳送 ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``。讓此模型的所有推論請求通過同一個 "
+"API 程序，並在開始排空前等待舊 API 完成已接收的請求。新請求會送到保留的副本，選中的副本則繼續處理現有請求。排空傳回 "
+"``drained`` 後，傳送 ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` "
+"移除副本。移除副本前，可對排空 URL 使用 ``GET`` 查詢狀態，或使用 ``DELETE`` "
+"取消排空。排空逾時會恢復將請求送往兩個副本。"
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "如果副本刪除中斷，請使用相同的 ``drain_id`` 重試。API 熱重啟與副本排空無法同時啟動。如果其中一項操作因另一項操作而無法開始，API 會回傳 HTTP 409。"
+
+#: ../../source/user_guide/launch.rst:479
+msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
+msgstr "如果 Worker 交接時移轉了原來保留的副本，刪除可以繼續。在託管部署中，只要還有其他 API 程序在執行，排空請求就會回傳 HTTP 409，熱重啟失敗後仍在執行的替換程序也包含在內。如果舊版 API Host 無法確認失敗後的程序已結束，請先成功完成一次 API 熱重啟，再重試排空。"
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Supervisor 移除 Worker 並將原部署從路由中摘除後，排空狀態會變為 ``cancelled``。如需縮減替代部署的副本數，請發起新的排空。"
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Worker 重新註冊時，如果 Supervisor 能確認仍是同一個 Worker 和原先保留的副本，就會保留排空記錄。新的 Worker 程序在同一地址註冊時，舊排空作業會取消。"
+
+#: ../../source/user_guide/launch.rst:493
+msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
+msgstr "如果 Worker 保持在線期間，副本對中的某個副本終止或被 Worker 重新建立，排空狀態會變為 ``cancelled``，其餘副本繼續提供服務。如果中斷的刪除已經移除了所選副本，Supervisor 也會移除它的路由。"
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "如果沒有人續約，Supervisor 會取消排空並恢復路由。API 程序停止輪詢 30 秒後，``draining`` 狀態的排空會過期；``drained`` 狀態的副本必須在 300 秒內刪除。正在進行或結果未知的刪除不會過期，請使用同一個 ``drain_id`` 重試。每個 ``request_id`` 只對應一次排空。排空變為 ``succeeded`` 或 ``cancelled`` 後，下一次排空請使用新的 ID。"
+
+#: ../../source/user_guide/launch.rst:505
+msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
+msgstr "排空尚未結束時，即使模型已經下線，它的模型 UID 也會一直被保留。使用該 UID 的啟動會被拒絕，Autostart 會等待。使用同一個 ``drain_id`` 重試刪除，即可完成清理並釋放該 UID。"
+
 #: ../../source/user_guide/launch.rst:20
 msgid "To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup."
 msgstr "透過 ``GET /v1/models/instances`` 取得 ``launch_id``，再送出 ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``。收到 412 時請重新整理清單並確認目標。若 409 表示啟動仍在停止，請重新整理清單查看清理進度。若清理未登記，請使用目前的識別碼重試。若啟動已刪除，用原識別碼重試會成功。清理後可用不帶識別碼的 DELETE 清除失敗記錄。"

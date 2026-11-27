@@ -148,6 +148,7 @@ from .protocols.openai_responses import (
     responses_error_code,
     responses_stream_events,
 )
+from .replica_drain import ReplicaDrainMiddleware, ReplicaDrainRequests
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
@@ -1148,6 +1149,10 @@ class RESTfulAPI(CancelMixin):
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
+        self._replica_drain_requests = ReplicaDrainRequests()
+        self._app.add_middleware(
+            ReplicaDrainMiddleware, tracker=self._replica_drain_requests
+        )
         # Initialize allowed IP list once
         self._init_allowed_ip_list()
 
@@ -2858,16 +2863,25 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def terminate_model_replica(
-        self, model_uid: str, replica_id: int
+        self,
+        model_uid: str,
+        replica_id: int,
+        drain_id: Optional[str] = None,
     ) -> JSONResponse:
         from .oauth2.advanced.audit import model_launch_revision
 
         launch_revision = model_launch_revision(model_uid)
         try:
             assert self._app is not None
-            remaining_replicas = await (
-                await self._get_supervisor_ref()
-            ).terminate_model_replica(model_uid, replica_id)
+            supervisor = await self._get_supervisor_ref()
+            if drain_id is None:
+                remaining_replicas = await supervisor.terminate_model_replica(
+                    model_uid, replica_id
+                )
+            else:
+                remaining_replicas = await supervisor.terminate_drained_model_replica(
+                    model_uid, replica_id, drain_id
+                )
             if remaining_replicas == 0:
                 self._evict_deleted_model(model_uid, launch_revision)
             return JSONResponse(content={"remaining_replicas": remaining_replicas})
@@ -2879,6 +2893,113 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    async def begin_model_replica_drain(
+        self,
+        model_uid: str,
+        replica_id: int,
+        request_id: str = Query(..., min_length=1, max_length=128),
+        timeout: float = Query(300, gt=0, le=3600),
+    ) -> JSONResponse:
+        from ..core.utils import build_replica_model_uid
+        from ..deploy.api_host import API_HOST_ENV, host_request
+
+        supervisor = await self._get_supervisor_ref()
+        tracker = self._replica_drain_requests
+        try:
+            window = tracker.start(model_uid)
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        completed = False
+        started = False
+        try:
+            target = build_replica_model_uid(model_uid, replica_id).encode()
+            with anyio.fail_after(timeout):
+                if os.environ.get(API_HOST_ENV):
+                    host_state = await host_request("list", require_single_api=True)
+                    # Older hosts ignore the option and return their operation
+                    # list. Starting the last relaunch ruled out older live
+                    # processes, and success means it waited for its source.
+                    if host_state is not True and (
+                        not isinstance(host_state, list)
+                        or (host_state and host_state[-1]["status"] != "succeeded")
+                    ):
+                        raise RuntimeError(
+                            "Wait for a successful API relaunch before starting a drain"
+                        )
+                started = True
+                result = await supervisor.begin_manual_replica_drain(
+                    model_uid, replica_id, request_id
+                )
+                if result["status"] != "draining":
+                    completed = True
+                    return JSONResponse(content=result)
+                # Requests starting lookups after this acknowledgement can only
+                # be assigned to the survivor. Keep the preceding window.
+                window.collecting = False
+                renewed = time.monotonic()
+                while True:
+                    if tracker.drained(window, model_uid, target):
+                        # Each confirmation also renews the Supervisor lease.
+                        if await supervisor.confirm_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        ):
+                            break
+                        renewed = time.monotonic()
+                    elif time.monotonic() - renewed >= 1:
+                        # Long requests on this API process still hold the
+                        # target; keep the drain from expiring meanwhile.
+                        await supervisor.renew_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        )
+                        renewed = time.monotonic()
+                    await asyncio.sleep(0.1)
+                completed = True
+                return JSONResponse(content={**result, "status": "drained"})
+        except (ValueError, ModelReloadInProgress) as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        except TimeoutError as e:
+            raise HTTPException(
+                status_code=408, detail="Replica drain timed out"
+            ) from e
+        except RuntimeError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        finally:
+            tracker.stop(model_uid)
+            if started and not completed:
+                with anyio.move_on_after(5, shield=True):
+                    try:
+                        await supervisor.cancel_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        )
+                    except Exception:
+                        logger.info(
+                            "Could not cancel manual replica drain", exc_info=True
+                        )
+
+    async def get_model_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> JSONResponse:
+        supervisor = await self._get_supervisor_ref()
+        try:
+            result = await supervisor.get_manual_replica_drain(
+                model_uid, replica_id, request_id
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return JSONResponse(content=result)
+
+    async def cancel_model_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> JSONResponse:
+        supervisor = await self._get_supervisor_ref()
+        try:
+            result = await supervisor.cancel_manual_replica_drain(
+                model_uid, replica_id, request_id
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return JSONResponse(content=result)
 
     @staticmethod
     async def _iter_openai_sse_bytes(
@@ -3931,6 +4052,84 @@ class RESTfulAPI(CancelMixin):
         status_code = 429 if "Rate limit reached" in message else 500
         return cls._responses_error(status_code, message, code=code)
 
+    @staticmethod
+    def _needs_deepseek_forced_tool_preflight(
+        desc: Dict[str, Any], kwargs: Dict[str, Any], is_vllm_backend: bool
+    ) -> bool:
+        """Whether a request forces a DeepSeek V4.1 tool call on a vLLM engine."""
+        from ..model.llm.tool_controls import is_deepseek_v41_forced_tool_choice
+
+        # The P/D router reports vLLM compatibility for non-vLLM engines too.
+        return bool(
+            is_vllm_backend
+            and (desc.get("model_engine") or "vllm").lower() == "vllm"
+            and is_deepseek_v41_forced_tool_choice(kwargs, desc.get("model_family"))
+        )
+
+    @staticmethod
+    def _load_reasoning_preflight(prepared: Any) -> Dict[str, Any]:
+        """Decode a reasoning preflight result and validate any error entry."""
+        if isinstance(prepared, (str, bytes)):
+            prepared = json.loads(prepared)
+        if not isinstance(prepared, dict):
+            raise ValueError("Invalid reasoning preflight response")
+        if "error" in prepared:
+            error = prepared["error"]
+            if (
+                not isinstance(error, dict)
+                or error.get("status") not in {400, 501}
+                or not isinstance(error.get("message"), str)
+            ):
+                raise ValueError("Invalid reasoning preflight error")
+        return prepared
+
+    async def _preflight_responses_forced_tools(
+        self, request: Request, model: Any, model_uid: str, kwargs: Dict[str, Any]
+    ) -> Union[Dict[str, Any], JSONResponse, None]:
+        """Run the DeepSeek V4.1 forced-tool preflight Chat Completions uses.
+
+        Returns the prepared config, an error response, or None when the
+        request does not need the preflight.
+        """
+        from ..model.llm.tool_controls import is_forced_tool_choice
+
+        if not is_forced_tool_choice(kwargs):
+            return None
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            desc = await supervisor_ref.describe_model(
+                model_uid, selected_replica_uid=model.uid.decode()
+            )
+            if not self._needs_deepseek_forced_tool_preflight(
+                desc, kwargs, await model.is_vllm_backend()
+            ):
+                return None
+            prepared = self._load_reasoning_preflight(
+                await model.prepare_reasoning_request(kwargs)
+            )
+        except ModelNotReadyError:
+            return self._responses_error(
+                503,
+                "Model is loading, please retry later",
+                headers={"Retry-After": "30"},
+            )
+        except Exception as exc:
+            if (
+                "Rate limit reached" in str(exc)
+                or self._model_request_error_detail(exc) is not None
+            ):
+                return self._responses_model_error(exc)
+            logger.exception("Responses forced-tool preflight failed")
+            return self._responses_error(
+                503, "Reasoning request preflight is temporarily unavailable"
+            )
+        if "error" not in prepared:
+            return prepared
+        mark_inference_rejection(request, "reasoning_preflight")
+        return self._responses_error(
+            prepared["error"]["status"], prepared["error"]["message"]
+        )
+
     async def create_response(self, request: Request) -> Response:
         try:
             raw_body = await request.json()
@@ -3972,6 +4171,7 @@ class RESTfulAPI(CancelMixin):
             logger.exception("Failed to resolve Responses model target: %s", model_uid)
             return self._responses_error(500, "Failed to resolve the requested model")
         if token_router_runtime is not None:
+            req.chat_body.pop("reasoning_effort", None)
             return await self._create_response_via_token_router(
                 request, req, token_router_runtime
             )
@@ -3995,7 +4195,51 @@ class RESTfulAPI(CancelMixin):
             for key, value in req.chat_body.items()
             if key not in {"model", "messages"}
         }
+        if "reasoning_effort" in kwargs:
+            from ..model.llm.reasoning_controls import (
+                ReasoningEffortConfig,
+                normalize_reasoning_controls,
+            )
+
+            try:
+                desc = await (await self._get_supervisor_ref()).describe_model(
+                    model_uid, selected_replica_uid=model.uid.decode()
+                )
+            except ModelNotReadyError as exc:
+                return self._responses_error(
+                    503,
+                    f"Model is loading, please retry later: {exc}",
+                    headers={"Retry-After": "30"},
+                )
+            except Exception as exc:
+                logger.error(exc, exc_info=True)
+                await self._report_error_event(model_uid, str(exc))
+                if isinstance(exc, ValueError):
+                    mark_inference_rejection(request, "describe_model")
+                    return self._responses_error(400, str(exc))
+                return self._responses_error(500, str(exc))
+
+            capability = desc.get("reasoning_effort")
+            try:
+                if capability:
+                    kwargs = normalize_reasoning_controls(
+                        kwargs, ReasoningEffortConfig.parse_obj(capability)
+                    )
+                else:
+                    kwargs.pop("reasoning_effort", None)
+            except (ValueError, TypeError) as exc:
+                mark_inference_rejection(request, "reasoning_controls")
+                return self._responses_error(400, str(exc), param="reasoning.effort")
         raw_kwargs = dict(kwargs)
+        preflight = await self._preflight_responses_forced_tools(
+            request, model, model_uid, kwargs
+        )
+        if isinstance(preflight, JSONResponse):
+            return preflight
+        if preflight is not None:
+            kwargs = preflight
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if not req.stream:
             try:
@@ -5983,27 +6227,19 @@ class RESTfulAPI(CancelMixin):
                     media_counts,
                 )
 
-        if (
+        if self._needs_deepseek_forced_tool_preflight(
+            desc, kwargs, is_vllm_backend
+        ) or (
             controls_requested
             and (kwargs.get("chat_template_kwargs") or {}).get("thinking_budget")
             is not None
         ):
             try:
-                prepared = await model.prepare_reasoning_request(
-                    kwargs, **reservation_options
+                prepared = self._load_reasoning_preflight(
+                    await model.prepare_reasoning_request(kwargs, **reservation_options)
                 )
-                if isinstance(prepared, (str, bytes)):
-                    prepared = json.loads(prepared)
-                if not isinstance(prepared, dict):
-                    raise ValueError("Invalid reasoning preflight response")
                 if "error" in prepared:
                     error = prepared["error"]
-                    if (
-                        not isinstance(error, dict)
-                        or error.get("status") not in {400, 501}
-                        or not isinstance(error.get("message"), str)
-                    ):
-                        raise ValueError("Invalid reasoning preflight error")
                     raise InferenceRequestRejected(
                         error["status"],
                         error["message"],
@@ -6024,7 +6260,10 @@ class RESTfulAPI(CancelMixin):
                     503, "Reasoning request preflight is temporarily unavailable"
                 ) from exc
             kwargs = prepared
-            raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
+            # A retained older model actor may omit the key when the request
+            # sets no template kwargs.
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]

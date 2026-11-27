@@ -353,7 +353,11 @@ class APIHost:
             elif command == "get":
                 result = copy.deepcopy(self.operations[request["operation_id"]])
             elif command == "list":
-                result = copy.deepcopy(list(self.operations.values()))
+                if request.get("require_single_api"):
+                    self._check_relaunch_idle()
+                    result = True
+                else:
+                    result = copy.deepcopy(list(self.operations.values()))
             elif command == "settings":
                 try:
                     result = await self.settings(
@@ -424,6 +428,15 @@ class APIHost:
         self.children[identity] = child
         return child
 
+    def _check_relaunch_idle(self) -> None:
+        if self.operation_task is not None and not self.operation_task.done():
+            raise RuntimeError("An API relaunch is already in progress")
+        if any(
+            child is not self.active and child.process.poll() is None
+            for child in self.children.values()
+        ):
+            raise RuntimeError("A previous API process is still draining")
+
     def create(self, executable=None, request_id=None, version=None) -> Dict[str, Any]:
         from .upgrade import validate_upgrade
 
@@ -443,13 +456,7 @@ class APIHost:
         if self.active is None:
             raise RuntimeError("API is not ready")
         validate_upgrade(version, current_version=self.active.version)
-        if self.operation_task is not None and not self.operation_task.done():
-            raise RuntimeError("An API relaunch is already in progress")
-        if any(
-            child is not self.active and child.process.poll() is None
-            for child in self.children.values()
-        ):
-            raise RuntimeError("A previous API process is still draining")
+        self._check_relaunch_idle()
         identity = uuid.uuid4().hex
         operation = self.operations[identity] = {
             "operation_id": identity,

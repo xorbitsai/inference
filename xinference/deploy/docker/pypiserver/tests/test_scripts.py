@@ -405,6 +405,63 @@ def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
     assert calls[0][1]["env"] is build_env
 
 
+@pytest.mark.parametrize("success_attempt", [1, 2, 3, None])
+def test_pip_download_retries_hash_mismatches(monkeypatch, tmp_path, success_attempt):
+    downloader = _load_script("download_packages")
+    calls = []
+    build_env = {"TORCH_VERSION": "2.12.3"}
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd.copy(), kwargs))
+        success = len(calls) == success_attempt
+        return subprocess.CompletedProcess(
+            cmd,
+            0 if success else 1,
+            stderr="" if success else "ERROR: THESE PACKAGES DO NOT MATCH THE HASHES\n",
+        )
+
+    monkeypatch.setattr(downloader, "run", fake_run)
+    options = dict(
+        index_url="https://example.invalid/simple",
+        extra_index_urls=["https://wheels.example/simple"],
+        constraints=tmp_path / "constraints.txt",
+        env=build_env,
+    )
+    if success_attempt is None:
+        with pytest.raises(SystemExit, match="SHA-256 validation after 3 attempts"):
+            downloader.pip_download(["deepdoc-lib[gpu]~=0.2.2"], tmp_path, **options)
+    else:
+        proc = downloader.pip_download(["deepdoc-lib[gpu]~=0.2.2"], tmp_path, **options)
+        assert proc.returncode == 0
+    assert len(calls) == (success_attempt or 3)
+    assert "--no-cache-dir" not in calls[0][0]
+    assert all("--no-cache-dir" in cmd for cmd, _ in calls[1:])
+    assert all(cmd[-1] == "deepdoc-lib[gpu]~=0.2.2" for cmd, _ in calls)
+    assert all(kwargs["env"] is build_env for _, kwargs in calls)
+    assert all("-c" in cmd and str(options["constraints"]) in cmd for cmd, _ in calls)
+
+
+def test_pip_download_returns_resolution_failure(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(
+            cmd, 1, stderr="ERROR: ResolutionImpossible\n"
+        )
+
+    monkeypatch.setattr(downloader, "run", fake_run)
+    proc = downloader.pip_download(
+        ["conflicting-pin==1.0"],
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        extra_index_urls=[],
+    )
+    assert proc.returncode == 1
+    assert len(calls) == 1
+
+
 def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
     downloader = _load_script("download_packages")
     content = b"source distribution"
@@ -843,7 +900,9 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         ],
     ],
 )
-@pytest.mark.parametrize("download_mode", ["direct", "retry", "sdist"])
+@pytest.mark.parametrize(
+    "download_mode", ["direct", "retry", "sdist", "sdist-existing"]
+)
 def test_download_packages_main_orchestration_skips_git(
     monkeypatch, tmp_path, platform, model_indexes, download_mode
 ):
@@ -855,7 +914,9 @@ def test_download_packages_main_orchestration_skips_git(
     (engines / "test.meta.json").write_text("{}\n")
     (engines / "trt_llm.in").write_text("tensorrt_llm==1.2.1\n")
     (engines / "trt_llm.meta.json").write_text("{}\n")
-    pin = {"spec": "model-pin==1.0", "sources": ["test"]}
+    raw_fallback = download_mode.startswith("sdist")
+    pin_spec = "source[gpu]==1.0" if raw_fallback else "model-pin==1.0"
+    pin = {"spec": pin_spec, "sources": ["test"]}
     if model_indexes:
         pin["extra_index_urls"] = model_indexes
     (manifest / "pins.json").write_text(json.dumps([pin]))
@@ -875,6 +936,9 @@ def test_download_packages_main_orchestration_skips_git(
     run_calls = []
     sdist_calls = []
     pin_attempts = 0
+    source_wheel_spec = str(dest / "source-1.0-py3-none-any.whl")
+    if raw_fallback:
+        source_wheel_spec += "[gpu]"
 
     def fake_uv_compile(in_file, out_file, **kwargs):
         compile_calls.append((in_file, out_file, kwargs))
@@ -892,16 +956,16 @@ def test_download_packages_main_orchestration_skips_git(
     def fake_pip_download(args, target, **kwargs):
         nonlocal pin_attempts
         download_calls.append((list(args), kwargs))
-        if args == ["model-pin==1.0"]:
+        if args == [pin_spec]:
             pin_attempts += 1
-            if download_mode == "sdist" or (
-                download_mode == "retry" and pin_attempts == 1
-            ):
+            if raw_fallback or (download_mode == "retry" and pin_attempts == 1):
                 return subprocess.CompletedProcess([], 1)
             (target / "source-1.0.tar.gz").write_text("sdist")
         # The wheel built from the sdist declares a dependency that the
         # sdist metadata omitted; it only exists as an sdist itself.
-        if args == [str(dest / "source-1.0-py3-none-any.whl")]:
+        if args == [source_wheel_spec]:
+            if raw_fallback and kwargs.get("constraints") is not None:
+                return subprocess.CompletedProcess([], 1)
             (target / "hiddendep-1.0.tar.gz").write_text("sdist")
         return subprocess.CompletedProcess([], 0)
 
@@ -912,6 +976,9 @@ def test_download_packages_main_orchestration_skips_git(
             return None
         sdist = target / "source-1.0.tar.gz"
         sdist.write_text("sdist")
+        if download_mode == "sdist-existing":
+            # A subsequent CPU-only pin can download the same base wheel.
+            (target / "source-1.0-py3-none-any.whl").write_text("base-only wheel")
         return sdist
 
     def fake_run(cmd, **kwargs):
@@ -919,7 +986,8 @@ def test_download_packages_main_orchestration_skips_git(
         if "wheel" in cmd:
             sdist_name = Path(cmd[-1]).name
             wheel_name = sdist_name.replace(".tar.gz", "-py3-none-any.whl")
-            (dest / wheel_name).write_text("wheel")
+            output_dir = Path(cmd[cmd.index("--wheel-dir") + 1])
+            (output_dir / wheel_name).write_text("wheel")
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
@@ -959,7 +1027,7 @@ def test_download_packages_main_orchestration_skips_git(
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
     ]
-    assert ["model-pin==1.0"] in [call[0] for call in download_calls]
+    assert [pin_spec] in [call[0] for call in download_calls]
     assert ["https://example.invalid/direct-1.0-py3-none-any.whl"] in [
         call[0] for call in download_calls
     ]
@@ -970,9 +1038,7 @@ def test_download_packages_main_orchestration_skips_git(
     assert not (dest / "source-1.0.tar.gz").exists()
     # Dependencies of wheels built from sdists are fetched from the built
     # wheel's own metadata, transitively until no new sdists arrive.
-    assert [str(dest / "source-1.0-py3-none-any.whl")] in [
-        call[0] for call in download_calls
-    ]
+    assert [source_wheel_spec] in [call[0] for call in download_calls]
     assert [str(dest / "hiddendep-1.0-py3-none-any.whl")] in [
         call[0] for call in download_calls
     ]
@@ -980,7 +1046,7 @@ def test_download_packages_main_orchestration_skips_git(
     model_downloads = [
         kwargs
         for args, kwargs in download_calls
-        if args == ["model-pin==1.0"] or args[0].startswith(str(dest))
+        if args == [pin_spec] or args[0].startswith(str(dest))
     ]
     expected_indexes = list(
         dict.fromkeys(model_indexes + ["https://download.pytorch.org/whl/cu130"])
@@ -1000,18 +1066,17 @@ def test_download_packages_main_orchestration_skips_git(
         ]
         assert pin_downloads[0]["constraints"] is not None
         assert pin_downloads[1].get("constraints") is None
-    if download_mode == "sdist":
+    if raw_fallback:
         assert sdist_calls[-1][1]["index_url"] == (
             model_indexes[0] if model_indexes else "https://pypi.org/simple"
         )
     report = json.loads((manifest / "report.json").read_text())
     assert "transformers==5.13.1" in report["runtime_constraints"]
-    assert report["unconstrained_fallbacks"] == (
-        [] if download_mode == "direct" else [pin["spec"]]
-    )
-    assert report["raw_sdist_fallbacks"] == (
-        [pin["spec"]] if download_mode == "sdist" else []
-    )
+    expected_fallbacks = [] if download_mode == "direct" else [pin_spec]
+    if raw_fallback:
+        expected_fallbacks.append("source-1.0-py3-none-any.whl")
+    assert report["unconstrained_fallbacks"] == expected_fallbacks
+    assert report["raw_sdist_fallbacks"] == ([pin_spec] if raw_fallback else [])
     assert report["sdist_left"] == []
 
 

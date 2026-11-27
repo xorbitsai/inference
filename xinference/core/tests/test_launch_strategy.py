@@ -781,6 +781,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
     class DummySupervisor(ModelReloadMixin):
         terminate_model_replica = SupervisorActor.terminate_model_replica
         _terminate_model_replica = SupervisorActor._terminate_model_replica
+        _finalize_replica_termination = SupervisorActor._finalize_replica_termination
         _get_model_replica_lock = SupervisorActor._get_model_replica_lock
         _refresh_replica_scheduler = staticmethod(
             SupervisorActor._refresh_replica_scheduler
