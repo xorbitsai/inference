@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 import PIL.Image
 import torch
 
+from ....core.exceptions import InvalidModelRequestError
 from ....device_utils import get_available_device
 from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
@@ -172,6 +173,17 @@ class LightOnOCR3Model(OCRModel):
         self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
     ) -> str:
         image = self._prepare_image(image)
+        generation_kwargs = self._generation_kwargs(kwargs)
+        seed = generation_kwargs.pop("seed", None)
+        if generation_kwargs.setdefault(
+            "do_sample", generation_kwargs.get("temperature") != 0
+        ):
+            if seed is not None:
+                raise InvalidModelRequestError(
+                    "Seeded sampling is not supported by the Transformers engine for LightOnOCR-3."
+                )
+            generation_kwargs.setdefault("temperature", 0.1)
+
         if self._model is None or self._processor is None:
             self.load()
 
@@ -183,11 +195,6 @@ class LightOnOCR3Model(OCRModel):
             return_tensors="pt",
             **self._chat_template_kwargs,
         ).to(device=self._model.device, dtype=self._model.dtype)
-        generation_kwargs = self._generation_kwargs(kwargs)
-        if generation_kwargs.setdefault(
-            "do_sample", generation_kwargs.get("temperature") != 0
-        ):
-            generation_kwargs.setdefault("temperature", 0.1)
         with torch.inference_mode():
             outputs = self._model.generate(**inputs, **generation_kwargs)
         generated_ids = outputs[:, inputs["input_ids"].shape[-1] :]
