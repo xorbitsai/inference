@@ -120,8 +120,14 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
 def generate_image_description(
     image_model: ImageModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
+
     res = defaultdict(list)
     res[image_model.model_name].extend(image_model.to_version_info())
+    # Register the native cache even if this worker cannot launch vLLM.
+    if image_model.model_name == MINIMAX_H3_IMAGE_NAME:
+        native = prepare_vllm_model_spec(image_model)
+        res[image_model.model_name].extend(native.to_version_info())
     return res
 
 
@@ -409,9 +415,12 @@ def create_image_model_instance(
             quantization,
         )
     model_default_config = (model_spec.default_model_config or {}).copy()
-    if model_spec.model_family == "minimax_h3_image" and model_engine.lower() == "vllm":
-        from .minimax_h3 import prepare_vllm_model_spec
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
 
+    if (
+        model_spec.model_name == MINIMAX_H3_IMAGE_NAME
+        and model_engine.lower() == "vllm"
+    ):
         model_spec = prepare_vllm_model_spec(model_spec)
         if kwargs.get("diffusion_offload_config") is not None:
             # Omni rejects conflicting offload strategies. Drop only the

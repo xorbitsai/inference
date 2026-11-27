@@ -134,10 +134,21 @@ def get_cached_model_engines(
                     for family in families
                 )
             elif model_type == "image":
-                # ControlNet versions share the base model's engine.
-                matches = model_version == model_name or model_version.startswith(
-                    f"{model_name}--"
+                from ..model.image.minimax_h3 import (
+                    MINIMAX_H3_IMAGE_NAME,
+                    MINIMAX_H3_IMAGE_VLLM_CACHE,
                 )
+
+                if model_name == MINIMAX_H3_IMAGE_NAME:
+                    matches = (model_version, engine.lower()) in (
+                        (MINIMAX_H3_IMAGE_NAME, "diffusers"),
+                        (MINIMAX_H3_IMAGE_VLLM_CACHE, "vllm"),
+                    )
+                else:
+                    # ControlNet versions share the base model's engine.
+                    matches = model_version == model_name or model_version.startswith(
+                        f"{model_name}--"
+                    )
             else:
                 matches = model_version == model_name
             if matches:

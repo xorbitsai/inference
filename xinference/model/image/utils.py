@@ -73,6 +73,10 @@ def resolve_image_seed_list(seed: Any, n: int) -> Optional[List[int]]:
 def get_model_version(
     image_model: "ImageModelFamilyV2", controlnet: Optional["ImageModelFamilyV2"]
 ) -> str:
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME
+
+    if image_model.model_name == MINIMAX_H3_IMAGE_NAME:
+        return getattr(image_model, "cache_name", None) or image_model.model_name
     return (
         image_model.model_name
         if controlnet is None

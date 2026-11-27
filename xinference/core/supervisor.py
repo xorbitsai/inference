@@ -2999,8 +2999,21 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replica_config: Optional[List[ReplicaConfig]] = None,
         autoscaling: Optional[Dict[str, Any]] = None,
     ):
-        parse_results = parse_model_version(model_version, model_type)
+        from ..model.image.minimax_h3 import (
+            MINIMAX_H3_IMAGE_NAME,
+            MINIMAX_H3_IMAGE_VLLM_CACHE,
+        )
 
+        parse_results: Tuple
+        if model_type == "image" and model_version == MINIMAX_H3_IMAGE_VLLM_CACHE:
+            if model_engine is not None and model_engine.lower() != "vllm":
+                raise ValueError(f"{model_version} requires the vLLM engine")
+            model_engine = "vLLM"
+            parse_results = (MINIMAX_H3_IMAGE_NAME,)
+        else:
+            parse_results = parse_model_version(model_version, model_type)
+
+        kwargs: Dict[str, Any]
         if model_type == "image" and len(parse_results) == 2:
             kwargs = {"controlnet": parse_results[1]}
         else:

@@ -27,6 +27,7 @@ import threading
 from abc import ABC, abstractmethod
 from contextvars import ContextVar
 from copy import deepcopy
+from fnmatch import fnmatchcase
 from json import JSONDecodeError
 from numbers import Integral
 from pathlib import Path
@@ -1055,10 +1056,17 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     return local_dir_filepath
 
 
-def create_symlink(download_dir: str, cache_dir: str):
-    for subdir, dirs, files in os.walk(download_dir):
+def create_symlink(
+    download_dir: str, cache_dir: str, allow_patterns: Optional[List[str]] = None
+):
+    for subdir, _, files in os.walk(download_dir):
         for file in files:
             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+            if allow_patterns is not None and not any(
+                fnmatchcase(Path(relpath).as_posix(), pattern)
+                for pattern in allow_patterns
+            ):
+                continue
             if os.path.normcase(os.path.normpath(relpath)) == os.path.normcase(
                 CACHE_SOURCE_MANIFEST
             ):

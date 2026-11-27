@@ -4226,17 +4226,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 model_name,
             )
             return
-        if isinstance(version_info, list):  # image model
-            model_path = version_info[0]["model_file_location"]
-            await self._cache_tracker_ref.update_cache_status(
-                self.address, model_name, None, model_path
-            )
-        else:
+        versions = version_info if isinstance(version_info, list) else [version_info]
+        for version in versions:
             await self._cache_tracker_ref.update_cache_status(
                 self.address,
                 model_name,
-                version_info["model_version"],
-                version_info["model_file_location"],
+                version["model_version"],
+                version["model_file_location"],
             )
 
     @classmethod
@@ -7823,9 +7819,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif os.path.isdir(path):
             paths.add(path)
 
-            # ``create_symlink`` mirrors the whole Hub snapshot recursively, so
-            # resolving only the first level leaves nearly all nested weights in
-            # ModelScope/Hugging Face caches. Resolve every linked file instead.
+            # Hub snapshots contain nested checkpoint files. Resolve links at
+            # every level to find the downloaded files this cache references.
             targets = WorkerActor._collect_symlink_file_targets(path)
             targets.update(WorkerActor._managed_cache_source_paths(path))
 

@@ -21,6 +21,16 @@ class ImageCacheManager(CacheManager):
                 f"{self._model_family.model_name.replace('.', '_')}-{suffix}",
             )
 
+    def _link_snapshot(self, download_dir: str, cache_dir: str) -> None:
+        from ..utils import create_symlink
+        from .minimax_h3 import MINIMAX_H3_IMAGE_NAME
+
+        if self._model_family.model_name == MINIMAX_H3_IMAGE_NAME:
+            patterns = (self._model_family.cache_config or {}).get("allow_patterns")
+            create_symlink(download_dir, cache_dir, allow_patterns=patterns)
+        else:
+            super()._link_snapshot(download_dir, cache_dir)
+
     def cache_ocr_gguf(self) -> str:
         """Download one GGUF quantization and its vision projector."""
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
