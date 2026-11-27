@@ -879,3 +879,7 @@ msgstr "如果 Worker 保持在线期间，副本对中的某个副本终止或�
 #: ../../source/user_guide/launch.rst:498
 msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
 msgstr "如果没有人续约，Supervisor 会取消排空并恢复路由。API 进程停止轮询 30 秒后，``draining`` 状态的排空会过期；``drained`` 状态的副本必须在 300 秒内删除。正在进行或结果未知的删除不会过期，请使用同一个 ``drain_id`` 重试。每个 ``request_id`` 只对应一次排空。排空变为 ``succeeded`` 或 ``cancelled`` 后，下一次排空请使用新的 ID。"
+
+#: ../../source/user_guide/launch.rst:505
+msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
+msgstr "排空尚未结束时，即使模型已经下线，它的模型 UID 也会一直被保留。使用该 UID 的启动会被拒绝，Autostart 会等待。使用同一个 ``drain_id`` 重试删除，即可完成清理并释放该 UID。"

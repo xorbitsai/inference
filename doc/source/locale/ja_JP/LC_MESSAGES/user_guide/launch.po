@@ -88,3 +88,7 @@ msgstr "Worker がオンラインのまま、ペアのレプリカの一方が�
 #: ../../source/user_guide/launch.rst:498
 msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
 msgstr "誰も更新しないドレインは Supervisor がキャンセルし、ルーティングを元に戻します。``draining`` のドレインは API プロセスがポーリングを止めてから 30 秒で期限切れになり、``drained`` のレプリカは 300 秒以内に削除する必要があります。進行中または結果が不明な削除は期限切れになりません。同じ ``drain_id`` で再試行してください。``request_id`` は 1 つのドレインを表します。ドレインが ``succeeded`` または ``cancelled`` になった後は、次のドレインに新しい ID を使用してください。"
+
+#: ../../source/user_guide/launch.rst:505
+msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
+msgstr "ドレインが完了するまでは、モデルがオフラインになっていてもそのモデル UID は予約されたままです。この UID での起動は拒否され、Autostart は待機します。同じ ``drain_id`` で削除を再試行すると、クリーンアップが完了して UID が解放されます。"

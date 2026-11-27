@@ -148,6 +148,38 @@ async def test_autostart_transitional_model_preserves_retry_attempts(model_statu
     }
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("drain_status", ["unknown", "cancelled"])
+async def test_autostart_waits_for_unfinished_replica_drain(drain_status):
+    # An unfinished drain still owns the UID's cleanup; Autostart waits for it
+    # without spending the retry budget.
+    from xinference.core.supervisor import ManualReplicaDrain
+
+    supervisor = _DummyAutostartRunner(model_status=None, attempts=1)
+    supervisor._manual_replica_drains = {
+        "uid-1": ManualReplicaDrain(
+            "r1", 1, None, {}, None, status=drain_status  # type: ignore[arg-type]
+        )
+    }
+    entry = {
+        "max_retries": 3,
+        "retry_interval_seconds": 30,
+        "launch": {"model_name": "llama", "model_uid": "uid-1"},
+    }
+
+    retry_delay = await supervisor._autostart_one_model(entry)
+
+    if drain_status == "cancelled":
+        assert supervisor.launched == [entry["launch"]]
+        return
+    assert retry_delay == 30
+    assert supervisor.launched == []
+    state = supervisor._autostart_model_states["uid-1"]
+    assert state["status"] == "waiting_model"
+    assert state["attempts"] == 1
+    assert "r1 of model uid-1 has not finished" in state["message"]
+
+
 class _DummyReplicaDeathSupervisor:
     mark_replica_dead = SupervisorActor.mark_replica_dead
     _clear_replica_model_gpu_memory = SupervisorActor._clear_replica_model_gpu_memory

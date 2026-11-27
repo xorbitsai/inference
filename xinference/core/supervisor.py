@@ -1838,6 +1838,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
             return None
 
+        try:
+            SupervisorActor._check_manual_drain_released(self, model_uid)
+        except ValueError as error:
+            # Wait without spending the retry budget; the drain's cleanup
+            # schedules Autostart again once it finishes.
+            state.update({"status": "waiting_model", "message": str(error)})
+            return retry_interval
+
         max_retries = int(entry.get("max_retries", 3))
         attempts = int(state.get("attempts", 0))
         if attempts >= max_retries:
@@ -4844,6 +4852,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             or model_uid in self._initial_model_launches
         ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
+        SupervisorActor._check_manual_drain_released(self, model_uid)
         # Set replica info first for exception handler to terminate model.
         replica_info = self._build_replica_info(replica)
         self._model_uid_to_replica_info[model_uid] = replica_info
@@ -5086,6 +5095,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             or model_uid in self._initial_model_launches
         ):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
+        SupervisorActor._check_manual_drain_released(self, model_uid)
 
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
@@ -6574,6 +6584,20 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             return await self._terminate_model_replica(
                 model_uid, replica_id, suppress_exception
+            )
+
+    def _check_manual_drain_released(self, model_uid: str) -> None:
+        """Keep a model UID reserved until its drain cleanup has finished.
+
+        Drain cleanup addresses StatusGuard and distributed services by model
+        UID. Until the drain is terminal, a relaunch with the same UID could
+        have its state overwritten by that cleanup.
+        """
+        drain = getattr(self, "_manual_replica_drains", {}).get(model_uid)
+        if drain is not None and drain.status not in ("cancelled", "succeeded"):
+            raise ValueError(
+                f"Replica drain {drain.request_id} of model {model_uid} has not "
+                "finished; retry its deletion before launching this model UID"
             )
 
     def _check_manual_replica_drain_idle(self, model_uid: str) -> None:

@@ -1307,6 +1307,134 @@ async def test_finished_drain_request_id_cannot_be_reused(finished):
     ] == "draining"
 
 
+class _LaunchAdmitted(Exception):
+    pass
+
+
+async def _launch_demo(supervisor, n_worker):
+    for worker in supervisor._worker_address_to_worker.values():
+        # The sharded path checks Worker registrations before admission.
+        worker.get_model_registration = AsyncMock(return_value=True)
+    return await supervisor.launch_builtin_model(
+        model_uid="demo",
+        model_name="qwen2.5-instruct",
+        model_size_in_billions="0_5",
+        model_format="pytorch",
+        quantization="none",
+        model_engine="vLLM",
+        model_type="LLM",
+        replica=2,
+        n_worker=n_worker,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ordering", ["rank0_cleanup", "terminated_status"])
+async def test_drain_cleanup_reserves_model_uid_until_finished(ordering):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    _, _, replicas = _make_drain_pair(supervisor, worker)
+    autostarts = []
+    supervisor._schedule_autostart = lambda delay=0.0: autostarts.append(delay)
+
+    async def terminate(model_uid):
+        # The Worker removes the target, the survivor dies while the DELETE is
+        # in flight, and the DELETE reply is lost.
+        replicas.pop(model_uid)
+        replicas.pop("demo-rep0")
+        await supervisor.mark_replica_dead("demo-rep0")
+        raise RuntimeError("Worker reply lost after deletion")
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    status_guard = supervisor._status_guard_ref
+    update_instance = status_guard.update_instance_info
+    held, release = asyncio.Event(), asyncio.Event()
+    cleanup_distributed = supervisor._cleanup_distributed_actors
+    failed = []
+
+    async def hold_rank0(model_uid, **kwargs):
+        held.set()
+        await release.wait()
+        return await cleanup_distributed(model_uid, **kwargs)
+
+    async def update_once(model_uid, updates):
+        if updates == {"status": "TERMINATED"} and not failed:
+            failed.append(updates)
+            raise RuntimeError("StatusGuard unavailable")
+        return await update_instance(model_uid, updates)
+
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    with pytest.raises(RuntimeError, match="reply lost"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    if ordering == "rank0_cleanup":
+        supervisor._cleanup_distributed_actors = hold_rank0
+        retry = asyncio.create_task(
+            supervisor.terminate_drained_model_replica("demo", 1, "r1")
+        )
+        await asyncio.wait_for(held.wait(), timeout=2)
+    else:
+        status_guard.update_instance_info = update_once
+        with pytest.raises(RuntimeError, match="StatusGuard unavailable"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert "demo" not in supervisor._model_uid_to_replica_info
+
+    # The old deployment's cleanup still addresses this UID, so both the
+    # ordinary and the sharded launch paths must wait for it.
+    spare = _FakeScaleWorker("worker-1:9978", {"n_gpu": None})
+    supervisor._worker_address_to_worker[spare.address] = spare
+    for n_worker in (1, 2):
+        with pytest.raises(ValueError, match="r1 of model demo has not finished"):
+            await _launch_demo(supervisor, n_worker)
+    assert "demo" not in supervisor._model_uid_to_replica_info
+
+    if ordering == "rank0_cleanup":
+        release.set()
+        with pytest.raises(ValueError, match="original replicas changed"):
+            await retry
+    else:
+        with pytest.raises(ValueError, match="original replicas changed"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == (
+        "cancelled"
+    )
+    assert supervisor._upgrade_state.maintenance.idle()
+    assert status_guard.instance_updates[-1] == ("demo", {"status": "TERMINATED"})
+    assert autostarts
+    worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+
+    # The UID is released: a replacement passes admission. Stand in for the
+    # rest of its launch with the state it publishes.
+    status_guard.set_instance_info = AsyncMock(side_effect=_LaunchAdmitted)
+    with pytest.raises(_LaunchAdmitted):
+        await _launch_demo(supervisor, 1)
+    supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(2)
+    for replica_id in (0, 1):
+        supervisor._replica_model_uid_to_worker[f"demo-rep{replica_id}"] = worker
+        await status_guard.update_replica_status(
+            "demo", replica_id, {"status": "READY", "worker_address": worker.address}
+        )
+    await status_guard.update_instance_info("demo", {"replica": 2, "status": "READY"})
+    updates = len(status_guard.instance_updates)
+
+    with pytest.raises(ValueError, match="confirmed replica drain"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0, 1]
+    assert {"demo-rep0", "demo-rep1"} <= set(supervisor._replica_model_uid_to_worker)
+    statuses = await status_guard.get_replica_statuses("demo")
+    assert [(status.replica_id, status.status) for status in statuses] == [
+        (0, "READY"),
+        (1, "READY"),
+    ]
+    assert len(status_guard.instance_updates) == updates
+    assert status_guard.instance_updates[-1] == (
+        "demo",
+        {"replica": 2, "status": "READY"},
+    )
+    worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["replica_status", "terminated_status"])
 async def test_drain_cleanup_stays_retryable_after_status_failure(failure):

@@ -502,6 +502,10 @@ progress or has an unknown outcome does not expire; retry it with the same
 ``drain_id``. Each ``request_id`` names one drain. After a drain becomes
 ``succeeded`` or ``cancelled``, use a new ID for the next drain.
 
+While a drain has not finished, its model UID stays reserved even if the model
+went offline. A launch with that UID is rejected and Autostart waits. Retry the
+deletion with the same ``drain_id`` to finish cleanup and release the UID.
+
 GPU Allocation Strategy
 =======================
 
