@@ -513,6 +513,311 @@ def _make_supervisor(workers, launch_args, replica_uid="demo-0"):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("replay", [False, True])
+@pytest.mark.parametrize("autoscaling", [False, True])
+async def test_inference_skips_loading_replica_during_launch(replay, autoscaling):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    ready_model = SimpleNamespace(can_accept_chat_request=AsyncMock(return_value=True))
+    runtime = WorkerActor.__new__(WorkerActor)
+    runtime._model_uid_to_model = {"demo-rep0": ready_model, "demo-rep1": object()}
+    runtime._model_uid_to_model_status = {
+        "demo-rep0": ModelStatus(model_state="ready"),
+        "demo-rep1": ModelStatus(model_state="loading"),
+    }
+    worker.get_model = AsyncMock(side_effect=runtime.get_model)
+    if autoscaling:
+        supervisor._replica_autoscalers["demo"] = SimpleNamespace(
+            draining=set(), should_avoid=lambda replica: False
+        )
+    loading, release = asyncio.Event(), asyncio.Event()
+
+    async def wait_for_load(model_uid):
+        if replay:
+            supervisor._rebuild_worker_replica_state(
+                worker,
+                [{"replica_model_uid": uid} for uid in runtime._model_uid_to_model],
+            )
+        loading.set()
+        await release.wait()
+        runtime._model_uid_to_model_status[model_uid].model_state = "ready"
+
+    worker.wait_for_load = wait_for_load
+    task = None
+    if replay:
+        # The public API rejects manual scaling on autoscaled deployments.
+        task = asyncio.create_task(supervisor._add_model_replica("demo"))
+        await asyncio.wait_for(loading.wait(), 2)
+    else:
+        # Initial launches publish all replica IDs before their loads complete.
+        supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(
+            2
+        )
+        supervisor._replica_model_uid_to_worker["demo-rep1"] = worker
+    try:
+        for _ in range(4):
+            assert await supervisor.get_model("demo") is ready_model
+        # Affinity and the metadata fallback must also preserve readiness.
+        assert await supervisor.get_model("demo", routing_key="session") is ready_model
+        assert await supervisor.get_model("demo", for_inference=False) is ready_model
+        runtime._model_uid_to_model_status["demo-rep0"].model_state = "loading"
+        worker.get_model.reset_mock()
+        with pytest.raises(ModelNotReadyError):
+            await supervisor.get_model("demo")
+        assert worker.get_model.await_count == 2
+    finally:
+        release.set()
+        if task is not None:
+            await asyncio.wait_for(task, 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("held", ["demo-rep0", "demo-rep1"])
+async def test_inference_fallback_skips_replica_that_starts_draining(held):
+    # Replica 1 starts draining while the lookup of replica 0 (loading) or its
+    # own lookup is pending; the request must fall through to replica 2.
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    runtime = WorkerActor.__new__(WorkerActor)
+    runtime._model_uid_to_model = {f"demo-rep{i}": object() for i in range(3)}
+    runtime._model_uid_to_model_status = {
+        "demo-rep0": ModelStatus(model_state="loading"),
+        "demo-rep1": ModelStatus(model_state="ready"),
+        "demo-rep2": ModelStatus(model_state="ready"),
+    }
+    supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(3)
+    for uid in runtime._model_uid_to_model:
+        supervisor._replica_model_uid_to_worker[uid] = worker
+    state = SimpleNamespace(draining=set(), should_avoid=lambda replica: False)
+    supervisor._replica_autoscalers["demo"] = state
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        if model_uid == held:
+            entered.set()
+            await release.wait()
+        return runtime.get_model(model_uid)
+
+    worker.get_model = get_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    state.draining.add(1)
+    release.set()
+    assert await asyncio.wait_for(task, 2) is runtime._model_uid_to_model["demo-rep2"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["stop", "remove", "error"])
+async def test_inference_fallback_rechecks_replica_after_lookup(change):
+    # Replica 0 is loading and the lookup of replica 1 is pending. Replica 1
+    # stops while draining, or is scaled down before its reply arrives: the
+    # request falls through to replica 2. An error from a replica that is
+    # still routable is raised as before.
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    runtime = WorkerActor.__new__(WorkerActor)
+    runtime._model_uid_to_model = {f"demo-rep{i}": object() for i in range(3)}
+    runtime._model_uid_to_model_status = {
+        "demo-rep0": ModelStatus(model_state="loading"),
+        "demo-rep1": ModelStatus(model_state="ready"),
+        "demo-rep2": ModelStatus(model_state="ready"),
+    }
+    supervisor._model_uid_to_replica_info["demo"] = supervisor._build_replica_info(3)
+    for uid in runtime._model_uid_to_model:
+        supervisor._replica_model_uid_to_worker[uid] = worker
+    state = SimpleNamespace(draining=set(), should_avoid=lambda replica: False)
+    if change == "stop":
+        # Manual scaling is rejected on autoscaled deployments.
+        supervisor._replica_autoscalers["demo"] = state
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        if model_uid != "demo-rep1":
+            return runtime.get_model(model_uid)
+        if change == "remove":
+            # The worker resolves the reference; the reply arrives after removal.
+            ref = runtime.get_model(model_uid)
+            entered.set()
+            await release.wait()
+            return ref
+        entered.set()
+        await release.wait()
+        return runtime.get_model(model_uid)
+
+    worker.get_model = get_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    status = runtime._model_uid_to_model_status["demo-rep1"]
+    if change == "stop":
+        state.draining.add(1)
+        status.model_state = "stopping"
+    elif change == "remove":
+        await supervisor.terminate_model_replica("demo", 1)
+        assert "demo-rep1" not in supervisor._replica_model_uid_to_worker
+    else:
+        status.model_state = "error"
+    release.set()
+    if change == "error":
+        with pytest.raises(RuntimeError, match="error state"):
+            await asyncio.wait_for(task, 2)
+    else:
+        model = await asyncio.wait_for(task, 2)
+        assert model is runtime._model_uid_to_model["demo-rep2"]
+
+
+def _make_fallback_supervisor():
+    # Replica 1 is loading and replicas 0 and 2 are ready; the next request
+    # starts at replica 1, so its fallback tries replica 2 and then replica 0.
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    runtime = WorkerActor.__new__(WorkerActor)
+    runtime._model_uid_to_model = {f"demo-rep{i}": object() for i in range(3)}
+    runtime._model_uid_to_model_status = {
+        "demo-rep0": ModelStatus(model_state="ready"),
+        "demo-rep1": ModelStatus(model_state="loading"),
+        "demo-rep2": ModelStatus(model_state="ready"),
+    }
+    info = supervisor._build_replica_info(3)
+    next(info.scheduler)
+    supervisor._model_uid_to_replica_info["demo"] = info
+    for uid in runtime._model_uid_to_model:
+        supervisor._replica_model_uid_to_worker[uid] = worker
+    return worker, supervisor, runtime
+
+
+@pytest.mark.asyncio
+async def test_inference_fallback_discards_reply_from_replaced_replica():
+    # Replica 2 is removed and scaled up again on the same worker (same ID)
+    # while the reply of its lookup is held. The old reference must not be
+    # returned: the request falls through to replica 0.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        ref = runtime.get_model(model_uid)
+        if model_uid == "demo-rep2" and not entered.is_set():
+            entered.set()
+            await release.wait()
+        return ref
+
+    worker.get_model = get_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    removed = runtime._model_uid_to_model["demo-rep2"]
+    await supervisor.terminate_model_replica("demo", 2)
+    runtime._model_uid_to_model["demo-rep2"] = object()
+    await supervisor.add_model_replica("demo")
+    assert worker.launches[-1]["model_uid"] == "demo-rep2"
+    assert supervisor._replica_model_uid_to_worker["demo-rep2"] is worker
+    release.set()
+    model = await asyncio.wait_for(task, 2)
+    assert model is not removed
+    assert model is runtime._model_uid_to_model["demo-rep0"]
+
+
+@pytest.mark.asyncio
+async def test_inference_fallback_skips_replica_stopping_during_scale_down():
+    # A manual scale-down marks replica 2 stopping while its lookup is pending.
+    # Its route stays published until the termination RPC returns, so the real
+    # worker lookup raises RuntimeError: the request must reach replica 0.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    worker.get_model_status = AsyncMock(side_effect=runtime.get_model_status)
+    entered, release = asyncio.Event(), asyncio.Event()
+    marked, finish = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        if model_uid == "demo-rep2":
+            entered.set()
+            await release.wait()
+        return runtime.get_model(model_uid)
+
+    async def terminate_model(model_uid, **kwargs):
+        runtime._model_uid_to_model_status[model_uid].model_state = "stopping"
+        marked.set()
+        await finish.wait()
+
+    worker.get_model = get_model
+    worker.terminate_model = terminate_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    scale_down = asyncio.create_task(supervisor.terminate_model_replica("demo", 2))
+    await asyncio.wait_for(marked.wait(), 2)
+    assert "demo-rep2" in supervisor._replica_model_uid_to_worker
+    release.set()
+    try:
+        model = await asyncio.wait_for(task, 2)
+        assert model is runtime._model_uid_to_model["demo-rep0"]
+    finally:
+        finish.set()
+        await asyncio.wait_for(scale_down, 2)
+
+
+async def _replay_during_held_lookup(worker, supervisor, runtime, replace, new_worker):
+    # Hold replica 2's lookup reply after the worker obtained its reference,
+    # then register the worker's inventory (all three replicas) again.
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def get_model(model_uid):
+        ref = runtime.get_model(model_uid)
+        if model_uid == "demo-rep2" and not entered.is_set():
+            entered.set()
+            await release.wait()
+        return ref
+
+    worker.get_model = get_model
+    task = asyncio.create_task(supervisor.get_model("demo"))
+    await asyncio.wait_for(entered.wait(), 2)
+    held = runtime._model_uid_to_model["demo-rep2"]
+    if replace:
+        runtime._model_uid_to_model["demo-rep2"] = object()
+    registered = worker
+    if new_worker:
+        registered = _FakeScaleWorker(worker.address, worker.launch_args)
+        registered.get_model = get_model
+    await supervisor._restore_worker_inventory(
+        registered,
+        replica_states=[
+            {"replica_model_uid": f"demo-rep{i}", "n_worker": 1, "shard": 0}
+            for i in range(3)
+        ],
+        apply_filter=False,
+    )
+    assert supervisor._replica_model_uid_to_worker["demo-rep2"] is registered
+    release.set()
+    return held, await asyncio.wait_for(task, 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("new_worker", [False, True])
+async def test_inference_fallback_discards_reply_from_before_worker_registration(
+    new_worker,
+):
+    # Replica 2's model actor is replaced and the worker (the same process, or
+    # a new one at the same address) registers it again while the reply of the
+    # lookup is held. The removed actor must not be returned.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    removed, model = await _replay_during_held_lookup(
+        worker, supervisor, runtime, replace=True, new_worker=new_worker
+    )
+    assert model is not removed
+    assert model is runtime._model_uid_to_model["demo-rep0"]
+
+
+@pytest.mark.asyncio
+async def test_inference_fallback_retries_replica_registered_during_lookup():
+    # Only replica 2 is ready, and its registration replays while the lookup
+    # reply is held. The reply is dropped, but the current instance is asked
+    # once more, so the request is still served.
+    worker, supervisor, runtime = _make_fallback_supervisor()
+    runtime._model_uid_to_model_status["demo-rep0"].model_state = "loading"
+    held, model = await _replay_during_held_lookup(
+        worker, supervisor, runtime, replace=False, new_worker=False
+    )
+    assert model is held
+    assert model is runtime._model_uid_to_model["demo-rep2"]
+
+
+@pytest.mark.asyncio
 async def test_progress_includes_unrouted_replica_until_real_load_completion():
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
     supervisor = _make_supervisor([worker], worker.launch_args)

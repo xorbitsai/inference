@@ -406,6 +406,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         # Scale-up replicas (base_model_uid, replica_index) still in
         # launch/wait_for_load; inventory replay must not clear their markers.
         self._replicas_loading: Set[Tuple[str, int]] = set()
+        # Bumped on every scale-up of (base_model_uid, replica_index), so a lookup
+        # reply from a removed replica is not taken for its replacement.
+        self._replica_instances: Dict[Tuple[str, int], int] = {}
         self._async_launch_tasks: Set[asyncio.Task] = set()
         self._initial_model_launches: Dict[str, InitialModelLaunch] = {}
         # Active download-only operations, used only for dispatch cancellation.
@@ -6432,6 +6435,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             self._workers_launching.get(worker_address, 0) + 1
         )
         self._replicas_loading.add((model_uid, new_replica_id))
+        instance_key = (model_uid, new_replica_id)
+        self._replica_instances[instance_key] = (
+            self._replica_instances.get(instance_key, 0) + 1
+        )
         try:
             await target_worker_ref.launch_builtin_model(**modified_args)
             await target_worker_ref.wait_for_load(new_replica_uid)
@@ -7101,27 +7108,64 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                         return model, False
             raise stopping if stopping is not None else last_error
         first = next(replica_info.scheduler)
-        if state is None:
-            return await self._get_replica_model(model_uid, first), False
-        if first not in state.draining and not state.should_avoid(first):
-            return await self._get_replica_model(model_uid, first), False
-
-        # Advance the round robin once per request, including when all
-        # replicas are congested and the preferred route is the fallback.
+        # Advance round robin once per request, and try each sibling at most
+        # once if the selected replica is still loading (including replay).
         ids = replica_info.active_replica_ids
         start = ids.index(first)
-        fallback = None if first in state.draining else first
-        for offset in range(1, len(ids)):
-            replica_id = ids[(start + offset) % len(ids)]
-            if replica_id in state.draining:
+        candidates = ids[start:] + ids[:start]
+        if state is not None:
+            candidates = sorted(candidates, key=state.should_avoid)
+        last_error = ModelNotReadyError(f"Model {model_uid} has no available replica")
+        stopping = None
+        attempts = 0
+        instances = getattr(self, "_replica_instances", {})
+
+        def routable(replica_id: int, instance: Optional[int]) -> bool:
+            uid = build_replica_model_uid(model_uid, replica_id)
+            return (
+                uid in self._replica_model_uid_to_worker
+                and instances.get((model_uid, replica_id)) == instance
+                and (state is None or replica_id not in state.draining)
+            )
+
+        retried: Set[int] = set()
+
+        def retry_if_replaced(replica_id: int) -> None:
+            # Registered or scaled up again during its lookup: the reply came
+            # from an older instance, so ask the current one once, after the rest.
+            current = instances.get((model_uid, replica_id))
+            if replica_id not in retried and routable(replica_id, current):
+                retried.add(replica_id)
+                candidates.append(replica_id)
+
+        for replica_id in candidates:
+            # A replica can start draining while an earlier lookup is pending.
+            if state is not None and replica_id in state.draining:
                 continue
-            if not state.should_avoid(replica_id):
-                return await self._get_replica_model(model_uid, replica_id), False
-            if fallback is None:
-                fallback = replica_id
-        if fallback is not None:
-            return await self._get_replica_model(model_uid, fallback), False
-        raise ModelNotReadyError(f"Model {model_uid} has no available replica")
+            instance = instances.get((model_uid, replica_id))
+            attempts += 1
+            try:
+                model = await self._get_replica_model(model_uid, replica_id)
+            except ModelNotReadyError as exc:
+                last_error = exc
+                continue
+            except Exception as exc:
+                # Drained, scaled down or replaced during its own lookup: try the
+                # next one. A fallback candidate that is stopping is skipped too;
+                # the first replica tried keeps its error, as before.
+                uid = build_replica_model_uid(model_uid, replica_id)
+                is_stopping = attempts > 1 and await self._is_replica_stopping(uid)
+                if not routable(replica_id, instance):
+                    retry_if_replaced(replica_id)
+                    continue
+                if not is_stopping:
+                    raise
+                stopping = stopping or exc
+                continue
+            if routable(replica_id, instance):
+                return model, False
+            retry_if_replaced(replica_id)
+        raise stopping if stopping is not None else last_error
 
     async def _rank_chat_replicas(
         self, model_uid: str, info: ReplicaInfo, preferred: int, request: dict
@@ -8276,6 +8320,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
+        # The reported model actors may have replaced the ones a pending lookup
+        # reached, so every replayed replica starts a new instance.
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if isinstance(replica_model_uid, str):
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is not None:
+                    self._replica_instances[parsed] = (
+                        self._replica_instances.get(parsed, 0) + 1
+                    )
         # A replayed replica is running again (e.g. the worker was evicted by
         # the health check and came back): clear its worker-failure marker so
         # the unexpected-termination gauge stops reporting it as down. A
