@@ -379,11 +379,6 @@ def create_image_model_instance(
             **kwargs,
         )
 
-    # use default model config
-    model_default_config = (model_spec.default_model_config or {}).copy()
-    model_default_config.update(kwargs)
-    kwargs = model_default_config
-
     # Reject an unsupported engine, lightning version or GGUF selection before
     # any cache call below can download.
     from .engine_family import (
@@ -413,13 +408,21 @@ def create_image_model_instance(
             model_format,
             quantization,
         )
-    preflight = getattr(model_cls, "preflight", None)
-    if callable(preflight) and not skip_preflight:
-        preflight(**kwargs)
+    model_default_config = (model_spec.default_model_config or {}).copy()
     if model_spec.model_family == "minimax_h3_image" and model_engine.lower() == "vllm":
         from .minimax_h3 import prepare_vllm_model_spec
 
         model_spec = prepare_vllm_model_spec(model_spec)
+        if kwargs.get("diffusion_offload_config") is not None:
+            # Omni rejects conflicting offload strategies. Drop only the
+            # catalog default and let Omni validate explicit launch options.
+            model_default_config.pop("cpu_offload", None)
+    model_default_config.update(kwargs)
+    kwargs = model_default_config
+
+    preflight = getattr(model_cls, "preflight", None)
+    if callable(preflight) and not skip_preflight:
+        preflight(**kwargs)
     cache_manager = ImageCacheManager(model_spec)
     if not lightning_model_path and lightning_version:
         cache_manager.check_lightning(lightning_version)

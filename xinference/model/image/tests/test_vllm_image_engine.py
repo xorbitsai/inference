@@ -685,6 +685,68 @@ def test_minimax_factory_selects_native_checkpoint(
     assert spec.dict() == original
 
 
+@pytest.mark.parametrize(
+    "offload,request_flags,expected_flags",
+    [
+        (None, {}, {"enable_cpu_offload": True}),
+        ({"mode": "layer", "components": ["dit", "text_encoder"]}, {}, {}),
+        (
+            {"mode": "layer", "components": ["dit"]},
+            {"cpu_offload": True},
+            {"enable_cpu_offload": True},
+        ),
+        (
+            {"mode": "layer", "components": ["dit"]},
+            {"enable_cpu_offload": True},
+            {"enable_cpu_offload": True},
+        ),
+    ],
+)
+def test_minimax_factory_offload_precedence(
+    monkeypatch, tmp_path, offload, request_flags, expected_flags
+):
+    from ..core import create_image_model_instance
+    from ..engine_family import IMAGE_ENGINES, generate_engine_config_by_model_name
+
+    spec = _get_spec("MiniMax-H3-Image")
+    monkeypatch.setattr(engine_platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        sys.modules[VLLMImageModel.__module__], "has_cuda_device", lambda: True
+    )
+    engines = {}
+    generate_engine_config_by_model_name(spec, target_engines=engines)
+    monkeypatch.setitem(IMAGE_ENGINES, spec.model_name, engines[spec.model_name])
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "0.34.0")
+    calls = []
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        types.SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs)),
+    )
+
+    model = create_image_model_instance(
+        "minimax-vllm",
+        spec.model_name,
+        model_engine="vLLM",
+        model_path=str(tmp_path),
+        enable_virtual_env=False,
+        diffusion_offload_config=offload,
+        **request_flags,
+    )
+    assert isinstance(model, VLLMImageModel)
+    model.load()
+
+    assert calls == [
+        {
+            "model": str(tmp_path),
+            "dtype": "bfloat16",
+            "diffusion_offload_config": offload,
+            **expected_flags,
+        }
+    ]
+    assert spec.default_model_config["cpu_offload"] is True
+
+
 def test_minimax_virtualenv_dependencies_are_engine_scoped():
     from xoscar.virtualenv.uv import UVVirtualEnvManager
 
