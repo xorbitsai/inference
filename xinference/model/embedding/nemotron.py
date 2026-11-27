@@ -381,6 +381,10 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 processing_kwargs.get("chat_template", {}),
                 "processing_kwargs.chat_template",
             )
+        elif self.engine == "vllm" and processing_kwargs:
+            _validate_transformers_processor_options(
+                processing_kwargs, "processing_kwargs"
+            )
         return dimensions
 
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:

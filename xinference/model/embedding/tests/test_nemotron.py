@@ -611,6 +611,40 @@ def mock_vllm_pooling(monkeypatch):
     return VLLMValidationError
 
 
+def mock_vllm_pooling_with_pixtral(monkeypatch):
+    from transformers import AutoProcessor
+
+    mock_vllm_pooling(monkeypatch)
+
+    def load(model):
+        model._processor = AutoProcessor.from_pretrained(model._model_path)
+
+        def embed(prompts, **kwargs):
+            outputs = []
+            for prompt in prompts:
+                try:
+                    features = model._processor(
+                        text=prompt["prompt"],
+                        images=prompt.get("multi_modal_data", {}).get("image"),
+                        return_tensors="pt",
+                        **prompt.get("mm_processor_kwargs", {}),
+                    )
+                except Exception as exc:
+                    # vLLM's call_hf_processor wraps failures in a plain ValueError.
+                    raise ValueError("Failed to apply the Pixtral processor") from exc
+                outputs.append(
+                    SimpleNamespace(
+                        outputs=SimpleNamespace(embedding=[1.0] * 32),
+                        prompt_token_ids=features["input_ids"][0].tolist(),
+                    )
+                )
+            return outputs
+
+        model._model = SimpleNamespace(embed=embed)
+
+    monkeypatch.setattr(CLASSES[2], "load", load)
+
+
 def test_vllm_prompts_preserve_template_tokens_and_multimodal_data(monkeypatch):
     model = make_model(CLASSES[2])
     mock_vllm_pooling(monkeypatch)
@@ -1011,8 +1045,16 @@ def tiny_image_text_input():
         (CLASSES[0], ("images_kwargs",)),
         (CLASSES[0], ("processor_kwargs", "images_kwargs")),
         (CLASSES[1], ("image",)),
+        (CLASSES[2], ("images_kwargs",)),
+        (CLASSES[2], ()),
     ],
-    ids=["transformers", "wrapped-transformers", "sentence-transformers"],
+    ids=[
+        "transformers",
+        "wrapped-transformers",
+        "sentence-transformers",
+        "vllm",
+        "flat-vllm",
+    ],
 )
 @pytest.mark.parametrize(
     "resample,error",
@@ -1031,6 +1073,8 @@ async def test_rest_image_resample_is_request_local(
 ):
     if model_cls is CLASSES[1]:
         pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    elif model_cls is CLASSES[2]:
+        mock_vllm_pooling_with_pixtral(monkeypatch)
     processing_kwargs = {"resample": resample}
     for group in reversed(groups):
         processing_kwargs = {group: processing_kwargs}
