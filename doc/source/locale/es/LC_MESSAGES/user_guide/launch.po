@@ -967,3 +967,7 @@ msgstr "Cuando el Supervisor retira el Worker y quita la implementación origina
 #: ../../source/user_guide/launch.rst:489
 msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
 msgstr "Cuando un Worker vuelve a registrarse, el Supervisor mantiene el drenaje si puede confirmar que se trata del mismo Worker y que la réplica original sigue en servicio. El registro de un nuevo proceso Worker en la misma dirección cancela el drenaje anterior."
+
+#: ../../source/user_guide/launch.rst:493
+msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
+msgstr "Si una réplica del par deja de funcionar o el Worker vuelve a crear una mientras sigue en línea, el drenaje pasa a ``cancelled`` y las réplicas restantes siguen en servicio. Si una eliminación interrumpida ya quitó la réplica seleccionada, el Supervisor también quita su enrutamiento."

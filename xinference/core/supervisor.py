@@ -6668,17 +6668,30 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _verify_manual_replica_drain(
         self, model_uid: str, drain: ManualReplicaDrain
     ) -> bool:
+        # A confirmed change cannot be undone, so end the drain and release
+        # its maintenance hold. RPC errors propagate and leave it retryable.
         info = self._model_uid_to_replica_info.get(model_uid)
         if info is not drain.topology or tuple(info.active_replica_ids) != tuple(
             drain.replicas
         ):
-            raise ValueError("The model topology changed during manual drain")
+            self._finish_manual_replica_drain(drain, "cancelled")
+            raise ValueError(
+                "The model topology changed during manual drain; "
+                "the drain was cancelled"
+            )
         for replica_id, original in drain.replicas.items():
             if await self._get_replica_model(model_uid, replica_id) != original:
-                raise ValueError("A replica changed during manual drain")
+                self._finish_manual_replica_drain(drain, "cancelled")
+                raise ValueError(
+                    "A replica changed during manual drain; the drain was cancelled"
+                )
         load = await drain.replicas[drain.replica_id].get_chat_routing_load()
         if self._model_uid_to_replica_info.get(model_uid) is not info:
-            raise ValueError("The model topology changed during manual drain")
+            self._finish_manual_replica_drain(drain, "cancelled")
+            raise ValueError(
+                "The model topology changed during manual drain; "
+                "the drain was cancelled"
+            )
         return type(load) is int and load == 0
 
     async def confirm_manual_replica_drain(
@@ -6718,6 +6731,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 return 1
             if drain.status not in ("drained", "unknown"):
                 raise ValueError("A confirmed replica drain is required")
+            if drain.status == "unknown" and not (
+                await self._manual_drain_survivor_intact(model_uid, drain)
+            ):
+                if await self._abandon_manual_replica_drain(model_uid, drain):
+                    await self._publish_replica_eviction(model_uid)
+                raise ValueError(
+                    "The original replicas changed during manual drain; "
+                    "the drain was cancelled"
+                )
             worker_deleted = drain.status == "unknown" and (
                 await self._manual_drain_target_removed(model_uid, drain)
             )
@@ -6771,6 +6793,77 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         ):
             raise ValueError("The model topology changed during manual drain")
         return True
+
+    async def _manual_drain_survivor_intact(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> bool:
+        survivor_id = next(
+            index for index in drain.replicas if index != drain.replica_id
+        )
+        info = self._model_uid_to_replica_info.get(model_uid)
+        if (
+            info is not drain.topology
+            or survivor_id not in info.active_replica_ids
+            or self._replica_model_uid_to_worker.get(
+                build_replica_model_uid(model_uid, survivor_id)
+            )
+            != drain.worker
+        ):
+            return False
+        survivor = await self._get_replica_model(model_uid, survivor_id)
+        return (
+            survivor == drain.replicas[survivor_id]
+            and self._model_uid_to_replica_info.get(model_uid) is info
+        )
+
+    async def _abandon_manual_replica_drain(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> bool:
+        """Cancel a drain whose original replica pair no longer exists.
+
+        Live and recreated replicas keep their routes. If an interrupted
+        deletion already removed the target, drop only its stale route and
+        return True so the caller can publish the new replica count. Probe
+        errors propagate and leave the drain in place for a later retry.
+        """
+        target_uid = build_replica_model_uid(model_uid, drain.replica_id)
+        owner, topology = drain.worker, drain.topology
+
+        def stale_target_routed() -> bool:
+            return (
+                drain.status == "unknown"
+                and self._model_uid_to_replica_info.get(model_uid) is topology
+                and drain.replica_id in topology.active_replica_ids
+                and self._replica_model_uid_to_worker.get(target_uid) == owner
+            )
+
+        removed = stale_target_routed() and (
+            await owner.get_model_launch_status(target_uid) is None
+        )
+        if drain.status in ("cancelled", "succeeded"):
+            return False
+        removed = removed and stale_target_routed() and drain.worker is owner
+        if removed:
+            self._evict_replica_route(model_uid, drain.replica_id)
+            self._invalidate_list_models_debounce_cache()
+        self._finish_manual_replica_drain(drain, "cancelled")
+        if removed:
+            await self._status_guard_ref.remove_replica_status(
+                model_uid, drain.replica_id
+            )
+        return removed
+
+    def _evict_replica_route(self, model_uid: str, replica_id: int) -> None:
+        replica_model_uid = build_replica_model_uid(model_uid, replica_id)
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        self._clear_replica_model_gpu_memory(replica_model_uid)
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        if replica_info is not None:
+            replica_info.replica_to_worker_refs.pop(replica_id, None)
+            if replica_id in replica_info.active_replica_ids:
+                replica_info.active_replica_ids.remove(replica_id)
+            self._refresh_replica_scheduler(replica_info)
 
     async def _terminate_model_replica(
         self,
@@ -7156,14 +7249,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         # Eviction half: mirror terminate_model_replica, minus
         # worker_ref.terminate_model.
-        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
-        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
-        self._clear_replica_model_gpu_memory(replica_model_uid)
-        replica_info.replica_to_worker_refs.pop(replica_idx, None)
-        replica_info.active_replica_ids.remove(replica_idx)
-        self._refresh_replica_scheduler(replica_info)
+        SupervisorActor._evict_replica_route(self, base_uid, replica_idx)
 
         await self._status_guard_ref.remove_replica_status(base_uid, replica_idx)
+        drain = getattr(self, "_manual_replica_drains", {}).get(base_uid)
+        if (
+            drain is not None
+            and drain.topology is replica_info
+            and replica_idx in drain.replicas
+            # An in-flight DELETE settles first; its retry reconciles.
+            and drain.status in ("draining", "drained", "unknown")
+        ):
+            try:
+                await SupervisorActor._abandon_manual_replica_drain(
+                    self, base_uid, drain
+                )
+            except Exception:
+                logger.warning(
+                    "Could not reconcile the manual drain of %s after replica "
+                    "%s died; retry its deletion to finish",
+                    base_uid,
+                    replica_idx,
+                    exc_info=True,
+                )
+        await SupervisorActor._publish_replica_eviction(self, base_uid)
+
+    async def _publish_replica_eviction(self, base_uid: str) -> None:
         # StatusGuard may retain terminal rows; only ReplicaInfo represents
         # replicas that are still live and routable.
         replica_info = self._model_uid_to_replica_info.get(base_uid)

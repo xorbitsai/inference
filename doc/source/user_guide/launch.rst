@@ -490,6 +490,11 @@ For a Worker re-registration, the Supervisor preserves a drain when it can
 verify the same Worker and the original surviving replica. Registration by a
 new Worker process at the same address cancels the old drain.
 
+If a replica of the pair dies or the Worker recreates one while the Worker
+stays online, the drain becomes ``cancelled`` and the remaining replicas keep
+serving. If an interrupted deletion already removed the selected replica, the
+Supervisor also removes its route.
+
 GPU Allocation Strategy
 =======================
 
