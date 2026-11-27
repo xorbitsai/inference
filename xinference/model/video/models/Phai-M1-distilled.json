@@ -10,7 +10,7 @@
       "image2video"
     ],
     "default_model_config": {
-      "transformer_filename": "diffusion_models/Phai-M1-22b-distilled-transformer-bf16.safetensors",
+      "transformer_filename": "Phai-M1-22b-distilled-transformer-bf16.safetensors",
       "model_variant": "distilled",
       "torch_dtype": "bfloat16",
       "cpu_offload": true,
@@ -21,11 +21,6 @@
       "height": 512,
       "width": 768,
       "num_frames": 121
-    },
-    "cache_config": {
-      "allow_patterns": [
-        "diffusion_models/Phai-M1-22b-distilled-transformer-bf16.safetensors"
-      ]
     },
     "virtualenv": {
       "packages": [

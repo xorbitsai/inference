@@ -428,3 +428,46 @@ msgid ""
 msgstr ""
 "``LTX-2.5-Dev`` では ``two_stage`` を使用できません。開発版では公式の Full/SFT "
 "単段階構成を使用します。最速の蒸留版よりもガイダンス付き生成を必要とするユーザー向けです。"
+
+#: ../../source/models/model_abilities/video.rst:57
+#: ../../source/models/model_abilities/video.rst:75
+msgid ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+msgstr ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+
+#: ../../source/models/model_abilities/video.rst:58
+#: ../../source/models/model_abilities/video.rst:76
+msgid ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+msgstr ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+
+#: ../../source/models/model_abilities/video.rst:123
+msgid ""
+"Phai-M1-dev and Phai-M1-distilled use Diffusers 0.41.0 or newer to "
+"generate video with synchronized audio from text or a reference image. "
+"Each variant downloads its own BF16 transformer and shares the LTX-2.5 "
+"Diffusers components. The separately published INT8 checkpoints use "
+"ComfyUI's convrot format. The default is single-stage generation at "
+"768×512, 121 frames, and 24 fps. Requested frame counts are rounded to "
+"the nearest ``8k+1`` value. The distilled variant always uses its eight-"
+"step schedule and a guidance scale of 1. Both variants use the same "
+"Diffusers runtime as :ref:`LTX-2.5 <models_builtin_ltx-2.5>`."
+msgstr ""
+"Phai-M1-dev と Phai-M1-distilled は、Diffusers 0.41.0 "
+"以降を使い、テキストまたは参照画像から音声が同期した動画を生成します。各バリアントは専用の BF16 Transformer "
+"をダウンロードし、LTX-2.5 の Diffusers コンポーネントを共有します。別途公開されている INT8 チェックポイントには "
+"ComfyUI の convrot 形式が使われています。既定では 768×512、121 フレーム、24 fps "
+"で単一ステージの生成を行います。指定したフレーム数は最も近い ``8k+1`` の値に丸められます。蒸留版は常に専用の 8 "
+"ステップのスケジュールとガイダンススケール 1 を使います。両バリアントの Diffusers ランタイムは :ref:`LTX-2.5 "
+"<models_builtin_ltx-2.5>` と同じです。"
+
+#: ../../source/models/model_abilities/video.rst:134
+msgid ""
+"Select Hugging Face (``main``) or ModelScope (``master``) using "
+"``--download_hub``. The LTX-2.5 Diffusers repository on Hugging Face "
+"requires approved access and an authenticated worker. To use a local copy"
+" of the shared components, set ``--base_model_path "
+"/path/to/LTX-2.5-Diffusers``."
+msgstr ""
+"``--download_hub`` で Hugging Face（``main``）または "
+"ModelScope（``master``）を選択します。Hugging Face 上の LTX-2.5 Diffusers "
+"リポジトリを利用するには、アクセス許可を取得し、ワーカーを認証する必要があります。共有コンポーネントのローカルコピーを使うには "
+"``--base_model_path /path/to/LTX-2.5-Diffusers`` を指定します。"

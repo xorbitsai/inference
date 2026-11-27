@@ -82,9 +82,9 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         return description
 
     def to_version_info(self):
-        from ..cache_manager import CacheManager
+        from .cache_manager import VideoCacheManager
 
-        cache_manager = CacheManager(self)
+        cache_manager = VideoCacheManager(self)
 
         return {
             "model_version": self.cache_name or self.model_name,
@@ -211,6 +211,8 @@ def create_video_model_instance(
 
     if LTX2VideoModel.is_model_family_supported(model_spec):
         LTX2VideoModel.validate_model_spec(model_spec)
+        if model_spec.model_family == "Phai-M1":
+            LTX2VideoModel.validate_phai_m1_device_map(kwargs.get("device_map"))
         if model_spec.model_family == "LTX2" and model_path is not None:
             raise ValueError(
                 "LTX-2.5 must be downloaded from its official Hugging Face or "
@@ -286,7 +288,12 @@ def create_video_model_instance(
     if not gguf_model_path and gguf_quantization:
         VideoCacheManager(model_spec).check_gguf(gguf_quantization)
 
-    if not model_path:
+    if model_spec.model_family == "Phai-M1":
+        cache_manager = VideoCacheManager(model_spec)
+        model_path, kwargs["base_model_path"] = cache_manager.cache_phai_m1(
+            model_path, kwargs.get("base_model_path")
+        )
+    elif not model_path:
         cache_manager = VideoCacheManager(model_spec)
         model_path = cache_manager.cache()
     if not gguf_model_path and gguf_quantization:

@@ -31,6 +31,31 @@ LTX25_MODEL_SOURCES = {
     "modelscope": ("Lightricks/LTX-2.5-Diffusers", "master"),
 }
 
+LTX25_BASE_FILES = (
+    "model_index.json",
+    "transformer/config.json",
+    "scheduler/scheduler_config.json",
+    "connectors/config.json",
+    "connectors/diffusion_pytorch_model.safetensors.index.json",
+    "connectors/diffusion_pytorch_model-00001-of-00002.safetensors",
+    "connectors/diffusion_pytorch_model-00002-of-00002.safetensors",
+    "text_encoder/config.json",
+    "text_encoder/generation_config.json",
+    "text_encoder/model.safetensors.index.json",
+    *(f"text_encoder/model-{part:05d}-of-00005.safetensors" for part in range(1, 6)),
+    "tokenizer/chat_template.jinja",
+    "tokenizer/tokenizer.json",
+    "tokenizer/tokenizer_config.json",
+    "vae/config.json",
+    "vae/diffusion_pytorch_model.safetensors",
+    "audio_vae/config.json",
+    "audio_vae/diffusion_pytorch_model.safetensors",
+    "vocoder/config.json",
+    "vocoder/diffusion_pytorch_model.safetensors",
+    "duration_head/config.json",
+    "duration_head/diffusion_pytorch_model.safetensors",
+)
+
 _LTX25_CHECKPOINT_PREFIX = "model.diffusion_model."
 _CONNECTOR_PREFIXES = {"audio_embeddings_connector", "video_embeddings_connector"}
 _TEXT_PROJECTION_KEYS = {
@@ -117,38 +142,31 @@ def _download_ltx25_base(model_hub: str) -> str:
     return source.snapshot_download(
         model_id,
         revision=revision,
-        allow_patterns=[
-            "model_index.json",
-            "transformer/config.json",
-            "connectors/config.json",
-            "connectors/diffusion_pytorch_model.safetensors.index.json",
-            "connectors/diffusion_pytorch_model-*.safetensors",
-            "text_encoder/*",
-            "tokenizer/*",
-            "scheduler/*",
-            "vae/*",
-            "audio_vae/*",
-            "vocoder/*",
-            "duration_head/*",
-        ],
+        allow_patterns=list(LTX25_BASE_FILES),
     )
+
+
+def find_phai_m1_checkpoint(model_path: str, filename: str) -> Optional[Path]:
+    path = Path(model_path)
+    if path.is_file():
+        return path
+    for directory in (path, path / "diffusion_models"):
+        checkpoint = directory / filename
+        if checkpoint.is_file():
+            return checkpoint
+    return None
 
 
 def load_phai_m1_components(
     model_path: str,
     transformer_filename: str,
-    base_model_path: Optional[str],
-    model_hub: str,
+    base_model_path: str,
     dtype: "torch.dtype",
 ) -> Tuple[str, "LTX2VideoTransformer3DModel", "LTX2TextConnectors"]:
-    checkpoint = Path(model_path)
-    if checkpoint.is_dir():
-        checkpoint = checkpoint / transformer_filename
-    if not checkpoint.is_file():
-        raise FileNotFoundError(f"Phai-M1 checkpoint not found: {checkpoint}")
+    checkpoint = find_phai_m1_checkpoint(model_path, transformer_filename)
+    if checkpoint is None:
+        raise FileNotFoundError(f"Phai-M1 checkpoint not found in {model_path}")
 
-    if base_model_path is None:
-        base_model_path = _download_ltx25_base(model_hub)
     if not (Path(base_model_path) / "model_index.json").is_file():
         raise FileNotFoundError(
             f"LTX-2.5 Diffusers model_index.json not found in {base_model_path}"

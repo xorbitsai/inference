@@ -145,6 +145,14 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
     def _validate_official_model(self) -> None:
         self.validate_model_spec(self._model_spec)
 
+    @staticmethod
+    def validate_phai_m1_device_map(device_map: Any) -> None:
+        if device_map:
+            raise ValueError(
+                "Phai-M1 does not support device_map with its preloaded transformer "
+                "and connectors; use CPU offload or a single accelerator"
+            )
+
     def _reject_quantization(self, kwargs: Dict[str, Any]) -> None:
         quantization_options = (
             "quantization",
@@ -256,8 +264,10 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         self._device = str(device)
 
         device_map = kwargs.get("device_map")
+        if self._is_phai_m1:
+            self.validate_phai_m1_device_map(kwargs.pop("device_map", None))
         if device_map:
-            if self._variant == self._DEV and not self._is_phai_m1:
+            if self._variant == self._DEV:
                 raise ValueError(
                     "LTX-2.5-Dev does not support pipeline device_map because "
                     "transformer_full is loaded as an explicit component; use "
@@ -290,12 +300,11 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         pipeline_path = self._model_path
         if self._is_phai_m1:
             transformer_filename = load_kwargs.pop("transformer_filename")
-            base_model_path = load_kwargs.pop("base_model_path", None)
+            base_model_path = load_kwargs.pop("base_model_path")
             pipeline_path, transformer, connectors = load_phai_m1_components(
                 self._model_path,
                 transformer_filename,
                 base_model_path,
-                self._model_spec.model_hub,
                 dtype,
             )
             load_kwargs.update(

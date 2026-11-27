@@ -1019,3 +1019,51 @@ msgstr ""
 "in der offiziellen einstufigen Full/SFT-Konfiguration bereit. Es richtet "
 "sich an Nutzer, die geführte Generierung statt des schnellsten "
 "destillierten Verfahrens benötigen."
+
+#: ../../source/models/model_abilities/video.rst:57
+#: ../../source/models/model_abilities/video.rst:75
+msgid ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+msgstr ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+
+#: ../../source/models/model_abilities/video.rst:58
+#: ../../source/models/model_abilities/video.rst:76
+msgid ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+msgstr ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+
+#: ../../source/models/model_abilities/video.rst:123
+msgid ""
+"Phai-M1-dev and Phai-M1-distilled use Diffusers 0.41.0 or newer to "
+"generate video with synchronized audio from text or a reference image. "
+"Each variant downloads its own BF16 transformer and shares the LTX-2.5 "
+"Diffusers components. The separately published INT8 checkpoints use "
+"ComfyUI's convrot format. The default is single-stage generation at "
+"768×512, 121 frames, and 24 fps. Requested frame counts are rounded to "
+"the nearest ``8k+1`` value. The distilled variant always uses its eight-"
+"step schedule and a guidance scale of 1. Both variants use the same "
+"Diffusers runtime as :ref:`LTX-2.5 <models_builtin_ltx-2.5>`."
+msgstr ""
+"Phai-M1-dev und Phai-M1-distilled nutzen Diffusers 0.41.0 oder neuer, um "
+"aus Text oder einem Referenzbild Videos mit synchronisiertem Ton zu "
+"erzeugen. Jede Variante lädt ihren eigenen BF16-Transformer herunter und "
+"nutzt dieselben LTX-2.5-Diffusers-Komponenten. Die separat "
+"veröffentlichten INT8-Checkpoints liegen im convrot-Format von ComfyUI "
+"vor. Standardmäßig erfolgt die Generierung in einer Stufe mit 768×512 "
+"Pixeln, 121 Frames und 24 fps. Die angeforderte Frameanzahl wird auf den "
+"nächstgelegenen Wert der Form ``8k+1`` gerundet. Die destillierte "
+"Variante verwendet immer ihren Acht-Schritte-Zeitplan und eine Guidance-"
+"Skala von 1. Beide Varianten verwenden dieselbe Diffusers-Laufzeit wie "
+":ref:`LTX-2.5 <models_builtin_ltx-2.5>`."
+
+#: ../../source/models/model_abilities/video.rst:134
+msgid ""
+"Select Hugging Face (``main``) or ModelScope (``master``) using "
+"``--download_hub``. The LTX-2.5 Diffusers repository on Hugging Face "
+"requires approved access and an authenticated worker. To use a local copy"
+" of the shared components, set ``--base_model_path "
+"/path/to/LTX-2.5-Diffusers``."
+msgstr ""
+"Wählen Sie mit ``--download_hub`` entweder Hugging Face (``main``) oder "
+"ModelScope (``master``). Das LTX-2.5-Diffusers-Repository auf Hugging "
+"Face erfordert eine Zugriffsfreigabe und einen authentifizierten Worker. "
+"Für eine lokale Kopie der gemeinsamen Komponenten setzen Sie "
+"``--base_model_path /path/to/LTX-2.5-Diffusers``."

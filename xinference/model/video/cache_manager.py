@@ -1,10 +1,124 @@
 import os
-from typing import Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from ..cache_manager import CacheManager
+from .ltx25_checkpoint import (
+    LTX25_BASE_FILES,
+    _download_ltx25_base,
+    find_phai_m1_checkpoint,
+)
+
+if TYPE_CHECKING:
+    from .core import VideoModelFamilyV2
 
 
 class VideoCacheManager(CacheManager):
+    _model_family: "VideoModelFamilyV2"
+
+    def _phai_m1_base_path(self) -> Path:
+        hub = self._model_family.model_hub
+        return Path(self._v2_cache_dir_prefix) / f"Phai-M1-LTX-2.5-{hub}"
+
+    def _phai_m1_filename(self) -> str:
+        return (self._model_family.default_model_config or {})["transformer_filename"]
+
+    def get_cache_status(self) -> bool:
+        if self._model_family.model_family != "Phai-M1":
+            return super().get_cache_status()
+        checkpoint = find_phai_m1_checkpoint(
+            self.get_cache_dir(), self._phai_m1_filename()
+        )
+        base_path = self._phai_m1_base_path()
+        return checkpoint is not None and all(
+            (base_path / name).is_file() for name in LTX25_BASE_FILES
+        )
+
+    def _cache_phai_m1_base(self) -> str:
+        from filelock import FileLock
+
+        from ..utils import symlink_local_file
+
+        base_path = self._phai_m1_base_path()
+        if all((base_path / name).is_file() for name in LTX25_BASE_FILES):
+            return str(base_path)
+        base_path.parent.mkdir(parents=True, exist_ok=True)
+        with FileLock(f"{base_path}.lock", preserve_lock_file=True):
+            missing = [
+                name for name in LTX25_BASE_FILES if not (base_path / name).is_file()
+            ]
+            if missing:
+                snapshot = Path(_download_ltx25_base(self._model_family.model_hub))
+                for name in missing:
+                    source = snapshot / name
+                    if not source.is_file():
+                        raise FileNotFoundError(
+                            f"LTX-2.5 base artifact not found: {source}"
+                        )
+                    symlink_local_file(str(source), str(base_path), name)
+        return str(base_path)
+
+    def _download_phai_m1_checkpoint(self, filename: str) -> str:
+        from ..utils import retry_download
+
+        spec = self._model_family
+        if spec.model_hub == "modelscope":
+            from modelscope.hub.file_download import model_file_download
+
+            download = model_file_download
+            remote_filename = f"diffusion_models/{filename}"
+        else:
+            from huggingface_hub import hf_hub_download
+
+            download = hf_hub_download
+            remote_filename = filename
+        return retry_download(
+            download,
+            spec.model_name,
+            None,
+            spec.model_id,
+            remote_filename,
+            revision=spec.model_revision,
+        )
+
+    def cache_phai_m1(
+        self,
+        model_path: Optional[str] = None,
+        base_model_path: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        from ..utils import symlink_local_file
+
+        cache_dir = self.get_cache_dir()
+        filename = self._phai_m1_filename()
+        checkpoint = find_phai_m1_checkpoint(model_path or cache_dir, filename)
+        if checkpoint is None and model_path:
+            raise FileNotFoundError(f"Phai-M1 checkpoint not found in {model_path}")
+        if base_model_path is None:
+            base_model_path = self._cache_phai_m1_base()
+        elif not (Path(base_model_path) / "model_index.json").is_file():
+            raise FileNotFoundError(
+                f"LTX-2.5 Diffusers model_index.json not found in {base_model_path}"
+            )
+        if checkpoint is None:
+            downloaded = self._download_phai_m1_checkpoint(filename)
+            checkpoint = Path(symlink_local_file(downloaded, cache_dir, filename))
+
+        if not model_path:
+            # Older caches could mirror the sibling variant from a shared snapshot.
+            for directory in (Path(cache_dir), Path(cache_dir) / "diffusion_models"):
+                for link in directory.glob(
+                    "Phai-M1-22b-*-transformer-bf16.safetensors"
+                ):
+                    if link.name != filename and link.is_symlink():
+                        link.unlink(missing_ok=True)
+        return str(checkpoint), base_model_path
+
+    def cache(self) -> str:
+        if self._model_family.model_family == "Phai-M1":
+            self.cache_phai_m1()
+            return self.get_cache_dir()
+        return super().cache()
+
     def check_lightning(self, lightning_version: str) -> str:
         """Return the lightning file name for a supported version, else raise.
 

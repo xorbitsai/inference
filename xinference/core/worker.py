@@ -3936,8 +3936,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.cache_manager import VideoCacheManager
             from ..model.video.core import VIDEO_REGISTRY_LOCK
 
             # Add one catalog entry per model and retain each engine/hub source
@@ -3957,7 +3957,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 if detailed:
                     model_specs = []
                     for family in families:
-                        video_cache_manager = CacheManager(family)
+                        video_cache_manager = VideoCacheManager(family)
                         model_specs.append(
                             {
                                 "model_format": family.model_format or "diffusers",
@@ -6691,6 +6691,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 "lightning_model_path"
             ):
                 add_repository(model_hub, getattr(spec, "lightning_model_id", None))
+
+        if (
+            model_type == "video"
+            and spec.model_family == "Phai-M1"
+            and payload.get("base_model_path") is None
+        ):
+            from ..model.video.ltx25_checkpoint import LTX25_MODEL_SOURCES
+
+            base_model_id, _ = LTX25_MODEL_SOURCES[spec.model_hub]
+            add_repository(spec.model_hub, base_model_id)
 
         return repositories
 

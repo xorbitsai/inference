@@ -842,3 +842,44 @@ msgid ""
 msgstr ""
 "``LTX-2.5-Dev`` 不支援 ``two_stage``。Dev 模型採用官方 Full/SFT "
 "單階段設定，適合需要引導式生成、而非追求蒸餾版最快速度的使用者。"
+
+#: ../../source/models/model_abilities/video.rst:57
+#: ../../source/models/model_abilities/video.rst:75
+msgid ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+msgstr ":ref:`Phai-M1-dev <models_builtin_phai-m1-dev>`"
+
+#: ../../source/models/model_abilities/video.rst:58
+#: ../../source/models/model_abilities/video.rst:76
+msgid ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+msgstr ":ref:`Phai-M1-distilled <models_builtin_phai-m1-distilled>`"
+
+#: ../../source/models/model_abilities/video.rst:123
+msgid ""
+"Phai-M1-dev and Phai-M1-distilled use Diffusers 0.41.0 or newer to "
+"generate video with synchronized audio from text or a reference image. "
+"Each variant downloads its own BF16 transformer and shares the LTX-2.5 "
+"Diffusers components. The separately published INT8 checkpoints use "
+"ComfyUI's convrot format. The default is single-stage generation at "
+"768×512, 121 frames, and 24 fps. Requested frame counts are rounded to "
+"the nearest ``8k+1`` value. The distilled variant always uses its eight-"
+"step schedule and a guidance scale of 1. Both variants use the same "
+"Diffusers runtime as :ref:`LTX-2.5 <models_builtin_ltx-2.5>`."
+msgstr ""
+"Phai-M1-dev 和 Phai-M1-distilled 使用 Diffusers 0.41.0 "
+"或更新版本，依據文字或參考影像產生含同步音訊的影片。每個變體會下載各自的 BF16 Transformer，並共用 LTX-2.5 的 "
+"Diffusers 元件。另行發布的 INT8 檢查點採用 ComfyUI 的 convrot 格式。預設採用單階段生成，解析度為 "
+"768×512，共 121 幀，影格率為 24 fps。要求的幀數會四捨五入至最接近的 ``8k+1``。蒸餾版一律使用固定的 8 "
+"步採樣排程，引導係數為 1。兩個變體都使用與 :ref:`LTX-2.5 <models_builtin_ltx-2.5>` 相同的 "
+"Diffusers 執行環境。"
+
+#: ../../source/models/model_abilities/video.rst:134
+msgid ""
+"Select Hugging Face (``main``) or ModelScope (``master``) using "
+"``--download_hub``. The LTX-2.5 Diffusers repository on Hugging Face "
+"requires approved access and an authenticated worker. To use a local copy"
+" of the shared components, set ``--base_model_path "
+"/path/to/LTX-2.5-Diffusers``."
+msgstr ""
+"透過 ``--download_hub`` 選擇 Hugging Face（``main``）或 ModelScope（``master``）。從"
+" Hugging Face 下載 LTX-2.5 Diffusers 元件需要先取得儲存庫的存取權限，並在 worker "
+"上完成驗證。如要使用共用元件的本機副本，請指定 ``--base_model_path /path/to/LTX-2.5-Diffusers``。"
