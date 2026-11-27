@@ -71,7 +71,13 @@ def test_sglang_offline_ocr(monkeypatch, tokenizer, variant):
     assert model.ocr(image) == "![text](0,0,1000,1000) OCR"
     assert tokenizer.messages == [{"role": "user", "content": [{"type": "image"}]}]
     model.ocr(
-        image, prompt="grounding", max_tokens=128, do_sample=False, request_id="1"
+        image,
+        prompt="grounding",
+        max_tokens=128,
+        do_sample=False,
+        temperature=0.7,
+        seed=123,
+        request_id="1",
     )
     assert tokenizer.messages[0]["content"][-1] == {"type": "text", "text": "grounding"}
     assert tokenizer.template_kwargs == {
@@ -79,12 +85,14 @@ def test_sglang_offline_ocr(monkeypatch, tokenizer, variant):
         "add_generation_prompt": True,
         "enable_thinking": False,
     }
+    model.ocr(image, temperature=0.7, seed=123, sampling_seed=0)
+    model.stop()
     assert calls == [
         {"max_new_tokens": 4096, "temperature": 0.1},
-        {"max_new_tokens": 128, "temperature": 0.0},
+        {"max_new_tokens": 128, "temperature": 0.0, "sampling_seed": 123},
+        {"max_new_tokens": 4096, "temperature": 0.7, "sampling_seed": 0},
     ]
-    model.stop()
-    assert len(thread_ids) == 4
+    assert len(thread_ids) == 5
     assert len(set(thread_ids)) == 1
     assert model._engine_executor is None
 

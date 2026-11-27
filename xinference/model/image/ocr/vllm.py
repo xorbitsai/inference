@@ -760,8 +760,10 @@ class VLLMLightOnOCR3Model(ThreadedLightOnOCR3Model):
         sampling_kwargs = self._generation_kwargs(kwargs)
         sampling_kwargs.pop("use_cache", None)
         sampling_kwargs["max_tokens"] = sampling_kwargs.pop("max_new_tokens")
-        do_sample = sampling_kwargs.pop("do_sample", True)
-        sampling_kwargs.setdefault("temperature", 0.1 if do_sample else 0.0)
+        if sampling_kwargs.pop("do_sample", True):
+            sampling_kwargs.setdefault("temperature", 0.1)
+        else:
+            sampling_kwargs["temperature"] = 0.0
         outputs = self._run_on_engine_thread(
             self._model.generate, inputs, SamplingParams(**sampling_kwargs)
         )

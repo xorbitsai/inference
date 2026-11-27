@@ -73,8 +73,13 @@ class SGLangLightOnOCR3Model(ThreadedLightOnOCR3Model):
         )
         sampling_params = self._generation_kwargs(kwargs)
         sampling_params.pop("use_cache", None)
-        do_sample = sampling_params.pop("do_sample", True)
-        sampling_params.setdefault("temperature", 0.1 if do_sample else 0.0)
+        if sampling_params.pop("do_sample", True):
+            sampling_params.setdefault("temperature", 0.1)
+        else:
+            sampling_params["temperature"] = 0.0
+        seed = sampling_params.pop("seed", None)
+        if seed is not None:
+            sampling_params.setdefault("sampling_seed", seed)
         output = self._run_on_engine_thread(
             self._model.generate,
             prompt=text,

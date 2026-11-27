@@ -105,6 +105,40 @@ def test_vllm_lightonocr3_request(
     assert model._processor is None
 
 
+@pytest.mark.parametrize(
+    "generation_kwargs, expected_temperature",
+    [
+        ({"do_sample": False, "temperature": 0.7}, 0.0),
+        ({"do_sample": True, "temperature": 0.7}, 0.7),
+        ({"temperature": 0.7}, 0.7),
+    ],
+)
+def test_vllm_lightonocr3_sampling(
+    monkeypatch, generation_kwargs, expected_temperature
+):
+    sampling_params = {}
+
+    def generate(inputs, sampling):
+        sampling_params.update(sampling)
+        return []
+
+    module = ModuleType("vllm")
+    module.SamplingParams = lambda **kwargs: kwargs
+    monkeypatch.setitem(sys.modules, "vllm", module)
+    model = VLLMLightOnOCR3Model("ocr-test", "/models/lightonocr")
+    model._processor = SimpleNamespace(apply_chat_template=lambda *a, **kw: "prompt")
+    model._model = SimpleNamespace(generate=generate)
+    try:
+        model.ocr(Image.new("RGB", (8, 8)), seed=123, **generation_kwargs)
+    finally:
+        model.stop()
+    assert sampling_params == {
+        "max_tokens": 4096,
+        "temperature": expected_temperature,
+        "seed": 123,
+    }
+
+
 def test_vllm_lightonocr3_tokenizer_failure_releases_engine(monkeypatch):
     calls = []
 

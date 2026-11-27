@@ -1,0 +1,46 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 18:42+0800\n"
+"PO-Revision-Date: 2026-11-27 18:42+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:5
+msgid "LightOnOCR-3-0.8B"
+msgstr "LightOnOCR-3-0.8B"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:7
+msgid "**Model Name:** LightOnOCR-3-0.8B"
+msgstr "**Modellname:** LightOnOCR-3-0.8B"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:8
+msgid "**Model Family:** ocr"
+msgstr "**Modellfamilie:** ocr"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:9
+msgid "**Abilities:** ocr"
+msgstr "**Funktionen:** ocr"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:10
+msgid "**Available ControlNet:** None"
+msgstr "**Verfügbares ControlNet:** Keines"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:13
+msgid "Specifications"
+msgstr "Spezifikationen"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:15
+msgid "**Model ID:** lightonai/LightOnOCR-3-0.8B"
+msgstr "**Modell-ID:** lightonai/LightOnOCR-3-0.8B"
+
+#: ../../source/models/builtin/image/lightonocr-3-0.8b.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "Führen Sie den folgenden Befehl aus, um das Modell zu starten::"
