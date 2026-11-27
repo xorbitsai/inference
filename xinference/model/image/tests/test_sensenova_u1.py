@@ -167,6 +167,54 @@ def test_u16_variant_rejects_unknown_quantization():
         )
 
 
+@pytest.mark.parametrize(
+    ("device", "options", "requires_offload"),
+    [
+        (None, {}, True),
+        ("cpu", {"vram_mode": "fast"}, True),
+        ("mps", {"vram_mode": "low"}, True),
+        ("cpu", {"vram_mode": "full"}, False),
+        ("mps", {"vram_mode": "full"}, False),
+        ("cuda:0", {}, True),
+        ("xpu:0", {}, True),
+    ],
+)
+def test_u16_gguf_validates_offload_device_before_loading(
+    monkeypatch, tmp_path, device, options, requires_offload
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    runtime_utils = import_module("sensenova_u1.utils")
+    monkeypatch.setattr(
+        runtime_utils, "best_available_device", lambda: torch.device("cpu")
+    )
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(runtime_utils, "load_model_and_tokenizer", loader)
+    model = create_image_model_instance(
+        model_uid="sensenova-gguf",
+        model_name="SenseNova-U1.6-8B-MoT-GGUF",
+        model_path=str(tmp_path),
+        device=device,
+        **options,
+    )
+
+    resolved_device = device or "cpu"
+    mode = options.get("vram_mode", "balanced")
+    if requires_offload and torch.device(resolved_device).type in ("cpu", "mps"):
+        with pytest.raises(
+            ValueError,
+            match=f"vram_mode='{mode}'.*CUDA or XPU.*device '{resolved_device}'",
+        ):
+            model.load()
+        loader.assert_not_called()
+    else:
+        model.load()
+        loader.assert_called_once()
+        assert loader.call_args.kwargs["device"] == resolved_device
+        assert loader.call_args.kwargs["for_offload"] is requires_offload
+
+
 def _make_model():
     model_spec = SimpleNamespace(
         model_ability=["text2image", "image2image"],

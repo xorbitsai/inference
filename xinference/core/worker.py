@@ -3653,7 +3653,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         cache_manager = ImageCacheManager(family)
                         model_specs = [
                             {
-                                "model_format": "pytorch",
+                                "model_format": getattr(family, "model_format", None)
+                                or "pytorch",
+                                "quantization": getattr(family, "quantization", None),
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_status": cache_manager.get_cache_status(),

@@ -133,7 +133,7 @@ _WORKER_METADATA_RPC_TIMEOUT = 3
 _WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
 
 
-def _merge_audio_model_registrations(
+def _merge_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
     """Merge platform-local catalogs without losing engine variants."""
@@ -2621,8 +2621,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
         for result in results:
             ret.extend(result)
-        if model_type.lower() in ("audio", "world"):
-            ret = _merge_audio_model_registrations(ret, detailed)
+        if model_type.lower() in ("audio", "image", "world"):
+            ret = _merge_model_registrations(ret, detailed)
 
         ret.sort(key=sort_helper)
         return ret

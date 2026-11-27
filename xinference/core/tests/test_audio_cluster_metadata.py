@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# CI: linux
 
 from unittest.mock import patch
 
@@ -18,7 +19,7 @@ import pytest
 
 from ..supervisor import (
     SupervisorActor,
-    _merge_audio_model_registrations,
+    _merge_model_registrations,
     _merge_worker_engine_params,
 )
 
@@ -59,7 +60,7 @@ def test_merge_platform_specific_audio_catalogs():
         "download_hubs": ["huggingface"],
     }
 
-    merged = _merge_audio_model_registrations(
+    merged = _merge_model_registrations(
         [linux_registration, apple_registration], detailed=True
     )
 

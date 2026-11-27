@@ -121,6 +121,7 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             load_model_and_tokenizer,
             vram_mode_to_prefetch_count,
         )
+        from sensenova_u1.utils.accel import SUPPORTED_DEVICE_TYPES
 
         if self._lightning_model_path:
             raise ValueError("SenseNova-U1 does not support lightning models.")
@@ -136,6 +137,14 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
         self._vram_mode = kwargs.pop("vram_mode", DEFAULT_VRAM_MODE)
         self._prefetch_count = vram_mode_to_prefetch_count(self._vram_mode)
         self._device = self._device or str(best_available_device())
+        if (
+            self._prefetch_count > 0
+            and torch.device(self._device).type not in SUPPORTED_DEVICE_TYPES
+        ):
+            raise ValueError(
+                f"SenseNova-U1 vram_mode={self._vram_mode!r} requires a CUDA or XPU "
+                f"device for layer offload, but got device {self._device!r}."
+            )
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
 
