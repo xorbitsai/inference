@@ -91,6 +91,9 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
                 stream.readline(MAX_RUNTIME_LOG_BYTES)
             data = stream.read(MAX_RUNTIME_LOG_BYTES)
             offset = stream.tell()
+            # The file may have grown while we read it. Use its size after the
+            # read, so has_more and the decoder's end-of-file check agree with data.
+            stat = os.fstat(stream.fileno())
     except FileNotFoundError:
         return {"text": "", "cursor": "", "has_more": False, "reset": True}
 
