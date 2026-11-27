@@ -253,6 +253,75 @@ def test_u16_native_fp8_validates_cuda_capability_before_loading(
     get_device_capability.assert_called_once_with(torch.device("cuda:1"))
 
 
+@pytest.mark.parametrize(
+    ("architecture", "kernel_error"),
+    [
+        ("gfx90a", RuntimeError("torch._scaled_mm requires ROCm MI300+")),
+        ("gfx942", ValueError("E4M3FN is unsupported on this device")),
+        ("gfx950", None),
+    ],
+)
+def test_u16_native_fp8_checks_rocm_kernel_before_loading(
+    monkeypatch, tmp_path, architecture, kernel_error
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    quant_runtime = import_module("sensenova_u1.utils.quant_runtime")
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(quant_runtime, "load_quant", loader)
+    monkeypatch.setattr(torch.version, "hip", "7.0")
+    properties = Mock(return_value=SimpleNamespace(gcnArchName=architecture))
+    monkeypatch.setattr(torch.cuda, "get_device_properties", properties)
+    model = create_image_model_instance(
+        model_uid="sensenova-native-fp8",
+        model_name="SenseNova-U1.6-8B-MoT-Native",
+        quantization="FP8-E4M3FN-W8A8",
+        model_path=str(tmp_path),
+        device="cuda:1",
+        vram_mode="full",
+    )
+    activations = Mock(return_value=torch.zeros((32, 32), dtype=torch.float32))
+    scale = torch.ones((), dtype=torch.float32)
+    scales = Mock(return_value=scale)
+    scaled_mm = Mock(side_effect=kernel_error)
+    stream = Mock()
+    current_stream = Mock(return_value=stream)
+    monkeypatch.setattr(torch, "zeros", activations)
+    monkeypatch.setattr(torch, "ones", scales)
+    monkeypatch.setattr(torch, "_scaled_mm", scaled_mm)
+    monkeypatch.setattr(torch.cuda, "current_stream", current_stream)
+
+    device = torch.device("cuda:1")
+    if kernel_error is None:
+        model.load()
+        loader.assert_called_once_with(
+            str(tmp_path / "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"), "cuda:1"
+        )
+        current_stream.assert_called_once_with(device)
+        stream.synchronize.assert_called_once_with()
+    else:
+        with pytest.raises(
+            ValueError, match=rf"ROCm 7\.0.*cuda:1.*{architecture}.*E4M3FN"
+        ):
+            model.load()
+        loader.assert_not_called()
+
+    properties.assert_called_once_with(device)
+    activations.assert_called_once_with((32, 32), device=device, dtype=torch.float32)
+    scales.assert_called_once_with((), device=device, dtype=torch.float32)
+    scaled_mm.assert_called_once()
+    left, right = scaled_mm.call_args.args
+    assert left.dtype == right.dtype == torch.float8_e4m3fn
+    assert left.stride() == (32, 1)
+    assert right.stride() == (1, 32)
+    assert scaled_mm.call_args.kwargs == {
+        "scale_a": scale,
+        "scale_b": scale,
+        "out_dtype": torch.float32,
+    }
+
+
 def _make_model():
     model_spec = SimpleNamespace(
         model_ability=["text2image", "image2image"],

@@ -26,6 +26,8 @@ from .sdapi import SDAPIDiffusionModelMixin
 from .utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
+    import torch
+
     from ...types import LoRA
     from .core import ImageModelFamilyV2
 
@@ -215,14 +217,8 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
                 raise ValueError(
                     "SenseNova Native FP8/INT8 does not support LoRA merging."
                 )
-            if quantization == "FP8-E4M3FN-W8A8" and torch.version.hip is None:
-                # Match the CUDA capability check in torch._scaled_mm.
-                major, minor = torch.cuda.get_device_capability(device)
-                if (major, minor) < (8, 9):
-                    raise ValueError(
-                        "SenseNova Native FP8 requires CUDA compute capability "
-                        f"8.9 or newer, but device {str(device)!r} has {major}.{minor}."
-                    )
+            if quantization == "FP8-E4M3FN-W8A8":
+                self._validate_native_fp8_device(device)
 
             from sensenova_u1.utils.quant_runtime import load_quant
 
@@ -252,6 +248,43 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             strict=True,
         )
         return model.eval(), tokenizer
+
+    @staticmethod
+    def _validate_native_fp8_device(device: "torch.device") -> None:
+        import torch
+
+        rocm_version = torch.version.hip
+        if rocm_version is None:
+            # Match the CUDA capability check in torch._scaled_mm.
+            major, minor = torch.cuda.get_device_capability(device)
+            if (major, minor) < (8, 9):
+                raise ValueError(
+                    "SenseNova Native FP8 requires CUDA compute capability "
+                    f"8.9 or newer, but device {str(device)!r} has {major}.{minor}."
+                )
+            return
+
+        architecture = torch.cuda.get_device_properties(device).gcnArchName
+        # ROCm kernel support depends on the PyTorch build, GPU and FP8 format.
+        try:
+            matrix = torch.zeros((32, 32), device=device, dtype=torch.float32).to(
+                torch.float8_e4m3fn
+            )
+            scale = torch.ones((), device=device, dtype=torch.float32)
+            torch._scaled_mm(
+                matrix,
+                matrix.t(),
+                scale_a=scale,
+                scale_b=scale,
+                out_dtype=torch.float32,
+            )
+            torch.cuda.current_stream(device).synchronize()
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"SenseNova Native FP8 failed the PyTorch ROCm {rocm_version} "
+                f"kernel check on device {str(device)!r} ({architecture}). "
+                f"E4M3FN torch._scaled_mm with FP32 output is required. {exc}"
+            ) from exc
 
     def _offload_context(self):
         if self._model is None:
