@@ -3887,7 +3887,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         cache_manager = ImageCacheManager(family)
                         model_specs = [
                             {
-                                "model_format": "pytorch",
+                                "model_format": getattr(family, "model_format", None)
+                                or "pytorch",
+                                "quantization": getattr(family, "quantization", None),
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_status": cache_manager.get_cache_status(),
@@ -4461,9 +4463,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
             return
         if isinstance(version_info, list):  # image model
-            model_path = version_info[0]["model_file_location"]
+            info = version_info[0]
+            model_version = None
+            if info.get("quantization"):
+                if not info["cache_status"]:
+                    return
+                model_version = info["model_version"]
             await self._cache_tracker_ref.update_cache_status(
-                self.address, model_name, None, model_path
+                self.address, model_name, model_version, info["model_file_location"]
             )
         else:
             await self._cache_tracker_ref.update_cache_status(
@@ -6802,7 +6809,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif model_type == "image":
             from ..model.image.core import _select_ocr_model_family, match_diffusion
 
-            spec = match_diffusion(model_name, download_hub)
+            spec = match_diffusion(model_name, download_hub, quantization=quantization)
             if "ocr" in (spec.model_ability or []):
                 spec = _select_ocr_model_family(
                     model_name,

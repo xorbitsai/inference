@@ -137,7 +137,7 @@ _WORKER_METADATA_RPC_TIMEOUT = 3
 _WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
 
 
-def _merge_audio_model_registrations(
+def _merge_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
     """Merge platform-local catalogs without losing engine variants."""
@@ -2753,8 +2753,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         )
         for result in results:
             ret.extend(result)
-        if model_type.lower() in ("audio", "world"):
-            ret = _merge_audio_model_registrations(ret, detailed)
+        if model_type.lower() in ("audio", "image", "world"):
+            ret = _merge_model_registrations(ret, detailed)
 
         ret.sort(key=sort_helper)
         return ret
@@ -3132,21 +3132,32 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         autoscaling: Optional[Dict[str, Any]] = None,
     ):
         parse_results = parse_model_version(model_version, model_type)
-
+        model_name = parse_results[0]
+        quantization = parse_results[3] if model_type == "LLM" else None
+        kwargs = {}
         if model_type == "image" and len(parse_results) == 2:
-            kwargs = {"controlnet": parse_results[1]}
-        else:
-            kwargs = {}
+            versions = await self.get_model_versions(model_type, model_name)
+            quantization = next(
+                (
+                    version.get("quantization")
+                    for version in versions
+                    if version["model_version"] == model_version
+                    and version.get("model_type", model_type) == model_type
+                ),
+                None,
+            )
+            if not quantization:
+                kwargs["controlnet"] = parse_results[1]
 
         if autoscaling is not None:
             kwargs["autoscaling"] = autoscaling
         return await self.launch_builtin_model(
             model_uid=model_uid,
-            model_name=parse_results[0],
+            model_name=model_name,
             model_engine=model_engine,
             model_size_in_billions=parse_results[1] if model_type == "LLM" else None,
             model_format=parse_results[2] if model_type == "LLM" else None,
-            quantization=parse_results[3] if model_type == "LLM" else None,
+            quantization=quantization,
             model_type=model_type,
             replica=replica,
             n_gpu=n_gpu,

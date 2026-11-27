@@ -4853,7 +4853,11 @@ def test_resolve_image_download_repositories_includes_auxiliary_models(monkeypat
         gguf_model_id="org/demo-image-gguf",
         lightning_model_id="org/demo-image-lightning",
     )
-    monkeypatch.setattr(image_core, "match_diffusion", lambda *_args: model_spec)
+    monkeypatch.setattr(
+        image_core,
+        "match_diffusion",
+        lambda name, hub, *, quantization=None: model_spec,
+    )
     payload = {
         "model_type": "image",
         "model_name": "demo-image",

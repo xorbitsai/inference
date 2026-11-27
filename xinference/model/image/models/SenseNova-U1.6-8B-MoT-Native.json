@@ -1,0 +1,62 @@
+[
+  {
+    "version": 2,
+    "model_name": "SenseNova-U1.6-8B-MoT-Native",
+    "model_description": "Standalone Safetensors variants of SenseNova-U1.6 for text-to-image generation, with BF16, FP8 W8A8 and INT8 ConvRot W8A8 weights.",
+    "model_family": "sensenova_u1",
+    "model_ability": [
+      "text2image"
+    ],
+    "controlnet": [],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_file_name_template": "SenseNova-U1.6-{quantization}.safetensors",
+        "model_src": {
+          "huggingface": {
+            "model_id": "sensenova/SenseNova-U1.6-8B-MoT-Native",
+            "model_revision": "main",
+            "quantizations": [
+              "BF16",
+              "FP8-E4M3FN-W8A8",
+              "INT8-ConvRot-W8A8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "SenseNova/SenseNova-U1.6-8B-MoT-Native",
+            "model_revision": "master",
+            "quantizations": [
+              "BF16",
+              "FP8-E4M3FN-W8A8",
+              "INT8-ConvRot-W8A8"
+            ]
+          }
+        }
+      }
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "cfg_scale": 4,
+      "cfg_norm": "none",
+      "timestep_shift": 3,
+      "num_steps": 50
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1,<2 ; #engine# == \"transformers\"",
+        "huggingface-hub>=0.34,<2 ; #engine# == \"transformers\"",
+        "safetensors>=0.4.3,<1 ; #engine# == \"transformers\"",
+        "sentencepiece==0.2.1 ; #engine# == \"transformers\"",
+        "comfy-kitchen>=0.2.42,<0.3 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1795478400
+  }
+]
