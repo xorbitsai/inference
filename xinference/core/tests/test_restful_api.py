@@ -2156,8 +2156,9 @@ async def test_deepseek_v41_openai_forces_tool_choice(
 @pytest.mark.parametrize("launch_thinking", [False, True], ids=["off", "on"])
 @pytest.mark.parametrize("requested", [None, False, True], ids=["unset", "no", "yes"])
 @pytest.mark.parametrize("endpoint", ["chat", "responses"])
-async def test_deepseek_v41_forced_tools_follow_launch_thinking(
-    monkeypatch, stream, launch_thinking, requested, endpoint
+@pytest.mark.parametrize("named", [False, True], ids=["required", "named"])
+async def test_deepseek_v41_forced_tools_disable_implicit_thinking(
+    monkeypatch, stream, launch_thinking, requested, endpoint, named
 ):
     from ...model.llm.core import chat_context_var
     from ...model.llm.reasoning_parser import ReasoningParser
@@ -2244,11 +2245,18 @@ async def test_deepseek_v41_forced_tools_follow_launch_thinking(
             "input": "What time is it?",
             "tools": [{"type": "function", "name": "time", "parameters": {}}],
         }
+    tool_choice = "required"
+    if named:
+        tool_choice = (
+            {"type": "function", "function": {"name": "time"}}
+            if endpoint == "chat"
+            else {"type": "function", "name": "time"}
+        )
     request = _DummyRequest(
         {
             "model": "deepseek",
             "stream": stream,
-            "tool_choice": "required",
+            "tool_choice": tool_choice,
             **payload,
             **thinking,
         }
@@ -2257,7 +2265,7 @@ async def test_deepseek_v41_forced_tools_follow_launch_thinking(
     request.receive = asyncio.Event().wait
     create = api.create_chat_completion if endpoint == "chat" else api.create_response
 
-    if requested or (requested is None and launch_thinking):
+    if requested:
         if endpoint == "chat":
             with pytest.raises(HTTPException, match="requires disabling") as exc:
                 await create(request)

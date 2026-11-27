@@ -668,7 +668,17 @@ class VLLMModel(WeightCachedModel, LLM):
             )
             or {}
         )
-        if context.get("enable_thinking") and context.get("reasoning_effort") != "none":
+        # A forced tool call overrides the launch default for this request.
+        # Read the template arguments without the parser to detect caller intent.
+        requested_context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(config) or {}
+        )
+        if (
+            context.get("enable_thinking")
+            and context.get("reasoning_effort") != "none"
+            and {"enable_thinking", "thinking", "reasoning_effort", "thinking_budget"}
+            & requested_context.keys()
+        ):
             raise ValueError(
                 "Forced tool choice requires disabling thinking for DeepSeek V4.1"
             )

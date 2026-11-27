@@ -209,5 +209,5 @@ msgstr "学习一个完整的示例，演示函数调用的过程。"
 #~ msgstr ""
 
 
-msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Disable thinking with ``extra_body={\"enable_thinking\": False}`` when using the OpenAI SDK. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
-msgstr "在 vLLM 上使用 DeepSeek V4.1 Flash 和 Flash 1017 时，可设置 ``tool_choice=\"required\"`` 或指定函数名来强制调用工具。使用 OpenAI SDK 时，通过 ``extra_body={\"enable_thinking\": False}`` 关闭思考模式。流式响应会在工具参数完整后返回这些参数。预填充与解码分离的部署不支持强制工具选择。"
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Xinference turns off thinking for that request when no thinking controls are supplied. A forced tool call with thinking explicitly enabled returns HTTP 400. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "在 vLLM 上使用 DeepSeek V4.1 Flash 和 Flash 1017 时，可设置 ``tool_choice=\"required\"`` 或指定函数名来强制调用工具。请求未指定思考参数时，Xinference 会为该请求关闭思考模式。强制调用工具时显式打开思考模式会返回 HTTP 400。流式响应会在工具参数完整后返回这些参数。预填充与解码分离的部署不支持强制工具选择。"
