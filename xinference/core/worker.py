@@ -4493,8 +4493,12 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         env_path,
                         "--system-site-packages",
                     ]
-                    if python_path is not None:
-                        command.extend(["--python", str(python_path)])
+                    python_selector = (
+                        str(python_path)
+                        if python_path is not None
+                        else ".".join(map(str, sys.version_info[:3]))
+                    )
+                    command.extend(["--python", python_selector])
                     env_exists = os.path.lexists(env_path)
                     if env_exists:
                         command.append("--allow-existing")

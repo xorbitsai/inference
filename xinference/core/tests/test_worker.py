@@ -2608,7 +2608,7 @@ def test_prepare_virtual_env_jina_flash_attn_uses_dedicated_hook_and_fingerprint
     monkeypatch.setattr(
         virtual_env_manager_module,
         "apply_flash_attn_wheel_post_install",
-        lambda *args: hook_calls.append(args),
+        lambda *args, cancel_event: hook_calls.append(args),
     )
     monkeypatch.setattr(
         WorkerActor, "_is_cuda_device_available", staticmethod(lambda: True)
@@ -2666,7 +2666,7 @@ def test_prepare_virtual_env_non_jina_keeps_flash_attn_in_regular_install(
     monkeypatch.setattr(
         virtual_env_manager_module,
         "apply_flash_attn_wheel_post_install",
-        lambda *args: hook_calls.append(args),
+        lambda *args, cancel_event: hook_calls.append(args),
     )
 
     WorkerActor._prepare_virtual_env(

@@ -522,7 +522,9 @@ async def test_delete_joins_timed_out_initial_launch_cancellation(runtime, monke
     assert "demo" in supervisor._model_uid_to_replica_info
     assert api._uid_to_model_name["demo"] == "replacement"
     evict.assert_called_once_with("demo")
-    assert (await api.terminate_model("metrics")).status_code == 200
+    with pytest.raises(HTTPException) as absent:
+        await api.terminate_model("metrics")
+    assert absent.value.status_code == 400
     assert api._app.router.routes == routes
 
 

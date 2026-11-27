@@ -2742,9 +2742,10 @@ class RESTfulAPI(CancelMixin):
                 await supervisor.terminate_model(model_uid)
         except LaunchDeletePreconditionFailed as exc:
             raise HTTPException(status_code=412, detail=str(exc)) from exc
-        except ModelAlreadyAbsent:
-            # A previous DELETE may have timed out before background cleanup finished.
-            pass
+        except ModelAlreadyAbsent as exc:
+            if launch_id is None:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            # A tagged DELETE may have timed out before background cleanup finished.
         except InitialModelLaunchStopping as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as ve:

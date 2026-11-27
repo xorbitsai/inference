@@ -17,6 +17,8 @@ On **Running Models**, choose **Clear failed record** to remove a failed launch 
 
 An initial launch remains cancellable until all its replicas finish, even when some are already ready. **Cancel launch** on **Running Models** calls ``POST /v1/models/{model_uid}/cancel`` to stop pending work and remove replicas created by that launch. ``GET /v1/models/instances`` reports ``can_cancel_launch`` for this operation. Scale-up of an established model does not enable initial-launch cancellation.
 
+To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup.
+
 .. note::
 
    The LMDeploy backend has been removed because its Xinference integration is

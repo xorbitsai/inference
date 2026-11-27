@@ -431,3 +431,41 @@ async def test_repeated_rpc_cancellation_waits_for_environment_creation():
         await asyncio.gather(launch, return_exceptions=True)
 
     assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+def test_frozen_uv_creation_selects_bundled_python(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    from xinference.core import worker
+
+    frozen_sys = SimpleNamespace(
+        _MEIPASS=str(tmp_path),
+        version_info=(3, 14, 0, "candidate", 2),
+    )
+    monkeypatch.setattr(worker, "sys", frozen_sys)
+    monkeypatch.setattr(worker.platform, "python_version", lambda: "3.14.0rc2")
+    monkeypatch.setattr(UVVirtualEnvManager, "_get_uv_path", staticmethod(lambda: "uv"))
+    process = MagicMock()
+    process.__enter__.return_value.poll.return_value = 0
+    process.__enter__.return_value.returncode = 1
+    popen = MagicMock(return_value=process)
+    monkeypatch.setattr(worker.subprocess, "Popen", popen)
+    env = str(tmp_path / "env")
+
+    with pytest.raises(worker.subprocess.CalledProcessError):
+        worker.WorkerActor._create_virtual_env_manager(
+            True, "uv", env, threading.Event()
+        )
+
+    popen.assert_called_once_with(
+        [
+            "uv",
+            "venv",
+            env,
+            "--system-site-packages",
+            "--python",
+            "3.14.0",
+        ]
+    )
