@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 from abc import abstractmethod
 from importlib.metadata import PackageNotFoundError, requires, version
 from io import BytesIO
@@ -100,9 +101,14 @@ def _validate_transformers_processor_options(
         _validate_resample(options.get(group, {}), f"{path}.{group}")
 
 
-def _raise_request_processing_error(
+def _request_processing_error(
     exc: Exception, chat_template: Optional[str]
-) -> None:
+) -> Optional[InvalidModelRequestError]:
+    from huggingface_hub.errors import (
+        StrictDataclassClassValidationError,
+        StrictDataclassFieldValidationError,
+    )
+
     if chat_template is not None:
         from jinja2 import TemplateError
 
@@ -111,13 +117,37 @@ def _raise_request_processing_error(
             frame.f_globals.get("__name__") == "jinja2.environment"
             for frame, _ in walk_tb(exc.__traceback__)
         ):
-            raise InvalidModelRequestError(
+            return InvalidModelRequestError(
                 f"Invalid Nemotron 3.5 Embed chat_template: {exc}"
-            ) from exc
-    if isinstance(exc, (TypeError, ValueError)):
-        raise InvalidModelRequestError(
+            )
+    if isinstance(
+        exc,
+        (
+            TypeError,
+            ValueError,
+            StrictDataclassClassValidationError,
+            StrictDataclassFieldValidationError,
+        ),
+    ):
+        return InvalidModelRequestError(
             f"Invalid Nemotron 3.5 Embed processing_kwargs: {exc}"
-        ) from exc
+        )
+    return None
+
+
+def _unwrap_vllm_processor_error(exc: ValueError) -> Optional[Exception]:
+    cause = exc.__cause__
+    context = sys.modules.get("vllm.multimodal.processing.context")
+    if not isinstance(cause, Exception) or context is None:
+        return None
+    # Only unwrap ValueErrors raised by vLLM's Hugging Face processor call.
+    call_hf_processor = context.InputProcessingContext.call_hf_processor
+    if any(
+        frame.f_code is call_hf_processor.__code__
+        for frame, _ in walk_tb(exc.__traceback__)
+    ):
+        return cause
+    return None
 
 
 def check_dependencies(engine: str) -> Union[bool, Tuple[bool, str]]:
@@ -474,9 +504,11 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                 )
             except Exception as exc:
                 if processing_kwargs:
-                    _raise_request_processing_error(
+                    error = _request_processing_error(
                         exc, processing_kwargs.get("chat_template")
                     )
+                    if error is not None:
+                        raise error from exc
                 raise
             self._validate_context_length(features["input_ids"].shape[-1])
             if features.get("attention_mask") is None:
@@ -560,9 +592,11 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
                 except Exception as exc:
                     # encode() includes inference as well as preprocessing.
                     if not forward_started and processing_kwargs:
-                        _raise_request_processing_error(
+                        error = _request_processing_error(
                             exc, template_options.get("chat_template")
                         )
+                        if error is not None:
+                            raise error from exc
                     raise
                 vectors.append(vector[0])
         finally:
@@ -609,6 +643,7 @@ class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
         from vllm import PoolingParams
         from vllm.exceptions import VLLMValidationError
 
+        processing_kwargs = kwargs.get("processing_kwargs")
         prompts = []
         for sample in samples:
             prompt = {
@@ -618,8 +653,8 @@ class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
             }
             if "image" in sample:
                 prompt["multi_modal_data"] = {"image": sample["image"]}
-            if kwargs.get("processing_kwargs"):
-                prompt["mm_processor_kwargs"] = kwargs["processing_kwargs"]
+            if processing_kwargs:
+                prompt["mm_processor_kwargs"] = processing_kwargs
             prompts.append(prompt)
         try:
             outputs = self._embed_sync(
@@ -629,6 +664,19 @@ class VLLMNemotronEmbeddingModel(_NemotronEmbeddingMixin, VLLMEmbeddingModel):
             )
         except VLLMValidationError as exc:
             raise InvalidModelRequestError(str(exc)) from exc
+        except ValueError as exc:
+            processor_error = (
+                _unwrap_vllm_processor_error(exc) if processing_kwargs else None
+            )
+            if processor_error is not None:
+                error = _request_processing_error(processor_error, None)
+                # The caller can only retry if the failed batch left no queued work.
+                if (
+                    error is not None
+                    and not self._model.llm_engine.has_unfinished_requests()
+                ):
+                    raise error from exc
+            raise
         return (
             [torch.tensor(output.outputs.embedding) for output in outputs],
             [len(output.prompt_token_ids) for output in outputs],

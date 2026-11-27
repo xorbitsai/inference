@@ -616,22 +616,34 @@ def mock_vllm_pooling_with_pixtral(monkeypatch):
 
     mock_vllm_pooling(monkeypatch)
 
+    class InputProcessingContext:
+        @staticmethod
+        def call_hf_processor(hf_processor, data, kwargs):
+            options = {"return_tensors": "pt", **kwargs}
+            try:
+                return hf_processor(**data, **options)
+            except Exception as exc:
+                # vLLM's call_hf_processor wraps failures in a plain ValueError.
+                raise ValueError("Failed to apply the Pixtral processor") from exc
+
+    context = ModuleType("vllm.multimodal.processing.context")
+    context.InputProcessingContext = InputProcessingContext
+    monkeypatch.setitem(sys.modules, context.__name__, context)
+
     def load(model):
         model._processor = AutoProcessor.from_pretrained(model._model_path)
 
         def embed(prompts, **kwargs):
             outputs = []
             for prompt in prompts:
-                try:
-                    features = model._processor(
-                        text=prompt["prompt"],
-                        images=prompt.get("multi_modal_data", {}).get("image"),
-                        return_tensors="pt",
-                        **prompt.get("mm_processor_kwargs", {}),
-                    )
-                except Exception as exc:
-                    # vLLM's call_hf_processor wraps failures in a plain ValueError.
-                    raise ValueError("Failed to apply the Pixtral processor") from exc
+                features = InputProcessingContext.call_hf_processor(
+                    model._processor,
+                    {
+                        "text": prompt["prompt"],
+                        "images": prompt.get("multi_modal_data", {}).get("image"),
+                    },
+                    prompt.get("mm_processor_kwargs", {}),
+                )
                 outputs.append(
                     SimpleNamespace(
                         outputs=SimpleNamespace(embedding=[1.0] * 32),
@@ -640,7 +652,10 @@ def mock_vllm_pooling_with_pixtral(monkeypatch):
                 )
             return outputs
 
-        model._model = SimpleNamespace(embed=embed)
+        model._model = SimpleNamespace(
+            embed=embed,
+            llm_engine=SimpleNamespace(has_unfinished_requests=lambda: False),
+        )
 
     monkeypatch.setattr(CLASSES[2], "load", load)
 
@@ -1087,6 +1102,77 @@ async def test_rest_image_resample_is_request_local(
         reverse,
         special_input=tiny_image_text_input,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["image-first", "text-first"])
+@pytest.mark.parametrize(
+    "model_cls", CLASSES, ids=["transformers", "sentence-transformers", "vllm"]
+)
+@pytest.mark.parametrize(
+    "size,error",
+    [
+        ({"longest_edge": "invalid"}, "processing_kwargs"),
+        ({"width": 56}, "processing_kwargs"),
+        ({"longest_edge": 56}, None),
+    ],
+    ids=["invalid-type", "missing-height", "valid-size"],
+)
+async def test_rest_image_size_is_request_local(
+    tiny_nemotron_checkpoint,
+    tiny_image_text_input,
+    monkeypatch,
+    model_cls,
+    size,
+    error,
+    reverse,
+):
+    if model_cls is CLASSES[1]:
+        pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    elif model_cls is CLASSES[2]:
+        mock_vllm_pooling_with_pixtral(monkeypatch)
+    group = "image" if model_cls is CLASSES[1] else "images_kwargs"
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        model_cls,
+        {group: {"size": size}},
+        error,
+        reverse,
+        special_input=tiny_image_text_input,
+    )
+
+
+@pytest.mark.parametrize(
+    "failure", ["engine", "processor-runtime", "unfinished-requests"]
+)
+def test_vllm_processor_errors_preserve_server_failures(
+    tiny_nemotron_checkpoint, monkeypatch, failure
+):
+    mock_vllm_pooling_with_pixtral(monkeypatch)
+    model = make_model(CLASSES[2], model_path=str(tiny_nemotron_checkpoint))
+    model.load()
+
+    if failure == "engine":
+
+        def fail_engine(*args, **kwargs):
+            raise ValueError("Engine failed") from TypeError("Backend error")
+
+        model._model.embed = fail_engine
+        message = "Engine failed"
+    else:
+        message = "Failed to apply the Pixtral processor"
+        if failure == "processor-runtime":
+            model._processor = MagicMock(side_effect=RuntimeError("Processor failed"))
+        else:
+            model._model.llm_engine.has_unfinished_requests = lambda: True
+
+    with pytest.raises(ValueError, match=message) as exc:
+        model._create_embedding(
+            {"image": Image.new("RGB", (56, 56)), "text": "caption"},
+            processing_kwargs={"images_kwargs": {"size": {"width": 56}}},
+        )
+    assert type(exc.value) is ValueError
 
 
 @pytest.mark.asyncio
