@@ -74,6 +74,7 @@ from ...utils import allow_trust_remote_code
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..context_length import (
     ContextLengthExceeded,
+    _read_checkpoint_config,
     classify_vllm_context_error,
     normalize_runtime_positive_int,
     normalize_vllm_context_error,
@@ -2082,6 +2083,100 @@ class VLLMModel(WeightCachedModel, LLM):
                 return isinstance(method, str) and method.lower() == "fp8"
         return True
 
+    def _apply_rope_scaling(
+        self, model_config: VLLMModelConfig, scaling: Dict[str, Any]
+    ) -> None:
+        overrides = self.parse_str_field_to_dict(
+            model_config.get("hf_overrides"), "hf_overrides"
+        )
+        overrides, scaling = copy.deepcopy((overrides, scaling))
+        saved = {}
+        if self.model_spec.model_format != "ggufv2" and model_config.get(
+            "config_format"
+        ) in (None, "auto", "hf"):
+            path = cast(str, model_config.get("hf_config_path") or self.model_path)
+            saved = _read_checkpoint_config(self.model_family, "vllm", path)
+        text = saved.get("text_config") if isinstance(saved, dict) else None
+        nested = isinstance(text, dict)
+        if nested and (VLLM_VERSION is None or VLLM_VERSION < version.parse("0.11.1")):
+            overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
+            return
+        target = overrides.get("text_config", {}) if nested else overrides
+        if not isinstance(saved, dict) or not saved or not isinstance(target, dict):
+            overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
+            return
+        base = ("rope_theta", "partial_rotary_factor")
+        aliases = ("rope_scaling", "rope_parameters")
+        checkpoint = text if isinstance(text, dict) else saved
+        native_type = "default"
+        parameters: Dict[str, Any] = {}
+        type_key = "rope_type"
+        for owner, explicit in ((checkpoint, None), (target, scaling)):
+            for source in (
+                {key: owner.get(key) for key in base},
+                *(owner.get(key) for key in aliases),
+                explicit,
+            ):
+                if not isinstance(source, dict):
+                    continue
+                if any(isinstance(value, dict) for value in source.values()):
+                    overrides["rope_scaling"] = scaling
+                    model_config["hf_overrides"] = overrides
+                    return
+                fields = {
+                    k: v for k, v in source.items() if v is not None or k not in base
+                }
+                if "rope_type" in fields or "type" in fields:
+                    type_key = "rope_type" if "rope_type" in fields else "type"
+                    fields.setdefault("rope_type", fields.pop("type", None))
+                parameters.update(fields)
+            if explicit is None and "mrope_section" in parameters:
+                native_type = parameters.get("rope_type", "default")
+        rope_type = parameters.get("rope_type", "default")
+        if "mrope_section" in parameters and rope_type not in (
+            "default",
+            "mrope",
+            "yarn",
+            native_type,
+        ):
+            detail = f"{rope_type!r} is unsupported for multimodal RoPE (mrope_section)"
+            raise ValueError(detail)
+        if "mrope_section" in parameters and rope_type == "yarn":
+            if VLLM_VERSION is not None and (
+                version.parse("0.12.0") <= VLLM_VERSION < version.parse("0.17.0")
+            ):
+                raise ValueError(
+                    "YaRN with multimodal RoPE (mrope_section) is unsupported on vLLM "
+                    ">=0.12.0,<0.17.0. Use vLLM 0.11.2 or >=0.17.0."
+                )
+        if rope_type == "mrope":
+            if "mrope_section" not in parameters:
+                raise ValueError("'mrope' requires multimodal RoPE (mrope_section)")
+            parameters["rope_type"] = "default"
+        model_config["hf_overrides"] = overrides
+        for key in (*base, *aliases):
+            target.pop(key, None)
+        if target is not overrides:
+            overrides["text_config"] = target
+        transformers_version = _get_transformers_version()
+        if transformers_version and transformers_version.major < 5:
+            legacy = {k: v for k, v in parameters.items() if k not in base}
+            target.update({key: parameters[key] for key in base if key in parameters})
+            if VLLM_VERSION is not None and VLLM_VERSION >= version.parse("0.11.1"):
+                saved_rope = checkpoint.get("rope_scaling")
+                if nested and isinstance(saved_rope, dict) and "type" in saved_rope:
+                    legacy["type"] = legacy["rope_type"]
+            elif type_key == "type":
+                legacy["type"] = legacy.pop("rope_type")
+            target["rope_scaling"] = copy.deepcopy(legacy)
+            # vLLM may derive rope_parameters before applying overrides.
+            loader = importlib.import_module("vllm.transformers_utils.config")
+            if not hasattr(loader, "patch_rope_parameters"):
+                return
+        target["rope_parameters"] = parameters
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -2185,10 +2280,10 @@ class VLLMModel(WeightCachedModel, LLM):
         self._apply_draft_model(model_config)
         if "rope_scaling" in model_config:
             rope_scaling = self.parse_str_field_to_dict(
-                model_config["rope_scaling"], "rope_scaling"
+                model_config.pop("rope_scaling"), "rope_scaling"
             )
-            model_config["hf_overrides"] = {"rope_scaling": rope_scaling}
-            model_config.pop("rope_scaling", {})
+            if rope_scaling:
+                self._apply_rope_scaling(model_config, rope_scaling)
 
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if VLLM_VERSION >= version.parse("0.6.3"):
