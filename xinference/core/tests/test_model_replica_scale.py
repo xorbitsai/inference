@@ -1507,6 +1507,96 @@ async def test_drain_cleanup_reserves_model_uid_until_finished(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("ready_written", "fail_survivor_status"),
+    [(False, False), (True, False), (True, True)],
+)
+async def test_drain_cleanup_publishes_survivor_death(
+    ready_written, fail_survivor_status
+):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    _, _, replicas = _make_drain_pair(supervisor, worker)
+    autostarts = []
+    supervisor._schedule_autostart = lambda delay=0.0: autostarts.append(delay)
+    cleanup_distributed = AsyncMock(wraps=supervisor._cleanup_distributed_actors)
+    supervisor._cleanup_distributed_actors = cleanup_distributed
+
+    async def terminate(model_uid):
+        replicas.pop(model_uid)
+        raise RuntimeError("Worker reply lost after deletion")
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    status_guard = supervisor._status_guard_ref
+    update_instance = status_guard.update_instance_info
+    remove_status = status_guard.remove_replica_status
+    publishing, release = asyncio.Event(), asyncio.Event()
+    failed = False
+
+    async def pause_ready(model_uid, updates):
+        if updates != {"replica": 1, "status": "READY"}:
+            return await update_instance(model_uid, updates)
+        if ready_written:
+            await update_instance(model_uid, updates)
+        publishing.set()
+        await release.wait()
+        if not ready_written:
+            await update_instance(model_uid, updates)
+
+    async def remove_once(model_uid, replica_id):
+        nonlocal failed
+        if fail_survivor_status and replica_id == 0 and not failed:
+            failed = True
+            raise RuntimeError("StatusGuard unavailable")
+        return await remove_status(model_uid, replica_id)
+
+    status_guard.remove_replica_status = remove_once
+    status_guard.update_instance_info = pause_ready
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    with pytest.raises(RuntimeError, match="reply lost"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+
+    # The survivor was recreated, so the retry abandons the original drain
+    # and publishes the new actor as the only live replica.
+    replicas["demo-rep0"] = object()
+    retry = asyncio.create_task(
+        supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    )
+    await asyncio.wait_for(publishing.wait(), timeout=2)
+    replicas.pop("demo-rep0")
+    try:
+        # The callback hands off the eviction without waiting for publication.
+        await asyncio.wait_for(supervisor.mark_replica_dead("demo-rep0"), timeout=2)
+        assert not supervisor._replica_model_uid_to_worker
+        assert not supervisor._upgrade_state.maintenance.idle()
+    finally:
+        release.set()
+    if fail_survivor_status:
+        with pytest.raises(RuntimeError, match="StatusGuard unavailable"):
+            await asyncio.wait_for(retry, timeout=2)
+        assert not supervisor._upgrade_state.maintenance.idle()
+        retry = asyncio.create_task(
+            supervisor.terminate_drained_model_replica("demo", 1, "r1")
+        )
+    with pytest.raises(ValueError, match="original replicas changed"):
+        await asyncio.wait_for(retry, timeout=2)
+
+    assert "demo" not in supervisor._model_uid_to_replica_info
+    assert not supervisor._replica_model_uid_to_worker
+    assert await status_guard.get_replica_statuses("demo") == []
+    assert status_guard.instance_updates[-1] == ("demo", {"status": "TERMINATED"})
+    assert supervisor._upgrade_state.maintenance.idle()
+    assert autostarts == [0.0]
+    cleanup_distributed.assert_awaited_once_with("demo", terminate_rank0_on_worker=True)
+    worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+    status_guard.set_instance_info = AsyncMock(side_effect=_LaunchAdmitted)
+    with pytest.raises(_LaunchAdmitted):
+        await _launch_demo(supervisor, 1)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["replica_status", "terminated_status"])
 async def test_drain_cleanup_stays_retryable_after_status_failure(failure):
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
