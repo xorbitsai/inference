@@ -463,6 +463,49 @@ launch, Xinference rolls back the replicas created by that operation.
 Scale-up is not supported for Xavier-distributed models or models launched with
 ``n_worker > 1``. Deleting the last replica terminates the running model.
 
+To drain either replica of a fixed pair of vLLM language model replicas on one Worker, send
+``POST /v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. Send all inference
+for this model through one API process and let any previous API finish its
+requests before starting a drain. New requests go to the surviving replica while existing
+requests on the selected replica finish. After the drain returns ``drained``, send
+``DELETE /v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` to remove the selected replica.
+Use ``GET`` or ``DELETE`` on the drain URL to check or cancel the drain before
+replica deletion. A timed-out drain restores routing to both replicas.
+
+Retry an interrupted replica deletion with the same ``drain_id``. An API
+relaunch and a replica drain cannot start concurrently. If either is blocked
+by the other, the API returns HTTP 409.
+
+A Worker handoff allows deletion to resume if it transferred the original
+surviving replica. In hosted deployments, a drain returns HTTP 409 while
+another API process is still running, including a replacement from a failed
+relaunch. If an older API Host cannot confirm process exit after a failure,
+complete a successful API relaunch before retrying the drain.
+
+When the Supervisor evicts the Worker and removes the original deployment
+from routing, the drain becomes ``cancelled``. Start a new drain to scale down
+a replacement deployment.
+
+For a Worker re-registration, the Supervisor preserves a drain when it can
+verify the same Worker and the original surviving replica. Registration by a
+new Worker process at the same address cancels the old drain.
+
+If a replica of the pair dies or the Worker recreates one while the Worker
+stays online, the drain becomes ``cancelled`` and the remaining replicas keep
+serving. If an interrupted deletion already removed the selected replica, the
+Supervisor also removes its route.
+
+The Supervisor cancels a drain and restores routing if no one renews it. A
+``draining`` drain expires 30 seconds after the API process stops polling, and
+a ``drained`` replica must be deleted within 300 seconds. A deletion that is in
+progress or has an unknown outcome does not expire; retry it with the same
+``drain_id``. Each ``request_id`` names one drain. After a drain becomes
+``succeeded`` or ``cancelled``, use a new ID for the next drain.
+
+While a drain has not finished, its model UID stays reserved even if the model
+went offline. A launch with that UID is rejected and Autostart waits. Retry the
+deletion with the same ``drain_id`` to finish cleanup and release the UID.
+
 GPU Allocation Strategy
 =======================
 
