@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 class CacheManager:
     is_initialized: bool = False
 
+    @staticmethod
+    def get_cache_dir_for_family(model_family: "CacheableModelSpec") -> str:
+        """Compute a cache path without initializing or creating directories."""
+        from ..constants import XINFERENCE_CACHE_DIR
+
+        cache_name = (
+            getattr(model_family, "cache_name", None) or model_family.model_name
+        )
+        return os.path.join(XINFERENCE_CACHE_DIR, "v2", cache_name.replace(".", "_"))
+
     def __init__(self, model_family: "CacheableModelSpec"):
         from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 
@@ -22,13 +32,7 @@ class CacheManager:
             os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
             os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
             CacheManager.is_initialized = True
-        cache_name = (
-            getattr(self._model_family, "cache_name", None)
-            or self._model_family.model_name
-        )
-        self._cache_dir = os.path.join(
-            self._v2_cache_dir_prefix, cache_name.replace(".", "_")
-        )
+        self._cache_dir = self.get_cache_dir_for_family(model_family)
 
     def get_cache_dir(self):
         return self._cache_dir

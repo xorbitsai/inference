@@ -8,6 +8,17 @@ if TYPE_CHECKING:
 
 
 class EmbeddingCacheManager(CacheManager):
+    @staticmethod
+    def get_cache_dir_for_spec(model_name: str, spec) -> str:
+        """Compute a cache path without initializing or creating directories."""
+        from ...constants import XINFERENCE_CACHE_DIR
+
+        return os.path.join(
+            XINFERENCE_CACHE_DIR,
+            "v2",
+            f"{model_name}-{spec.model_format}-{spec.quantization}",
+        )
+
     def __init__(self, model_family: "EmbeddingModelFamilyV2"):
         from ..llm.cache_manager import LLMCacheManager
 
@@ -18,10 +29,9 @@ class EmbeddingCacheManager(CacheManager):
             model_family,
             multimodal_projector=getattr(spec, "multimodal_projector", None),
         )
-        model_dir_name = (
-            f"{self._model_family.model_name}-{spec.model_format}-{spec.quantization}"
+        self._cache_dir = self.get_cache_dir_for_spec(
+            self._model_family.model_name, spec
         )
-        self._cache_dir = os.path.join(self._v2_cache_dir_prefix, model_dir_name)
         self.cache_helper._cache_dir = self._cache_dir
 
     def cache(self) -> str:

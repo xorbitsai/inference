@@ -571,6 +571,7 @@ jobs:
             xinference/model/llm/llama_cpp/tests/test_gguf.py
             xinference/model/llm/tests/test_cache_download_lock.py
             xinference/model/llm/tests/test_media.py
+            xinference/model/tests/test_custom_registry.py
             xinference/model/tests/test_llmman.py
             xinference/model/tests/test_oci_utils.py
             xinference/model/tests/test_utils.py

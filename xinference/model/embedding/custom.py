@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import List
+from typing import Any, List, Set
 
 from ..._compat import Literal
 from ..custom import ModelRegistry
@@ -38,6 +38,20 @@ class EmbeddingModelRegistry(ModelRegistry):
         super().__init__()
         self.models = UD_EMBEDDINGS
         self.builtin_models = list(BUILTIN_EMBEDDING_MODELS.keys())
+
+    def get_builtin_model_families(self) -> List[Any]:
+        from ..custom import flatten_builtin_families
+        from .embed_family import BUILTIN_EMBEDDING_MODELS
+
+        return flatten_builtin_families(BUILTIN_EMBEDDING_MODELS)
+
+    def get_cache_dirs(self, model_family: Any) -> Set[str]:
+        from .cache_manager import EmbeddingCacheManager
+
+        return {
+            EmbeddingCacheManager.get_cache_dir_for_spec(model_family.model_name, spec)
+            for spec in model_family.model_specs
+        }
 
     def add_ud_model(self, model_spec):
         from . import generate_engine_config_by_model_name

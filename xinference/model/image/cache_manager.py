@@ -5,8 +5,11 @@ from ..cache_manager import CacheManager
 
 
 class ImageCacheManager(CacheManager):
-    def __init__(self, model_family):
-        super().__init__(model_family)
+    @staticmethod
+    def get_cache_dir_for_family(model_family) -> str:
+        """Compute a cache path without initializing or creating directories."""
+        from ...constants import XINFERENCE_CACHE_DIR
+
         model_format = getattr(model_family, "model_format", None)
         quantization = getattr(model_family, "quantization", None)
         suffix_parts = []
@@ -14,12 +17,14 @@ class ImageCacheManager(CacheManager):
             suffix_parts.append(model_format)
         if quantization:
             suffix_parts.append(quantization)
-        if suffix_parts:
-            suffix = "-".join(suffix_parts)
-            self._cache_dir = os.path.join(
-                self._v2_cache_dir_prefix,
-                f"{self._model_family.model_name.replace('.', '_')}-{suffix}",
-            )
+        if not suffix_parts:
+            return CacheManager.get_cache_dir_for_family(model_family)
+        suffix = "-".join(suffix_parts)
+        return os.path.join(
+            XINFERENCE_CACHE_DIR,
+            "v2",
+            f"{model_family.model_name.replace('.', '_')}-{suffix}",
+        )
 
     def cache_ocr_gguf(self) -> str:
         """Download one GGUF quantization and its vision projector."""
