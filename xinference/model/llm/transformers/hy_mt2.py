@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from packaging.version import InvalidVersion, Version
+
 from ....types import LoRA, PytorchModelConfig
-from ...utils import allow_trust_remote_code
+from ...utils import allow_trust_remote_code, virtual_env_allows_missing_engine
 from ..llm_family import (
     HY_MT3_MODEL_NAMES,
     LLMFamilyV2,
@@ -84,6 +88,29 @@ class HyMT2PytorchModel(PytorchChatModel):
                 "or the GGUF checkpoint with llama.cpp."
             )
         return super().apply_quantization_config(kwargs)
+
+    @classmethod
+    def validate_launch(cls, model_family: LLMFamilyV2) -> None:
+        if (
+            model_family.model_name != "Hy-MT3-30B-A3B"
+            or model_family.model_specs[0].model_format != "pytorch"
+            or virtual_env_allows_missing_engine()
+        ):
+            return
+
+        minimum_version = Version("5.6.0")
+        installed = None
+        try:
+            installed = distribution_version("transformers")
+            if Version(installed) >= minimum_version:
+                return
+        except (PackageNotFoundError, InvalidVersion):
+            pass
+        raise ValueError(
+            f"{model_family.model_name} BF16 requires Transformers >= {minimum_version}. "
+            f"Found {installed or 'not installed'}. Upgrade Transformers or enable "
+            "the model virtual environment."
+        )
 
     @classmethod
     def match_json(

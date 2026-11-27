@@ -128,7 +128,7 @@ def test_hy_mt3_engine_formats(
     from ..llama_cpp.core import XllamaCppModel
     from ..llm_family import LLM_ENGINES
     from ..sglang import core as sglang_core
-    from ..transformers.hy_mt2 import HyMT2PytorchModel
+    from ..transformers import hy_mt2
     from ..trt_llm.core import TRTLLMModel
     from ..vllm import core as vllm_core
 
@@ -145,11 +145,13 @@ def test_hy_mt3_engine_formats(
         list(family.architectures) if registered else [],
     )
     monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", registered)
+    monkeypatch.setattr(sglang_core, "_get_sglang_version", lambda: Version("0.5.12"))
+    monkeypatch.setattr(hy_mt2, "distribution_version", lambda _: "5.6.0")
     monkeypatch.setitem(
         sys.modules, "xllamacpp", SimpleNamespace(__version__="2026.10.11870")
     )
     engine_classes = {
-        "Transformers": HyMT2PytorchModel,
+        "Transformers": hy_mt2.HyMT2PytorchModel,
         "vLLM": vllm_core.VLLMChatModel,
         "SGLang": sglang_core.SGLANGChatModel,
         "llama.cpp": XllamaCppModel,
@@ -288,6 +290,96 @@ def test_hy_mt3_vllm_launch_checks_requested_runtime(
             type(create_llm_model_instance(**launch_options)) is vllm_core.VLLMChatModel
         )
         cache.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "engine, model_format, quantization, old_version, minimum_version",
+    [
+        ("Transformers", "pytorch", "none", "5.5.0", "5.6.0"),
+        ("SGLang", "pytorch", "none", "0.5.10", "0.5.12"),
+        ("SGLang", "fp8", "fp8", "0.5.10", "0.5.12"),
+    ],
+)
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize(
+    "mode", ["old-host", "compatible-host", "managed", "cache-only"]
+)
+def test_hy_mt3_moe_launch_checks_host_runtime(
+    monkeypatch,
+    tmp_path,
+    engine,
+    model_format,
+    quantization,
+    old_version,
+    minimum_version,
+    hub,
+    mode,
+):
+    import re
+
+    from packaging.version import Version
+
+    from .... import constants
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from .. import generate_engine_config_by_model_family
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+    from ..llm_family import LLM_ENGINES
+    from ..sglang import core as sglang_core
+    from ..transformers import hy_mt2
+
+    name = "Hy-MT3-30B-A3B"
+    family = match_llm(name, model_format, 30, quantization, download_hub=hub)
+    assert family is not None
+    # The request must override the global default in both directions.
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", mode == "old-host")
+    host_version = minimum_version if mode == "compatible-host" else old_version
+    if engine == "Transformers":
+        adapter = hy_mt2.HyMT2PytorchModel
+        probe = Mock(return_value=host_version)
+        monkeypatch.setattr(hy_mt2, "distribution_version", probe)
+    else:
+        adapter = sglang_core.SGLANGChatModel
+        probe = Mock(return_value=Version(host_version))
+        monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+        monkeypatch.setattr(sglang_core, "_get_sglang_version", probe)
+    monkeypatch.setattr(adapter, "check_lib", classmethod(lambda cls: True))
+
+    engines = {}
+    generate_engine_config_by_model_family(family, engines)
+    assert engines[name][engine][0]["llm_class"] is adapter
+    monkeypatch.setitem(LLM_ENGINES, name, {} if mode == "managed" else engines[name])
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+    launch_options = dict(
+        model_uid="hy-mt3-host-runtime-test",
+        model_name=name,
+        model_engine=engine,
+        model_format=model_format,
+        model_size_in_billions=30,
+        quantization=quantization,
+        download_hub=hub,
+        enable_virtual_env=mode == "managed",
+        _xinference_cache_only=mode == "cache-only",
+    )
+    if mode == "old-host":
+        error = rf"{engine} >= {re.escape(minimum_version)}.*{re.escape(old_version)}"
+        with pytest.raises(ValueError, match=error):
+            create_llm_model_instance(**launch_options)
+        cache.assert_not_called()
+        return
+
+    model = create_llm_model_instance(**launch_options)
+    assert type(model) is adapter
+    assert model.model_spec.model_hub == hub
+    cache.assert_called_once()
+    if mode == "managed":
+        packages = filter_virtualenv_packages_by_markers(
+            model.model_family.virtualenv.packages, engine, None
+        )
+        assert f"{engine.lower()}>={minimum_version}" in packages
+    if mode in {"managed", "cache-only"}:
+        probe.assert_not_called()
 
 
 @pytest.mark.parametrize(
