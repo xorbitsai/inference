@@ -3948,6 +3948,7 @@ class RESTfulAPI(CancelMixin):
             logger.exception("Failed to resolve Responses model target: %s", model_uid)
             return self._responses_error(500, "Failed to resolve the requested model")
         if token_router_runtime is not None:
+            req.chat_body.pop("reasoning_effort", None)
             return await self._create_response_via_token_router(
                 request, req, token_router_runtime
             )
@@ -3971,6 +3972,41 @@ class RESTfulAPI(CancelMixin):
             for key, value in req.chat_body.items()
             if key not in {"model", "messages"}
         }
+        if "reasoning_effort" in kwargs:
+            from ..model.llm.reasoning_controls import (
+                ReasoningEffortConfig,
+                normalize_reasoning_controls,
+            )
+
+            try:
+                desc = await (await self._get_supervisor_ref()).describe_model(
+                    model_uid, selected_replica_uid=model.uid.decode()
+                )
+            except ModelNotReadyError as exc:
+                return self._responses_error(
+                    503,
+                    f"Model is loading, please retry later: {exc}",
+                    headers={"Retry-After": "30"},
+                )
+            except Exception as exc:
+                logger.error(exc, exc_info=True)
+                await self._report_error_event(model_uid, str(exc))
+                if isinstance(exc, ValueError):
+                    mark_inference_rejection(request, "describe_model")
+                    return self._responses_error(400, str(exc))
+                return self._responses_error(500, str(exc))
+
+            capability = desc.get("reasoning_effort")
+            try:
+                if capability:
+                    kwargs = normalize_reasoning_controls(
+                        kwargs, ReasoningEffortConfig.parse_obj(capability)
+                    )
+                else:
+                    kwargs.pop("reasoning_effort", None)
+            except (ValueError, TypeError) as exc:
+                mark_inference_rejection(request, "reasoning_controls")
+                return self._responses_error(400, str(exc), param="reasoning.effort")
         raw_kwargs = dict(kwargs)
 
         if not req.stream:
