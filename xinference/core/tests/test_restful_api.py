@@ -2151,6 +2151,190 @@ async def test_deepseek_v41_openai_forces_tool_choice(
     backend.async_generate.assert_awaited_once()
 
 
+_GUIDED_KEYS = (
+    "guided_json",
+    "guided_regex",
+    "guided_choice",
+    "guided_grammar",
+    "guided_json_object",
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "guided",
+    [
+        None,
+        {"guided_json": {"type": "object"}},
+        {"guided_regex": ".*"},
+        {"guided_choice": ["yes", "no"]},
+        {"guided_grammar": 'root ::= "a"'},
+        {"guided_json_object": True},
+    ],
+    ids=["control", "json", "regex", "choice", "grammar", "object"],
+)
+async def test_deepseek_v41_forced_tools_reject_guided_constraints(
+    monkeypatch, stream, guided
+):
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = None
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.11.0"))
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        return {"prompt": "rendered"}, [], config["chat_template_kwargs"], config
+
+    backend._prepare_chat_inputs = prepare
+    sampling = []
+
+    async def generate(prompt, config, tools, request_id=None):
+        # Run the real sampling sanitization to see which constraint reaches vLLM.
+        sampling.append(vllm_core.VLLMModel._sanitize_generate_config(dict(config)))
+        calls = [{"name": "time", "arguments": {}}]
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+    backend.async_chat = lambda *args, **kwargs: method(backend, *args, **kwargs)
+
+    async def chat(messages, config, *, request_id, **kwargs):
+        result = await backend.async_chat(messages, config, request_id=request_id)
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "stream": stream,
+            "enable_thinking": False,
+            "tool_choice": {"type": "function", "function": {"name": "time"}},
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+            **(guided or {}),
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    if guided:
+        (key,) = guided
+        with pytest.raises(HTTPException, match=f"cannot be combined with {key}") as e:
+            await api.create_chat_completion(request)
+        assert e.value.status_code == 400
+        model.chat.assert_not_awaited()
+        return
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    if stream:
+        frames = [item async for item in response.body_iterator]
+        answer = json.loads(frames[0])["choices"][0]
+    else:
+        answer = json.loads(response.body)["choices"][0]
+    assert answer["finish_reason"] == "tool_calls"
+    (sanitized,) = sampling
+    schema = sanitized["guided_json"]
+    assert schema["type"] == "array"
+    assert schema["items"]["oneOf"][0]["properties"]["name"] == {"const": "time"}
+    assert not any(sanitized.get(key) for key in _GUIDED_KEYS[1:])
+
+
+@pytest.mark.parametrize("guided", [{"guided_json": {}}, {"guided_regex": ".*"}])
+def test_deepseek_v41_forced_tool_chat_rejects_guided_constraints(guided):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    backend = object.__new__(VLLMMultiModel)
+    backend.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4.1-Flash-1017", reasoning_effort=None
+    )
+    backend.reasoning_parser = None
+    config = {
+        "tool_choice": "required",
+        "tools": [{"type": "function", "function": {"name": "time"}}],
+        **guided,
+    }
+    # Actors called without the API preflight reject before generation too.
+    with pytest.raises(ValueError, match="cannot be combined with"):
+        backend._prepare_openai_forced_tool_config(config)
+
+
+@pytest.mark.asyncio
+async def test_deepseek_v41_forced_tools_accept_retained_actor_preflight(
+    monkeypatch,
+):
+    from ...model.llm.core import LLM
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    retained = object.__new__(VLLMMultiModel)
+    retained.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    retained.reasoning_parser = None
+
+    async def preflight(config, **kwargs):
+        # A model actor from before this change runs only the base preflight,
+        # which leaves chat_template_kwargs unset without explicit template kwargs.
+        prepared = LLM.prepare_reasoning_request(retained, config)
+        assert "chat_template_kwargs" not in prepared
+        return prepared
+
+    model.prepare_reasoning_request.side_effect = preflight
+    model.chat.return_value = json.dumps(
+        {
+            "id": "completion",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "deepseek",
+            "choices": [],
+        }
+    )
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "deepseek",
+                "messages": [{"role": "user", "content": "What time is it?"}],
+                "tool_choice": "required",
+                "tools": [{"type": "function", "function": {"name": "time"}}],
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    model.prepare_reasoning_request.assert_awaited_once()
+    model.chat.assert_awaited_once()
+    assert model.chat.await_args.args[1]["tool_choice"] == "required"
+
+
 async def _build_mock_pd_chat_api(monkeypatch, engine, family):
     from ..pd_model import PDModelActor
 

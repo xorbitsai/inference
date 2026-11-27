@@ -641,6 +641,26 @@ class VLLMModel(WeightCachedModel, LLM):
             raise NotImplementedError(
                 "Forced tool choice is not supported for P/D models"
             )
+        # The tool-call array is the only decoding constraint vLLM may receive.
+        # A user guided_* option would replace it or make vLLM reject the
+        # request. response_format applies only to text replies and is
+        # replaced by prepare_forced_tools.
+        conflicts = [
+            key
+            for key in (
+                "guided_choice",
+                "guided_regex",
+                "guided_grammar",
+                "guided_json_object",
+            )
+            if config.get(key)
+        ]
+        if config.get("guided_json") is not None:
+            conflicts.insert(0, "guided_json")
+        if conflicts:
+            raise ValueError(
+                "Forced tool choice cannot be combined with " + ", ".join(conflicts)
+            )
         context = (
             ChatModelMixin._get_chat_template_kwargs_from_generate_config(
                 config, getattr(self, "reasoning_parser", None)

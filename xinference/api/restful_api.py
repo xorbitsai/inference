@@ -5998,7 +5998,10 @@ class RESTfulAPI(CancelMixin):
                     503, "Reasoning request preflight is temporarily unavailable"
                 ) from exc
             kwargs = prepared
-            raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
+            # A retained older model actor may omit the key when the request
+            # sets no template kwargs.
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
