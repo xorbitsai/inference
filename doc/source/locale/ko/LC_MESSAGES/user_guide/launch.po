@@ -853,3 +853,7 @@ msgstr "Worker가 다시 등록할 때 Supervisor가 동일한 Worker와 기존�
 #: ../../source/user_guide/launch.rst:493
 msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
 msgstr "Worker가 온라인 상태인 동안 쌍의 복제본 하나가 종료되거나 Worker가 복제본을 다시 생성하면 드레이닝은 ``cancelled`` 상태가 되고 나머지 복제본은 계속 서비스합니다. 중단된 삭제로 선택한 복제본이 이미 제거된 경우 Supervisor는 해당 라우팅도 제거합니다."
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "아무도 갱신하지 않는 드레이닝은 Supervisor가 취소하고 라우팅을 복원합니다. ``draining`` 상태의 드레이닝은 API 프로세스가 폴링을 멈춘 뒤 30초가 지나면 만료되며, ``drained`` 상태의 복제본은 300초 안에 삭제해야 합니다. 진행 중이거나 결과를 알 수 없는 삭제는 만료되지 않으므로 같은 ``drain_id``로 다시 시도하세요. 각 ``request_id``는 하나의 드레이닝을 나타냅니다. 드레이닝이 ``succeeded`` 또는 ``cancelled``가 된 후에는 다음 드레이닝에 새 ID를 사용하세요."

@@ -18,9 +18,7 @@ from dataclasses import dataclass, field
 from typing import Iterator, Optional
 
 import anyio
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
-
-from .streaming_outcome import StreamState
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 @dataclass
@@ -40,7 +38,6 @@ class InferenceRequest:
     tracker: "ReplicaDrainRequests"
     lookups: list[ModelLookup] = field(default_factory=list)
     done: bool = False
-    uncertain: bool = False
 
 
 @dataclass
@@ -107,23 +104,22 @@ class ReplicaDrainRequests:
 
     @staticmethod
     def drained(window: DrainWindow, model_uid: str, replica_uid: bytes) -> bool:
+        # A finished request sends nothing more to its replica, whatever its
+        # HTTP outcome. Work it already started (including an aborted stream)
+        # is counted by the replica's routing load, which the Supervisor
+        # checks before confirming the drain.
         for request in window.requests:
+            if request.done:
+                continue
             for lookup in request.lookups:
                 if lookup.model_uid != model_uid:
                     continue
-                if lookup.replica_uid is None and not lookup.pending:
+                if lookup.pending or lookup.replica_uid == replica_uid:
+                    return False
+                if lookup.replica_uid is None:
                     raise RuntimeError(
                         "An admitted request could not be attributed to a replica"
                     )
-                if lookup.replica_uid == replica_uid:
-                    if not request.done:
-                        return False
-                    if request.uncertain:
-                        raise RuntimeError(
-                            "An admitted request has no confirmed outcome"
-                        )
-                if lookup.pending and not request.done:
-                    return False
         return True
 
 
@@ -139,31 +135,9 @@ class ReplicaDrainMiddleware:
         request = InferenceRequest(self.tracker)
         self.tracker.active.add(request)
         token = _request.set(request)
-
-        async def observe_receive() -> Message:
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                request.uncertain = True
-            return message
-
-        async def observe_send(message: Message) -> None:
-            if message["type"] == "http.response.start" and message["status"] >= 500:
-                request.uncertain = True
-            await send(message)
-
         try:
-            await self.app(scope, observe_receive, observe_send)
-        except BaseException:
-            request.uncertain = True
-            raise
+            await self.app(scope, receive, send)
         finally:
-            reporter = scope.get("state", {}).get("model_stream_outcome")
-            if reporter is not None and reporter.outcome.state in (
-                StreamState.FAILED,
-                StreamState.CANCELLED,
-                StreamState.CLIENT_DISCONNECTED,
-            ):
-                request.uncertain = True
             request.done = True
             self.tracker.active.discard(request)
             _request.reset(token)

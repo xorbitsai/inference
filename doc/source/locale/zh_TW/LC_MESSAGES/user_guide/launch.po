@@ -829,3 +829,7 @@ msgstr "Worker 重新註冊時，如果 Supervisor 能確認仍是同一個 Work
 #: ../../source/user_guide/launch.rst:493
 msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
 msgstr "如果 Worker 保持在線期間，副本對中的某個副本終止或被 Worker 重新建立，排空狀態會變為 ``cancelled``，其餘副本繼續提供服務。如果中斷的刪除已經移除了所選副本，Supervisor 也會移除它的路由。"
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "如果沒有人續約，Supervisor 會取消排空並恢復路由。API 程序停止輪詢 30 秒後，``draining`` 狀態的排空會過期；``drained`` 狀態的副本必須在 300 秒內刪除。正在進行或結果未知的刪除不會過期，請使用同一個 ``drain_id`` 重試。每個 ``request_id`` 只對應一次排空。排空變為 ``succeeded`` 或 ``cancelled`` 後，下一次排空請使用新的 ID。"

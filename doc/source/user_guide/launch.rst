@@ -495,6 +495,13 @@ stays online, the drain becomes ``cancelled`` and the remaining replicas keep
 serving. If an interrupted deletion already removed the selected replica, the
 Supervisor also removes its route.
 
+The Supervisor cancels a drain and restores routing if no one renews it. A
+``draining`` drain expires 30 seconds after the API process stops polling, and
+a ``drained`` replica must be deleted within 300 seconds. A deletion that is in
+progress or has an unknown outcome does not expire; retry it with the same
+``drain_id``. Each ``request_id`` names one drain. After a drain becomes
+``succeeded`` or ``cancelled``, use a new ID for the next drain.
+
 GPU Allocation Strategy
 =======================
 

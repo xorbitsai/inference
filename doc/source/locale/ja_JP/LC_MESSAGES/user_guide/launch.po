@@ -84,3 +84,7 @@ msgstr "Worker が再登録するとき、Supervisor が同じ Worker と元の�
 #: ../../source/user_guide/launch.rst:493
 msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
 msgstr "Worker がオンラインのまま、ペアのレプリカの一方が停止するか Worker によって再作成されると、ドレインは ``cancelled`` になり、残りのレプリカはサービスを継続します。中断された削除によって選択したレプリカがすでに削除されている場合、Supervisor はそのルーティングも削除します。"
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "誰も更新しないドレインは Supervisor がキャンセルし、ルーティングを元に戻します。``draining`` のドレインは API プロセスがポーリングを止めてから 30 秒で期限切れになり、``drained`` のレプリカは 300 秒以内に削除する必要があります。進行中または結果が不明な削除は期限切れになりません。同じ ``drain_id`` で再試行してください。``request_id`` は 1 つのドレインを表します。ドレインが ``succeeded`` または ``cancelled`` になった後は、次のドレインに新しい ID を使用してください。"

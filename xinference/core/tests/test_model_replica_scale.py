@@ -62,7 +62,12 @@ async def test_manual_drain_excludes_fixed_replica_then_deletes(target_id, survi
     supervisor._get_replica_model = AsyncMock(
         side_effect=lambda _uid, replica, **_: replicas[replica]
     )
-    supervisor._terminate_model_replica = AsyncMock(return_value=1)
+
+    def terminate(model_uid, replica_id, **_):
+        info.active_replica_ids.remove(replica_id)
+        return 1
+
+    supervisor._terminate_model_replica = AsyncMock(side_effect=terminate)
 
     with pytest.raises(ValueError, match="active target"):
         await supervisor.begin_manual_replica_drain("demo", 3, "r1")
@@ -1164,6 +1169,196 @@ async def test_worker_eviction_cancels_drain_without_touching_redeployment(reply
         await asyncio.gather(delete, return_exceptions=True)
 
 
+def _make_drain_pair(supervisor, worker, target_load=0):
+    survivor = object()
+    target = SimpleNamespace(get_chat_routing_load=AsyncMock(return_value=target_load))
+    replicas = {"demo-rep0": survivor, "demo-rep1": target}
+    worker.get_model = AsyncMock(side_effect=lambda model_uid: replicas[model_uid])
+    worker.get_model_launch_status = AsyncMock(
+        side_effect=lambda uid: "READY" if uid in replicas else None
+    )
+    supervisor.describe_model = AsyncMock(
+        return_value={"model_type": "LLM", "model_engine": "vLLM"}
+    )
+    return survivor, target, replicas
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["draining", "drained", "unknown"])
+async def test_unrenewed_manual_drain_expires(monkeypatch, stage):
+    from .. import supervisor as supervisor_module
+
+    monkeypatch.setattr(supervisor_module, "MANUAL_DRAIN_POLL_LEASE", 0.05)
+    monkeypatch.setattr(supervisor_module, "MANUAL_DRAIN_DELETE_LEASE", 0.05)
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    survivor, target, _ = _make_drain_pair(
+        supervisor, worker, target_load=1 if stage == "draining" else 0
+    )
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    if stage == "draining":
+        # Each poll renews the lease while the target still has work.
+        for _ in range(4):
+            assert not await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+            await asyncio.sleep(0.02)
+    else:
+        assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    if stage == "unknown":
+        worker.terminate_model = AsyncMock(side_effect=RuntimeError("Worker failed"))
+        with pytest.raises(RuntimeError, match="Worker failed"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == stage
+    assert supervisor._replica_is_draining("demo", 1)
+
+    await asyncio.sleep(0.1)
+    if stage == "unknown":
+        # The deletion outcome must be reconciled, so it never expires.
+        assert (
+            supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "unknown"
+        )
+        assert not supervisor._upgrade_state.maintenance.idle()
+        return
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == (
+        "cancelled"
+    )
+    assert supervisor._upgrade_state.maintenance.idle()
+    assert not supervisor._replica_is_draining("demo", 1)
+    assert await supervisor._get_replica_model("demo", 1) is target
+    with pytest.raises(ValueError, match="confirmed replica drain"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert worker.terminations == []
+
+
+@pytest.mark.asyncio
+async def test_api_renews_drain_while_a_long_request_holds_target(monkeypatch):
+    import json
+
+    from ...api.replica_drain import (
+        ReplicaDrainMiddleware,
+        ReplicaDrainRequests,
+        track_model_lookup,
+    )
+    from ...api.restful_api import RESTfulAPI
+    from .. import supervisor as supervisor_module
+
+    monkeypatch.setattr(supervisor_module, "MANUAL_DRAIN_POLL_LEASE", 1.5)
+    monkeypatch.delenv("XINFERENCE_API_HOST", raising=False)
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    _make_drain_pair(supervisor, worker)
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._replica_drain_requests = tracker = ReplicaDrainRequests()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    selected = asyncio.Event()
+
+    async def stream(_scope, _receive, _send):
+        # A stream on the target outlives one lease period.
+        track_model_lookup("demo").selected(SimpleNamespace(uid=b"demo-rep1"))
+        selected.set()
+        await asyncio.sleep(2.5)
+
+    request = asyncio.create_task(
+        ReplicaDrainMiddleware(stream, tracker)(
+            {"type": "http", "method": "POST"}, AsyncMock(), AsyncMock()
+        )
+    )
+    await selected.wait()
+    response = await api.begin_model_replica_drain("demo", 1, "r1", timeout=10)
+    assert request.done()
+    assert json.loads(response.body)["status"] == "drained"
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == ("drained")
+    assert not supervisor._upgrade_state.maintenance.idle()
+    await supervisor.cancel_manual_replica_drain("demo", 1, "r1")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finished", ["succeeded", "cancelled"])
+async def test_finished_drain_request_id_cannot_be_reused(finished):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    _make_drain_pair(supervisor, worker)
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    if finished == "cancelled":
+        await supervisor.cancel_manual_replica_drain("demo", 1, "r1")
+    else:
+        assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+        assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+        # A lost reply can still be retried before the ID is reused.
+        assert await supervisor.terminate_drained_model_replica("demo", 1, "r1") == 1
+        await supervisor.add_model_replica("demo")
+        assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [
+            0,
+            1,
+        ]
+
+    with pytest.raises(ValueError, match=f"already finished as {finished}"):
+        await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    if finished == "succeeded":
+        # The replica now named 1 is a new one; the old ID must not report it
+        # as removed.
+        with pytest.raises(ValueError, match="already removed an earlier replica"):
+            await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert worker.terminations == (["demo-rep1"] if finished == "succeeded" else [])
+    assert (await supervisor.begin_manual_replica_drain("demo", 1, "r2"))[
+        "status"
+    ] == "draining"
+
+
+@pytest.mark.asyncio
+async def test_drain_cleanup_stays_retryable_after_status_failure():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    _, _, replicas = _make_drain_pair(supervisor, worker)
+    autostarts = []
+    supervisor._schedule_autostart = lambda delay=0.0: autostarts.append(delay)
+
+    async def terminate(model_uid):
+        # The Worker removes the target, then the survivor dies while the
+        # DELETE is still in flight, and the DELETE reply is lost.
+        replicas.pop(model_uid)
+        replicas.pop("demo-rep0")
+        await supervisor.mark_replica_dead("demo-rep0")
+        raise RuntimeError("Worker reply lost after deletion")
+
+    worker.terminate_model = AsyncMock(side_effect=terminate)
+    status_guard = supervisor._status_guard_ref
+    remove_status = status_guard.remove_replica_status
+    failed = []
+
+    async def remove_once(model_uid, replica_id):
+        if replica_id == 1 and not failed:
+            failed.append(replica_id)
+            raise RuntimeError("StatusGuard unavailable")
+        return await remove_status(model_uid, replica_id)
+
+    status_guard.remove_replica_status = remove_once
+    await supervisor.begin_manual_replica_drain("demo", 1, "r1")
+    assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
+    with pytest.raises(RuntimeError, match="reply lost"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    with pytest.raises(RuntimeError, match="StatusGuard unavailable"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "unknown"
+    assert not supervisor._upgrade_state.maintenance.idle()
+    assert not autostarts
+
+    with pytest.raises(ValueError, match="original replicas changed"):
+        await supervisor.terminate_drained_model_replica("demo", 1, "r1")
+    assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == (
+        "cancelled"
+    )
+    assert supervisor._upgrade_state.maintenance.idle()
+    assert "demo" not in supervisor._model_uid_to_replica_info
+    assert await status_guard.get_replica_statuses("demo") == []
+    assert status_guard.instance_updates[-1] == ("demo", {"status": "TERMINATED"})
+    assert autostarts
+    worker.terminate_model.assert_awaited_once_with(model_uid="demo-rep1")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "change",
@@ -1285,7 +1480,9 @@ async def test_online_worker_replica_change_releases_interrupted_drain(change):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("registration", ["replay", "restart", "recreated_target"])
+@pytest.mark.parametrize(
+    "registration", ["replay", "replay_unverified", "restart", "recreated_target"]
+)
 async def test_worker_registration_reconciles_interrupted_drain(
     monkeypatch, registration
 ):
@@ -1328,11 +1525,17 @@ async def test_worker_registration_reconciles_interrupted_drain(
     inventory = [{"replica_model_uid": uid} for uid in models]
 
     async def terminate(model_uid):
+        lookup = worker.get_model.side_effect
+        if registration == "replay_unverified":
+            # The replay cannot confirm the survivor in time, but the DELETE
+            # in flight still owns the drain and confirms the target is gone.
+            worker.get_model.side_effect = asyncio.TimeoutError
         await supervisor.add_worker(
             worker.address,
             replica_states=[] if registration == "restart" else inventory,
             incarnation=incarnation,
         )
+        worker.get_model.side_effect = lookup
         if registration == "restart":
             raise ConnectionError("Worker exited during deletion")
         models.pop(model_uid)
@@ -1347,7 +1550,7 @@ async def test_worker_registration_reconciles_interrupted_drain(
     response = await api.begin_model_replica_drain("demo", 1, "r1", timeout=1)
     assert json.loads(response.body)["status"] == "drained"
 
-    if registration == "replay":
+    if registration in ("replay", "replay_unverified"):
         for _ in range(2):
             response = await asyncio.wait_for(
                 api.terminate_model_replica("demo", 1, "r1"), timeout=2
@@ -1358,6 +1561,8 @@ async def test_worker_registration_reconciles_interrupted_drain(
             == "succeeded"
         )
         assert await supervisor.get_model("demo") is survivor
+        assert "demo-rep1" not in supervisor._replica_model_uid_to_worker
+        assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
     else:
         with pytest.raises(HTTPException) as failure:
             await asyncio.wait_for(api.terminate_model_replica("demo", 1, "r1"), 2)

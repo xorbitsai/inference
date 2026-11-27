@@ -266,6 +266,13 @@ class InitialModelLaunch:
     services: Dict[str, List[xo.ActorRefType]] = field(default_factory=dict)
 
 
+# A drain holds a replica out of routing and blocks Supervisor maintenance, so
+# it must not outlive its operator. The API renews a ``draining`` lease on each
+# poll; a ``drained`` replica must be deleted within the second lease.
+MANUAL_DRAIN_POLL_LEASE = 30.0
+MANUAL_DRAIN_DELETE_LEASE = 300.0
+
+
 @dataclass
 class ManualReplicaDrain:
     request_id: str
@@ -274,6 +281,9 @@ class ManualReplicaDrain:
     replicas: Dict[int, xo.ActorRefType]
     worker: xo.ActorRefType["WorkerActor"]
     status: str = "draining"
+    expiry: Optional[asyncio.TimerHandle] = field(default=None, repr=False)
+    # The target's route was removed but its status cleanup did not finish.
+    cleanup_pending: bool = False
 
     def public(self) -> Dict[str, Any]:
         return {
@@ -6574,9 +6584,35 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     def _finish_manual_replica_drain(
         self, drain: ManualReplicaDrain, status: Literal["cancelled", "succeeded"]
     ) -> None:
+        self._set_manual_drain_lease(drain, None)
         if drain.status not in ("cancelled", "succeeded"):
             drain.status = status
             self._upgrade_state.maintenance.end()
+
+    def _set_manual_drain_lease(
+        self, drain: ManualReplicaDrain, seconds: Optional[float]
+    ) -> None:
+        """Cancel a draining or drained drain that is not renewed in time.
+
+        Deletion states have no lease: their outcome must be reconciled.
+        """
+        if drain.expiry is not None:
+            drain.expiry.cancel()
+            drain.expiry = None
+        if seconds is None:
+            return
+
+        def expire() -> None:
+            drain.expiry = None
+            if drain.status in ("draining", "drained"):
+                logger.warning(
+                    "Manual drain %s of replica %s expired; restoring routing",
+                    drain.request_id,
+                    drain.replica_id,
+                )
+                self._finish_manual_replica_drain(drain, "cancelled")
+
+        drain.expiry = asyncio.get_running_loop().call_later(seconds, expire)
 
     async def begin_manual_replica_drain(
         self, model_uid: str, replica_id: int, request_id: str
@@ -6586,6 +6622,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if existing is not None and existing.request_id == request_id:
                 if existing.replica_id != replica_id:
                     raise ValueError("The request ID belongs to a different replica")
+                if existing.status in ("cancelled", "succeeded"):
+                    # A finished record may describe an earlier deployment.
+                    raise ValueError(
+                        f"Drain request ID {request_id} already finished as "
+                        f"{existing.status}; use a new request ID"
+                    )
                 return existing.public()
             self._check_manual_replica_drain_idle(model_uid)
             self._check_manual_autoscaling(model_uid)
@@ -6646,6 +6688,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 raise ValueError("The model topology or Supervisor changed")
             drain = ManualReplicaDrain(request_id, replica_id, info, replicas, first)
             self._manual_replica_drains[model_uid] = drain
+            self._set_manual_drain_lease(drain, MANUAL_DRAIN_POLL_LEASE)
             return drain.public()
 
     def get_manual_replica_drain(
@@ -6694,6 +6737,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             )
         return type(load) is int and load == 0
 
+    async def renew_manual_replica_drain(
+        self, model_uid: str, replica_id: int, request_id: str
+    ) -> Dict[str, Any]:
+        """Keep a ``draining`` drain alive while its API poller waits."""
+        drain = self._manual_replica_drain(model_uid, replica_id, request_id)
+        if drain.status != "draining":
+            raise ValueError("The manual replica drain is not in progress")
+        self._set_manual_drain_lease(drain, MANUAL_DRAIN_POLL_LEASE)
+        return drain.public()
+
     async def confirm_manual_replica_drain(
         self, model_uid: str, replica_id: int, request_id: str
     ) -> bool:
@@ -6707,8 +6760,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             if drain.status != "draining":
                 raise ValueError("The manual replica drain is not in progress")
             if not idle:
+                self._set_manual_drain_lease(drain, MANUAL_DRAIN_POLL_LEASE)
                 return False
             drain.status = "drained"
+            self._set_manual_drain_lease(drain, MANUAL_DRAIN_DELETE_LEASE)
             return True
 
     async def cancel_manual_replica_drain(
@@ -6728,14 +6783,26 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         async with self._get_model_replica_lock(model_uid):
             drain = self._manual_replica_drain(model_uid, replica_id, request_id)
             if drain.status == "succeeded":
+                info = self._model_uid_to_replica_info.get(model_uid)
+                if info is not None and replica_id in info.active_replica_ids:
+                    # A later scale-up reused this replica ID.
+                    raise ValueError(
+                        f"Drain request ID {request_id} already removed an "
+                        "earlier replica; start a new drain"
+                    )
                 return 1
             if drain.status not in ("drained", "unknown"):
                 raise ValueError("A confirmed replica drain is required")
-            if drain.status == "unknown" and not (
-                await self._manual_drain_survivor_intact(model_uid, drain)
+            if drain.status == "unknown" and (
+                drain.cleanup_pending
+                or not await self._manual_drain_survivor_intact(model_uid, drain)
             ):
-                if await self._abandon_manual_replica_drain(model_uid, drain):
+                # Cancel only after cleanup is published, so a failure here
+                # stays retryable with the same drain ID.
+                await self._abandon_manual_replica_drain(model_uid, drain)
+                if drain.cleanup_pending:
                     await self._publish_replica_eviction(model_uid)
+                self._finish_manual_replica_drain(drain, "cancelled")
                 raise ValueError(
                     "The original replicas changed during manual drain; "
                     "the drain was cancelled"
@@ -6749,6 +6816,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 raise ValueError("The target replica is no longer idle")
             if drain.status == "cancelled":
                 raise ValueError("A confirmed replica drain is required")
+            self._set_manual_drain_lease(drain, None)
             drain.status = "deleting"
             try:
                 if worker_deleted:
@@ -6818,13 +6886,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     async def _abandon_manual_replica_drain(
         self, model_uid: str, drain: ManualReplicaDrain
-    ) -> bool:
-        """Cancel a drain whose original replica pair no longer exists.
+    ) -> None:
+        """Clean up after a drain whose original replica pair no longer exists.
 
         Live and recreated replicas keep their routes. If an interrupted
         deletion already removed the target, drop only its stale route and
-        return True so the caller can publish the new replica count. Probe
-        errors propagate and leave the drain in place for a later retry.
+        status row, and leave ``cleanup_pending`` set. The caller publishes
+        the replica count and then cancels the drain, so any failure before
+        that leaves the drain retryable with the same ID.
         """
         target_uid = build_replica_model_uid(model_uid, drain.replica_id)
         owner, topology = drain.worker, drain.topology
@@ -6832,26 +6901,25 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         def stale_target_routed() -> bool:
             return (
                 drain.status == "unknown"
+                and drain.worker is owner
                 and self._model_uid_to_replica_info.get(model_uid) is topology
                 and drain.replica_id in topology.active_replica_ids
                 and self._replica_model_uid_to_worker.get(target_uid) == owner
             )
 
-        removed = stale_target_routed() and (
-            await owner.get_model_launch_status(target_uid) is None
-        )
-        if drain.status in ("cancelled", "succeeded"):
-            return False
-        removed = removed and stale_target_routed() and drain.worker is owner
-        if removed:
+        if (
+            not drain.cleanup_pending
+            and stale_target_routed()
+            and await owner.get_model_launch_status(target_uid) is None
+            and stale_target_routed()
+        ):
             self._evict_replica_route(model_uid, drain.replica_id)
             self._invalidate_list_models_debounce_cache()
-        self._finish_manual_replica_drain(drain, "cancelled")
-        if removed:
+            drain.cleanup_pending = True
+        if drain.cleanup_pending and drain.status == "unknown":
             await self._status_guard_ref.remove_replica_status(
                 model_uid, drain.replica_id
             )
-        return removed
 
     def _evict_replica_route(self, model_uid: str, replica_id: int) -> None:
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
@@ -7253,6 +7321,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         await self._status_guard_ref.remove_replica_status(base_uid, replica_idx)
         drain = getattr(self, "_manual_replica_drains", {}).get(base_uid)
+        abandoned = None
         if (
             drain is not None
             and drain.topology is replica_info
@@ -7272,7 +7341,11 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     replica_idx,
                     exc_info=True,
                 )
+            else:
+                abandoned = drain
         await SupervisorActor._publish_replica_eviction(self, base_uid)
+        if abandoned is not None:
+            SupervisorActor._finish_manual_replica_drain(self, abandoned, "cancelled")
 
     async def _publish_replica_eviction(self, base_uid: str) -> None:
         # StatusGuard may retain terminal rows; only ReplicaInfo represents
@@ -8731,11 +8804,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
         drains = getattr(self, "_manual_replica_drains", {})
         retained: Dict[str, ManualReplicaDrain] = {}
-        if (
-            drains
-            and self._ownership_registry().incarnations.get(worker_address)
-            == incarnation
-        ):
+        same_incarnation = (
+            self._ownership_registry().incarnations.get(worker_address) == incarnation
+        )
+        if drains and same_incarnation:
             for model_uid, drain in list(drains.items()):
                 if drain.worker != worker_ref or drain.status in (
                     "cancelled",
@@ -8788,6 +8860,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             ):
                 drain.topology = info
                 drain.worker = worker_ref
+            elif same_incarnation and drain.status == "deleting":
+                # The in-flight DELETE settles this drain. It asks the Worker
+                # whether the target is gone before dropping its route, so a
+                # replayed route is never left behind for a deleted replica.
+                if info is not None and self._manual_drain_routes_match(
+                    model_uid, drain, worker_ref
+                ):
+                    drain.topology = info
+                    drain.worker = worker_ref
             else:
                 self._finish_manual_replica_drain(drain, "cancelled")
         # A replayed replica is running again (e.g. the worker was evicted by

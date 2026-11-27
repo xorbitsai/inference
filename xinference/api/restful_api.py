@@ -2913,12 +2913,22 @@ class RESTfulAPI(CancelMixin):
                 # Requests starting lookups after this acknowledgement can only
                 # be assigned to the survivor. Keep the preceding window.
                 window.collecting = False
-                while not (
-                    tracker.drained(window, model_uid, target)
-                    and await supervisor.confirm_manual_replica_drain(
-                        model_uid, replica_id, request_id
-                    )
-                ):
+                renewed = time.monotonic()
+                while True:
+                    if tracker.drained(window, model_uid, target):
+                        # Each confirmation also renews the Supervisor lease.
+                        if await supervisor.confirm_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        ):
+                            break
+                        renewed = time.monotonic()
+                    elif time.monotonic() - renewed >= 1:
+                        # Long requests on this API process still hold the
+                        # target; keep the drain from expiring meanwhile.
+                        await supervisor.renew_manual_replica_drain(
+                            model_uid, replica_id, request_id
+                        )
+                        renewed = time.monotonic()
                     await asyncio.sleep(0.1)
                 completed = True
                 return JSONResponse(content={**result, "status": "drained"})

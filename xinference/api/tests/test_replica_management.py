@@ -62,16 +62,24 @@ async def test_manual_drain_tracks_through_stream_completion():
 
 
 @pytest.mark.asyncio
-async def test_manual_drain_rejects_uncertain_stream_outcome():
+@pytest.mark.parametrize("outcome", ["disconnect", "server_error", "exception"])
+async def test_manual_drain_finishes_after_interrupted_request(outcome):
+    # An interrupted request on the target no longer fails the drain. The
+    # Supervisor's routing-load check covers work the engine still runs.
     tracker = ReplicaDrainRequests()
     selected = asyncio.Event()
-    disconnected = asyncio.Event()
+    interrupted = asyncio.Event()
 
-    async def app(_scope, receive, _send):
+    async def app(_scope, receive, send):
         track_model_lookup("demo").selected(SimpleNamespace(uid=b"demo-rep1"))
         selected.set()
-        await disconnected.wait()
-        await receive()
+        await interrupted.wait()
+        if outcome == "disconnect":
+            await receive()
+        elif outcome == "server_error":
+            await send({"type": "http.response.start", "status": 500})
+        else:
+            raise RuntimeError("Stream failed")
 
     middleware = ReplicaDrainMiddleware(app, tracker)
     task = asyncio.create_task(
@@ -83,10 +91,11 @@ async def test_manual_drain_rejects_uncertain_stream_outcome():
     )
     await selected.wait()
     window = tracker.start("demo")
-    disconnected.set()
-    await task
-    with pytest.raises(RuntimeError, match="no confirmed outcome"):
-        tracker.drained(window, "demo", b"demo-rep1")
+    window.collecting = False
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    interrupted.set()
+    await asyncio.gather(task, return_exceptions=True)
+    assert tracker.drained(window, "demo", b"demo-rep1")
 
 
 @pytest.fixture
