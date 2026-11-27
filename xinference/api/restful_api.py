@@ -3906,6 +3906,37 @@ class RESTfulAPI(CancelMixin):
         status_code = 429 if "Rate limit reached" in message else 500
         return cls._responses_error(status_code, message, code=code)
 
+    @staticmethod
+    def _needs_deepseek_forced_tool_preflight(
+        desc: Dict[str, Any], kwargs: Dict[str, Any], is_vllm_backend: bool
+    ) -> bool:
+        """Whether a request forces a DeepSeek V4.1 tool call on a vLLM engine."""
+        from ..model.llm.tool_controls import is_deepseek_v41_forced_tool_choice
+
+        # The P/D router reports vLLM compatibility for non-vLLM engines too.
+        return bool(
+            is_vllm_backend
+            and (desc.get("model_engine") or "vllm").lower() == "vllm"
+            and is_deepseek_v41_forced_tool_choice(kwargs, desc.get("model_family"))
+        )
+
+    @staticmethod
+    def _load_reasoning_preflight(prepared: Any) -> Dict[str, Any]:
+        """Decode a reasoning preflight result and validate any error entry."""
+        if isinstance(prepared, (str, bytes)):
+            prepared = json.loads(prepared)
+        if not isinstance(prepared, dict):
+            raise ValueError("Invalid reasoning preflight response")
+        if "error" in prepared:
+            error = prepared["error"]
+            if (
+                not isinstance(error, dict)
+                or error.get("status") not in {400, 501}
+                or not isinstance(error.get("message"), str)
+            ):
+                raise ValueError("Invalid reasoning preflight error")
+        return prepared
+
     async def _preflight_responses_forced_tools(
         self, request: Request, model: Any, model_uid: str, kwargs: Dict[str, Any]
     ) -> Union[Dict[str, Any], JSONResponse, None]:
@@ -3914,10 +3945,7 @@ class RESTfulAPI(CancelMixin):
         Returns the prepared config, an error response, or None when the
         request does not need the preflight.
         """
-        from ..model.llm.tool_controls import (
-            is_deepseek_v41_forced_tool_choice,
-            is_forced_tool_choice,
-        )
+        from ..model.llm.tool_controls import is_forced_tool_choice
 
         if not is_forced_tool_choice(kwargs):
             return None
@@ -3926,40 +3954,35 @@ class RESTfulAPI(CancelMixin):
             desc = await supervisor_ref.describe_model(
                 model_uid, selected_replica_uid=model.uid.decode()
             )
-            # The P/D router reports vLLM compatibility for non-vLLM engines too.
-            if not (
-                (desc.get("model_engine") or "vllm").lower() == "vllm"
-                and is_deepseek_v41_forced_tool_choice(kwargs, desc.get("model_family"))
-                and await model.is_vllm_backend()
+            if not self._needs_deepseek_forced_tool_preflight(
+                desc, kwargs, await model.is_vllm_backend()
             ):
                 return None
-            prepared = await model.prepare_reasoning_request(kwargs)
-            if isinstance(prepared, (str, bytes)):
-                prepared = json.loads(prepared)
-            if not isinstance(prepared, dict):
-                raise ValueError("Invalid reasoning preflight response")
-            error = prepared.get("error")
-            if error is None:
-                return prepared
-            if (
-                not isinstance(error, dict)
-                or error.get("status") not in {400, 501}
-                or not isinstance(error.get("message"), str)
-            ):
-                raise ValueError("Invalid reasoning preflight error")
+            prepared = self._load_reasoning_preflight(
+                await model.prepare_reasoning_request(kwargs)
+            )
         except ModelNotReadyError:
             return self._responses_error(
                 503,
                 "Model is loading, please retry later",
                 headers={"Retry-After": "30"},
             )
-        except Exception:
+        except Exception as exc:
+            if (
+                "Rate limit reached" in str(exc)
+                or self._model_request_error_detail(exc) is not None
+            ):
+                return self._responses_model_error(exc)
             logger.exception("Responses forced-tool preflight failed")
             return self._responses_error(
                 503, "Reasoning request preflight is temporarily unavailable"
             )
+        if "error" not in prepared:
+            return prepared
         mark_inference_rejection(request, "reasoning_preflight")
-        return self._responses_error(error["status"], error["message"])
+        return self._responses_error(
+            prepared["error"]["status"], prepared["error"]["message"]
+        )
 
     async def create_response(self, request: Request) -> Response:
         try:
@@ -5830,7 +5853,6 @@ class RESTfulAPI(CancelMixin):
             has_reasoning_controls,
             normalize_reasoning_controls,
         )
-        from ..model.llm.tool_controls import is_deepseek_v41_forced_tool_choice
         from ..model.llm.utils import (
             DEEPSEEK_TOOL_CALL_FAMILY,
             GEMMA_TOOL_CALL_FAMILY,
@@ -6015,33 +6037,19 @@ class RESTfulAPI(CancelMixin):
                     media_counts,
                 )
 
-        # The P/D router reports vLLM compatibility for non-vLLM engines too.
-        deepseek_forced_tools = (
-            is_vllm_backend
-            and (desc.get("model_engine") or "vllm").lower() == "vllm"
-            and is_deepseek_v41_forced_tool_choice(kwargs, model_family)
-        )
-        if deepseek_forced_tools or (
+        if self._needs_deepseek_forced_tool_preflight(
+            desc, kwargs, is_vllm_backend
+        ) or (
             controls_requested
             and (kwargs.get("chat_template_kwargs") or {}).get("thinking_budget")
             is not None
         ):
             try:
-                prepared = await model.prepare_reasoning_request(
-                    kwargs, **reservation_options
+                prepared = self._load_reasoning_preflight(
+                    await model.prepare_reasoning_request(kwargs, **reservation_options)
                 )
-                if isinstance(prepared, (str, bytes)):
-                    prepared = json.loads(prepared)
-                if not isinstance(prepared, dict):
-                    raise ValueError("Invalid reasoning preflight response")
                 if "error" in prepared:
                     error = prepared["error"]
-                    if (
-                        not isinstance(error, dict)
-                        or error.get("status") not in {400, 501}
-                        or not isinstance(error.get("message"), str)
-                    ):
-                        raise ValueError("Invalid reasoning preflight error")
                     raise InferenceRequestRejected(
                         error["status"],
                         error["message"],

@@ -2151,6 +2151,152 @@ async def test_deepseek_v41_openai_forces_tool_choice(
     backend.async_generate.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
+@pytest.mark.parametrize("launch_thinking", [False, True], ids=["off", "on"])
+@pytest.mark.parametrize("requested", [None, False, True], ids=["unset", "no", "yes"])
+@pytest.mark.parametrize("endpoint", ["chat", "responses"])
+async def test_deepseek_v41_forced_tools_follow_launch_thinking(
+    monkeypatch, stream, launch_thinking, requested, endpoint
+):
+    from ...model.llm.core import chat_context_var
+    from ...model.llm.reasoning_parser import ReasoningParser
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": family, "model_engine": "vLLM"}
+    )
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(
+        model_name=family, reasoning_effort=None, model_ability=["chat", "hybrid"]
+    )
+    # The parser a vLLM launch builds, with thinking on or off by default.
+    backend.reasoning_parser = ReasoningParser(
+        True, "<think>", "</think>", enable_thinking=launch_thinking
+    )
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.11.0"))
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        # Like the real input preparation, select the per-request parser mode.
+        context = backend._get_chat_template_kwargs_from_generate_config(
+            config, backend.reasoning_parser
+        )
+        chat_context_var.set(context or {})
+        return {"prompt": "rendered"}, [], context, config
+
+    backend._prepare_chat_inputs = prepare
+
+    async def generate(prompt, config, tools, request_id=None):
+        assert config["chat_template_kwargs"]["enable_thinking"] is False
+        calls = [{"name": "time", "arguments": {}}]
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+
+    async def chat(messages, config, **kwargs):
+        result = await method(backend, messages, config, request_id="r")
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    thinking = {}
+    if requested is not None:
+        # Chat uses the top-level field; Responses also takes it from extra_body.
+        thinking = (
+            {"enable_thinking": requested}
+            if endpoint == "chat"
+            else {"extra_body": {"enable_thinking": requested}}
+        )
+    if endpoint == "chat":
+        payload = {
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    else:
+        payload = {
+            "input": "What time is it?",
+            "tools": [{"type": "function", "name": "time", "parameters": {}}],
+        }
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "stream": stream,
+            "tool_choice": "required",
+            **payload,
+            **thinking,
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    request.receive = asyncio.Event().wait
+    create = api.create_chat_completion if endpoint == "chat" else api.create_response
+
+    if requested or (requested is None and launch_thinking):
+        if endpoint == "chat":
+            with pytest.raises(HTTPException, match="requires disabling") as exc:
+                await create(request)
+            assert exc.value.status_code == 400
+        else:
+            response = await create(request)
+            assert response.status_code == 400
+            message = json.loads(response.body)["error"]["message"]
+            assert "requires disabling thinking" in message
+        model.chat.assert_not_awaited()
+        return
+
+    response = await create(request)
+    assert response.status_code == 200
+    if endpoint == "chat":
+        if stream:
+            frames = [item async for item in response.body_iterator]
+            message = json.loads(frames[0])["choices"][0]["delta"]
+        else:
+            message = json.loads(response.body)["choices"][0]["message"]
+        assert message["tool_calls"][0]["function"]["name"] == "time"
+        assert not message.get("reasoning_content")
+    else:
+        if stream:
+            events = [item async for item in response.body_iterator]
+            done = next(
+                json.loads(event["data"])
+                for event in events
+                if event.get("event") == "response.completed"
+            )
+            output = done["response"]["output"]
+        else:
+            output = json.loads(response.body)["output"]
+        # The tool JSON must not be parsed as thinking.
+        assert [item["type"] for item in output] == ["function_call"]
+        assert output[0]["name"] == "time"
+    backend.async_generate.assert_awaited_once()
+
+
 _GUIDED_KEYS = (
     "guided_json",
     "guided_regex",
