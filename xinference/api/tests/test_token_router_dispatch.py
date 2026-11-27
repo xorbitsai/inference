@@ -2,7 +2,6 @@
 import json
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from types import MethodType
 from unittest.mock import AsyncMock
 
@@ -571,82 +570,84 @@ def make_chat_app(api):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("tokenizer", ["test-tokenizer", "deepseek-tokenizer"])
-@pytest.mark.parametrize(
-    "family,effort,status,expected",
-    [
-        ("qwen3", "medium", 200, None),
-        ("glm-5.3", "medium", 200, "high"),
-        ("glm-5.3", "xhigh", 400, None),
-    ],
-)
-async def test_responses_virtual_model_reasoning_effort(
-    monkeypatch, tmp_path, tokenizer, family, effort, status, expected
+@pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
+@pytest.mark.parametrize("effort", ["medium", "xhigh"])
+@pytest.mark.parametrize("router_case", ["qwen3", "glm-5.3", "retained-v4.2.0-router"])
+async def test_responses_virtual_model_ignores_reasoning_effort(
+    monkeypatch, tmp_path, router_case, effort, stream
 ):
     from xinference.router.app import create_app as create_router_app
     from xinference.router.tests.test_app import make_config
 
-    from .test_openai_responses import _family_description
+    from .test_openai_responses import _aiter, _family_description
 
     monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
     resolution = {"available": True, "endpoint": "http://router"}
     api = make_rest_api(FakeSupervisor(resolution))
-    app = FastAPI()
-    app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
 
-    model_uid = "long-model" if tokenizer == "test-tokenizer" else "short-model"
-    model = AsyncMock(uid=f"{model_uid}-rep0".encode())
+    retained_router = router_case == "retained-v4.2.0-router"
+    model_family = "qwen3" if retained_router else router_case
+    model = AsyncMock(uid=b"short-model-rep0")
     model.is_vllm_backend.return_value = False
-    model.chat.return_value = '{"choices": [{"message": {"content": "pong"}}]}'
+    model.chat.return_value = (
+        _aiter([b'data: {"choices":[{"delta":{"content":"pong"}}]}\n\n'])
+        if stream
+        else '{"choices": [{"message": {"content": "pong"}}]}'
+    )
     backend = FakeSupervisor(None)
     backend.get_model = AsyncMock(return_value=model)
-    backend.describe_model = AsyncMock(return_value=_family_description(family))
-    backend_transport = httpx.ASGITransport(app=make_chat_app(make_rest_api(backend)))
+    backend.describe_model = AsyncMock(return_value=_family_description(model_family))
+    app = make_chat_app(make_rest_api(backend))
+    app.add_api_route("/v1/responses", api.create_response, methods=["POST"])
+    backend_transport = httpx.ASGITransport(app=app)
 
     config = replace(
         make_config(tmp_path),
-        logical_model="virtual-model",
         require_auth=False,
         tokenizer_asset_revision="",
         tokenizer_asset_fingerprint="",
     )
-    if tokenizer == "deepseek-tokenizer":
-        assets = Path(__file__).parents[2] / "router" / "tokenizer_assets"
-        config = replace(config, tokenizer_path=assets / "deepseek_v4_flash_0731")
     router = create_router_app(config)
-    reasoning = {"effort": effort, "summary": "auto"}
+    routed = []
 
+    async def record_chat(request: httpx.Request) -> None:
+        routed.append(json.loads(request.content))
+        if retained_router:
+            # Keep the JSON forwarding and model rewrite. v4.2.0 drops the
+            # unknown marker and gives it no role in token estimation.
+            request.headers.pop("x-xinference-responses-effort", None)
+
+    reasoning = {"effort": effort, "summary": "auto"}
+    body = dict(model=config.logical_model, input="hello", stream=stream)
+    body["reasoning"] = reasoning
     async with (
         router.router.lifespan_context(router),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=router)) as upstream,
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client,
+            transport=httpx.ASGITransport(app=router),
+            event_hooks={"request": [record_chat]},
+        ) as upstream,
+        httpx.AsyncClient(transport=backend_transport) as client,
     ):
         snapshot = router.state.runtime.current
         await snapshot.client.aclose()
         snapshot.client = httpx.AsyncClient(transport=backend_transport)
         api._token_router_client = upstream
-        response = await client.post(
-            "/v1/responses",
-            json={"model": "virtual-model", "input": "hello", "reasoning": reasoning},
-        )
+        response = await client.post("http://api/v1/responses", json=body)
 
-    assert response.status_code == status, response.text
-    backend.describe_model.assert_awaited_once_with(
-        model_uid, selected_replica_uid=model.uid.decode()
-    )
-    if status == 400:
-        model.chat.assert_not_awaited()
-        return
-    assert response.json()["reasoning"] == reasoning
+    assert response.status_code == 200, response.text
+    assert len(routed) == 1 and "reasoning_effort" not in routed[0]
     model.chat.assert_awaited_once()
     call = model.chat.await_args
     for arguments in (call.args[1], call.kwargs["raw_params"]):
         assert "reasoning_effort" not in arguments
-        assert arguments.get("chat_template_kwargs") == (
-            None if expected is None else {"reasoning_effort": expected}
-        )
+        assert "reasoning_effort" not in (arguments.get("chat_template_kwargs") or {})
+
+    if stream:
+        event = json.loads(response.text.rsplit("data: ", 1)[1])
+        assert event["type"] == "response.completed"
+        assert event["response"]["reasoning"] == reasoning
+    else:
+        assert response.json()["reasoning"] == reasoning
 
 
 def make_anthropic_app(api):

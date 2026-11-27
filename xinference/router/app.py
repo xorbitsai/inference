@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.background import BackgroundTask
 
 from .admission import AdmissionRejected
-from .backend import RESPONSES_EFFORT_HEADER, request_headers, response_headers
+from .backend import request_headers, response_headers
 from .classifier import (
     ContextLimitExceeded,
     RouteDecision,
@@ -467,9 +467,8 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={"x-request-id": request_id},
                 )
             try:
-                optional = request.headers.get(RESPONSES_EFFORT_HEADER) == "1"
                 budget = await snapshot.tokenization.estimate(
-                    dict(payload, _optional_effort=optional), input_bytes=len(body)
+                    payload, input_bytes=len(body)
                 )
                 decision = snapshot.policy.classify(
                     budget,
