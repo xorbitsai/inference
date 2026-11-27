@@ -516,6 +516,46 @@ it('keeps featured badges off custom registrations', async () => {
   assert.ok(!host.textContent!.includes('launchModel.featuredModel'));
 });
 
+for (const cachedEngine of ['diffusers', 'vLLM']) {
+  it(`shows MiniMax in the Cached filter with only the ${cachedEngine} cache`, async () => {
+    const { isCachedImageFormat } = require('./utils') as typeof import('./utils');
+    const specs = ['diffusers', 'vLLM'].map((engine) => ({
+      model_engine: engine,
+      model_format: 'diffusers',
+      model_uri: '',
+      model_size_in_billions: '',
+      cache_status: engine === cachedEngine,
+    }));
+    catalog = [
+      { model_name: 'MiniMax-H3-Image', is_builtin: true, model_specs: specs },
+      {
+        model_name: 'uncached-image',
+        is_builtin: true,
+        model_specs: specs.map((spec) => ({ ...spec, cache_status: false })),
+      },
+    ];
+    await act(async () =>
+      root.render(<LaunchModel routeType={ModelType.Image} initialCustomType={ModelType.LLM} />)
+    );
+    assert.ok(gets.includes('/v1/model_registrations/image?detailed=true'));
+    const status = [...host.querySelectorAll('span')].find(
+      (span) => span.textContent === 'launchModel.status'
+    )!;
+    await act(async () => status.click());
+    const cached = [...document.querySelectorAll<HTMLElement>('[data-slot="select-option"]')].find(
+      (option) => option.textContent === 'launchModel.cached'
+    )!;
+    await act(async () => cached.click());
+    assert.deepEqual(
+      [...host.querySelectorAll('h3')].map((heading) => heading.textContent),
+      ['MiniMax-H3-Image']
+    );
+    for (const { model_engine: engine } of specs) {
+      assert.equal(isCachedImageFormat(specs, engine, 'diffusers'), engine === cachedEngine);
+    }
+  });
+}
+
 it('connects the catalog star to the current account favorites API', async () => {
   window.sessionStorage.setItem(
     'token',

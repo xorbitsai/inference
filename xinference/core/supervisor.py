@@ -133,7 +133,7 @@ _WORKER_METADATA_RPC_TIMEOUT = 3
 _WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
 
 
-def _merge_audio_model_registrations(
+def _merge_variant_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
     """Merge platform-local catalogs without losing engine variants."""
@@ -2477,26 +2477,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.image.cache_manager import ImageCacheManager
+        from ..model.image.core import get_image_registration_specs
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_manager = ImageCacheManager(model_family)
-            # Create model_specs with cache_status for frontend compatibility
-            model_specs = [
-                {
-                    "model_format": "pytorch",
-                    "model_hub": model_family.model_hub,
-                    "model_id": model_family.model_id,
-                    "cache_status": cache_manager.get_cache_status(),
-                }
-            ]
             res = {
                 **model_family.dict(),
-                "model_specs": model_specs,
+                "model_specs": get_image_registration_specs(model_family),
                 "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
@@ -2622,7 +2612,15 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         for result in results:
             ret.extend(result)
         if model_type.lower() in ("audio", "world"):
-            ret = _merge_audio_model_registrations(ret, detailed)
+            ret = _merge_variant_model_registrations(ret, detailed)
+        elif model_type.lower() == "image" and detailed:
+            from ..model.image.minimax_h3 import MINIMAX_H3_IMAGE_NAME
+
+            minimax = [
+                item for item in ret if item["model_name"] == MINIMAX_H3_IMAGE_NAME
+            ]
+            ret = [item for item in ret if item["model_name"] != MINIMAX_H3_IMAGE_NAME]
+            ret.extend(_merge_variant_model_registrations(minimax, detailed))
 
         ret.sort(key=sort_helper)
         return ret

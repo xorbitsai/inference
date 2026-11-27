@@ -17,7 +17,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
@@ -117,17 +117,45 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             return res
 
 
+def _image_cache_variants(
+    image_model: ImageModelFamilyV2,
+) -> List[Tuple[Optional[str], ImageModelFamilyV2]]:
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
+
+    if image_model.model_name == MINIMAX_H3_IMAGE_NAME:
+        return [
+            ("diffusers", image_model),
+            ("vLLM", prepare_vllm_model_spec(image_model)),
+        ]
+    return [(None, image_model)]
+
+
+def get_image_registration_specs(
+    image_model: ImageModelFamilyV2,
+) -> List[Dict[str, Any]]:
+    from .cache_manager import ImageCacheManager
+
+    specs = []
+    for engine, variant in _image_cache_variants(image_model):
+        spec: Dict[str, Any] = {
+            "model_format": "diffusers" if engine else "pytorch",
+            "model_hub": variant.model_hub,
+            "model_id": variant.model_id,
+            "cache_status": ImageCacheManager(variant).get_cache_status(),
+        }
+        if engine:
+            spec["model_engine"] = engine
+        specs.append(spec)
+    return specs
+
+
 def generate_image_description(
     image_model: ImageModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
-    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
-
     res = defaultdict(list)
-    res[image_model.model_name].extend(image_model.to_version_info())
-    # Register the native cache even if this worker cannot launch vLLM.
-    if image_model.model_name == MINIMAX_H3_IMAGE_NAME:
-        native = prepare_vllm_model_spec(image_model)
-        res[image_model.model_name].extend(native.to_version_info())
+    # Register cached artifacts even on workers that cannot launch the engine.
+    for _, variant in _image_cache_variants(image_model):
+        res[image_model.model_name].extend(variant.to_version_info())
     return res
 
 

@@ -3639,7 +3639,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.cache_manager import ImageCacheManager
+            from ..model.image.core import get_image_registration_specs
             from ..model.image.custom import get_user_defined_images
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
@@ -3650,19 +3650,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         download_hubs.append(family.model_hub)
                 for family in families:
                     if detailed:
-                        cache_manager = ImageCacheManager(family)
-                        model_specs = [
-                            {
-                                "model_format": "pytorch",
-                                "model_hub": family.model_hub,
-                                "model_id": family.model_id,
-                                "cache_status": cache_manager.get_cache_status(),
-                            }
-                        ]
                         ret.append(
                             {
                                 **family.dict(),
-                                "model_specs": model_specs,
+                                "model_specs": get_image_registration_specs(family),
                                 "is_builtin": True,
                                 "download_hubs": download_hubs,
                             }
@@ -3673,19 +3664,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # Add user-defined image models
             for model_spec in get_user_defined_images():
                 if detailed:
-                    cache_manager = ImageCacheManager(model_spec)
-                    model_specs = [
-                        {
-                            "model_format": "pytorch",
-                            "model_hub": model_spec.model_hub,
-                            "model_id": model_spec.model_id,
-                            "cache_status": cache_manager.get_cache_status(),
-                        }
-                    ]
                     ret.append(
                         {
                             **model_spec.dict(),
-                            "model_specs": model_specs,
+                            "model_specs": get_image_registration_specs(model_spec),
                             "is_builtin": False,
                             "download_hubs": [model_spec.model_hub],
                         }

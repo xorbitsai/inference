@@ -748,6 +748,67 @@ def test_minimax_factory_offload_precedence(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cached_engine,distributed",
+    [(None, False), ("diffusers", False), ("vLLM", False), ("vLLM", True)],
+)
+async def test_minimax_detailed_registration_reports_engine_caches(
+    monkeypatch, tmp_path, cached_engine, distributed
+):
+    from functools import partial
+
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from .... import constants
+    from ....api.restful_api import RESTfulAPI
+    from ....core.supervisor import SupervisorActor
+    from ....core.worker import WorkerActor
+
+    name = "MiniMax-H3-Image"
+    cache_root = tmp_path / "worker-cache"
+    if cached_engine:
+        cache_name = name if cached_engine == "diffusers" else f"{name}-vllm"
+        (cache_root / "v2" / cache_name).mkdir(parents=True)
+
+    def worker(root):
+        async def registrations(model_type, detailed):
+            with monkeypatch.context() as scoped:
+                scoped.setattr(constants, "XINFERENCE_CACHE_DIR", str(root))
+                return await WorkerActor.list_model_registrations(
+                    types.SimpleNamespace(), model_type, detailed
+                )
+
+        return types.SimpleNamespace(list_model_registrations=registrations)
+
+    workers = {"cached-worker": worker(cache_root)}
+    if distributed:
+        workers = {"first-worker": worker(tmp_path / "empty"), **workers}
+    supervisor = types.SimpleNamespace(_worker_address_to_worker=workers)
+    supervisor.list_model_registrations = partial(
+        SupervisorActor.list_model_registrations, supervisor
+    )
+    api = object.__new__(RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    app = FastAPI()
+    app.get("/v1/model_registrations/{model_type}")(api.list_model_registrations)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/v1/model_registrations/image?detailed=true")
+    assert response.status_code == 200
+    registration = next(item for item in response.json() if item["model_name"] == name)
+    assert {
+        spec.get("model_engine"): spec["cache_status"]
+        for spec in registration["model_specs"]
+    } == {
+        "diffusers": cached_engine == "diffusers",
+        "vLLM": cached_engine == "vLLM",
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
 @pytest.mark.parametrize("first_engine", ["diffusers", "vLLM"])
 @pytest.mark.parametrize("removed_engine", ["diffusers", "vLLM"])
@@ -756,9 +817,9 @@ async def test_minimax_cache_lifecycle(
 ):
     from fnmatch import fnmatchcase
     from functools import partial
+    from importlib import import_module
 
     import huggingface_hub
-    from modelscope.hub import snapshot_download
 
     from .... import constants
     from ....core import worker as worker_module
@@ -798,7 +859,7 @@ async def test_minimax_cache_lifecycle(
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", download)
     monkeypatch.setattr(
-        sys.modules[snapshot_download.__module__], "snapshot_download", download
+        import_module("modelscope.hub.snapshot_download"), "snapshot_download", download
     )
     monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(cache_root))
     monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
