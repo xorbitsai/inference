@@ -331,6 +331,21 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Hy-MT2-7B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with balanced performance for general-purpose high-quality translation.
 
+   * - :ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`
+     - chat
+     - 8192
+     - Hy-MT3-1.8B is a lightweight dense multilingual translation model from Tencent Hunyuan. It supports 102 languages and follows translation instructions.
+
+   * - :ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`
+     - chat
+     - 8192
+     - Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation model from Tencent Hunyuan. It supports 102 languages and follows translation instructions.
+
+   * - :ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`
+     - chat
+     - 8192
+     - Hy-MT3-7B is a dense multilingual translation model from Tencent Hunyuan. It supports 102 languages and follows translation instructions.
+
    * - :ref:`internlm3-instruct <models_llm_internlm3-instruct>`
      - chat, tools
      - 32768
@@ -997,6 +1012,12 @@ The following is a list of built-in LLM in Xinference:
   
    hy-mt2-7b
   
+   hy-mt3-1.8b
+
+   hy-mt3-30b-a3b
+
+   hy-mt3-7b
+
    internlm3-instruct
   
    internvl3

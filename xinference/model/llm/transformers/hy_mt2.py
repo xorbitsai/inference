@@ -16,16 +16,21 @@ from typing import List, Optional, Tuple, Union
 
 from ....types import LoRA, PytorchModelConfig
 from ...utils import allow_trust_remote_code
-from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
+from ..llm_family import (
+    HY_MT3_MODEL_NAMES,
+    LLMFamilyV2,
+    LLMSpecV1,
+    register_transformer,
+)
 from .core import PytorchChatModel, register_non_default_model
 
 
 @register_transformer
 @register_non_default_model("HunYuanDenseV1ForCausalLM", "HYV3ForCausalLM")
 class HyMT2PytorchModel(PytorchChatModel):
-    """Adapter for Tencent Hunyuan Hy-MT2 multilingual translation models.
+    """Adapter for Tencent Hunyuan Hy-MT2 and Hy-MT3 translation models.
 
-    Hy-MT2 ships two architectures:
+    Both series share two architectures:
       - HunYuanDenseV1ForCausalLM (1.8B / 7B dense)
       - HYV3ForCausalLM           (30B-A3B MoE)
 
@@ -67,12 +72,19 @@ class HyMT2PytorchModel(PytorchChatModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch"]:
-            return False, "Hy-MT2 transformer only supports pytorch format"
         if not llm_family.has_architecture(*cls._ARCHITECTURES):
             return (
                 False,
-                "Hy-MT2 transformer only supports architectures: "
+                "Hy-MT Transformers supports architectures: "
                 f"{', '.join(sorted(cls._ARCHITECTURES))}",
             )
-        return True
+        if llm_spec.model_format == "pytorch":
+            return True
+        if (
+            llm_family.model_name in HY_MT3_MODEL_NAMES
+            and llm_spec.model_format == "fp8"
+        ):
+            if llm_spec.quantization_method == "compressed-tensors":
+                return True
+            return False, "Hy-MT3-30B-A3B FP8 requires vLLM or SGLang"
+        return False, "Hy-MT Transformers requires a supported PyTorch checkpoint"

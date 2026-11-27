@@ -46,6 +46,7 @@ from .reasoning_controls import ReasoningEffortConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTEXT_LENGTH = 2048
+HY_MT3_MODEL_NAMES = frozenset(("Hy-MT3-1.8B", "Hy-MT3-7B", "Hy-MT3-30B-A3B"))
 BUILTIN_LLM_PROMPT_STYLE: Dict[str, Dict[str, Any]] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()

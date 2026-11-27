@@ -79,7 +79,11 @@ from ..context_length import (
     normalize_vllm_context_error,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
-from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
+from ..llm_family import (
+    HY_MT3_MODEL_NAMES,
+    PytorchLLMSpecV2,
+    cache_model_tokenizer_and_config,
+)
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
@@ -3268,6 +3272,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         if llm_spec.model_format == "ggufv2":
+            if llm_family.model_name in HY_MT3_MODEL_NAMES:
+                return False, "Hy-MT3 GGUF checkpoints require llama.cpp"
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False, "ggufv2 support requires vLLM >= 0.8.2"
         if (

@@ -41,14 +41,21 @@ from ..utils import ChatModelMixin, normalize_response_format
 logger = logging.getLogger(__name__)
 
 MINICPMV47_MIN_XLLAMACPP_VERSION = "2026.10.11870"
+HY_MT3_MOE_MIN_XLLAMACPP_VERSION = "2026.10.11870"
 
 
-def _minicpmv47_runtime_error(
+def _runtime_version_error(
     model_family: LLMFamilyV2, *, allow_virtual_env: bool = False
 ) -> Optional[str]:
-    if "MiniCPMV4_7ForConditionalGeneration" not in (
+    if "MiniCPMV4_7ForConditionalGeneration" in (
         getattr(model_family, "architectures", None) or []
     ):
+        model_name = "MiniCPM-V-4.7"
+        minimum_version = MINICPMV47_MIN_XLLAMACPP_VERSION
+    elif getattr(model_family, "model_name", None) == "Hy-MT3-30B-A3B":
+        model_name = "Hy-MT3-30B-A3B"
+        minimum_version = HY_MT3_MOE_MIN_XLLAMACPP_VERSION
+    else:
         return None
     if allow_virtual_env and virtual_env_allows_missing_engine():
         return None
@@ -58,14 +65,12 @@ def _minicpmv47_runtime_error(
         installed = None
     if installed is not None:
         try:
-            if version.parse(installed) >= version.parse(
-                MINICPMV47_MIN_XLLAMACPP_VERSION
-            ):
+            if version.parse(installed) >= version.parse(minimum_version):
                 return None
         except (version.InvalidVersion, TypeError):
             pass
     return (
-        f"MiniCPM-V-4.7 requires xllamacpp >= {MINICPMV47_MIN_XLLAMACPP_VERSION}; "
+        f"{model_name} requires xllamacpp >= {minimum_version}; "
         f"found {installed or 'not installed'}"
     )
 
@@ -397,7 +402,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     def match_json(
         cls, llm_family: LLMFamilyV2, llm_spec: LLMSpecV1, quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        runtime_error = _minicpmv47_runtime_error(llm_family, allow_virtual_env=True)
+        runtime_error = _runtime_version_error(llm_family, allow_virtual_env=True)
         if runtime_error:
             return False, runtime_error
         if llm_spec.model_format not in ["ggufv2"]:
@@ -412,7 +417,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     @classmethod
     def validate_launch(cls, model_family: LLMFamilyV2) -> None:
         """Reject incompatible runtimes before downloading checkpoints."""
-        runtime_error = _minicpmv47_runtime_error(model_family, allow_virtual_env=True)
+        runtime_error = _runtime_version_error(model_family, allow_virtual_env=True)
         if runtime_error:
             raise ValueError(runtime_error)
 
@@ -421,7 +426,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             from xllamacpp import CommonParams, Server, __version__
 
             # Loading must validate the installed runtime even in virtualenv mode.
-            runtime_error = _minicpmv47_runtime_error(self.model_family)
+            runtime_error = _runtime_version_error(self.model_family)
             if runtime_error:
                 raise RuntimeError(runtime_error)
             try:
