@@ -59,6 +59,7 @@ from typing import (
 import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
+from xoscar.virtualenv.uv import UVVirtualEnvManager
 
 from .. import __version__
 from ..client.restful.restful_client import Client as RESTfulClient
@@ -499,6 +500,27 @@ async def _cancel_dependency_install(virtual_env_manager: "VirtualEnvManager") -
     await asyncio.get_running_loop().run_in_executor(
         _dependency_cancel_executor, virtual_env_manager.cancel_install
     )
+
+
+class ProcessGroupUVVirtualEnvManager(UVVirtualEnvManager):
+    """Run xoscar-tracked dependency commands in separate POSIX sessions."""
+
+    @contextmanager
+    def _tracked_install_process(self, cmd, **kwargs):
+        with super()._tracked_install_process(
+            cmd, start_new_session=True, **kwargs
+        ) as process:
+            yield process
+
+    def cancel_install(self):
+        # Keep xoscar's cancellation flag and process lookup atomic.
+        with self._install_lock:
+            self._install_cancelled = True
+            if self._install_process is not None:
+                try:
+                    os.killpg(self._install_process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
 
 async def _wait_for_launch_cleanup(cleanup: asyncio.Future) -> None:
@@ -4479,8 +4501,6 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # we specify python_path explicitly
                 # sometimes uv would find other versions.
                 python_path = pathlib.Path(sys.executable)
-            from xoscar.virtualenv.uv import UVVirtualEnvManager
-
             if (
                 cancel_event is not None
                 and type(virtual_env_manager) is UVVirtualEnvManager
@@ -4534,8 +4554,6 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 and hasattr(UVVirtualEnvManager, "_tracked_install_process")
                 and hasattr(UVVirtualEnvManager, "dependency_operations")
             ):
-                from .virtual_env_manager import ProcessGroupUVVirtualEnvManager
-
                 virtual_env_manager = ProcessGroupUVVirtualEnvManager(
                     virtual_env_manager.env_path
                 )

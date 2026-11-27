@@ -1802,11 +1802,7 @@ def test_cancel_post_install_stops_process_and_skips_public_fallback(tmp_path):
 def test_cancel_dependency_command_kills_build_subprocess(tmp_path, tracked_uv):
     from concurrent.futures import ThreadPoolExecutor
 
-    from ..virtual_env_manager import (
-        PostInstallCancelled,
-        ProcessGroupUVVirtualEnvManager,
-        _run_post_install_command,
-    )
+    from ..virtual_env_manager import PostInstallCancelled, _run_post_install_command
 
     child_pid_file = tmp_path / "build.pid"
     build = "import time; time.sleep(30)"
@@ -1829,6 +1825,8 @@ def test_cancel_dependency_command_kills_build_subprocess(tmp_path, tracked_uv):
         if not hasattr(UVVirtualEnvManager, "_tracked_install_process"):
             pytest.skip("xoscar does not expose tracked dependency processes")
         from xoscar.virtualenv.uv import UVInstallCancelled
+
+        from ..worker import ProcessGroupUVVirtualEnvManager
 
         manager = ProcessGroupUVVirtualEnvManager(tmp_path)
         cancel = manager.cancel_install

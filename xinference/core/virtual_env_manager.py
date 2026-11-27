@@ -21,14 +21,12 @@ import signal
 import stat
 import subprocess
 import threading
-from contextlib import contextmanager
 from importlib import metadata
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from packaging.utils import canonicalize_name
 from packaging.version import Version
-from xoscar.virtualenv.uv import UVVirtualEnvManager
 
 from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
@@ -36,27 +34,6 @@ from ..constants import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class ProcessGroupUVVirtualEnvManager(UVVirtualEnvManager):
-    """Run xoscar-tracked dependency commands in separate POSIX sessions."""
-
-    @contextmanager
-    def _tracked_install_process(self, cmd, **kwargs):
-        with super()._tracked_install_process(
-            cmd, start_new_session=True, **kwargs
-        ) as process:
-            yield process
-
-    def cancel_install(self):
-        # Keep xoscar's cancellation flag and process lookup atomic.
-        with self._install_lock:
-            self._install_cancelled = True
-            if self._install_process is not None:
-                try:
-                    os.killpg(self._install_process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
 
 
 def resolve_dependency_install_plan(
