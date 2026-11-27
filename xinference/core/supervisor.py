@@ -6801,7 +6801,7 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 # stays retryable with the same drain ID.
                 await self._abandon_manual_replica_drain(model_uid, drain)
                 if drain.cleanup_pending:
-                    await self._publish_replica_eviction(model_uid)
+                    await self._publish_replica_eviction(model_uid, strict=True)
                 self._finish_manual_replica_drain(drain, "cancelled")
                 raise ValueError(
                     "The original replicas changed during manual drain; "
@@ -7343,11 +7343,33 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
             else:
                 abandoned = drain
-        await SupervisorActor._publish_replica_eviction(self, base_uid)
+        cleanup = abandoned is not None and abandoned.cleanup_pending
+        try:
+            await SupervisorActor._publish_replica_eviction(
+                self, base_uid, strict=cleanup
+            )
+        except Exception:
+            if not cleanup:
+                raise
+            logger.warning(
+                "Could not publish %s offline after replica %s died; retry the "
+                "drained replica's deletion to finish",
+                base_uid,
+                replica_idx,
+                exc_info=True,
+            )
+            return
         if abandoned is not None:
             SupervisorActor._finish_manual_replica_drain(self, abandoned, "cancelled")
 
-    async def _publish_replica_eviction(self, base_uid: str) -> None:
+    async def _publish_replica_eviction(
+        self, base_uid: str, *, strict: bool = False
+    ) -> None:
+        """Publish the live replica count, taking a fully gone model offline.
+
+        With ``strict``, a failed ``TERMINATED`` write raises so drain cleanup
+        stays retryable; otherwise it is logged, as for replica death.
+        """
         # StatusGuard may retain terminal rows; only ReplicaInfo represents
         # replicas that are still live and routable.
         replica_info = self._model_uid_to_replica_info.get(base_uid)
@@ -7377,6 +7399,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 base_uid, {"status": LaunchStatus.TERMINATED.name}
             )
         except Exception:
+            if strict:
+                raise
             logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
 
         # Autostart owns relaunching a dead model; this is its 4th trigger,

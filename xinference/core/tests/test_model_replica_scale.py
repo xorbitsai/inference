@@ -1308,7 +1308,8 @@ async def test_finished_drain_request_id_cannot_be_reused(finished):
 
 
 @pytest.mark.asyncio
-async def test_drain_cleanup_stays_retryable_after_status_failure():
+@pytest.mark.parametrize("failure", ["replica_status", "terminated_status"])
+async def test_drain_cleanup_stays_retryable_after_status_failure(failure):
     worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
     supervisor = _make_supervisor([worker], worker.launch_args)
     await supervisor.add_model_replica("demo")
@@ -1327,15 +1328,25 @@ async def test_drain_cleanup_stays_retryable_after_status_failure():
     worker.terminate_model = AsyncMock(side_effect=terminate)
     status_guard = supervisor._status_guard_ref
     remove_status = status_guard.remove_replica_status
+    update_instance = status_guard.update_instance_info
     failed = []
 
     async def remove_once(model_uid, replica_id):
-        if replica_id == 1 and not failed:
+        if failure == "replica_status" and replica_id == 1 and not failed:
             failed.append(replica_id)
             raise RuntimeError("StatusGuard unavailable")
         return await remove_status(model_uid, replica_id)
 
+    async def update_once(model_uid, updates):
+        # Only the final write that takes the model offline fails once.
+        if failure == "terminated_status" and updates == {"status": "TERMINATED"}:
+            if not failed:
+                failed.append(updates)
+                raise RuntimeError("StatusGuard unavailable")
+        return await update_instance(model_uid, updates)
+
     status_guard.remove_replica_status = remove_once
+    status_guard.update_instance_info = update_once
     await supervisor.begin_manual_replica_drain("demo", 1, "r1")
     assert await supervisor.confirm_manual_replica_drain("demo", 1, "r1")
     with pytest.raises(RuntimeError, match="reply lost"):
@@ -1345,6 +1356,7 @@ async def test_drain_cleanup_stays_retryable_after_status_failure():
     assert supervisor.get_manual_replica_drain("demo", 1, "r1")["status"] == "unknown"
     assert not supervisor._upgrade_state.maintenance.idle()
     assert not autostarts
+    assert ("demo", {"status": "TERMINATED"}) not in status_guard.instance_updates
 
     with pytest.raises(ValueError, match="original replicas changed"):
         await supervisor.terminate_drained_model_replica("demo", 1, "r1")
