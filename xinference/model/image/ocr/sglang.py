@@ -12,12 +12,76 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import PIL.Image
 
 from ...utils import allow_trust_remote_code
+from .lighton_ocr3 import ThreadedLightOnOCR3Model
 from .ovisocr3 import ThreadedOvisOCR3Model
+
+if TYPE_CHECKING:
+    from ..core import ImageModelFamilyV2
+
+
+class SGLangLightOnOCR3Model(ThreadedLightOnOCR3Model):
+    required_libs = ("sglang", "transformers")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        # SGLang's LightOnOCR loader expects the older LightOnOCR-2 weights.
+        return (
+            super().match(model_family) and model_family.model_name != "LightOnOCR-3-1B"
+        )
+
+    def load(self) -> None:
+        from sglang import Engine
+        from transformers import AutoTokenizer
+
+        from ...llm.sglang.runtime import prepare_jit_cache
+
+        prepare_jit_cache()
+        config = self._kwargs.copy()
+        for key in ("cpu_offload", "device_map", "torch_dtype", "attn_implementation"):
+            config.pop(key, None)
+        trust_remote_code = allow_trust_remote_code(self.model_family)
+        config.setdefault("trust_remote_code", trust_remote_code)
+        config.setdefault("context_length", self._context_length)
+        config.setdefault("mem_fraction_static", 0.8)
+        self._processor = AutoTokenizer.from_pretrained(
+            self._model_path, trust_remote_code=trust_remote_code
+        )
+        try:
+            self._model = self._run_on_engine_thread(
+                Engine, model_path=self._model_path, **config
+            )
+        except Exception:
+            self.stop()
+            raise
+
+    def ocr(
+        self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
+    ) -> str:
+        image = self._prepare_image(image)
+        if self._model is None or self._processor is None:
+            self.load()
+        text = self._processor.apply_chat_template(
+            self._messages(prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            **self._chat_template_kwargs,
+        )
+        sampling_params = self._generation_kwargs(kwargs)
+        sampling_params.pop("use_cache", None)
+        do_sample = sampling_params.pop("do_sample", True)
+        sampling_params.setdefault("temperature", 0.1 if do_sample else 0.0)
+        output = self._run_on_engine_thread(
+            self._model.generate,
+            prompt=text,
+            image_data=image,
+            sampling_params=sampling_params,
+        )
+        return (output.get("text") or "").strip()
 
 
 class SGLangOvisOCR3Model(ThreadedOvisOCR3Model):

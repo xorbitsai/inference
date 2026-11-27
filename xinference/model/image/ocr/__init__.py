@@ -18,6 +18,7 @@ from .dots_ocr import DotsOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
 from .jina_ocr import JinaOCRModel
+from .lighton_ocr3 import LightOnOCR3Model
 from .minicpm_ocr import LlamaCppMiniCPMOCRModel, MiniCPMOCRModel, SGLangMiniCPMOCRModel
 from .mlx import MLXDeepSeekOCRModel
 from .monkeyocr import MonkeyOCRModel
@@ -26,7 +27,7 @@ from .ocr_family import SUPPORTED_ENGINES
 from .ovisocr2 import OvisOCR2Model
 from .ovisocr3 import OvisOCR3Model
 from .paddleocr_vl import PaddleOCRVLModel
-from .sglang import SGLangOvisOCR3Model
+from .sglang import SGLangLightOnOCR3Model, SGLangOvisOCR3Model
 from .teleocr import LlamaCppTeleOCRModel, TeleOCRModel
 from .unlimited_ocr import UnlimitedOCRModel
 from .unlimited_ocr2 import UnlimitedOCR2Model
@@ -34,6 +35,7 @@ from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
     VLLMHunyuanOCRModel,
+    VLLMLightOnOCR3Model,
     VLLMMiniCPMOCRModel,
     VLLMNaviDCOCRModel,
     VLLMOvisOCR2Model,
@@ -51,6 +53,7 @@ __all__ = [
     "GotOCR2Model",
     "HunyuanOCRModel",
     "JinaOCRModel",
+    "LightOnOCR3Model",
     "MiniCPMOCRModel",
     "SGLangMiniCPMOCRModel",
     "LlamaCppMiniCPMOCRModel",
@@ -74,6 +77,7 @@ def register_builtin_ocr_engines() -> None:
         GotOCR2Model,
         HunyuanOCRModel,
         JinaOCRModel,
+        LightOnOCR3Model,
         MiniCPMOCRModel,
         MonkeyOCRModel,
         NaviDCOCRModel,
@@ -88,6 +92,7 @@ def register_builtin_ocr_engines() -> None:
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
         VLLMHunyuanOCRModel,
+        VLLMLightOnOCR3Model,
         VLLMMiniCPMOCRModel,
         VLLMNaviDCOCRModel,
         VLLMOvisOCR2Model,
@@ -96,7 +101,11 @@ def register_builtin_ocr_engines() -> None:
         VLLMUnlimitedOCR2Model,
     ]
     SUPPORTED_ENGINES["llama.cpp"] = [LlamaCppTeleOCRModel, LlamaCppMiniCPMOCRModel]
-    SUPPORTED_ENGINES["sglang"] = [SGLangOvisOCR3Model, SGLangMiniCPMOCRModel]
+    SUPPORTED_ENGINES["sglang"] = [
+        SGLangOvisOCR3Model,
+        SGLangMiniCPMOCRModel,
+        SGLangLightOnOCR3Model,
+    ]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
     # DeepDoc runs on onnxruntime via its own engine name
     SUPPORTED_ENGINES["deepdoc"] = [DeepDocModel]
