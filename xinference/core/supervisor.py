@@ -282,8 +282,13 @@ class ManualReplicaDrain:
     worker: xo.ActorRefType["WorkerActor"]
     status: str = "draining"
     expiry: Optional[asyncio.TimerHandle] = field(default=None, repr=False)
-    # The target's route was removed but its status cleanup did not finish.
+    # UID-scoped cleanup of the original deployment is still owed: the
+    # target's route is gone, but its status row or the model's final state
+    # has not been published. It outlives a ``cancelled`` status and keeps the
+    # model UID and maintenance hold until it finishes.
     cleanup_pending: bool = False
+    cleanup_task: Optional["asyncio.Future[None]"] = field(default=None, repr=False)
+    holds_maintenance: bool = True
 
     def public(self) -> Dict[str, Any]:
         return {
@@ -6594,7 +6599,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         have its state overwritten by that cleanup.
         """
         drain = getattr(self, "_manual_replica_drains", {}).get(model_uid)
-        if drain is not None and drain.status not in ("cancelled", "succeeded"):
+        if drain is not None and (
+            drain.status not in ("cancelled", "succeeded") or drain.cleanup_pending
+        ):
             raise ValueError(
                 f"Replica drain {drain.request_id} of model {model_uid} has not "
                 "finished; retry its deletion before launching this model UID"
@@ -6602,7 +6609,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
 
     def _check_manual_replica_drain_idle(self, model_uid: str) -> None:
         drain = getattr(self, "_manual_replica_drains", {}).get(model_uid)
-        if drain is not None and drain.status not in ("cancelled", "succeeded"):
+        if drain is not None and (
+            drain.status not in ("cancelled", "succeeded") or drain.cleanup_pending
+        ):
             raise ValueError("A manual replica drain is in progress")
 
     def _finish_manual_replica_drain(
@@ -6611,7 +6620,43 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         self._set_manual_drain_lease(drain, None)
         if drain.status not in ("cancelled", "succeeded"):
             drain.status = status
+        self._release_manual_drain_hold(drain)
+
+    def _release_manual_drain_hold(self, drain: ManualReplicaDrain) -> None:
+        if (
+            drain.holds_maintenance
+            and drain.status in ("cancelled", "succeeded")
+            and not drain.cleanup_pending
+        ):
+            drain.holds_maintenance = False
             self._upgrade_state.maintenance.end()
+
+    async def _finish_manual_drain_cleanup(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> None:
+        """Run or join the drain's single cleanup owner until it finishes.
+
+        A concurrent caller (a DELETE retry or a replica-death callback) waits
+        for the active cleanup instead of starting a second one. A failure
+        leaves ``cleanup_pending`` set, so a retry with the same drain ID
+        resumes it. The work never waits on a Worker DELETE RPC: the DELETE
+        path only reaches cleanup after its RPC has returned.
+        """
+        while drain.cleanup_pending:
+            task = drain.cleanup_task
+            if task is None or task.done():
+                task = drain.cleanup_task = asyncio.ensure_future(
+                    SupervisorActor._run_manual_drain_cleanup(self, model_uid, drain)
+                )
+            await asyncio.shield(task)
+
+    async def _run_manual_drain_cleanup(
+        self, model_uid: str, drain: ManualReplicaDrain
+    ) -> None:
+        await self._status_guard_ref.remove_replica_status(model_uid, drain.replica_id)
+        await SupervisorActor._publish_replica_eviction(self, model_uid, strict=True)
+        drain.cleanup_pending = False
+        SupervisorActor._finish_manual_replica_drain(self, drain, "cancelled")
 
     def _set_manual_drain_lease(
         self, drain: ManualReplicaDrain, seconds: Optional[float]
@@ -6806,6 +6851,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     ) -> int:
         async with self._get_model_replica_lock(model_uid):
             drain = self._manual_replica_drain(model_uid, replica_id, request_id)
+            if drain.cleanup_pending:
+                # A Worker callback may have cancelled the drain already, but
+                # the original deployment's cleanup is still owed.
+                await self._finish_manual_drain_cleanup(model_uid, drain)
+                raise ValueError(
+                    "The original replicas changed during manual drain; "
+                    "the drain was cancelled"
+                )
             if drain.status == "succeeded":
                 info = self._model_uid_to_replica_info.get(model_uid)
                 if info is not None and replica_id in info.active_replica_ids:
@@ -6817,15 +6870,13 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 return 1
             if drain.status not in ("drained", "unknown"):
                 raise ValueError("A confirmed replica drain is required")
-            if drain.status == "unknown" and (
-                drain.cleanup_pending
-                or not await self._manual_drain_survivor_intact(model_uid, drain)
+            if drain.status == "unknown" and not (
+                await self._manual_drain_survivor_intact(model_uid, drain)
             ):
                 # Cancel only after cleanup is published, so a failure here
                 # stays retryable with the same drain ID.
                 await self._abandon_manual_replica_drain(model_uid, drain)
-                if drain.cleanup_pending:
-                    await self._publish_replica_eviction(model_uid, strict=True)
+                await self._finish_manual_drain_cleanup(model_uid, drain)
                 self._finish_manual_replica_drain(drain, "cancelled")
                 raise ValueError(
                     "The original replicas changed during manual drain; "
@@ -6911,13 +6962,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _abandon_manual_replica_drain(
         self, model_uid: str, drain: ManualReplicaDrain
     ) -> None:
-        """Clean up after a drain whose original replica pair no longer exists.
+        """Claim cleanup for a drain whose original replica pair is gone.
 
         Live and recreated replicas keep their routes. If an interrupted
-        deletion already removed the target, drop only its stale route and
-        status row, and leave ``cleanup_pending`` set. The caller publishes
-        the replica count and then cancels the drain, so any failure before
-        that leaves the drain retryable with the same ID.
+        deletion already removed the target, drop only its stale route and set
+        ``cleanup_pending``; ``_finish_manual_drain_cleanup`` then removes the
+        status row and publishes the model state before the drain ends.
         """
         target_uid = build_replica_model_uid(model_uid, drain.replica_id)
         owner, topology = drain.worker, drain.topology
@@ -6940,10 +6990,6 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             self._evict_replica_route(model_uid, drain.replica_id)
             self._invalidate_list_models_debounce_cache()
             drain.cleanup_pending = True
-        if drain.cleanup_pending and drain.status == "unknown":
-            await self._status_guard_ref.remove_replica_status(
-                model_uid, drain.replica_id
-            )
 
     def _evict_replica_route(self, model_uid: str, replica_id: int) -> None:
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
@@ -7367,22 +7413,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 )
             else:
                 abandoned = drain
-        cleanup = abandoned is not None and abandoned.cleanup_pending
-        try:
-            await SupervisorActor._publish_replica_eviction(
-                self, base_uid, strict=cleanup
-            )
-        except Exception:
-            if not cleanup:
-                raise
-            logger.warning(
-                "Could not publish %s offline after replica %s died; retry the "
-                "drained replica's deletion to finish",
-                base_uid,
-                replica_idx,
-                exc_info=True,
-            )
+        if drain is not None and drain.cleanup_pending:
+            # The drain's single cleanup owner publishes this death as well,
+            # so a concurrent DELETE retry joins it instead of racing it.
+            try:
+                await SupervisorActor._finish_manual_drain_cleanup(
+                    self, base_uid, drain
+                )
+            except Exception:
+                logger.warning(
+                    "Could not finish the manual drain cleanup of %s after "
+                    "replica %s died; retry the drained replica's deletion",
+                    base_uid,
+                    replica_idx,
+                    exc_info=True,
+                )
             return
+        await SupervisorActor._publish_replica_eviction(self, base_uid)
         if abandoned is not None:
             SupervisorActor._finish_manual_replica_drain(self, abandoned, "cancelled")
 
