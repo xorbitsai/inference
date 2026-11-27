@@ -86,6 +86,8 @@ The following is a list of built-in audio models in Xinference:
 
    minimax-music3
   
+   oruk-fourier-2b
+
    paraformer-zh
   
    paraformer-zh-hotword
