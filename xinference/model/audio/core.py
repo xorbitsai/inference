@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type, Union
 
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -335,7 +335,7 @@ def create_audio_model_instance(
         model_engine=model_engine,
         quantization=quantization,
     )
-    audio_cls = None
+    audio_cls: Optional[Type[AudioEngineModel]] = None
 
     if model_spec.model_family == "dots_tts_edit" and not cache_only:
         if not is_dots_tts_python_supported(model_python_executable):
