@@ -20,6 +20,7 @@ import json
 import os
 import sys
 from base64 import b64encode
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from threading import Thread
@@ -926,12 +927,19 @@ async def check_rest_processor_options(
     ]
     if reverse:
         payloads.reverse()
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        responses = await asyncio.gather(
-            *(client.post("/v1/embeddings", json=payload) for payload in payloads)
-        )
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            responses = await asyncio.gather(
+                *(client.post("/v1/embeddings", json=payload) for payload in payloads)
+            )
+    finally:
+        task = model._process_batch_task
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
     special, plain = reversed(responses) if reverse else responses
     assert (special.status_code, plain.status_code) == (400 if error else 200, 200), (
@@ -985,6 +993,58 @@ async def test_rest_sentence_transformers_processor_options_are_request_local(
     )
 
 
+@pytest.fixture(scope="module")
+def tiny_image_text_input():
+    png = BytesIO()
+    Image.new("RGB", (56, 56)).save(png, format="PNG")
+    return {
+        "text": "caption",
+        "image": "data:image/png;base64," + b64encode(png.getvalue()).decode("ascii"),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["image-first", "text-first"])
+@pytest.mark.parametrize(
+    "model_cls,groups",
+    [
+        (CLASSES[0], ("images_kwargs",)),
+        (CLASSES[0], ("processor_kwargs", "images_kwargs")),
+        (CLASSES[1], ("image",)),
+    ],
+    ids=["transformers", "wrapped-transformers", "sentence-transformers"],
+)
+@pytest.mark.parametrize(
+    "resample,error",
+    [(99, "resample"), (4, "resample"), (5, "resample"), (True, "resample"), (2, None)],
+    ids=["unknown", "box", "hamming", "boolean", "bilinear"],
+)
+async def test_rest_image_resample_is_request_local(
+    tiny_nemotron_checkpoint,
+    tiny_image_text_input,
+    monkeypatch,
+    model_cls,
+    groups,
+    resample,
+    error,
+    reverse,
+):
+    if model_cls is CLASSES[1]:
+        pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    processing_kwargs = {"resample": resample}
+    for group in reversed(groups):
+        processing_kwargs = {group: processing_kwargs}
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        model_cls,
+        processing_kwargs,
+        error,
+        reverse,
+        special_input=tiny_image_text_input,
+    )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reverse", [False, True], ids=["special-first", "plain-first"])
 @pytest.mark.parametrize(
@@ -1001,7 +1061,13 @@ async def test_rest_sentence_transformers_processor_options_are_request_local(
     ids=["syntax-error", "render-error", "python-error", "valid-template"],
 )
 async def test_rest_custom_chat_template_errors_are_request_local(
-    tiny_nemotron_checkpoint, monkeypatch, model_cls, template, error, reverse
+    tiny_nemotron_checkpoint,
+    tiny_image_text_input,
+    monkeypatch,
+    model_cls,
+    template,
+    error,
+    reverse,
 ):
     if template is None:
         template = (tiny_nemotron_checkpoint / "chat_template.jinja").read_text()
@@ -1010,13 +1076,7 @@ async def test_rest_custom_chat_template_errors_are_request_local(
     if model_cls is CLASSES[1]:
         pytest.importorskip("sentence_transformers", minversion="6.1.0")
         processing_kwargs = {"chat_template": processing_kwargs}
-        png = BytesIO()
-        Image.new("RGB", (56, 56)).save(png, format="PNG")
-        special_input = {
-            "text": "caption",
-            "image": "data:image/png;base64,"
-            + b64encode(png.getvalue()).decode("ascii"),
-        }
+        special_input = tiny_image_text_input
     await check_rest_processor_options(
         tiny_nemotron_checkpoint,
         monkeypatch,

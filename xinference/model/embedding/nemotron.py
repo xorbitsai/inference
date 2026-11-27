@@ -69,6 +69,37 @@ def _validate_processor_option_groups(
             )
 
 
+def _validate_resample(options: Dict[str, Any], path: str) -> None:
+    resample = options.get("resample")
+    if resample is None:
+        return
+
+    from torchvision.transforms import InterpolationMode
+    from transformers.image_utils import pil_torch_interpolation_mapping
+
+    if isinstance(resample, int) and not isinstance(resample, bool):
+        resample = pil_torch_interpolation_mapping.get(resample)
+    # Pixtral resizes tensors, which do not support BOX or HAMMING.
+    if not isinstance(resample, InterpolationMode) or resample in (
+        InterpolationMode.BOX,
+        InterpolationMode.HAMMING,
+    ):
+        raise InvalidModelRequestError(
+            f"Nemotron 3.5 Embed {path}.resample must be a supported Pixtral resampling mode."
+        )
+
+
+def _validate_transformers_processor_options(
+    options: Dict[str, Any], path: str
+) -> None:
+    _validate_processor_option_groups(
+        options, _TRANSFORMERS_PROCESSOR_OPTION_GROUPS, path
+    )
+    _validate_resample(options, path)
+    for group in ("images_kwargs", "common_kwargs"):
+        _validate_resample(options.get(group, {}), f"{path}.{group}")
+
+
 def _raise_request_processing_error(
     exc: Exception, chat_template: Optional[str]
 ) -> None:
@@ -334,19 +365,20 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 ("processing_kwargs", processing_kwargs),
                 ("processing_kwargs.processor_kwargs", processor_kwargs or {}),
             ):
-                _validate_processor_option_groups(
-                    options, _TRANSFORMERS_PROCESSOR_OPTION_GROUPS, path
-                )
+                _validate_transformers_processor_options(options, path)
         elif self.engine == "sentence_transformers" and processing_kwargs:
             _validate_processor_option_groups(
                 processing_kwargs,
                 _SENTENCE_TRANSFORMERS_PROCESSOR_OPTION_GROUPS,
                 "processing_kwargs",
             )
+            for group in ("image", "common"):
+                _validate_resample(
+                    processing_kwargs.get(group, {}), f"processing_kwargs.{group}"
+                )
             # Sentence Transformers forwards template options to Transformers.
-            _validate_processor_option_groups(
+            _validate_transformers_processor_options(
                 processing_kwargs.get("chat_template", {}),
-                _TRANSFORMERS_PROCESSOR_OPTION_GROUPS,
                 "processing_kwargs.chat_template",
             )
         return dimensions
