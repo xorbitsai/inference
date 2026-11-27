@@ -518,9 +518,14 @@ class PDModelActor(xo.StatelessActor):
             raise ModelNotReadyError("No decode replicas available")
         # Every possible decoder must support the requested budget. Native
         # sampling fields are applied again by the selected decoder at generation.
+        # Include the decode role without a transfer, which is created at dispatch.
+        decode_config = {
+            **generate_config,
+            "_pd_kv_transfer_params": {"do_remote_prefill": True},
+        }
         for replica in self._decode_replicas.values():
             result = await actor_call(
-                replica, "prepare_reasoning_request", generate_config
+                replica, "prepare_reasoning_request", decode_config
             )
             if isinstance(result, (str, bytes)):
                 result = json.loads(result)

@@ -232,3 +232,6 @@ msgstr ""
 
 #~ msgid ":ref:`models_llm_qwen-chat`"
 #~ msgstr ""
+
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Disable thinking with ``extra_body={\"enable_thinking\": False}`` when using the OpenAI SDK. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "No DeepSeek V4.1 Flash e no Flash 1017 com vLLM, use ``tool_choice=\"required\"`` ou selecione uma função pelo nome para forçar uma chamada de ferramenta. Ao usar o SDK da OpenAI, desative o raciocínio com ``extra_body={\"enable_thinking\": False}``. Na transmissão em fluxo, os argumentos da ferramenta são retornados quando estiverem completos. A escolha forçada de ferramenta não está disponível com prefill e decodificação separados."

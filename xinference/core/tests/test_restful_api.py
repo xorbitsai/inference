@@ -2020,6 +2020,694 @@ async def test_chat_completion_preflight_with_required_tool_choice(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "time"}}]
+)
+@pytest.mark.parametrize("thinking", [False, True])
+async def test_deepseek_v41_openai_forces_tool_choice(
+    monkeypatch, stream, choice, thinking
+):
+    from jsonschema import Draft202012Validator
+
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = None
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        assert messages[0]["role"] == "system"
+        assert not config["chat_template_kwargs"]["enable_thinking"]
+        assert not config.get("tools")
+        return {"prompt": "rendered"}, [], config["chat_template_kwargs"], config
+
+    backend._prepare_chat_inputs = prepare
+    name = "weather" if choice == "required" else "time"
+
+    async def generate(prompt, config, tools, request_id=None):
+        assert config["_require_structured_output"]
+        assert not config.get("_anthropic_request")
+        assert not config["stream"]
+        assert not tools
+        schema = config["response_format"]["json_schema"]["schema"]
+        validator = Draft202012Validator(schema)
+        arguments = {"city": "Paris"}
+        calls = [{"name": name, "arguments": arguments}]
+        assert not validator.is_valid([])
+        assert not validator.is_valid([{"name": "undeclared", "arguments": arguments}])
+        assert validator.is_valid([{"name": "weather", "arguments": arguments}]) == (
+            choice == "required"
+        )
+        validator.validate(calls)
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 15, "completion_tokens": 7, "total_tokens": 22},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+    backend.async_chat = lambda *args, **kwargs: method(backend, *args, **kwargs)
+
+    async def chat(messages, config, *, request_id, **kwargs):
+        result = await backend.async_chat(messages, config, request_id=request_id)
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "messages": [{"role": "user", "content": "Say hello in one word."}],
+            "stream": stream,
+            **({"stream_options": {"include_usage": True}} if stream else {}),
+            "enable_thinking": thinking,
+            "tool_choice": choice,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool_name,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"city": {"type": "string"}},
+                            "required": ["city"],
+                        },
+                    },
+                }
+                for tool_name in ("weather", "time")
+            ],
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    if thinking:
+        with pytest.raises(HTTPException, match="requires disabling thinking") as exc:
+            await api.create_chat_completion(request)
+        assert exc.value.status_code == 400
+        model.chat.assert_not_awaited()
+        return
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    if stream:
+        frames = [item async for item in response.body_iterator]
+        assert frames[-1] == "[DONE]"
+        result = json.loads(frames[0])
+        assert json.loads(frames[1])["usage"]["total_tokens"] == 22
+    else:
+        result = json.loads(response.body)
+    answer = result["choices"][0]
+    assert answer["finish_reason"] == "tool_calls"
+    message = answer["delta" if stream else "message"]
+    assert not message["content"]
+    assert message["tool_calls"][0]["function"]["name"] == name
+    assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {
+        "city": "Paris"
+    }
+    backend.async_generate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
+@pytest.mark.parametrize("launch_thinking", [False, True], ids=["off", "on"])
+@pytest.mark.parametrize("requested", [None, False, True], ids=["unset", "no", "yes"])
+@pytest.mark.parametrize("endpoint", ["chat", "responses"])
+async def test_deepseek_v41_forced_tools_follow_launch_thinking(
+    monkeypatch, stream, launch_thinking, requested, endpoint
+):
+    from ...model.llm.core import chat_context_var
+    from ...model.llm.reasoning_parser import ReasoningParser
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": family, "model_engine": "vLLM"}
+    )
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(
+        model_name=family, reasoning_effort=None, model_ability=["chat", "hybrid"]
+    )
+    # The parser a vLLM launch builds, with thinking on or off by default.
+    backend.reasoning_parser = ReasoningParser(
+        True, "<think>", "</think>", enable_thinking=launch_thinking
+    )
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.11.0"))
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        # Like the real input preparation, select the per-request parser mode.
+        context = backend._get_chat_template_kwargs_from_generate_config(
+            config, backend.reasoning_parser
+        )
+        chat_context_var.set(context or {})
+        return {"prompt": "rendered"}, [], context, config
+
+    backend._prepare_chat_inputs = prepare
+
+    async def generate(prompt, config, tools, request_id=None):
+        assert config["chat_template_kwargs"]["enable_thinking"] is False
+        calls = [{"name": "time", "arguments": {}}]
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+
+    async def chat(messages, config, **kwargs):
+        result = await method(backend, messages, config, request_id="r")
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    thinking = {}
+    if requested is not None:
+        # Chat uses the top-level field; Responses also takes it from extra_body.
+        thinking = (
+            {"enable_thinking": requested}
+            if endpoint == "chat"
+            else {"extra_body": {"enable_thinking": requested}}
+        )
+    if endpoint == "chat":
+        payload = {
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    else:
+        payload = {
+            "input": "What time is it?",
+            "tools": [{"type": "function", "name": "time", "parameters": {}}],
+        }
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "stream": stream,
+            "tool_choice": "required",
+            **payload,
+            **thinking,
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    request.receive = asyncio.Event().wait
+    create = api.create_chat_completion if endpoint == "chat" else api.create_response
+
+    if requested or (requested is None and launch_thinking):
+        if endpoint == "chat":
+            with pytest.raises(HTTPException, match="requires disabling") as exc:
+                await create(request)
+            assert exc.value.status_code == 400
+        else:
+            response = await create(request)
+            assert response.status_code == 400
+            message = json.loads(response.body)["error"]["message"]
+            assert "requires disabling thinking" in message
+        model.chat.assert_not_awaited()
+        return
+
+    response = await create(request)
+    assert response.status_code == 200
+    if endpoint == "chat":
+        if stream:
+            frames = [item async for item in response.body_iterator]
+            message = json.loads(frames[0])["choices"][0]["delta"]
+        else:
+            message = json.loads(response.body)["choices"][0]["message"]
+        assert message["tool_calls"][0]["function"]["name"] == "time"
+        assert not message.get("reasoning_content")
+    else:
+        if stream:
+            events = [item async for item in response.body_iterator]
+            done = next(
+                json.loads(event["data"])
+                for event in events
+                if event.get("event") == "response.completed"
+            )
+            output = done["response"]["output"]
+        else:
+            output = json.loads(response.body)["output"]
+        # The tool JSON must not be parsed as thinking.
+        assert [item["type"] for item in output] == ["function_call"]
+        assert output[0]["name"] == "time"
+    backend.async_generate.assert_awaited_once()
+
+
+_GUIDED_KEYS = (
+    "guided_json",
+    "guided_regex",
+    "guided_choice",
+    "guided_grammar",
+    "guided_json_object",
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "guided",
+    [
+        None,
+        {"guided_json": {"type": "object"}},
+        {"guided_regex": ".*"},
+        {"guided_choice": ["yes", "no"]},
+        {"guided_grammar": 'root ::= "a"'},
+        {"guided_json_object": True},
+    ],
+    ids=["control", "json", "regex", "choice", "grammar", "object"],
+)
+async def test_deepseek_v41_forced_tools_reject_guided_constraints(
+    monkeypatch, stream, guided
+):
+    from ...model.llm.vllm import core as vllm_core
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    backend = object.__new__(vllm_core.VLLMMultiModel)
+    backend.model_uid = "deepseek"
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = None
+    monkeypatch.setattr(vllm_core, "StructuredOutputsParams", object)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.11.0"))
+
+    async def preflight(config, **kwargs):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except ValueError as exc:
+            return {"error": {"status": 400, "message": str(exc)}}
+
+    model.prepare_reasoning_request.side_effect = preflight
+
+    async def prepare(messages, config):
+        return {"prompt": "rendered"}, [], config["chat_template_kwargs"], config
+
+    backend._prepare_chat_inputs = prepare
+    sampling = []
+
+    async def generate(prompt, config, tools, request_id=None):
+        # Run the real sampling sanitization to see which constraint reaches vLLM.
+        sampling.append(vllm_core.VLLMModel._sanitize_generate_config(dict(config)))
+        calls = [{"name": "time", "arguments": {}}]
+        return {
+            "id": "completion",
+            "created": 1,
+            "model": "deepseek",
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "choices": [
+                {"index": 0, "text": json.dumps(calls), "finish_reason": "stop"}
+            ],
+        }
+
+    backend.async_generate = AsyncMock(side_effect=generate)
+    method = vllm_core.VLLMMultiModel.async_chat.__wrapped__
+    backend.async_chat = lambda *args, **kwargs: method(backend, *args, **kwargs)
+
+    async def chat(messages, config, *, request_id, **kwargs):
+        result = await backend.async_chat(messages, config, request_id=request_id)
+        if not stream:
+            return json.dumps(result)
+
+        async def encoded():
+            async for item in result:
+                yield json.dumps(item)
+
+        return encoded()
+
+    model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "deepseek",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "stream": stream,
+            "enable_thinking": False,
+            "tool_choice": {"type": "function", "function": {"name": "time"}},
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+            **(guided or {}),
+        }
+    )
+    request.is_disconnected = AsyncMock(return_value=False)
+    if guided:
+        (key,) = guided
+        with pytest.raises(HTTPException, match=f"cannot be combined with {key}") as e:
+            await api.create_chat_completion(request)
+        assert e.value.status_code == 400
+        model.chat.assert_not_awaited()
+        return
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    if stream:
+        frames = [item async for item in response.body_iterator]
+        answer = json.loads(frames[0])["choices"][0]
+    else:
+        answer = json.loads(response.body)["choices"][0]
+    assert answer["finish_reason"] == "tool_calls"
+    (sanitized,) = sampling
+    schema = sanitized["guided_json"]
+    assert schema["type"] == "array"
+    assert schema["items"]["oneOf"][0]["properties"]["name"] == {"const": "time"}
+    assert not any(sanitized.get(key) for key in _GUIDED_KEYS[1:])
+
+
+@pytest.mark.parametrize("guided", [{"guided_json": {}}, {"guided_regex": ".*"}])
+def test_deepseek_v41_forced_tool_chat_rejects_guided_constraints(guided):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    backend = object.__new__(VLLMMultiModel)
+    backend.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4.1-Flash-1017", reasoning_effort=None
+    )
+    backend.reasoning_parser = None
+    config = {
+        "tool_choice": "required",
+        "tools": [{"type": "function", "function": {"name": "time"}}],
+        **guided,
+    }
+    # Actors called without the API preflight reject before generation too.
+    with pytest.raises(ValueError, match="cannot be combined with"):
+        backend._prepare_openai_forced_tool_config(config)
+
+
+@pytest.mark.asyncio
+async def test_deepseek_v41_forced_tools_accept_retained_actor_preflight(
+    monkeypatch,
+):
+    from ...model.llm.core import LLM
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    family = "DeepSeek-V4.1-Flash"
+    api, model = _build_mock_chat_api(monkeypatch, {"model_family": family})
+    model.is_vllm_backend.return_value = True
+    retained = object.__new__(VLLMMultiModel)
+    retained.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    retained.reasoning_parser = None
+
+    async def preflight(config, **kwargs):
+        # A model actor from before this change runs only the base preflight,
+        # which leaves chat_template_kwargs unset without explicit template kwargs.
+        prepared = LLM.prepare_reasoning_request(retained, config)
+        assert "chat_template_kwargs" not in prepared
+        return prepared
+
+    model.prepare_reasoning_request.side_effect = preflight
+    model.chat.return_value = json.dumps(
+        {
+            "id": "completion",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "deepseek",
+            "choices": [],
+        }
+    )
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "deepseek",
+                "messages": [{"role": "user", "content": "What time is it?"}],
+                "tool_choice": "required",
+                "tools": [{"type": "function", "function": {"name": "time"}}],
+            }
+        )
+    )
+
+    assert response.status_code == 200
+    model.prepare_reasoning_request.assert_awaited_once()
+    model.chat.assert_awaited_once()
+    assert model.chat.await_args.args[1]["tool_choice"] == "required"
+
+
+async def _build_mock_pd_chat_api(monkeypatch, engine, family):
+    from ..pd_model import PDModelActor
+
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": family, "model_engine": engine}
+    )
+    pd_model = PDModelActor("pd", model_engine=engine)
+    pd_model.address = "localhost:1234"
+    model.is_vllm_backend.side_effect = pd_model.is_vllm_backend
+    model.prepare_reasoning_request.side_effect = pd_model.prepare_reasoning_request
+    model.chat.side_effect = pd_model.chat
+    prefill = SimpleNamespace(
+        uid=b"prefill",
+        chat=AsyncMock(
+            return_value={"_pd_kv_transfer_params": {"do_remote_prefill": True}}
+        ),
+    )
+    decode = SimpleNamespace(
+        uid=b"decode",
+        chat=AsyncMock(return_value=b'{"choices":[]}'),
+        prepare_reasoning_request=AsyncMock(),
+    )
+    await pd_model.add_prefill_actor("prefill", prefill)
+    await pd_model.add_decode_actor("decode", decode)
+    return api, model, prefill, decode
+
+
+def _mock_decoder_reasoning_preflight(decode, backend, family):
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = SimpleNamespace(reasoning_end_tag="</think>")
+
+    def prepare(config):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except (ValueError, NotImplementedError) as exc:
+            return {
+                "error": {
+                    "status": 501 if isinstance(exc, NotImplementedError) else 400,
+                    "message": str(exc),
+                }
+            }
+
+    decode.prepare_reasoning_request.side_effect = prepare
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
+@pytest.mark.parametrize("family", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "function": {"name": "time"}}],
+    ids=["required", "named"],
+)
+async def test_pd_deepseek_v41_openai_forced_tool_routing(
+    monkeypatch, engine, family, choice
+):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    api, model, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, engine, family
+    )
+    if engine == "vLLM":
+        _mock_decoder_reasoning_preflight(
+            decode, object.__new__(VLLMMultiModel), family
+        )
+
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "enable_thinking": False,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    if engine == "vLLM":
+        with pytest.raises(HTTPException, match="not supported for P/D") as error:
+            await api.create_chat_completion(request)
+        assert error.value.status_code == 501
+        decode.prepare_reasoning_request.assert_awaited_once()
+        prefill.chat.assert_not_awaited()
+        decode.chat.assert_not_awaited()
+    else:
+        response = await api.create_chat_completion(request)
+        assert response.status_code == 200
+        model.prepare_reasoning_request.assert_not_awaited()
+        for replica in (prefill, decode):
+            replica.chat.assert_awaited_once()
+            assert replica.chat.await_args.args[1]["tool_choice"] == choice
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
+@pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
+@pytest.mark.parametrize("family", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "name": "time"}, "auto"],
+    ids=["required", "named", "auto"],
+)
+async def test_pd_deepseek_v41_responses_forced_tool_routing(
+    monkeypatch, stream, engine, family, choice
+):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    api, model, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, engine, family
+    )
+    _mock_decoder_reasoning_preflight(decode, object.__new__(VLLMMultiModel), family)
+    if stream:
+
+        async def chunks():
+            return
+            yield
+
+        decode.chat.return_value = chunks()
+        router_chat = model.chat.side_effect
+
+        async def chat(*args, **kwargs):
+            result = await router_chat(*args, **kwargs)
+            # No actor pool exists to destroy the generator on collection.
+            result._gc_destroy = False
+            return result
+
+        model.chat.side_effect = chat
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "input": "What time is it?",
+            "stream": stream,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "name": "time", "parameters": {}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    response = await api.create_response(request)
+
+    if engine == "vLLM" and choice != "auto":
+        assert response.status_code == 501
+        error = json.loads(response.body)["error"]
+        assert "not supported for P/D" in error["message"]
+        decode.prepare_reasoning_request.assert_awaited_once()
+        prefill.chat.assert_not_awaited()
+        decode.chat.assert_not_awaited()
+        return
+
+    assert response.status_code == 200
+    decode.prepare_reasoning_request.assert_not_awaited()
+    expected = choice
+    if isinstance(choice, dict):
+        expected = {"type": "function", "function": {"name": "time"}}
+    for replica in (prefill, decode):
+        replica.chat.assert_awaited_once()
+        assert replica.chat.await_args.args[1]["tool_choice"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "function": {"name": "time"}}],
+    ids=["required", "named"],
+)
+async def test_seed_oss_pd_zero_budget_preserves_forced_tool_routing(
+    monkeypatch, choice
+):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    api, _, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, "vLLM", "seed-oss"
+    )
+    _mock_decoder_reasoning_preflight(
+        decode, object.__new__(VLLMMultiModel), "seed-oss"
+    )
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "thinking_budget": 0,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    decode.prepare_reasoning_request.assert_awaited_once()
+    for replica in (prefill, decode):
+        replica.chat.assert_awaited_once()
+        config = replica.chat.await_args.args[1]
+        assert config["chat_template_kwargs"]["thinking_budget"] == 0
+        assert config["tool_choice"] == choice
+
+
+@pytest.mark.asyncio
+async def test_qwen3_sglang_pd_preserves_decoder_reasoning_error(monkeypatch):
+    from ...model.llm.sglang.core import SGLANGChatModel
+
+    api, _, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, "SGLang", "qwen3"
+    )
+    _mock_decoder_reasoning_preflight(decode, object.__new__(SGLANGChatModel), "qwen3")
+    with pytest.raises(
+        HTTPException, match="incompatible with manual thinking"
+    ) as error:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "What time is it?"}],
+                    "thinking_budget": 10,
+                    "tool_choice": "required",
+                    "tools": [{"type": "function", "function": {"name": "time"}}],
+                }
+            )
+        )
+
+    assert error.value.status_code == 400
+    decode.prepare_reasoning_request.assert_awaited_once()
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tool_request",
     [

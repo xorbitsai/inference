@@ -3907,6 +3907,84 @@ class RESTfulAPI(CancelMixin):
         status_code = 429 if "Rate limit reached" in message else 500
         return cls._responses_error(status_code, message, code=code)
 
+    @staticmethod
+    def _needs_deepseek_forced_tool_preflight(
+        desc: Dict[str, Any], kwargs: Dict[str, Any], is_vllm_backend: bool
+    ) -> bool:
+        """Whether a request forces a DeepSeek V4.1 tool call on a vLLM engine."""
+        from ..model.llm.tool_controls import is_deepseek_v41_forced_tool_choice
+
+        # The P/D router reports vLLM compatibility for non-vLLM engines too.
+        return bool(
+            is_vllm_backend
+            and (desc.get("model_engine") or "vllm").lower() == "vllm"
+            and is_deepseek_v41_forced_tool_choice(kwargs, desc.get("model_family"))
+        )
+
+    @staticmethod
+    def _load_reasoning_preflight(prepared: Any) -> Dict[str, Any]:
+        """Decode a reasoning preflight result and validate any error entry."""
+        if isinstance(prepared, (str, bytes)):
+            prepared = json.loads(prepared)
+        if not isinstance(prepared, dict):
+            raise ValueError("Invalid reasoning preflight response")
+        if "error" in prepared:
+            error = prepared["error"]
+            if (
+                not isinstance(error, dict)
+                or error.get("status") not in {400, 501}
+                or not isinstance(error.get("message"), str)
+            ):
+                raise ValueError("Invalid reasoning preflight error")
+        return prepared
+
+    async def _preflight_responses_forced_tools(
+        self, request: Request, model: Any, model_uid: str, kwargs: Dict[str, Any]
+    ) -> Union[Dict[str, Any], JSONResponse, None]:
+        """Run the DeepSeek V4.1 forced-tool preflight Chat Completions uses.
+
+        Returns the prepared config, an error response, or None when the
+        request does not need the preflight.
+        """
+        from ..model.llm.tool_controls import is_forced_tool_choice
+
+        if not is_forced_tool_choice(kwargs):
+            return None
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            desc = await supervisor_ref.describe_model(
+                model_uid, selected_replica_uid=model.uid.decode()
+            )
+            if not self._needs_deepseek_forced_tool_preflight(
+                desc, kwargs, await model.is_vllm_backend()
+            ):
+                return None
+            prepared = self._load_reasoning_preflight(
+                await model.prepare_reasoning_request(kwargs)
+            )
+        except ModelNotReadyError:
+            return self._responses_error(
+                503,
+                "Model is loading, please retry later",
+                headers={"Retry-After": "30"},
+            )
+        except Exception as exc:
+            if (
+                "Rate limit reached" in str(exc)
+                or self._model_request_error_detail(exc) is not None
+            ):
+                return self._responses_model_error(exc)
+            logger.exception("Responses forced-tool preflight failed")
+            return self._responses_error(
+                503, "Reasoning request preflight is temporarily unavailable"
+            )
+        if "error" not in prepared:
+            return prepared
+        mark_inference_rejection(request, "reasoning_preflight")
+        return self._responses_error(
+            prepared["error"]["status"], prepared["error"]["message"]
+        )
+
     async def create_response(self, request: Request) -> Response:
         try:
             raw_body = await request.json()
@@ -4008,6 +4086,15 @@ class RESTfulAPI(CancelMixin):
                 mark_inference_rejection(request, "reasoning_controls")
                 return self._responses_error(400, str(exc), param="reasoning.effort")
         raw_kwargs = dict(kwargs)
+        preflight = await self._preflight_responses_forced_tools(
+            request, model, model_uid, kwargs
+        )
+        if isinstance(preflight, JSONResponse):
+            return preflight
+        if preflight is not None:
+            kwargs = preflight
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if not req.stream:
             try:
@@ -5995,27 +6082,19 @@ class RESTfulAPI(CancelMixin):
                     media_counts,
                 )
 
-        if (
+        if self._needs_deepseek_forced_tool_preflight(
+            desc, kwargs, is_vllm_backend
+        ) or (
             controls_requested
             and (kwargs.get("chat_template_kwargs") or {}).get("thinking_budget")
             is not None
         ):
             try:
-                prepared = await model.prepare_reasoning_request(
-                    kwargs, **reservation_options
+                prepared = self._load_reasoning_preflight(
+                    await model.prepare_reasoning_request(kwargs, **reservation_options)
                 )
-                if isinstance(prepared, (str, bytes)):
-                    prepared = json.loads(prepared)
-                if not isinstance(prepared, dict):
-                    raise ValueError("Invalid reasoning preflight response")
                 if "error" in prepared:
                     error = prepared["error"]
-                    if (
-                        not isinstance(error, dict)
-                        or error.get("status") not in {400, 501}
-                        or not isinstance(error.get("message"), str)
-                    ):
-                        raise ValueError("Invalid reasoning preflight error")
                     raise InferenceRequestRejected(
                         error["status"],
                         error["message"],
@@ -6036,7 +6115,10 @@ class RESTfulAPI(CancelMixin):
                     503, "Reasoning request preflight is temporarily unavailable"
                 ) from exc
             kwargs = prepared
-            raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
+            # A retained older model actor may omit the key when the request
+            # sets no template kwargs.
+            if "chat_template_kwargs" in kwargs:
+                raw_kwargs["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
 
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]

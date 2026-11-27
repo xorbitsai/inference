@@ -194,6 +194,40 @@ def test_json_schema_format_and_unsupported_fields():
     assert exc.value.param == "previous_response_id"
 
 
+def test_thinking_extension_reaches_chat_template_kwargs():
+    base = {"model": "m", "input": "x"}
+    # Clients that send only the standard reasoning field keep today's request.
+    plain = parse_responses_request({**base, "reasoning": {"effort": "medium"}})
+    assert "chat_template_kwargs" not in plain.chat_body
+
+    top = parse_responses_request({**base, "enable_thinking": False})
+    extra = parse_responses_request({**base, "extra_body": {"enable_thinking": False}})
+    for req in (top, extra):
+        assert req.chat_body["chat_template_kwargs"] == {
+            "enable_thinking": False,
+            "thinking": False,
+        }
+
+    merged = parse_responses_request(
+        {
+            **base,
+            "enable_thinking": True,
+            "chat_template_kwargs": {"reasoning_effort": "none", "thinking": False},
+        }
+    )
+    assert merged.chat_body["chat_template_kwargs"] == {
+        "reasoning_effort": "none",
+        "enable_thinking": True,
+        "thinking": True,
+    }
+
+    for field, value in (("enable_thinking", "no"), ("chat_template_kwargs", "{}")):
+        with pytest.raises(ResponsesProtocolError) as exc:
+            parse_responses_request({**base, field: value})
+        assert exc.value.status_code == 400
+        assert exc.value.param == field
+
+
 def test_chat_to_response_maps_reasoning_text_and_calls():
     req = parse_responses_request({"model": "m", "input": "x", "tools": CODEX_TOOLS})
     response = chat_to_response(
