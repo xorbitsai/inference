@@ -512,22 +512,20 @@ class PDModelActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def prepare_reasoning_request(self, generate_config: Dict):
-        if is_forced_tool_choice(generate_config):
-            return {
-                "error": {
-                    "status": 501,
-                    "message": "Forced tool choice is not supported for P/D models",
-                }
-            }
         if not self._decode_replicas:
             from .model import ModelNotReadyError
 
             raise ModelNotReadyError("No decode replicas available")
         # Every possible decoder must support the requested budget. Native
         # sampling fields are applied again by the selected decoder at generation.
+        # Include the decode role without a transfer, which is created at dispatch.
+        decode_config = {
+            **generate_config,
+            "_pd_kv_transfer_params": {"do_remote_prefill": True},
+        }
         for replica in self._decode_replicas.values():
             result = await actor_call(
-                replica, "prepare_reasoning_request", generate_config
+                replica, "prepare_reasoning_request", decode_config
             )
             if isinstance(result, (str, bytes)):
                 result = json.loads(result)

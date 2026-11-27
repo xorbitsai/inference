@@ -1169,15 +1169,6 @@ async def test_cross_engine_router_releases_trt_source_owner(
 
 
 @pytest.mark.asyncio
-async def test_openai_forced_tools_preflight_rejects_pd(router):
-    actor, _, decode = router
-    decode.prepare_reasoning_request = AsyncMock()
-    result = await actor.prepare_reasoning_request({"tool_choice": "required"})
-    assert result["error"]["status"] == 501
-    decode.prepare_reasoning_request.assert_not_awaited()
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize("unsupported", [False, True])
 async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupported):
     actor, prefill, decode = router
@@ -1196,9 +1187,14 @@ async def test_reasoning_budget_preflight_checks_all_decoders(router, unsupporte
     await actor.add_decode_actor("d2", other)
     result = await actor.prepare_reasoning_request(config)
     assert result == (error if unsupported else config)
-    decode.prepare_reasoning_request.assert_awaited_once()
-    other.prepare_reasoning_request.assert_awaited_once()
+    decode_config = {
+        **config,
+        "_pd_kv_transfer_params": {"do_remote_prefill": True},
+    }
+    decode.prepare_reasoning_request.assert_awaited_once_with(decode_config)
+    other.prepare_reasoning_request.assert_awaited_once_with(decode_config)
     assert "thinking_token_budget" not in config
+    assert "_pd_kv_transfer_params" not in config
 
 
 @pytest.mark.asyncio

@@ -2151,6 +2151,51 @@ async def test_deepseek_v41_openai_forces_tool_choice(
     backend.async_generate.assert_awaited_once()
 
 
+async def _build_mock_pd_chat_api(monkeypatch, engine, family):
+    from ..pd_model import PDModelActor
+
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_family": family, "model_engine": engine}
+    )
+    pd_model = PDModelActor("pd", model_engine=engine)
+    pd_model.address = "localhost:1234"
+    model.is_vllm_backend.side_effect = pd_model.is_vllm_backend
+    model.prepare_reasoning_request.side_effect = pd_model.prepare_reasoning_request
+    model.chat.side_effect = pd_model.chat
+    prefill = SimpleNamespace(
+        uid=b"prefill",
+        chat=AsyncMock(
+            return_value={"_pd_kv_transfer_params": {"do_remote_prefill": True}}
+        ),
+    )
+    decode = SimpleNamespace(
+        uid=b"decode",
+        chat=AsyncMock(return_value=b'{"choices":[]}'),
+        prepare_reasoning_request=AsyncMock(),
+    )
+    await pd_model.add_prefill_actor("prefill", prefill)
+    await pd_model.add_decode_actor("decode", decode)
+    return api, model, prefill, decode
+
+
+def _mock_decoder_reasoning_preflight(decode, backend, family):
+    backend.model_family = SimpleNamespace(model_name=family, reasoning_effort=None)
+    backend.reasoning_parser = SimpleNamespace(reasoning_end_tag="</think>")
+
+    def prepare(config):
+        try:
+            return backend.prepare_reasoning_request(config)
+        except (ValueError, NotImplementedError) as exc:
+            return {
+                "error": {
+                    "status": 501 if isinstance(exc, NotImplementedError) else 400,
+                    "message": str(exc),
+                }
+            }
+
+    decode.prepare_reasoning_request.side_effect = prepare
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["SGLang", "vLLM"])
 @pytest.mark.parametrize("family", ["DeepSeek-V4.1-Flash", "DeepSeek-V4.1-Flash-1017"])
@@ -2162,20 +2207,15 @@ async def test_deepseek_v41_openai_forces_tool_choice(
 async def test_pd_deepseek_v41_openai_forced_tool_routing(
     monkeypatch, engine, family, choice
 ):
-    from ..pd_model import PDModelActor
+    from ...model.llm.vllm.core import VLLMMultiModel
 
-    api, model = _build_mock_chat_api(
-        monkeypatch, {"model_family": family, "model_engine": engine}
+    api, model, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, engine, family
     )
-    pd_model = PDModelActor("pd", model_engine=engine)
-    pd_model.address = "localhost:1234"
-    model.is_vllm_backend.side_effect = pd_model.is_vllm_backend
-    model.prepare_reasoning_request.side_effect = pd_model.prepare_reasoning_request
-    model.chat.side_effect = pd_model.chat
-    prefill = SimpleNamespace(chat=AsyncMock())
-    decode = SimpleNamespace(chat=AsyncMock(return_value=b'{"choices":[]}'))
-    await pd_model.add_prefill_actor("prefill", prefill)
-    await pd_model.add_decode_actor("decode", decode)
+    if engine == "vLLM":
+        _mock_decoder_reasoning_preflight(
+            decode, object.__new__(VLLMMultiModel), family
+        )
 
     request = _DummyRequest(
         {
@@ -2192,6 +2232,7 @@ async def test_pd_deepseek_v41_openai_forced_tool_routing(
         with pytest.raises(HTTPException, match="not supported for P/D") as error:
             await api.create_chat_completion(request)
         assert error.value.status_code == 501
+        decode.prepare_reasoning_request.assert_awaited_once()
         prefill.chat.assert_not_awaited()
         decode.chat.assert_not_awaited()
     else:
@@ -2201,6 +2242,73 @@ async def test_pd_deepseek_v41_openai_forced_tool_routing(
         for replica in (prefill, decode):
             replica.chat.assert_awaited_once()
             assert replica.chat.await_args.args[1]["tool_choice"] == choice
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "choice",
+    ["required", {"type": "function", "function": {"name": "time"}}],
+    ids=["required", "named"],
+)
+async def test_seed_oss_pd_zero_budget_preserves_forced_tool_routing(
+    monkeypatch, choice
+):
+    from ...model.llm.vllm.core import VLLMMultiModel
+
+    api, _, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, "vLLM", "seed-oss"
+    )
+    _mock_decoder_reasoning_preflight(
+        decode, object.__new__(VLLMMultiModel), "seed-oss"
+    )
+    request = _DummyRequest(
+        {
+            "model": "test",
+            "messages": [{"role": "user", "content": "What time is it?"}],
+            "thinking_budget": 0,
+            "tool_choice": choice,
+            "tools": [{"type": "function", "function": {"name": "time"}}],
+        }
+    )
+    request.receive = asyncio.Event().wait
+
+    response = await api.create_chat_completion(request)
+    assert response.status_code == 200
+    decode.prepare_reasoning_request.assert_awaited_once()
+    for replica in (prefill, decode):
+        replica.chat.assert_awaited_once()
+        config = replica.chat.await_args.args[1]
+        assert config["chat_template_kwargs"]["thinking_budget"] == 0
+        assert config["tool_choice"] == choice
+
+
+@pytest.mark.asyncio
+async def test_qwen3_sglang_pd_preserves_decoder_reasoning_error(monkeypatch):
+    from ...model.llm.sglang.core import SGLANGChatModel
+
+    api, _, prefill, decode = await _build_mock_pd_chat_api(
+        monkeypatch, "SGLang", "qwen3"
+    )
+    _mock_decoder_reasoning_preflight(decode, object.__new__(SGLANGChatModel), "qwen3")
+    with pytest.raises(
+        HTTPException, match="incompatible with manual thinking"
+    ) as error:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {
+                    "model": "test",
+                    "messages": [{"role": "user", "content": "What time is it?"}],
+                    "thinking_budget": 10,
+                    "tool_choice": "required",
+                    "tools": [{"type": "function", "function": {"name": "time"}}],
+                }
+            )
+        )
+
+    assert error.value.status_code == 400
+    decode.prepare_reasoning_request.assert_awaited_once()
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
 
 
 @pytest.mark.asyncio
