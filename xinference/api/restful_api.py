@@ -2721,9 +2721,25 @@ class RESTfulAPI(CancelMixin):
         launch_revision = model_launch_revision(model_uid)
         try:
             assert self._app is not None
-            await (await self._get_supervisor_ref()).terminate_model(
-                model_uid, launch_id=launch_id, require_launch_id=True
-            )
+            supervisor = await self._get_supervisor_ref()
+            try:
+                await supervisor.terminate_model(
+                    model_uid, launch_id=launch_id, require_launch_id=True
+                )
+            except TypeError as exc:
+                if "SupervisorActor.terminate_model() got an unexpected keyword argument" not in str(
+                    exc
+                ) or not str(
+                    exc
+                ).endswith(
+                    ("'launch_id'", "'require_launch_id'")
+                ):
+                    raise
+                if launch_id is not None:
+                    raise LaunchDeletePreconditionFailed(
+                        "The connected supervisor does not support launch_id"
+                    ) from exc
+                await supervisor.terminate_model(model_uid)
         except LaunchDeletePreconditionFailed as exc:
             raise HTTPException(status_code=412, detail=str(exc)) from exc
         except ModelAlreadyAbsent:

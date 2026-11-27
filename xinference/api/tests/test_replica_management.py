@@ -243,3 +243,23 @@ async def test_list_refresh_during_delete(replica_api, monkeypatch, list_first):
         finish_delete.set()
         await asyncio.gather(listing, removal, return_exceptions=True)
         audit.evict_model_cache(uid)
+
+
+@pytest.mark.asyncio
+async def test_delete_with_legacy_supervisor(replica_api):
+    class SupervisorActor:
+        def __init__(self):
+            self.deleted = []
+
+        async def terminate_model(self, model_uid, suppress_exception=False):
+            self.deleted.append(model_uid)
+
+    supervisor = SupervisorActor()
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    with pytest.raises(HTTPException) as exc:
+        await replica_api.terminate_model("demo", "stale-launch")
+    assert exc.value.status_code == 412
+    assert supervisor.deleted == []
+
+    assert (await replica_api.terminate_model("demo")).status_code == 200
+    assert supervisor.deleted == ["demo"]

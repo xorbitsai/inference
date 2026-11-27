@@ -41,6 +41,7 @@ from typing import (
     Iterator,
     List,
     Literal,
+    NoReturn,
     Optional,
     Set,
     Tuple,
@@ -5612,6 +5613,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 if self._initial_model_launches.get(model_uid) is not operation or (
                     operation.task.done() and not operation.cancelling
                 ):
+                    if delete:
+                        await self._reject_stale_launch_delete(model_uid)
                     raise ValueError(
                         f"No initial launch in progress for model {model_uid}"
                     )
@@ -6061,6 +6064,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     maintenance.end()
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
+    async def _reject_stale_launch_delete(self, model_uid: str) -> NoReturn:
+        # A stale DELETE may acknowledge absence but must preserve any current model or record.
+        if (
+            model_uid not in self._initial_model_launches
+            and model_uid not in self._model_uid_to_replica_info
+            and not await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+        ):
+            raise ModelAlreadyAbsent(model_uid)
+        raise LaunchDeletePreconditionFailed("The original launch is no longer active")
+
     @log_async(logger=logger)
     async def terminate_model(
         self,
@@ -6076,9 +6089,12 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             and operation.task is not asyncio.current_task()
             and (operation.cancelling or not operation.task.done())
         ):
-            if (
-                require_launch_id or launch_id is not None
-            ) and launch_id != operation.launch_id:
+            if launch_id is None and not require_launch_id:
+                # Older API workers use the positional RPC and expect a refusal.
+                raise ValueError(
+                    "Initial launch is in progress; cancel the launch instead"
+                )
+            if launch_id != operation.launch_id:
                 raise LaunchDeletePreconditionFailed(
                     "Refresh instance information and use the current launch_id to delete this launch"
                 )
@@ -6086,22 +6102,10 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                 model_uid, operation, delete=True
             )
         async with self._get_model_replica_lock(model_uid):
+            if launch_id is not None:
+                await self._reject_stale_launch_delete(model_uid)
             if self._initial_model_launches.get(model_uid) is not operation:
                 raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
-            if launch_id is not None:
-                # A retry may acknowledge absence, but must never terminate a
-                # running model or clear a replacement launch's failure record.
-                if (
-                    operation is None
-                    and model_uid not in self._model_uid_to_replica_info
-                    and not await self._status_guard_ref.get_instance_info(
-                        model_uid=model_uid
-                    )
-                ):
-                    raise ModelAlreadyAbsent(model_uid)
-                raise LaunchDeletePreconditionFailed(
-                    "The original launch is no longer active"
-                )
             if (
                 operation is not None
                 and operation.cleanup_pending

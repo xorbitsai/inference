@@ -538,9 +538,73 @@ async def test_delete_timeout_before_registration(runtime, monkeypatch):
     try:
         async with supervisor._get_model_replica_lock("demo"):
             with pytest.raises(InitialModelLaunchStopping, match="not registered"):
-                await supervisor.terminate_model("demo")
+                await supervisor.terminate_model("demo", launch_id=operation.launch_id)
         assert operation.cleanup_task is None
         assert not operation.delete_requested
+    finally:
+        launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replacement", [False, True])
+async def test_delete_rechecks_launch_identity_after_waiting_for_lock(
+    runtime, monkeypatch, replacement
+):
+    from xinference.core.supervisor import (
+        LaunchDeletePreconditionFailed,
+        ModelAlreadyAbsent,
+    )
+
+    supervisor, _, _, _ = runtime
+    launch = asyncio.create_task(asyncio.Event().wait())
+    operation = InitialModelLaunch(launch)
+    supervisor._initial_model_launches["demo"] = operation
+
+    lock = supervisor._get_model_replica_lock("demo")
+    waiting = asyncio.Event()
+
+    def observe_lock(model_uid):
+        waiting.set()
+        return lock
+
+    monkeypatch.setattr(supervisor, "_get_model_replica_lock", observe_lock)
+    async with lock:
+        delete = asyncio.create_task(
+            supervisor.terminate_model("demo", launch_id=operation.launch_id)
+        )
+        await asyncio.wait_for(waiting.wait(), 2)
+        supervisor._initial_model_launches.pop("demo")
+        if replacement:
+            supervisor._initial_model_launches["demo"] = InitialModelLaunch(launch)
+
+    try:
+        expected = LaunchDeletePreconditionFailed if replacement else ModelAlreadyAbsent
+        with pytest.raises(expected):
+            await asyncio.wait_for(delete, 2)
+        assert ("demo" in supervisor._initial_model_launches) is replacement
+        assert not operation.delete_requested
+        assert not launch.done()
+    finally:
+        launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_legacy_delete_does_not_cancel_current_launch(runtime):
+    supervisor, _, _, _ = runtime
+    launch = asyncio.create_task(asyncio.Event().wait())
+    operation = InitialModelLaunch(launch)
+    supervisor._initial_model_launches["demo"] = operation
+
+    try:
+        with pytest.raises(ValueError, match="cancel the launch instead"):
+            await supervisor.terminate_model("demo")
+        assert supervisor._initial_model_launches["demo"] is operation
+        assert not operation.cancelling
+        assert not operation.delete_requested
+        assert operation.cleanup_task is None
+        assert not launch.done()
     finally:
         launch.cancel()
         await asyncio.gather(launch, return_exceptions=True)

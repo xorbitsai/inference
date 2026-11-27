@@ -133,7 +133,7 @@ async def test_ordinary_failure_still_releases_devices(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cancel_dependency_install_reaches_uv():
+async def test_cancel_dependency_install_reaches_uv(monkeypatch):
     from xinference.core.worker import LaunchInfo
 
     worker = _make_worker()
@@ -147,10 +147,14 @@ async def test_cancel_dependency_install_reaches_uv():
         assert launch_info.cancel_event.is_set()
 
     manager.cancel_install.side_effect = cancel_install
-    asyncio.get_running_loop().call_later(
-        0.25, worker._model_uid_launching_guard.pop, "m-rep0"
-    )
-    await worker.cancel_launch_model("m-rep0")
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_CANCEL_LAUNCH_TIMEOUT", 0.01)
+    cancellation = asyncio.create_task(worker.cancel_launch_model("m-rep0"))
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(cancellation), 0.2)
+    finally:
+        worker._model_uid_launching_guard.pop("m-rep0")
+        await asyncio.wait_for(cancellation, 2)
     manager.cancel_install.assert_called_once_with()
     assert "m-rep0" not in worker._model_uid_launching_guard
 
@@ -306,3 +310,124 @@ async def test_cancel_running_uv_venv(tmp_path, monkeypatch, existing_directory)
     finally:
         cancelled.set()
         await asyncio.gather(creation, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_cancel_launch_rpc_interrupts_dependency_preparation(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    worker = _make_worker()
+    manager = MagicMock()
+    manager.get_python_path.return_value = None
+    worker._create_virtual_env_manager.return_value = manager
+    worker._reserve_virtual_env_usage = MagicMock()
+    worker._resolve_virtualenv_model_format = MagicMock(return_value=None)
+    worker._download_model_files = AsyncMock(
+        return_value=(
+            SimpleNamespace(model_family=SimpleNamespace(virtualenv=None)),
+            SimpleNamespace(cancelled=False),
+        )
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.build_subpool_envs_for_virtual_env",
+        lambda *args: {},
+    )
+
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
+    entered = asyncio.Event()
+    interrupted = asyncio.Event()
+    release = threading.Event()
+
+    def prepare(*args, cancel_event, **kwargs):
+        loop.call_soon_threadsafe(entered.set)
+        assert release.wait(5)
+        assert cancel_event.is_set()
+        raise RuntimeError("dependency setup interrupted")
+
+    def cancel_install():
+        assert worker._model_uid_launching_guard["m-rep0"].cancel_event.is_set()
+        loop.call_soon_threadsafe(interrupted.set)
+
+    worker._prepare_virtual_env = prepare
+    manager.cancel_install.side_effect = cancel_install
+    launch = asyncio.create_task(
+        worker.launch_builtin_model(
+            model_uid="m-rep0",
+            model_name="m",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            enable_virtual_env=True,
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        launch.cancel()
+        await asyncio.wait_for(interrupted.wait(), 2)
+        launch.cancel()
+        await asyncio.sleep(0)
+        assert "m-rep0" in worker._model_uid_launching_guard
+        assert not launch.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(launch, 2)
+    finally:
+        release.set()
+        if not launch.done():
+            launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+    manager.cancel_install.assert_called_once_with()
+    assert "m-rep0" not in worker._model_uid_launching_guard
+    worker.release_devices.assert_called_once_with(model_uid="m-rep0")
+
+
+@pytest.mark.asyncio
+async def test_repeated_rpc_cancellation_waits_for_environment_creation():
+    worker = _make_worker()
+    loop = asyncio.get_running_loop()
+    entered = asyncio.Event()
+    interrupted = asyncio.Event()
+    release = threading.Event()
+
+    def create(enabled, name, path, cancel_event):
+        loop.call_soon_threadsafe(entered.set)
+        assert cancel_event.wait(5)
+        loop.call_soon_threadsafe(interrupted.set)
+        assert release.wait(5)
+        raise RuntimeError("virtual environment creation interrupted")
+
+    worker._create_virtual_env_manager = create
+    launch = asyncio.create_task(
+        worker.launch_builtin_model(
+            model_uid="m-rep0",
+            model_name="m",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            enable_virtual_env=True,
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        launch.cancel()
+        await asyncio.wait_for(interrupted.wait(), 2)
+        launch.cancel()
+        await asyncio.sleep(0)
+        assert "m-rep0" in worker._model_uid_launching_guard
+        assert not launch.done()
+
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(launch, 2)
+    finally:
+        release.set()
+        if not launch.done():
+            launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+    assert "m-rep0" not in worker._model_uid_launching_guard

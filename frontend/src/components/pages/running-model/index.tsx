@@ -222,6 +222,14 @@ const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
     : '-';
 };
 
+function isFailedRecordOnly(model?: ModelListItem): boolean {
+  return Boolean(
+    model?.instance?.status === 'ERROR' &&
+    !model.runtimeAvailable &&
+    !model.instance.can_cancel_launch
+  );
+}
+
 const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const { t } = useI18n();
   const router = useRouter();
@@ -238,8 +246,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   }, [modelUid]);
   const setActiveModel = (model?: ModelListItem) => setSelectedModelUid(model?.id);
   const activeModel = models.find((model) => model.id === selectedModelUid) ?? models[0];
-  const clearFailedRecord =
-    !activeModel?.runtimeAvailable && !activeModel?.instance?.can_cancel_launch;
+  const clearFailedRecord = isFailedRecordOnly(activeModel);
   const launchProgress = useInstanceLaunchProgress(activeModel);
   const activeModelReady = Boolean(activeModel && isModelReady(activeModel));
   const [cancelLaunchUid, setCancelLaunchUid] = useState<string>();
@@ -251,9 +258,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const [routerRuntimeLoadingIds, setRouterRuntimeLoadingIds] = useState<string[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ModelListItem>();
-  const clearingFailedRecord = Boolean(
-    deleteTarget && !deleteTarget.runtimeAvailable && deleteTarget.instance?.status === 'ERROR'
-  );
+  const clearingFailedRecord = isFailedRecordOnly(deleteTarget);
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
@@ -774,15 +779,18 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
               </InfoTooltip>
             ) : !tokenRouterModel &&
               (clusterAuth?.auth === false || canWriteModels) &&
-              (activeModel.instance?.can_cancel_launch ||
-                ((activeModel.runtimeAvailable || activeModel.instance?.status === 'ERROR') &&
-                  !isModelLaunching(activeModel))) ? (
+              (activeModel.instance?.can_cancel_launch
+                ? Boolean(activeModel.instance.launch_id)
+                : (activeModel.runtimeAvailable || activeModel.instance?.status === 'ERROR') &&
+                  !isModelLaunching(activeModel)) ? (
               <Button
                 type="button"
                 variant="outline"
                 size={clearFailedRecord ? 'sm' : 'icon'}
                 aria-label={t(
-                  clearFailedRecord ? 'runningModels.clearFailedRecord' : 'runningModels.terminateConfirmOk'
+                  clearFailedRecord
+                    ? 'runningModels.clearFailedRecord'
+                    : 'runningModels.terminateConfirmOk'
                 )}
                 onClick={() => {
                   setDeleteTarget(activeModel);
