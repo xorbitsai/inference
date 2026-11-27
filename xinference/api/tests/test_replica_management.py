@@ -273,3 +273,116 @@ async def test_resize_during_reload_returns_conflict(replica_api, operation):
         else:
             await replica_api.terminate_model_replica("demo", 0)
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("last_replica", [False, True])
+async def test_late_delete_response_preserves_republished_cache(
+    replica_api, last_replica
+):
+    import asyncio
+
+    from xinference.api.oauth2.advanced import audit
+
+    uid = "cache-race"
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def delayed(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return 0
+
+    supervisor = AsyncMock()
+    supervisor.terminate_model.side_effect = delayed
+    supervisor.terminate_model_replica.side_effect = delayed
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    audit.update_model_cache(uid, "same", "LLM")
+    replica_api._uid_to_model_name[uid] = "same"
+    request = asyncio.create_task(
+        replica_api.terminate_model_replica(uid, 0)
+        if last_replica
+        else replica_api.terminate_model(uid)
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        audit.update_model_cache(uid, "same", "LLM")
+        replacement = audit.model_launch_revision(uid)
+        release.set()
+        await request
+        assert audit.model_launch_revision(uid) == replacement
+        assert audit.resolve_model_info(uid) == ("same", "LLM")
+        assert replica_api._uid_to_model_name[uid] == "same"
+    finally:
+        release.set()
+        await asyncio.gather(request, return_exceptions=True)
+        audit.evict_model_cache(uid)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("list_first", [True, False])
+async def test_list_refresh_during_delete(replica_api, monkeypatch, list_first):
+    import asyncio
+
+    from xinference.api.oauth2.advanced import audit
+
+    monkeypatch.setattr(
+        "xinference.api.restful_api.XINFERENCE_TOKEN_ROUTER_ENABLED", False
+    )
+    uid = "list-delete-race"
+    listed, deleting = asyncio.Event(), asyncio.Event()
+    send_list, finish_delete = asyncio.Event(), asyncio.Event()
+
+    async def list_models():
+        listed.set()
+        await send_list.wait()
+        return {uid: {"model_name": "old", "model_type": "LLM"}}
+
+    async def delete(*args, **kwargs):
+        deleting.set()
+        await finish_delete.wait()
+
+    supervisor = AsyncMock()
+    supervisor.list_models.side_effect = list_models
+    supervisor.terminate_model.side_effect = delete
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    listing = asyncio.create_task(replica_api.list_models())
+    removal = asyncio.create_task(replica_api.terminate_model(uid))
+    try:
+        await asyncio.wait_for(asyncio.gather(listed.wait(), deleting.wait()), 2)
+        if list_first:
+            send_list.set()
+            await listing
+            assert audit.resolve_model_info(uid) == ("old", "LLM")
+            finish_delete.set()
+        else:
+            finish_delete.set()
+            await removal
+            send_list.set()
+        await asyncio.gather(listing, removal)
+        assert uid not in replica_api._uid_to_model_name
+        assert audit.resolve_model_info(uid) == ("", "")
+    finally:
+        send_list.set()
+        finish_delete.set()
+        await asyncio.gather(listing, removal, return_exceptions=True)
+        audit.evict_model_cache(uid)
+
+
+@pytest.mark.asyncio
+async def test_delete_with_legacy_supervisor(replica_api):
+    class SupervisorActor:
+        def __init__(self):
+            self.deleted = []
+
+        async def terminate_model(self, model_uid, suppress_exception=False):
+            self.deleted.append(model_uid)
+
+    supervisor = SupervisorActor()
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    with pytest.raises(HTTPException) as exc:
+        await replica_api.terminate_model("demo", "stale-launch")
+    assert exc.value.status_code == 412
+    assert supervisor.deleted == []
+
+    assert (await replica_api.terminate_model("demo")).status_code == 200
+    assert supervisor.deleted == ["demo"]

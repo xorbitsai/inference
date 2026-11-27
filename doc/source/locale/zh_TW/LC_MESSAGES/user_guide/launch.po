@@ -837,3 +837,7 @@ msgstr "如果沒有人續約，Supervisor 會取消排空並恢復路由。API 
 #: ../../source/user_guide/launch.rst:505
 msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
 msgstr "排空尚未結束時，即使模型已經下線，它的模型 UID 也會一直被保留。使用該 UID 的啟動會被拒絕，Autostart 會等待。使用同一個 ``drain_id`` 重試刪除，即可完成清理並釋放該 UID。"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup."
+msgstr "透過 ``GET /v1/models/instances`` 取得 ``launch_id``，再送出 ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``。收到 412 時請重新整理清單並確認目標。若 409 表示啟動仍在停止，請重新整理清單查看清理進度。若清理未登記，請使用目前的識別碼重試。若啟動已刪除，用原識別碼重試會成功。清理後可用不帶識別碼的 DELETE 清除失敗記錄。"

@@ -92,3 +92,7 @@ msgstr "誰も更新しないドレインは Supervisor がキャンセルし、
 #: ../../source/user_guide/launch.rst:505
 msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
 msgstr "ドレインが完了するまでは、モデルがオフラインになっていてもそのモデル UID は予約されたままです。この UID での起動は拒否され、Autostart は待機します。同じ ``drain_id`` で削除を再試行すると、クリーンアップが完了して UID が解放されます。"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup."
+msgstr "``GET /v1/models/instances`` で ``launch_id`` を取得し、``DELETE /v1/models/{model_uid}?launch_id={launch_id}`` を送信します。412 の場合は一覧を更新して対象を確認します。409 で停止処理中なら一覧で進捗を確認します。クリーンアップが未登録なら現在の ID で再試行します。起動が削除済みなら元の ID での再試行は成功します。クリーンアップ後の失敗記録は ID なしの DELETE で削除します。"

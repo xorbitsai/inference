@@ -403,11 +403,11 @@ it('can cancel an initial launch with both ready and loading replicas', async ()
   const mixed = instance('READY');
   mixed.can_cancel_launch = true;
   mixed.replica_statuses[1].status = 'LOADING';
-  instances = [mixed];
+  instances = [{ ...mixed, launch_id: 'launch-one' }];
   models = [running()];
   await mount();
   assert.ok(button('runningModels.cancelLaunch'));
-  assert.equal(button('runningModels.terminateConfirmOk'), undefined);
+  assert.ok(button('runningModels.terminateConfirmOk'));
   assert.equal(button('runningModels.addReplica'), undefined);
   await act(async () => button('runningModels.cancelLaunch')!.click());
   const confirm = [
@@ -435,6 +435,59 @@ it('does not infer cancellation safety when an older server omits the capability
   instances = [legacy];
   await mount();
   assert.equal(button('runningModels.cancelLaunch'), undefined);
+});
+
+it('keeps cancel available without offering delete when the server omits launch_id', async () => {
+  instances = [instance()];
+  await mount();
+  assert.ok(button('runningModels.cancelLaunch'));
+  assert.equal(button('runningModels.terminateConfirmOk'), undefined);
+  assert.deepEqual(deletes, []);
+});
+
+it('can delete an instance while its initial launch is in progress', async () => {
+  instances = [{ ...instance(), launch_id: 'launch-one' }];
+  await mount();
+  await act(async () => button('runningModels.terminateConfirmOk')!.click());
+  const confirm = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+  ].find((item) => item.textContent === 'runningModels.terminateConfirmOk')!;
+  assert.ok(confirm);
+  await act(async () => confirm.click());
+  assert.deepEqual(deletes, ['/v1/models/model%2Fone?launch_id=launch-one']);
+});
+
+it('refreshes a stale delete confirmation without deleting the replacement', async () => {
+  instances = [{ ...instance(), launch_id: 'old' }];
+  await mount();
+  await act(async () => button('runningModels.terminateConfirmOk')!.click());
+  const readCount = reads.length;
+  request.delete = async (url: string) => {
+    deletes.push(url);
+    instances = [{ ...instance(), launch_id: 'replacement' }];
+    throw Object.assign(new AxiosError('stale launch'), { response: { status: 412 } });
+  };
+  const confirm = [
+    ...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+  ].find((item) => item.textContent === 'runningModels.terminateConfirmOk')!;
+  await act(async () => confirm.click());
+  assert.equal(document.querySelector('[role="alertdialog"]'), null);
+  assert.ok(reads.length > readCount);
+  assert.deepEqual(deletes, ['/v1/models/model%2Fone?launch_id=old']);
+});
+
+it('uses termination wording while a failed launch is still cleaning up', async () => {
+  instances = [{ ...instance('ERROR'), can_cancel_launch: true, launch_id: 'stopping' }];
+  await mount();
+  await act(async () => button('runningModels.terminateConfirmOk')!.click());
+  const dialog = document.querySelector('[role="alertdialog"]');
+  const confirm = [...dialog!.querySelectorAll<HTMLButtonElement>('button')].find(
+    (item) => item.textContent === 'runningModels.terminateConfirmOk'
+  );
+  assert.ok(confirm);
+  assert.ok(dialog!.textContent?.includes('runningModels.terminateConfirmBody'));
+  await act(async () => confirm.click());
+  assert.deepEqual(deletes, ['/v1/models/model%2Fone?launch_id=stopping']);
 });
 
 it('clears a failed launch without a running model and keeps it removed after remount', async () => {

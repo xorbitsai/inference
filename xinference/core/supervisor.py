@@ -21,6 +21,7 @@ import os
 import signal
 import time
 import typing
+import uuid
 import weakref
 from collections import OrderedDict, defaultdict
 from contextlib import aclosing, asynccontextmanager, contextmanager
@@ -40,6 +41,7 @@ from typing import (
     Iterator,
     List,
     Literal,
+    NoReturn,
     Optional,
     Set,
     Tuple,
@@ -255,6 +257,18 @@ _AFFINITY_CAPACITY_TIMEOUT = 1
 _CHAT_ROUTING_PROBE_TIMEOUT = 0.1
 
 
+class LaunchDeletePreconditionFailed(ValueError):
+    """The DELETE does not identify the current initial launch."""
+
+
+class ModelAlreadyAbsent(ValueError):
+    """The model has neither active replicas nor a failed record to delete."""
+
+
+class InitialModelLaunchStopping(RuntimeError):
+    """The initial launch cleanup continues after the request deadline."""
+
+
 @dataclass
 class InitialModelLaunch:
     task: asyncio.Task
@@ -263,6 +277,9 @@ class InitialModelLaunch:
     )
     cancelling: bool = False
     cleanup_pending: bool = False
+    cleanup_task: Optional[asyncio.Task] = None
+    delete_requested: bool = False
+    launch_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     services: Dict[str, List[xo.ActorRefType]] = field(default_factory=dict)
 
 
@@ -5652,70 +5669,112 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         operation = self._initial_model_launches.get(model_uid)
         if operation is None:
             raise ValueError(f"No initial launch in progress for model {model_uid}")
-        async with self._get_model_replica_lock(model_uid):
-            if self._initial_model_launches.get(model_uid) is not operation or (
-                operation.task.done() and not operation.cancelling
-            ):
-                raise ValueError(f"No initial launch in progress for model {model_uid}")
+        await self._wait_for_initial_launch_cleanup(model_uid, operation)
 
-            async def stop(
-                replica_uid: str, worker: xo.ActorRefType["WorkerActor"]
-            ) -> None:
-                try:
-                    await worker.cancel_launch_model(replica_uid)
-                except RuntimeError:
-                    # Ready replicas and asynchronously loading engines no
-                    # longer have a worker launch guard; terminate them too.
-                    pass
-                await worker.terminate_model(model_uid=replica_uid)
+    async def _wait_for_initial_launch_cleanup(
+        self, model_uid: str, operation: InitialModelLaunch, *, delete: bool = False
+    ) -> None:
+        registered = False
 
-            if not operation.cancelling:
-                operation.cancelling = True
-                # Stop dispatch before asking workers to abort. Worker RPC
-                # cancellation may wait for native loads, so explicitly stop
-                # their pools in parallel to unblock those RPCs.
-                operation.task.cancel()
+        async def request_cleanup():
+            nonlocal registered
+            async with self._get_model_replica_lock(model_uid):
+                if self._initial_model_launches.get(model_uid) is not operation or (
+                    operation.task.done() and not operation.cancelling
+                ):
+                    if delete:
+                        await self._reject_stale_launch_delete(model_uid)
+                    raise ValueError(
+                        f"No initial launch in progress for model {model_uid}"
+                    )
+                operation.delete_requested |= delete
+                cleanup = operation.cleanup_task
+                if cleanup is None or cleanup.done():
+                    if not operation.cancelling:
+                        operation.cancelling = True
+                        operation.task.cancel()
+                    cleanup = operation.cleanup_task = asyncio.create_task(
+                        self._finish_initial_launch_cancellation(model_uid, operation)
+                    )
+                    cleanup.add_done_callback(
+                        lambda completed: (
+                            completed.exception() if not completed.cancelled() else None
+                        )
+                    )
+                registered = True
+            return await asyncio.shield(cleanup)
+
+        request = asyncio.create_task(request_cleanup())
+        try:
+            done, _ = await asyncio.wait(
+                [request], timeout=XINFERENCE_CANCEL_LAUNCH_TIMEOUT
+            )
+            if request in done:
+                await request
+                return
+            raise InitialModelLaunchStopping(
+                f"Initial launch is still stopping: {model_uid}"
+                if registered
+                else f"Cleanup request was not registered for {model_uid}; retry the request"
+            )
+        finally:
+            if not request.done():
+                request.cancel()
+                await asyncio.gather(request, return_exceptions=True)
+
+    async def _finish_initial_launch_cancellation(
+        self, model_uid: str, operation: InitialModelLaunch
+    ) -> None:
+        async def stop(
+            replica_uid: str, worker: xo.ActorRefType["WorkerActor"]
+        ) -> None:
             try:
-                await asyncio.gather(
-                    *(
-                        stop(uid, worker)
-                        for uid, workers in operation.workers.items()
-                        for worker in workers
-                    ),
-                    return_exceptions=True,
-                )
-                _, pending = await asyncio.wait(
-                    [operation.task], timeout=XINFERENCE_CANCEL_LAUNCH_TIMEOUT
-                )
-                if pending:
-                    raise RuntimeError(f"Initial launch is still stopping: {model_uid}")
-                await asyncio.gather(operation.task, return_exceptions=True)
-                # A launch RPC can publish its model while cancellation is
-                # being acknowledged. Sweep again after dispatch has drained.
-                results = await asyncio.gather(
-                    *(
-                        worker.terminate_model(model_uid=uid)
-                        for uid, workers in operation.workers.items()
-                        for worker in workers
-                    ),
-                    return_exceptions=True,
-                )
-                for result in results:
-                    if isinstance(result, BaseException):
-                        raise result
-                replica_uids = [
-                    uid for uid in operation.workers if not uid.endswith("-rank0")
-                ]
-                # Rank 0 was stopped above, so distributed actor cleanup must
-                # not try its worker again.
-                self._replica_model_uid_to_worker.pop(model_uid + "-rank0", None)
-                await self._clear_model_routing(model_uid, replica_uids)
-            finally:
-                # Preserve the existing cancelled-launch ERROR record. Keep
-                # ownership on failure so a retry cannot target a new model.
-                await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
-                )
+                await worker.cancel_launch_model(replica_uid)
+            except RuntimeError:
+                # Ready replicas and asynchronously loading engines no
+                # longer have a worker launch guard; terminate them too.
+                pass
+            await worker.terminate_model(model_uid=replica_uid)
+
+        try:
+            await asyncio.gather(
+                *(
+                    stop(uid, worker)
+                    for uid, workers in operation.workers.items()
+                    for worker in workers
+                ),
+                return_exceptions=True,
+            )
+            await asyncio.gather(operation.task, return_exceptions=True)
+            # A launch RPC can publish its model while cancellation is
+            # being acknowledged. Sweep again after dispatch has drained.
+            results = await asyncio.gather(
+                *(
+                    worker.terminate_model(model_uid=uid)
+                    for uid, workers in operation.workers.items()
+                    for worker in workers
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            replica_uids = [
+                uid for uid in operation.workers if not uid.endswith("-rank0")
+            ]
+            # Rank 0 was stopped above, so distributed actor cleanup must
+            # not try its worker again.
+            self._replica_model_uid_to_worker.pop(model_uid + "-rank0", None)
+            await self._clear_model_routing(model_uid, replica_uids)
+        finally:
+            # Preserve the existing cancelled-launch ERROR record. Keep
+            # ownership on failure so a retry cannot target a new model.
+            await self._status_guard_ref.update_instance_info(
+                model_uid, {"status": LaunchStatus.ERROR.name}
+            )
+        async with self._get_model_replica_lock(model_uid):
+            if operation.delete_requested:
+                await self._status_guard_ref.remove_failed_instance_info(model_uid)
             self._initial_model_launches.pop(model_uid, None)
 
     async def get_instance_info(
@@ -5733,6 +5792,8 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     operation and (operation.cancelling or not operation.task.done())
                 ),
             }
+            if operation is not None and record["can_cancel_launch"]:
+                record["launch_id"] = operation.launch_id
             autoscaling = SupervisorActor.get_replica_autoscaling_status(
                 self, info.model_uid
             )
@@ -6072,10 +6133,46 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
                     maintenance.end()
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
+    async def _reject_stale_launch_delete(self, model_uid: str) -> NoReturn:
+        # A stale DELETE may acknowledge absence but must preserve any current model or record.
+        if (
+            model_uid not in self._initial_model_launches
+            and model_uid not in self._model_uid_to_replica_info
+            and not await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+        ):
+            raise ModelAlreadyAbsent(model_uid)
+        raise LaunchDeletePreconditionFailed("The original launch is no longer active")
+
     @log_async(logger=logger)
-    async def terminate_model(self, model_uid: str, suppress_exception=False):
+    async def terminate_model(
+        self,
+        model_uid: str,
+        suppress_exception=False,
+        *,
+        launch_id: Optional[str] = None,
+        require_launch_id: bool = False,
+    ):
         operation = self._initial_model_launches.get(model_uid)
+        if (
+            operation is not None
+            and operation.task is not asyncio.current_task()
+            and (operation.cancelling or not operation.task.done())
+        ):
+            if launch_id is None and not require_launch_id:
+                # Older API workers use the positional RPC and expect a refusal.
+                raise ValueError(
+                    "Initial launch is in progress; cancel the launch instead"
+                )
+            if launch_id != operation.launch_id:
+                raise LaunchDeletePreconditionFailed(
+                    "Refresh instance information and use the current launch_id to delete this launch"
+                )
+            return await self._wait_for_initial_launch_cleanup(
+                model_uid, operation, delete=True
+            )
         async with self._get_model_replica_lock(model_uid):
+            if launch_id is not None:
+                await self._reject_stale_launch_delete(model_uid)
             SupervisorActor._check_manual_replica_drain_idle(self, model_uid)
             if self._initial_model_launches.get(model_uid) is not operation:
                 raise ValueError(f"Model launch ownership changed, uid: {model_uid}")
@@ -6129,7 +6226,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             # reusing the UID cannot be removed by a stale failure lookup.
             if await self._status_guard_ref.remove_failed_instance_info(model_uid):
                 return
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+            raise ModelAlreadyAbsent(
+                f"Model not found in the model list, uid: {model_uid}"
+            )
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
         results = await asyncio.gather(

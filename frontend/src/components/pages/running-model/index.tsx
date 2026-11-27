@@ -1,5 +1,6 @@
 'use client';
 
+import { isAxiosError } from 'axios';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
@@ -221,6 +222,14 @@ const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
     : '-';
 };
 
+function isFailedRecordOnly(model?: ModelListItem): boolean {
+  return Boolean(
+    model?.instance?.status === 'ERROR' &&
+    !model.runtimeAvailable &&
+    !model.instance.can_cancel_launch
+  );
+}
+
 const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const { t } = useI18n();
   const router = useRouter();
@@ -237,6 +246,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   }, [modelUid]);
   const setActiveModel = (model?: ModelListItem) => setSelectedModelUid(model?.id);
   const activeModel = models.find((model) => model.id === selectedModelUid) ?? models[0];
+  const clearFailedRecord = isFailedRecordOnly(activeModel);
   const launchProgress = useInstanceLaunchProgress(activeModel);
   const activeModelReady = Boolean(activeModel && isModelReady(activeModel));
   const [cancelLaunchUid, setCancelLaunchUid] = useState<string>();
@@ -248,9 +258,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const [routerRuntimeLoadingIds, setRouterRuntimeLoadingIds] = useState<string[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ModelListItem>();
-  const clearingFailedRecord = Boolean(
-    deleteTarget && !deleteTarget.runtimeAvailable && deleteTarget.instance?.status === 'ERROR'
-  );
+  const clearingFailedRecord = isFailedRecordOnly(deleteTarget);
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
@@ -509,8 +517,10 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
   const handleDeleteModel = () => {
     if (!deleteTarget || isTokenRouterModel(deleteTarget)) return;
     setDeleteConfirmLoading(true);
+    const launchId = deleteTarget.instance?.launch_id;
+    const query = launchId ? `?launch_id=${encodeURIComponent(launchId)}` : '';
     request
-      .delete(`/v1/models/${encodeURIComponent(deleteTarget.id)}`)
+      .delete(`/v1/models/${encodeURIComponent(deleteTarget.id)}${query}`)
       .then(() => {
         setDeleteConfirmOpen(false);
         setSelectedModelUid((current) => (current === deleteTarget.id ? undefined : current));
@@ -521,8 +531,12 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
         });
         fetchModels();
       })
-      .catch(() => {
-        // Keep the record and confirmation available for retry.
+      .catch((error: unknown) => {
+        if (isAxiosError(error) && error.response?.status === 412) {
+          setDeleteConfirmOpen(false);
+          setDeleteTarget(undefined);
+          fetchModels();
+        }
       })
       .finally(() => {
         setDeleteConfirmLoading(false);
@@ -765,16 +779,18 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
               </InfoTooltip>
             ) : !tokenRouterModel &&
               (clusterAuth?.auth === false || canWriteModels) &&
-              (activeModel.runtimeAvailable || activeModel.instance?.status === 'ERROR') &&
-              !isModelLaunching(activeModel) ? (
+              (activeModel.instance?.can_cancel_launch
+                ? Boolean(activeModel.instance.launch_id)
+                : (activeModel.runtimeAvailable || activeModel.instance?.status === 'ERROR') &&
+                  !isModelLaunching(activeModel)) ? (
               <Button
                 type="button"
                 variant="outline"
-                size={activeModel.runtimeAvailable ? 'icon' : 'sm'}
+                size={clearFailedRecord ? 'sm' : 'icon'}
                 aria-label={t(
-                  activeModel.runtimeAvailable
-                    ? 'runningModels.terminateConfirmOk'
-                    : 'runningModels.clearFailedRecord'
+                  clearFailedRecord
+                    ? 'runningModels.clearFailedRecord'
+                    : 'runningModels.terminateConfirmOk'
                 )}
                 onClick={() => {
                   setDeleteTarget(activeModel);
@@ -783,7 +799,7 @@ const RunningModel = ({ modelUid }: { modelUid?: string }) => {
                 className="h-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
               >
                 <Trash2 />
-                {!activeModel.runtimeAvailable && t('runningModels.clearFailedRecord')}
+                {clearFailedRecord && t('runningModels.clearFailedRecord')}
               </Button>
             ) : null}
           </div>

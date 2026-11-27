@@ -532,7 +532,9 @@ def _run_prepare_virtual_env(
         mock.patch.object(
             WorkerActor,
             "_uninstall_venv_package",
-            side_effect=lambda _vem, pkg: result["uninstalled"].append(pkg),
+            side_effect=lambda _vem, pkg, _cancel_event: result["uninstalled"].append(
+                pkg
+            ),
         ),
     ):
         WorkerActor._prepare_virtual_env(
@@ -1128,6 +1130,49 @@ def test_prepare_virtual_env_skips_on_second_call(tmp_path):
             architectures=None,
         )
     assert call_count == 1  # Still 1 — second call skipped
+
+
+def test_cancelled_venv_reconfiguration_invalidates_old_setup(tmp_path):
+    import threading
+    from unittest.mock import Mock
+
+    from ...model.core import VirtualEnvSettings
+    from ..worker import WorkerActor
+
+    manager = Mock(env_path=str(tmp_path))
+    marker = tmp_path / ".xinference_setup_done"
+    installed = tmp_path / "installed"
+    cancelled = threading.Event()
+
+    def install(packages, **kwargs):
+        assert not marker.exists()
+        installed.write_text(packages[0])
+        if packages[0] == "example==2":
+            cancelled.set()
+
+    manager.install_packages.side_effect = install
+
+    def prepare(package, cancel_event=None):
+        return WorkerActor._prepare_virtual_env(
+            virtual_env_manager=manager,
+            settings=VirtualEnvSettings(packages=[package]),
+            virtual_env_packages=None,
+            model_engine=None,
+            cancel_event=cancel_event,
+        )
+
+    first_fingerprint = prepare("example==1")
+    assert marker.exists()
+
+    with pytest.raises(RuntimeError, match="Launch cancelled during dependency setup"):
+        prepare("example==2", cancelled)
+    assert installed.read_text() == "example==2"
+    assert not marker.exists()
+
+    assert prepare("example==1") == first_fingerprint
+    assert installed.read_text() == "example==1"
+    assert marker.exists()
+    assert manager.install_packages.call_count == 3
 
 
 def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
