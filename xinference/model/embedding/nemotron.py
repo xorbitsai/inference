@@ -112,15 +112,10 @@ def _normalization_options(*groups: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _transformers_image_options(
-    options: Dict[str, Any], defaults: Dict[str, Any]
-) -> Dict[str, Any]:
+def _transformers_image_options(options: Dict[str, Any]) -> Dict[str, Any]:
     return _normalization_options(
-        defaults.get("common_kwargs", {}),
         options.get("common_kwargs", {}),
-        defaults,
         options,
-        defaults.get("images_kwargs", {}),
         options.get("images_kwargs", {}),
     )
 
@@ -128,8 +123,8 @@ def _transformers_image_options(
 def _chat_template_image_options(
     processor: Any, options: Dict[str, Any], processor_options: Dict[str, Any]
 ) -> Dict[str, Any]:
-    explicit = _transformers_image_options(processor_options, {})
-    legacy = _transformers_image_options(options, {})
+    explicit = _transformers_image_options(processor_options)
+    legacy = _transformers_image_options(options)
     if not (explicit or legacy):
         return {}
     if processor is None:
@@ -158,9 +153,7 @@ def _chat_template_image_options(
         # The existing preprocessing error handler will report invalid templates.
         return {}
     if legacy_keys:
-        return _transformers_image_options(
-            {key: options[key] for key in legacy_keys}, {}
-        )
+        return _transformers_image_options({key: options[key] for key in legacy_keys})
     return explicit
 
 
@@ -562,8 +555,18 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
                 {"common_kwargs": common, "images_kwargs": image},
             )
         elif self.engine == "vllm":
+            from vllm.multimodal.processing.context import InputProcessingContext
+
+            context = InputProcessingContext(
+                model_config=self._model.model_config, tokenizer=self._tokenizer
+            )
             image_options = _transformers_image_options(
-                options, self._kwargs.get("mm_processor_kwargs") or {}
+                context.get_merged_mm_kwargs(
+                    options,
+                    supported_mm_processor_kwargs={
+                        "images_kwargs": set(_IMAGE_NORMALIZATION_KEYS)
+                    },
+                )
             )
         else:
             image_options = _chat_template_image_options(

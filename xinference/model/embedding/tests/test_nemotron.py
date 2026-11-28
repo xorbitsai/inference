@@ -618,9 +618,35 @@ def mock_vllm_pooling_with_pixtral(monkeypatch):
     mock_vllm_pooling(monkeypatch)
 
     class InputProcessingContext:
-        @staticmethod
-        def call_hf_processor(hf_processor, data, kwargs):
-            options = {"return_tensors": "pt", **kwargs}
+        def __init__(self, model_config, tokenizer):
+            self.launch_options = model_config.mm_processor_kwargs
+
+        def get_merged_mm_kwargs(self, kwargs, *, supported_mm_processor_kwargs=None):
+            configured_image = self.launch_options.get("images_kwargs", {})
+            requested_image = kwargs.get("images_kwargs", {})
+            image_keys = configured_image.keys() | requested_image.keys()
+            image_keys.update(
+                (supported_mm_processor_kwargs or {}).get("images_kwargs", ())
+            )
+            merged = {**self.launch_options, **kwargs}
+            image_options = {}
+            for source in (
+                self.launch_options,
+                configured_image,
+                kwargs,
+                requested_image,
+            ):
+                image_options.update(
+                    {key: source[key] for key in image_keys if key in source}
+                )
+            for key in image_options:
+                merged.pop(key, None)
+            if image_options:
+                merged["images_kwargs"] = image_options
+            return merged
+
+        def call_hf_processor(self, hf_processor, data, kwargs):
+            options = {"return_tensors": "pt", **self.get_merged_mm_kwargs(kwargs)}
             try:
                 return hf_processor(**data, **options)
             except Exception as exc:
@@ -633,11 +659,17 @@ def mock_vllm_pooling_with_pixtral(monkeypatch):
 
     def load(model):
         model._processor = AutoProcessor.from_pretrained(model._model_path)
+        model_config = SimpleNamespace(
+            mm_processor_kwargs=model._kwargs.get("mm_processor_kwargs", {})
+        )
+        processing_context = InputProcessingContext(
+            model_config, model._processor.tokenizer
+        )
 
         def embed(prompts, **kwargs):
             outputs = []
             for prompt in prompts:
-                features = InputProcessingContext.call_hf_processor(
+                features = processing_context.call_hf_processor(
                     model._processor,
                     {
                         "text": prompt["prompt"],
@@ -655,6 +687,7 @@ def mock_vllm_pooling_with_pixtral(monkeypatch):
 
         model._model = SimpleNamespace(
             embed=embed,
+            model_config=model_config,
             llm_engine=SimpleNamespace(has_unfinished_requests=lambda: False),
         )
 
@@ -956,6 +989,7 @@ async def check_rest_processor_options(
     error,
     reverse,
     special_input="caption",
+    **model_kwargs,
 ):
     model = make_model(
         model_cls,
@@ -964,6 +998,7 @@ async def check_rest_processor_options(
         torch_dtype="float32",
         batch_size=3,
         batch_interval=0.05,
+        **model_kwargs,
     )
     model.load()
     app = make_embedding_app(model, monkeypatch)
@@ -1102,15 +1137,18 @@ def tiny_image_text_input():
     ],
 )
 def test_image_normalization_routing_before_batching(
-    tiny_nemotron_checkpoint, model_cls, options, error
+    tiny_nemotron_checkpoint, monkeypatch, model_cls, options, error
 ):
     from transformers import AutoProcessor
 
-    model = make_model(model_cls)
+    model = make_model(model_cls, model_path=str(tiny_nemotron_checkpoint))
     processor = AutoProcessor.from_pretrained(tiny_nemotron_checkpoint)
     model._processor = processor
     if model_cls is CLASSES[1]:
         model._model = [SimpleNamespace(processor=processor, processing_kwargs={})]
+    elif model_cls is CLASSES[2]:
+        mock_vllm_pooling_with_pixtral(monkeypatch)
+        model.load()
     inputs = [{"image": Image.new("RGB", (56, 56)), "text": "caption"}]
     if error:
         with pytest.raises(InvalidModelRequestError, match=error):
@@ -1167,6 +1205,44 @@ async def test_rest_image_normalization_is_request_local(
         error,
         reverse,
         special_input=tiny_image_text_input,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["image-first", "text-first"])
+@pytest.mark.parametrize(
+    "options,error",
+    [
+        ({"image_mean": [0.5, 0.5]}, "image_mean"),
+        ({"image_mean": [0.5]}, None),
+        ({"do_normalize": False, "images_kwargs": {"image_mean": [0.5, 0.5]}}, None),
+        (
+            {"image_mean": [0.5], "images_kwargs": {"image_mean": [0.5, 0.5]}},
+            "image_mean",
+        ),
+    ],
+    ids=["invalid-flat", "valid-flat", "disabled-flat", "invalid-scoped"],
+)
+async def test_rest_vllm_normalization_with_launch_overrides(
+    tiny_nemotron_checkpoint,
+    tiny_image_text_input,
+    monkeypatch,
+    options,
+    error,
+    reverse,
+):
+    mock_vllm_pooling_with_pixtral(monkeypatch)
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        CLASSES[2],
+        options,
+        error,
+        reverse,
+        special_input=tiny_image_text_input,
+        mm_processor_kwargs={
+            "images_kwargs": {"image_mean": [0.5, 0.5, 0.5], "do_normalize": True}
+        },
     )
 
 
