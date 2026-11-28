@@ -92,25 +92,38 @@ class HyMT2PytorchModel(PytorchChatModel):
     @classmethod
     def validate_launch(cls, model_family: LLMFamilyV2) -> None:
         if (
-            model_family.model_name != "Hy-MT3-30B-A3B"
-            or model_family.model_specs[0].model_format != "pytorch"
+            model_family.model_name not in HY_MT3_MODEL_NAMES
             or virtual_env_allows_missing_engine()
         ):
             return
 
-        minimum_version = Version("5.6.0")
-        installed = None
-        try:
-            installed = distribution_version("transformers")
-            if Version(installed) >= minimum_version:
-                return
-        except (PackageNotFoundError, InvalidVersion):
-            pass
-        raise ValueError(
-            f"{model_family.model_name} BF16 requires Transformers >= {minimum_version}. "
-            f"Found {installed or 'not installed'}. Upgrade Transformers or enable "
-            "the model virtual environment."
+        spec = model_family.model_specs[0]
+        compressed_fp8 = (
+            spec.model_format == "fp8"
+            and spec.quantization_method == "compressed-tensors"
         )
+        if spec.model_format != "pytorch" and not compressed_fp8:
+            return
+
+        # Use the same runtime floors as the managed packages in the catalog.
+        precision = "FP8" if compressed_fp8 else "BF16"
+        requirements = [("Transformers", Version("5.6.0"))]
+        if compressed_fp8:
+            requirements.append(("compressed-tensors", Version("0.15.0")))
+
+        for package, minimum_version in requirements:
+            installed = None
+            try:
+                installed = distribution_version(package.lower())
+                if Version(installed) >= minimum_version:
+                    continue
+            except (PackageNotFoundError, InvalidVersion):
+                pass
+            raise ValueError(
+                f"{model_family.model_name} {precision} requires {package} >= "
+                f"{minimum_version}. Found {installed or 'not installed'}. "
+                f"Install or upgrade {package}, or enable the model virtual environment."
+            )
 
     @classmethod
     def match_json(

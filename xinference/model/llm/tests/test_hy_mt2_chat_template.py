@@ -146,7 +146,8 @@ def test_hy_mt3_engine_formats(
     )
     monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", registered)
     monkeypatch.setattr(sglang_core, "_get_sglang_version", lambda: Version("0.5.12"))
-    monkeypatch.setattr(hy_mt2, "distribution_version", lambda _: "5.6.0")
+    versions = {"transformers": "5.6.0", "compressed-tensors": "0.15.0"}
+    monkeypatch.setattr(hy_mt2, "distribution_version", versions.__getitem__)
     monkeypatch.setitem(
         sys.modules, "xllamacpp", SimpleNamespace(__version__="2026.10.11870")
     )
@@ -380,6 +381,110 @@ def test_hy_mt3_moe_launch_checks_host_runtime(
         assert f"{engine.lower()}>={minimum_version}" in packages
     if mode in {"managed", "cache-only"}:
         probe.assert_not_called()
+
+
+@pytest.mark.parametrize("size, billions", [("1.8B", 2), ("7B", 7)])
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize(
+    "model_format, quantization", [("pytorch", "none"), ("fp8", "fp8")]
+)
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "old-transformers",
+        "missing-compressed-tensors",
+        "old-compressed-tensors",
+        "compatible-host",
+        "managed",
+        "cache-only",
+    ],
+)
+def test_hy_mt3_dense_transformers_launch_checks_host_dependencies(
+    monkeypatch, tmp_path, size, billions, hub, model_format, quantization, mode
+):
+    from importlib.metadata import PackageNotFoundError
+
+    from .... import constants
+    from .. import generate_engine_config_by_model_family
+    from ..cache_manager import LLMCacheManager
+    from ..core import create_llm_model_instance
+    from ..llm_family import LLM_ENGINES
+    from ..transformers import hy_mt2
+
+    name = f"Hy-MT3-{size}"
+    family = match_llm(name, model_format, billions, quantization, download_hub=hub)
+    assert family is not None
+    adapter = hy_mt2.HyMT2PytorchModel
+    versions = {
+        "transformers": (
+            "4.53.3"
+            if mode in {"old-transformers", "managed", "cache-only"}
+            else "5.6.0"
+        ),
+        "compressed-tensors": {
+            "missing-compressed-tensors": None,
+            "old-compressed-tensors": "0.14.0",
+            "managed": None,
+            "cache-only": None,
+        }.get(mode, "0.15.0"),
+    }
+
+    def distribution_version(package):
+        version = versions[package]
+        if version is None:
+            raise PackageNotFoundError(package)
+        return version
+
+    probe = Mock(side_effect=distribution_version)
+    monkeypatch.setattr(hy_mt2, "distribution_version", probe)
+    monkeypatch.setattr(adapter, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", mode != "managed")
+    engines = {}
+    generate_engine_config_by_model_family(family, engines)
+    assert engines[name]["Transformers"][0]["llm_class"] is adapter
+    uses_fallback = mode in {"managed", "cache-only"}
+    monkeypatch.setitem(LLM_ENGINES, name, {} if uses_fallback else engines[name])
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(LLMCacheManager, "cache", cache)
+
+    launch_options = dict(
+        model_uid="hy-mt3-dense-runtime-test",
+        model_name=name,
+        model_engine="Transformers",
+        model_format=model_format,
+        model_size_in_billions=billions,
+        quantization=quantization,
+        download_hub=hub,
+        enable_virtual_env=mode == "managed",
+        _xinference_cache_only=mode == "cache-only",
+    )
+    compatibility_errors = {
+        "old-transformers": r"requires Transformers >= 5\.6\.0.*4\.53\.3"
+    }
+    if model_format == "fp8":
+        compatibility_errors.update(
+            {
+                "missing-compressed-tensors": r"requires compressed-tensors >= 0\.15\.0",
+                "old-compressed-tensors": r"requires compressed-tensors >= 0\.15\.0.*0\.14\.0",
+            }
+        )
+    if mode in compatibility_errors:
+        with pytest.raises(ValueError, match=compatibility_errors[mode]):
+            create_llm_model_instance(**launch_options)
+        cache.assert_not_called()
+        return
+
+    model = create_llm_model_instance(**launch_options)
+    assert type(model) is adapter
+    assert model.model_spec.model_hub == hub
+    cache.assert_called_once()
+    if uses_fallback:
+        probe.assert_not_called()
+    elif model_format == "pytorch":
+        probe.assert_called_once_with("transformers")
+    else:
+        probe.assert_any_call("transformers")
+        probe.assert_any_call("compressed-tensors")
 
 
 @pytest.mark.parametrize(
