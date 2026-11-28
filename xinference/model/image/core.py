@@ -17,7 +17,7 @@ from __future__ import annotations
 import collections.abc
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
@@ -124,11 +124,47 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             return res
 
 
+def _image_cache_variants(
+    image_model: ImageModelFamilyV2,
+) -> List[Tuple[Optional[str], ImageModelFamilyV2]]:
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
+
+    if image_model.model_name == MINIMAX_H3_IMAGE_NAME:
+        return [
+            ("diffusers", image_model),
+            ("vLLM", prepare_vllm_model_spec(image_model)),
+        ]
+    return [(None, image_model)]
+
+
+def get_image_registration_specs(
+    image_model: ImageModelFamilyV2,
+) -> List[Dict[str, Any]]:
+    from .cache_manager import ImageCacheManager
+
+    specs = []
+    for engine, variant in _image_cache_variants(image_model):
+        spec: Dict[str, Any] = {
+            "model_format": getattr(variant, "model_format", None)
+            or ("diffusers" if engine else "pytorch"),
+            "quantization": getattr(variant, "quantization", None),
+            "model_hub": variant.model_hub,
+            "model_id": variant.model_id,
+            "cache_status": ImageCacheManager(variant).get_cache_status(),
+        }
+        if engine:
+            spec["model_engine"] = engine
+        specs.append(spec)
+    return specs
+
+
 def generate_image_description(
     image_model: ImageModelFamilyV2,
 ) -> Dict[str, List[Dict]]:
     res = defaultdict(list)
-    res[image_model.model_name].extend(image_model.to_version_info())
+    # Register cached artifacts even on workers that cannot launch the engine.
+    for _, variant in _image_cache_variants(image_model):
+        res[image_model.model_name].extend(variant.to_version_info())
     return res
 
 
@@ -394,11 +430,6 @@ def create_image_model_instance(
             **kwargs,
         )
 
-    # use default model config
-    model_default_config = (model_spec.default_model_config or {}).copy()
-    model_default_config.update(kwargs)
-    kwargs = model_default_config
-
     # Reject an unsupported engine, lightning version or GGUF selection before
     # any cache call below can download.
     from .engine_family import (
@@ -428,6 +459,21 @@ def create_image_model_instance(
             model_format,
             quantization,
         )
+    model_default_config = (model_spec.default_model_config or {}).copy()
+    from .minimax_h3 import MINIMAX_H3_IMAGE_NAME, prepare_vllm_model_spec
+
+    if (
+        model_spec.model_name == MINIMAX_H3_IMAGE_NAME
+        and model_engine.lower() == "vllm"
+    ):
+        model_spec = prepare_vllm_model_spec(model_spec)
+        if kwargs.get("diffusion_offload_config") is not None:
+            # Omni rejects conflicting offload strategies. Drop only the
+            # catalog default and let Omni validate explicit launch options.
+            model_default_config.pop("cpu_offload", None)
+    model_default_config.update(kwargs)
+    kwargs = model_default_config
+
     preflight = getattr(model_cls, "preflight", None)
     if callable(preflight) and not skip_preflight:
         preflight(**kwargs)

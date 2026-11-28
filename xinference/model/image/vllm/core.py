@@ -27,7 +27,7 @@ from ....core.replica_load import EngineLoad
 from ....types import LoRA
 from ....utils import dependency_import_guard
 from ...lightning import resolve_request_lightning
-from ..utils import handle_image_result, resolve_image_seed_list
+from ..utils import MAX_IMAGE_SEED, handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Image models verified against the vllm-omni supported diffusion models:
 # https://github.com/vllm-project/vllm-omni/tree/main/examples/offline_inference/text_to_image
 VLLM_SUPPORTED_IMAGE_MODELS = (
+    "MiniMax-H3-Image",
     "Qwen-Image",
     "Qwen-Image-2512",
     "Qwen-Image-2.1",
@@ -210,13 +211,25 @@ class VLLMDiffusionModel:
         ):
             from vllm_omni.entrypoints.omni import Omni
 
-        if self._model_spec.model_name in ("Qwen-Image-2.1", "Qwen-Image-2.1-Turbo"):
+        minimum_version = (
+            "0.34.0"
+            if self._model_spec.model_name == "MiniMax-H3-Image"
+            else (
+                "0.32.0"
+                if self._model_spec.model_name
+                in ("Qwen-Image-2.1", "Qwen-Image-2.1-Turbo")
+                else None
+            )
+        )
+        if minimum_version is not None:
             from importlib.metadata import version
 
             from packaging.version import Version
 
-            if Version(version("vllm-omni")) < Version("0.32.0"):
-                raise ImportError("Qwen-Image-2.1 requires vllm-omni>=0.32.0")
+            if Version(version("vllm-omni")) < Version(minimum_version):
+                raise ImportError(
+                    f"{self._model_spec.model_name} requires vllm-omni>={minimum_version}"
+                )
         options = self._kwargs.copy()
         # Built-in image specs also serve Diffusers. Omni consumes its own
         # dtype option and does not accept the Diffusers loader setting.
@@ -224,6 +237,10 @@ class VLLMDiffusionModel:
         options.pop("low_cpu_mem_usage", None)
         if dtype is not None:
             options.setdefault("dtype", dtype)
+        if self._model_spec.model_name == "MiniMax-H3-Image":
+            cpu_offload = options.pop("cpu_offload", None)
+            if cpu_offload is not None:
+                options.setdefault("enable_cpu_offload", cpu_offload)
         logger.debug(
             "Loading vLLM-Omni diffusion model from %s, kwargs: %s",
             self._model_path,
@@ -579,6 +596,10 @@ class VLLMDiffusionModel:
             self._model_spec.default_generate_config or {}  # type: ignore
         ).copy()
         generate_config.update({k: v for k, v in kwargs.items() if v is not None})
+        single_output = self._model_spec.model_name == "MiniMax-H3-Image"
+        if single_output:
+            generate_config.setdefault("num_inference_steps", 6)
+            generate_config.setdefault("guidance_scale", 1.0)
         seeds = resolve_image_seed_list(generate_config.get("seed"), n)
         prompt_payload = self._build_prompt(prompt, width, height)
         images = []
@@ -588,6 +609,13 @@ class VLLMDiffusionModel:
             else [generate_config]
         )
         outputs_per_config = 1 if seeds is not None else n
+        if single_output and seeds is None and n > 1:
+            seed = generate_config.get("seed")
+            configs = [generate_config.copy() for _ in range(n)]
+            if isinstance(seed, int) and seed >= 0:
+                for index, config in enumerate(configs):
+                    config["seed"] = (seed + index) % (MAX_IMAGE_SEED + 1)
+            outputs_per_config = 1
         for config in configs:
             sampling_params = self._build_sampling_params(
                 outputs_per_config, width, height, config

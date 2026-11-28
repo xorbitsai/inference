@@ -65,7 +65,7 @@ def test_catalog_and_dispatch(monkeypatch, spec, tmp_path):
     assert not spec.default_generate_config
     assert MiniMaxH3DiffusersImageModel.match(spec)
     assert not DiffusersImageModel.match(spec)
-    assert set(IMAGE_ENGINES[spec.model_name]) == {"diffusers"}
+    assert "diffusers" in IMAGE_ENGINES[spec.model_name]
     assert "diffusers>=0.43.0" in UVVirtualEnvManager.process_packages(
         spec.virtualenv.packages, engine="diffusers"
     )

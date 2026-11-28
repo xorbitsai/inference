@@ -2609,26 +2609,16 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _to_image_model_reg(
         self, model_family: "ImageModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.image.cache_manager import ImageCacheManager
+        from ..model.image.core import get_image_registration_specs
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_manager = ImageCacheManager(model_family)
-            # Create model_specs with cache_status for frontend compatibility
-            model_specs = [
-                {
-                    "model_format": "pytorch",
-                    "model_hub": model_family.model_hub,
-                    "model_id": model_family.model_id,
-                    "cache_status": cache_manager.get_cache_status(),
-                }
-            ]
             res = {
                 **model_family.dict(),
-                "model_specs": model_specs,
+                "model_specs": get_image_registration_specs(model_family),
                 "download_hubs": [model_family.model_hub],
                 "is_builtin": is_builtin,
             }
@@ -3131,10 +3121,23 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         replica_config: Optional[List[ReplicaConfig]] = None,
         autoscaling: Optional[Dict[str, Any]] = None,
     ):
-        parse_results = parse_model_version(model_version, model_type)
+        from ..model.image.minimax_h3 import (
+            MINIMAX_H3_IMAGE_NAME,
+            MINIMAX_H3_IMAGE_VLLM_CACHE,
+        )
+
+        parse_results: Tuple
+        if model_type == "image" and model_version == MINIMAX_H3_IMAGE_VLLM_CACHE:
+            if model_engine is not None and model_engine.lower() != "vllm":
+                raise ValueError(f"{model_version} requires the vLLM engine")
+            model_engine = "vLLM"
+            parse_results = (MINIMAX_H3_IMAGE_NAME,)
+        else:
+            parse_results = parse_model_version(model_version, model_type)
+
         model_name = parse_results[0]
         quantization = parse_results[3] if model_type == "LLM" else None
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if model_type == "image" and len(parse_results) == 2:
             versions = await self.get_model_versions(model_type, model_name)
             quantization = next(

@@ -3873,7 +3873,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             return ret
         elif model_type == "image":
             from ..model.image import BUILTIN_IMAGE_MODELS
-            from ..model.image.cache_manager import ImageCacheManager
+            from ..model.image.core import get_image_registration_specs
             from ..model.image.custom import get_user_defined_images
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
@@ -3884,21 +3884,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         download_hubs.append(family.model_hub)
                 for family in families:
                     if detailed:
-                        cache_manager = ImageCacheManager(family)
-                        model_specs = [
-                            {
-                                "model_format": getattr(family, "model_format", None)
-                                or "pytorch",
-                                "quantization": getattr(family, "quantization", None),
-                                "model_hub": family.model_hub,
-                                "model_id": family.model_id,
-                                "cache_status": cache_manager.get_cache_status(),
-                            }
-                        ]
                         ret.append(
                             {
                                 **family.dict(),
-                                "model_specs": model_specs,
+                                "model_specs": get_image_registration_specs(family),
                                 "is_builtin": True,
                                 "download_hubs": download_hubs,
                             }
@@ -3909,19 +3898,10 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # Add user-defined image models
             for model_spec in get_user_defined_images():
                 if detailed:
-                    cache_manager = ImageCacheManager(model_spec)
-                    model_specs = [
-                        {
-                            "model_format": "pytorch",
-                            "model_hub": model_spec.model_hub,
-                            "model_id": model_spec.model_id,
-                            "cache_status": cache_manager.get_cache_status(),
-                        }
-                    ]
                     ret.append(
                         {
                             **model_spec.dict(),
-                            "model_specs": model_specs,
+                            "model_specs": get_image_registration_specs(model_spec),
                             "is_builtin": False,
                             "download_hubs": [model_spec.model_hub],
                         }
@@ -4462,22 +4442,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 model_name,
             )
             return
-        if isinstance(version_info, list):  # image model
-            info = version_info[0]
-            model_version = None
-            if info.get("quantization"):
-                if not info["cache_status"]:
-                    return
-                model_version = info["model_version"]
-            await self._cache_tracker_ref.update_cache_status(
-                self.address, model_name, model_version, info["model_file_location"]
-            )
-        else:
+        is_image = isinstance(version_info, list)
+        versions = version_info if is_image else [version_info]
+        for version in versions:
+            if is_image and version.get("quantization") and not version["cache_status"]:
+                continue
             await self._cache_tracker_ref.update_cache_status(
                 self.address,
                 model_name,
-                version_info["model_version"],
-                version_info["model_file_location"],
+                version["model_version"],
+                version["model_file_location"],
             )
 
     @classmethod
@@ -8276,9 +8250,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif os.path.isdir(path):
             paths.add(path)
 
-            # ``create_symlink`` mirrors the whole Hub snapshot recursively, so
-            # resolving only the first level leaves nearly all nested weights in
-            # ModelScope/Hugging Face caches. Resolve every linked file instead.
+            # Hub snapshots contain nested checkpoint files. Resolve links at
+            # every level to find the downloaded files this cache references.
             targets = WorkerActor._collect_symlink_file_targets(path)
             targets.update(WorkerActor._managed_cache_source_paths(path))
 

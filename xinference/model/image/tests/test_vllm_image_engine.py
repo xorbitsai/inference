@@ -16,12 +16,13 @@
 
 import asyncio
 import dataclasses
+import importlib.metadata
 import queue
 import sys
 import threading
 import types
 from typing import Any, Optional
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from PIL import Image
@@ -628,3 +629,467 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
                 f"{model_name}: vllm-omni ({omni_ver}) and vllm ({vllm_ver}) "
                 "pins must share the same version"
             )
+
+
+@pytest.mark.parametrize(
+    "hub,revision", [("huggingface", "main"), ("modelscope", "master")]
+)
+def test_minimax_factory_selects_native_checkpoint(
+    monkeypatch, tmp_path, hub, revision
+):
+    from ..cache_manager import ImageCacheManager
+    from ..core import create_image_model_instance
+    from ..engine_family import IMAGE_ENGINES, generate_engine_config_by_model_name
+
+    spec = next(
+        s for s in BUILTIN_IMAGE_MODELS["MiniMax-H3-Image"] if s.model_hub == hub
+    )
+    original = spec.dict()
+    monkeypatch.setattr(engine_platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        sys.modules[VLLMImageModel.__module__], "has_cuda_device", lambda: True
+    )
+    engines = {}
+    generate_engine_config_by_model_name(spec, target_engines=engines)
+    monkeypatch.setitem(IMAGE_ENGINES, spec.model_name, engines[spec.model_name])
+    cached = []
+
+    def cache(manager):
+        cached.append(manager._model_family)
+        assert manager.get_cache_dir() != ImageCacheManager(spec).get_cache_dir()
+        return str(tmp_path)
+
+    monkeypatch.setattr(ImageCacheManager, "cache", cache)
+    model = create_image_model_instance(
+        "minimax-vllm",
+        spec.model_name,
+        model_engine="vLLM",
+        download_hub=hub,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, VLLMImageModel)
+    assert model.model_ability == ["text2image"]
+    assert cached[0].model_hub == hub
+    assert cached[0].model_revision == revision
+    assert cached[0].cache_name == "MiniMax-H3-Image-vllm"
+    assert set(cached[0].cache_config["allow_patterns"]) == {
+        "model_index.json",
+        "pdd_*",
+        "transformer/*",
+        "text_encoder/*",
+        "tokenizer/*",
+        "processor/*",
+        "vae/*",
+    }
+    assert model.model_family.model_engine == "vLLM"
+    assert spec.dict() == original
+
+
+@pytest.mark.parametrize(
+    "offload,request_flags,expected_flags",
+    [
+        (None, {}, {"enable_cpu_offload": True}),
+        ({"mode": "layer", "components": ["dit", "text_encoder"]}, {}, {}),
+        (
+            {"mode": "layer", "components": ["dit"]},
+            {"cpu_offload": True},
+            {"enable_cpu_offload": True},
+        ),
+        (
+            {"mode": "layer", "components": ["dit"]},
+            {"enable_cpu_offload": True},
+            {"enable_cpu_offload": True},
+        ),
+    ],
+)
+def test_minimax_factory_offload_precedence(
+    monkeypatch, tmp_path, offload, request_flags, expected_flags
+):
+    from ..core import create_image_model_instance
+    from ..engine_family import IMAGE_ENGINES, generate_engine_config_by_model_name
+
+    spec = _get_spec("MiniMax-H3-Image")
+    monkeypatch.setattr(engine_platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        sys.modules[VLLMImageModel.__module__], "has_cuda_device", lambda: True
+    )
+    engines = {}
+    generate_engine_config_by_model_name(spec, target_engines=engines)
+    monkeypatch.setitem(IMAGE_ENGINES, spec.model_name, engines[spec.model_name])
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "0.34.0")
+    calls = []
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        types.SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs)),
+    )
+
+    model = create_image_model_instance(
+        "minimax-vllm",
+        spec.model_name,
+        model_engine="vLLM",
+        model_path=str(tmp_path),
+        enable_virtual_env=False,
+        diffusion_offload_config=offload,
+        **request_flags,
+    )
+    assert isinstance(model, VLLMImageModel)
+    model.load()
+
+    assert calls == [
+        {
+            "model": str(tmp_path),
+            "dtype": "bfloat16",
+            "diffusion_offload_config": offload,
+            **expected_flags,
+        }
+    ]
+    assert spec.default_model_config["cpu_offload"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cached_engine,distributed",
+    [(None, False), ("diffusers", False), ("vLLM", False), ("vLLM", True)],
+)
+async def test_minimax_detailed_registration_reports_engine_caches(
+    monkeypatch, tmp_path, cached_engine, distributed
+):
+    from functools import partial
+
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from .... import constants
+    from ....api.restful_api import RESTfulAPI
+    from ....core.supervisor import SupervisorActor
+    from ....core.worker import WorkerActor
+
+    name = "MiniMax-H3-Image"
+    cache_root = tmp_path / "worker-cache"
+    if cached_engine:
+        cache_name = name if cached_engine == "diffusers" else f"{name}-vllm"
+        (cache_root / "v2" / cache_name).mkdir(parents=True)
+
+    def worker(root):
+        async def registrations(model_type, detailed):
+            with monkeypatch.context() as scoped:
+                scoped.setattr(constants, "XINFERENCE_CACHE_DIR", str(root))
+                return await WorkerActor.list_model_registrations(
+                    types.SimpleNamespace(), model_type, detailed
+                )
+
+        return types.SimpleNamespace(list_model_registrations=registrations)
+
+    workers = {"cached-worker": worker(cache_root)}
+    if distributed:
+        workers = {"first-worker": worker(tmp_path / "empty"), **workers}
+    supervisor = types.SimpleNamespace(_worker_address_to_worker=workers)
+    supervisor.list_model_registrations = partial(
+        SupervisorActor.list_model_registrations, supervisor
+    )
+    api = object.__new__(RESTfulAPI)
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    app = FastAPI()
+    app.get("/v1/model_registrations/{model_type}")(api.list_model_registrations)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/v1/model_registrations/image?detailed=true")
+    assert response.status_code == 200
+    registration = next(item for item in response.json() if item["model_name"] == name)
+    assert {
+        spec.get("model_engine"): spec["cache_status"]
+        for spec in registration["model_specs"]
+    } == {
+        "diffusers": cached_engine == "diffusers",
+        "vLLM": cached_engine == "vLLM",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("first_engine", ["diffusers", "vLLM"])
+@pytest.mark.parametrize("removed_engine", ["diffusers", "vLLM"])
+async def test_minimax_cache_lifecycle(
+    monkeypatch, tmp_path, hub, first_engine, removed_engine
+):
+    from fnmatch import fnmatchcase
+    from functools import partial
+    from importlib import import_module
+
+    import huggingface_hub
+
+    from .... import constants
+    from ....core import worker as worker_module
+    from ....core.cache_metadata import get_model_version_infos
+    from ....core.cache_tracker import CacheTrackerActor
+    from ....core.worker import DownloadInfo, WorkerActor
+    from ..core import IMAGE_MODEL_DESCRIPTIONS
+    from ..engine import MiniMaxH3DiffusersImageModel
+    from ..engine_family import IMAGE_ENGINES, generate_engine_config_by_model_name
+    from ..ocr.ocr_family import OCR_ENGINES
+
+    name = "MiniMax-H3-Image"
+    versions = {"diffusers": name, "vLLM": f"{name}-vllm"}
+    shared = {"tokenizer/tokenizer.json", "text_encoder/model.safetensors"}
+    unique = {
+        "diffusers": {"modular_model_index.json", "transformer_diffusers/weights"},
+        "vLLM": {"model_index.json", "pdd_config.json", "transformer/weights"},
+    }
+    cache_root = tmp_path / "cache"
+    snapshot = tmp_path / "hub" / "snapshot"
+    for filename in shared | unique["diffusers"] | unique["vLLM"]:
+        # The downloader below materializes only requested files into this
+        # shared snapshot and leaves files from the first engine in place.
+        (snapshot / filename).parent.mkdir(parents=True, exist_ok=True)
+
+    def download(repo_id, revision, allow_patterns, **kwargs):
+        assert repo_id == (
+            "MiniMaxAI/MiniMax-H3-Image"
+            if hub == "huggingface"
+            else "MiniMax/MiniMax-H3-Image"
+        )
+        assert revision == ("main" if hub == "huggingface" else "master")
+        for filename in shared | unique["diffusers"] | unique["vLLM"]:
+            if any(fnmatchcase(filename, pattern) for pattern in allow_patterns):
+                (snapshot / filename).write_text(filename)
+        return str(snapshot)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", download)
+    monkeypatch.setattr(
+        import_module("modelscope.hub.snapshot_download"), "snapshot_download", download
+    )
+    monkeypatch.setattr(constants, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(engine_platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        sys.modules[VLLMImageModel.__module__], "has_cuda_device", lambda: True
+    )
+    engine_registry = {}
+    generate_engine_config_by_model_name(
+        _get_spec(name), target_engines=engine_registry
+    )
+    monkeypatch.setitem(IMAGE_ENGINES, name, engine_registry[name])
+    monkeypatch.setattr(worker_module, "XINFERENCE_LOG_CONSOLE", True)
+    monkeypatch.setattr(MiniMaxH3DiffusersImageModel, "preflight", Mock())
+    supported = {engine: [{"model_name": name}] for engine in versions}
+    monkeypatch.setattr(
+        worker_module, "get_engine_params_by_name", Mock(return_value=supported)
+    )
+    monkeypatch.setattr(
+        worker_module,
+        "get_engine_params_by_name_with_virtual_env",
+        Mock(return_value=supported),
+    )
+
+    worker = types.SimpleNamespace(
+        address="worker:9978",
+        _check_model_is_valid=Mock(),
+        _download_artifact_cleanup_lock=asyncio.Lock(),
+        _cache_uid_to_download_info={},
+        _launch_semaphore=asyncio.Semaphore(1),
+        _get_progressor=AsyncMock(return_value=MagicMock()),
+        _upload_download_progress=Mock(),
+    )
+    worker.update_cache_status = partial(WorkerActor.update_cache_status, worker)
+    worker._download_model_files = partial(WorkerActor._download_model_files, worker)
+    worker.list_deletable_models = partial(WorkerActor.list_deletable_models, worker)
+
+    def register_inventory():
+        tracker = CacheTrackerActor()
+        with (
+            patch.dict(IMAGE_MODEL_DESCRIPTIONS),
+            patch.dict(IMAGE_ENGINES),
+            patch.dict(OCR_ENGINES),
+        ):
+            _install()
+            tracker.record_model_version(get_model_version_infos(), worker.address)
+        worker._cache_tracker_ref = types.SimpleNamespace(
+            **{
+                method: AsyncMock(side_effect=getattr(tracker, method))
+                for method in (
+                    "update_cache_status",
+                    "list_cached_models",
+                    "list_deletable_models",
+                    "confirm_and_remove_model",
+                )
+            }
+        )
+
+    async def listed():
+        return {
+            row["model_version"]: (row["model_engine"], row["path"])
+            for row in await WorkerActor.list_cached_models(worker, name)
+        }
+
+    register_inventory()
+    other_engine = next(engine for engine in versions if engine != first_engine)
+    common = dict(
+        model_name=name,
+        model_size_in_billions=None,
+        model_format="diffusers",
+        quantization="none",
+        model_type="image",
+        download_hub=hub,
+    )
+    # Exercise the cache-only endpoint and the download step of normal launch.
+    await WorkerActor.cache_builtin_model(
+        worker,
+        cache_uid="prefetch",
+        model_engine=first_engine,
+        enable_virtual_env=False,
+        **common,
+    )
+    expected = {
+        versions[first_engine]: (
+            [first_engine],
+            str(cache_root / "v2" / versions[first_engine]),
+        )
+    }
+    assert await listed() == expected
+    register_inventory()
+    assert await listed() == expected
+    await worker._download_model_files(
+        operation_uid="launch",
+        request_id="launch",
+        download_info=DownloadInfo(),
+        progressor=MagicMock(),
+        model_engine=other_engine,
+        peft_model_config=None,
+        model_path=None,
+        model_kwargs={"enable_virtual_env": False},
+        completion_stage="loading",
+        **common,
+    )
+    expected[versions[other_engine]] = (
+        [other_engine],
+        str(cache_root / "v2" / versions[other_engine]),
+    )
+    assert await listed() == expected
+    register_inventory()
+    assert await listed() == expected
+
+    for engine, version in versions.items():
+        folder = cache_root / "v2" / version
+        assert {
+            path.relative_to(folder).as_posix()
+            for path in folder.rglob("*")
+            if path.is_file()
+        } == shared | unique[engine]
+
+    removed_version = versions[removed_engine]
+    retained_engine = next(engine for engine in versions if engine != removed_engine)
+    deletable = await worker.list_deletable_models(removed_version)
+    assert set(deletable) == {
+        expected[removed_version][1],
+        *(str(snapshot / filename) for filename in unique[removed_engine]),
+    }
+    assert await WorkerActor.confirm_and_remove_model(worker, removed_version)
+    assert not (cache_root / "v2" / removed_version).exists()
+    for filename in unique[removed_engine]:
+        assert not (snapshot / filename).exists()
+    for filename in shared | unique[retained_engine]:
+        assert (
+            cache_root / "v2" / versions[retained_engine] / filename
+        ).read_text() == filename
+    del expected[removed_version]
+    assert await listed() == expected
+    register_inventory()
+    assert await listed() == expected
+
+
+@pytest.mark.asyncio
+async def test_minimax_native_cache_version_launches_vllm():
+    from ....core.supervisor import SupervisorActor
+
+    supervisor = types.SimpleNamespace(launch_builtin_model=AsyncMock())
+    version = "MiniMax-H3-Image-vllm"
+    await SupervisorActor.launch_model_by_version(
+        supervisor, "minimax", "image", None, version
+    )
+    launch = supervisor.launch_builtin_model.call_args.kwargs
+    assert launch["model_name"] == "MiniMax-H3-Image"
+    assert launch["model_engine"] == "vLLM"
+    assert launch["model_version"] == version
+
+    with pytest.raises(ValueError, match="requires the vLLM engine"):
+        await SupervisorActor.launch_model_by_version(
+            supervisor, "minimax", "image", "diffusers", version
+        )
+    supervisor.launch_builtin_model.assert_awaited_once()
+
+
+def test_minimax_virtualenv_dependencies_are_engine_scoped():
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    spec = _get_spec("MiniMax-H3-Image")
+    omni = UVVirtualEnvManager.process_packages(spec.virtualenv.packages, engine="vLLM")
+    assert "vllm-omni==0.34.*" in omni
+    assert "vllm==0.34.*" in omni
+    assert not any(p.startswith(("torch", "numpy", "diffusers")) for p in omni)
+    diffusers = UVVirtualEnvManager.process_packages(
+        spec.virtualenv.packages, engine="diffusers"
+    )
+    assert "diffusers>=0.43.0" in diffusers
+    assert not any(p.startswith("vllm") for p in diffusers)
+
+
+@pytest.mark.parametrize("version", ["0.32.0", "0.33.0rc1", "0.34.0"])
+def test_minimax_load_checks_release_and_maps_offload(monkeypatch, version):
+    calls = []
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: version)
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm_omni.entrypoints.omni",
+        types.SimpleNamespace(Omni=lambda **kwargs: calls.append(kwargs)),
+    )
+    model = VLLMDiffusionModel(
+        "minimax-vllm",
+        "/native",
+        model_spec=_get_spec("MiniMax-H3-Image"),
+        torch_dtype="bfloat16",
+        cpu_offload=True,
+    )
+    if version != "0.34.0":
+        with pytest.raises(
+            ImportError, match="MiniMax-H3-Image requires vllm-omni>=0.34.0"
+        ):
+            model.load()
+        assert not calls
+    else:
+        model.load()
+        assert calls == [
+            {"model": "/native", "dtype": "bfloat16", "enable_cpu_offload": True}
+        ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "seed,expected", [(42, [42, 43]), ([7, 11], [7, 11]), (None, None), (-1, None)]
+)
+async def test_minimax_multiple_outputs_use_single_image_requests(
+    fake_vllm_omni_sampling_params, seed, expected
+):
+    calls = []
+
+    class Omni:
+        def generate(self, prompt, *, sampling_params_list):
+            params = sampling_params_list[0]
+            assert params.num_outputs_per_prompt == 1
+            assert params.num_inference_steps == 6
+            assert params.guidance_scale == 1.0
+            calls.append(params)
+            return [types.SimpleNamespace(images=[Image.new("RGB", (8, 8))])]
+
+    model = VLLMDiffusionModel(
+        "minimax-vllm", "/native", model_spec=_get_spec("MiniMax-H3-Image")
+    )
+    model._model = Omni()
+    result = await model.text_to_image(
+        "a teapot", n=2, seed=seed, size="512*512", response_format="b64_json"
+    )
+    assert len(result["data"]) == len(calls) == 2
+    if expected is not None:
+        assert [call.seed for call in calls] == expected

@@ -14,7 +14,35 @@
 
 """MiniMax-H3-Image through the Diffusers modular pipeline."""
 
+from typing import TYPE_CHECKING
+
 from .modular import ModularDiffusionModel
+
+if TYPE_CHECKING:
+    from .core import ImageModelFamilyV2
+
+
+MINIMAX_H3_IMAGE_NAME = "MiniMax-H3-Image"
+MINIMAX_H3_IMAGE_VLLM_CACHE = f"{MINIMAX_H3_IMAGE_NAME}-vllm"
+
+
+def prepare_vllm_model_spec(model_spec: "ImageModelFamilyV2") -> "ImageModelFamilyV2":
+    """Keep Omni's native checkpoint separate from the modular Diffusers cache."""
+    model_spec = model_spec.copy(deep=True)
+    model_spec.cache_name = MINIMAX_H3_IMAGE_VLLM_CACHE
+    model_spec.cache_config = {
+        **(model_spec.cache_config or {}),
+        "allow_patterns": [
+            "model_index.json",
+            "pdd_*",
+            "transformer/*",
+            "text_encoder/*",
+            "tokenizer/*",
+            "processor/*",
+            "vae/*",
+        ],
+    }
+    return model_spec
 
 
 class MiniMaxH3ImageModel(ModularDiffusionModel):

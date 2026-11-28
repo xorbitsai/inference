@@ -42,6 +42,7 @@ import {
   buildEngineIndex,
   buildLaunchHistoryValues,
   createCacheKey,
+  isCachedImageFormat,
   isCachedSpec,
   normalizeModelSize,
   range,
@@ -328,6 +329,14 @@ export default function LaunchDialog({
     return { formats, sizes, quantizations };
   }, [model?.modelSpecs]);
 
+  const isCachedFormat = useCallback(
+    (engine: string, format: string) =>
+      modelType === ModelType.Image
+        ? isCachedImageFormat(model?.modelSpecs || [], engine, format)
+        : cacheIndex.formats.has(format),
+    [cacheIndex.formats, model?.modelSpecs, modelType]
+  );
+
   const modelEngineOptions = useMemo(() => {
     return Object.entries(modelEngineMap).map(([key, engineData]) => {
       if (typeof engineData === 'string') {
@@ -337,7 +346,7 @@ export default function LaunchDialog({
           disabled: true,
         };
       }
-      const cached = engineData.some((item) => cacheIndex.formats.has(item.model_format));
+      const cached = engineData.some((item) => isCachedFormat(key, item.model_format));
 
       return {
         label: key,
@@ -345,7 +354,7 @@ export default function LaunchDialog({
         suffix: cached ? t('launchModel.cached') : undefined,
       };
     });
-  }, [cacheIndex.formats, modelEngineMap, t]);
+  }, [isCachedFormat, modelEngineMap, t]);
 
   const selectedEngineFormats = engineIndex.get(modelEngineValue);
   const selectedFormatIndex = selectedEngineFormats?.get(modelFormatValue);
@@ -355,9 +364,9 @@ export default function LaunchDialog({
       Array.from(selectedEngineFormats?.keys() || []).map((format) => ({
         label: format,
         value: format,
-        suffix: cacheIndex.formats.has(format) ? t('launchModel.cached') : undefined,
+        suffix: isCachedFormat(modelEngineValue, format) ? t('launchModel.cached') : undefined,
       })),
-    [cacheIndex.formats, selectedEngineFormats, t]
+    [isCachedFormat, modelEngineValue, selectedEngineFormats, t]
   );
   const modelSizeInBillionsOptions = useMemo(
     () =>

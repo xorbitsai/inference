@@ -196,6 +196,16 @@ export function isCachedSpec(spec: unknown): boolean {
   return cacheStatus === true;
 }
 
+export function isCachedImageFormat(specs: ModelSpec[], engine: string, format: string): boolean {
+  return specs.some(
+    (spec) =>
+      spec.model_format === format &&
+      (typeof spec.model_engine !== 'string' ||
+        spec.model_engine.toLowerCase() === engine.toLowerCase()) &&
+      isCachedSpec(spec)
+  );
+}
+
 export function isRecord(value: unknown): value is UnknownRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

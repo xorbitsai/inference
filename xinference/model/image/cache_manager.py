@@ -42,10 +42,15 @@ class ImageCacheManager(CacheManager):
         return super().get_cache_status()
 
     def _link_snapshot(self, download_dir: str, cache_dir: str) -> None:
-        from ..utils import symlink_local_file
+        from ..utils import create_symlink, symlink_local_file
+        from .minimax_h3 import MINIMAX_H3_IMAGE_NAME
 
         if not self._checkpoint_files:
-            super()._link_snapshot(download_dir, cache_dir)
+            if self._model_family.model_name == MINIMAX_H3_IMAGE_NAME:
+                patterns = (self._model_family.cache_config or {}).get("allow_patterns")
+                create_symlink(download_dir, cache_dir, allow_patterns=patterns)
+            else:
+                super()._link_snapshot(download_dir, cache_dir)
             return
 
         # Hub download filters do not remove files already in a shared snapshot.
