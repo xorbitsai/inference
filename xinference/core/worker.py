@@ -33,7 +33,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from contextlib import AsyncExitStack, ExitStack, contextmanager, suppress
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -8141,6 +8141,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @management_operation
     async def confirm_and_remove_model(self, model_version: str) -> bool:
+        from contextlib import AsyncExitStack
+
         # Defensive: see list_cached_models for rationale.
         if self._cache_tracker_ref is None:
             logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
