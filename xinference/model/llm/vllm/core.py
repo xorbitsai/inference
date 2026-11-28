@@ -80,7 +80,11 @@ from ..context_length import (
     normalize_vllm_context_error,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
-from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
+from ..llm_family import (
+    HY_MT3_MODEL_NAMES,
+    PytorchLLMSpecV2,
+    cache_model_tokenizer_and_config,
+)
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
@@ -231,6 +235,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+HY_MT3_MIN_VLLM_VERSION = version.parse("0.21.0")
 MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.32.0")
 
@@ -3394,6 +3399,16 @@ class VLLMModel(WeightCachedModel, LLM):
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
+    def validate_launch(cls, llm_family: "LLMFamilyV2") -> None:
+        if llm_family.model_name in HY_MT3_MODEL_NAMES:
+            effective_version = _get_effective_vllm_version_for_family(llm_family)
+            if effective_version < HY_MT3_MIN_VLLM_VERSION:
+                raise ValueError(
+                    f"{llm_family.model_name} requires vLLM >= {HY_MT3_MIN_VLLM_VERSION} "
+                    f"(found {effective_version})"
+                )
+
+    @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
@@ -3437,7 +3452,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
+        is_hy_mt3 = llm_family.model_name in HY_MT3_MODEL_NAMES
         if llm_spec.model_format == "ggufv2":
+            if is_hy_mt3:
+                return False, "Hy-MT3 GGUF checkpoints require llama.cpp"
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False, "ggufv2 support requires vLLM >= 0.8.2"
         if (
@@ -3450,6 +3468,16 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         supported_architectures = list(VLLM_SUPPORTED_CHAT_MODELS)
         if is_ling3:
             _append_unique(supported_architectures, "BailingMoeV3ForCausalLM")
+        if (
+            is_hy_mt3
+            and _get_effective_vllm_version_for_family(llm_family)
+            >= HY_MT3_MIN_VLLM_VERSION
+        ):
+            # The Hy-MT3 virtualenv installs a supporting version even when
+            # these architectures were absent from the host runtime's registry.
+            _append_unique(
+                supported_architectures, "HunYuanDenseV1ForCausalLM", "HYV3ForCausalLM"
+            )
         if not llm_family.matches_supported_architectures(supported_architectures):
             return (
                 False,

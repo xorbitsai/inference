@@ -1,0 +1,256 @@
+[
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "Hy-MT3-30B-A3B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation model from Tencent Hunyuan. It supports 102 languages and follows translation instructions.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT3-30B-A3B",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120832,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT3-30B-A3B/resolve/8ef8ceef5bdf75c168756a486536ade445f668e2/config.json",
+              "config_sha256": "1212e1c3d7e015085d58b14060130e966e94f143218ffcaedf660d8769b51aae",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48,
+              "num_experts": 128,
+              "num_experts_per_tok": 8
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-30B-A3B",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120832,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B/resolve/master/config.json",
+              "config_sha256": "1212e1c3d7e015085d58b14060130e966e94f143218ffcaedf660d8769b51aae",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48,
+              "num_experts": 128,
+              "num_experts_per_tok": 8
+            }
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT3-30B-A3B-FP8",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120832,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT3-30B-A3B-FP8/resolve/ac1d410d5568090af2167be6e1c7dbdab2ba7c94/config.json",
+              "config_sha256": "b6a6fc8c0cfe4037d7367e7e04f4f6e55b913626c5f0948dc4c493c22a46d730",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48,
+              "num_experts": 128,
+              "num_experts_per_tok": 8
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-30B-A3B-FP8",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120832,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-FP8/resolve/master/config.json",
+              "config_sha256": "b6a6fc8c0cfe4037d7367e7e04f4f6e55b913626c5f0948dc4c493c22a46d730",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48,
+              "num_experts": 128,
+              "num_experts_per_tok": 8
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 30,
+        "activated_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0",
+              "IQ2"
+            ],
+            "model_id": "tencent/Hy-MT3-30B-A3B-GGUF",
+            "model_revision": "main",
+            "model_file_name_template": "Hy-MT3-30B-A3B-{quantization}.gguf",
+            "model_metadata_by_quantization": {
+              "Q4_K_M": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/tencent/Hy-MT3-30B-A3B-GGUF/resolve/4aa69beeaa46a20df044d1d371702e024baab868/Hy-MT3-30B-A3B-Q4_K_M.gguf",
+                "config_sha256": "8eab84982a86ee157cf35ff7664f847fb6f6c8ffca0753285498096d6d6625e6",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              },
+              "Q8_0": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/tencent/Hy-MT3-30B-A3B-GGUF/resolve/4aa69beeaa46a20df044d1d371702e024baab868/Hy-MT3-30B-A3B-Q8_0.gguf",
+                "config_sha256": "4f67f6f401c19d149cfc96ccccf423451b5c244e27565a8843f8f105810ce552",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              },
+              "IQ2": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/tencent/Hy-MT3-30B-A3B-GGUF/resolve/4aa69beeaa46a20df044d1d371702e024baab868/Hy-MT3-30B-A3B-IQ2.gguf",
+                "config_sha256": "79d2b95133bd9b5effee25e2a389412f03b6717434116c74ed7feb05f12e9d60",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              }
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0",
+              "IQ2"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-30B-A3B-GGUF",
+            "model_revision": "master",
+            "model_file_name_template": "Hy-MT3-30B-A3B-{quantization}.gguf",
+            "model_metadata_by_quantization": {
+              "Q4_K_M": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-GGUF/resolve/master/Hy-MT3-30B-A3B-Q4_K_M.gguf",
+                "config_sha256": "8eab84982a86ee157cf35ff7664f847fb6f6c8ffca0753285498096d6d6625e6",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              },
+              "Q8_0": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-GGUF/resolve/master/Hy-MT3-30B-A3B-Q8_0.gguf",
+                "config_sha256": "4f67f6f401c19d149cfc96ccccf423451b5c244e27565a8843f8f105810ce552",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              },
+              "IQ2": {
+                "vocab_size": 120832,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-GGUF/resolve/master/Hy-MT3-30B-A3B-IQ2.gguf",
+                "config_sha256": "79d2b95133bd9b5effee25e2a389412f03b6717434116c74ed7feb05f12e9d60",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "shared_expert_intermediate_size": 768
+              }
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{# ----------‑‑‑ special token variables ‑‑‑---------- #}\n{%- set HYTK = '' %}\n{%- set bos_token = '<｜hy_begin▁of▁sentence｜>' %}\n{%- set pad_token = '<｜hy_▁pad▁｜>' %}\n{%- set user_token = '<｜hy_User｜>' %}\n{%- set assistant_token = '<｜hy_Assistant｜>' %}\n{%- set eos_token = '<eos:6124c78e>' %}\n{# ----------‑‑‑ tokens with md5 encoding (conditional on HYTK) ‑‑‑---------- #}\n{%- if HYTK %}\n    {%- set think_begin_token = '<think:{}>'.format(HYTK) %}\n    {%- set think_end_token = '</think:{}>'.format(HYTK) %}\n    {%- set toolcalls_begin_token = '<tool_calls:{}>'.format(HYTK) %}\n    {%- set toolcalls_end_token = '</tool_calls:{}>'.format(HYTK) %}\n    {%- set toolcall_begin_token = '<tool_call:{}>'.format(HYTK) %}\n    {%- set toolcall_end_token = '</tool_call:{}>'.format(HYTK) %}\n    {%- set toolsep_token = '<tool_sep:{}>'.format(HYTK) %}\n    {%- set argkey_begin_token = '<arg_key:{}>'.format(HYTK) %}\n    {%- set argkey_end_token = '</arg_key:{}>'.format(HYTK) %}\n    {%- set argvalue_begin_token = '<arg_value:{}>'.format(HYTK) %}\n    {%- set argvalue_end_token = '</arg_value:{}>'.format(HYTK) %}\n    {%- set toolresponses_begin_token = '<tool_responses:{}>'.format(HYTK) %}\n    {%- set toolresponses_end_token = '</tool_responses:{}>'.format(HYTK) %}\n    {%- set toolresponse_begin_token = '<tool_response:{}>'.format(HYTK) %}\n    {%- set toolresponse_end_token = '</tool_response:{}>'.format(HYTK) %}\n    {%- set reasoning_mode_token = '<｜reasoning_mode｜>' %}\n    {%- set toolcalls_begin_ds_token = '<｜tool▁calls▁begin｜>' %}\n    {%- set toolcalls_end_ds_token = '<｜tool▁calls▁end｜>' %}\n    {%- set toolcall_begin_ds_token = '<｜tool▁call▁begin｜>' %}\n    {%- set toolcall_end_ds_token = '<｜tool▁call▁end｜>' %}\n    {%- set toolsep_ds_token = '<｜tool▁sep｜>' %}\n    {%- set tooloutput_begin_ds_token = '<｜tool▁output▁begin｜>' %}\n    {%- set tooloutput_end_ds_token = '<｜tool▁output▁end｜>' %}\n{%- else %}\n    {%- set think_begin_token = '<think>' %}\n    {%- set think_end_token = '</think>' %}\n    {%- set toolcalls_begin_token = '<tool_calls>' %}\n    {%- set toolcalls_end_token = '</tool_calls>' %}\n    {%- set toolcall_begin_token = '<tool_call>' %}\n    {%- set toolcall_end_token = '</tool_call>' %}\n    {%- set toolsep_token = '<tool_sep>' %}\n    {%- set argkey_begin_token = '<arg_key>' %}\n    {%- set argkey_end_token = '</arg_key>' %}\n    {%- set argvalue_begin_token = '<arg_value>' %}\n    {%- set argvalue_end_token = '</arg_value>' %}\n    {%- set toolresponses_begin_token = '<tool_responses>' %}\n    {%- set toolresponses_end_token = '</tool_responses>' %}\n    {%- set toolresponse_begin_token = '<tool_response>' %}\n    {%- set toolresponse_end_token = '</tool_response>' %}\n    {%- set reasoning_mode_token = '<｜reasoning_mode｜>' %}\n    {%- set toolcalls_begin_ds_token = '<｜tool▁calls▁begin｜>' %}\n    {%- set toolcalls_end_ds_token = '<｜tool▁calls▁end｜>' %}\n    {%- set toolcall_begin_ds_token = '<｜tool▁call▁begin｜>' %}\n    {%- set toolcall_end_ds_token = '<｜tool▁call▁end｜>' %}\n    {%- set toolsep_ds_token = '<｜tool▁sep｜>' %}\n    {%- set tooloutput_begin_ds_token = '<｜tool▁output▁begin｜>' %}\n    {%- set tooloutput_end_ds_token = '<｜tool▁output▁end｜>' %}\n{%- endif %}\n{# ----------‑‑‑ hyperparameters variables ‑‑‑---------- #}\n{%- if not add_generation_prompt is defined %}\n    {%- set add_generation_prompt = false %}\n{%- endif %}\n{%- if not interleaved_thinking is defined %}\n    {%- set interleaved_thinking = false %}\n{%- endif %}\n{%- if not tools %}\n    {%- set interleaved_thinking = false %}\n{%- endif %}\n{%- if not is_training is defined %}\n    {%- set is_training = false %}\n{%- endif %}\n{%- if not is_ai_search is defined %}\n    {%- set is_ai_search = false %}\n{%- endif %}\n{%- if not reasoning_effort is defined or reasoning_effort not in ['high', 'low', 'no_think'] %}\n    {%- set reasoning_effort = 'no_think' %}\n{%- endif %}\n\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- elif content is none -%}\n        {{- '' }}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n\n{%- set ns = namespace(last_user_index=-1) %}\n{%- set sp_ns = namespace(system_prompt='', is_first_sp=true) %}\n{%- for message in messages %}\n    {%- if message['role'] == 'system' %}\n        {%- set sp_ns.system_prompt = sp_ns.system_prompt + visible_text(message['content']) %}\n    {%- endif %}\n    {%- if message['role'] == 'user' %}\n        {%- set ns.last_user_index = loop.index0 %}\n    {%- endif %}\n{%- endfor %}\n{%- if reasoning_effort is defined and reasoning_effort is string and reasoning_effort != '' and not tools %}\n    {%- set sp_ns.system_prompt = sp_ns.system_prompt + reasoning_mode_token + 'reasoning_effort:' + reasoning_effort %}\n{%- endif %}\n{{- bos_token }}\n{{- sp_ns.system_prompt }}\n{%- if tools %}\n    {%- if sp_ns.system_prompt != '' %}\n        {{- '\\n\\n# Tools\\n\\nYou may call one or more functions to assist with the user query.' }}\n    {%- else %}\n        {{- '# Tools\\n\\nYou may call one or more functions to assist with the user query.' }}\n    {%- endif %}\n    {{- '\\n\\nYou are provided with function signatures within <tools></tools> XML tags:' }}\n    {{- '\\n<tools>\\n' }}\n    {%- for tool in tools %}\n        {%- if loop.index0 > 0 %}\n            {{- '\\n' }}\n        {%- endif %}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- '\\n</tools>\\n\\n' }}\n    {{- 'For function call returns, you should first print ' + toolcalls_begin_token + '\\n' }}\n    {{- 'For each function call, you should return object like:\\n' }}\n    {{- toolcall_begin_token + '{function-name}' + toolsep_token + '\\n' }}\n    {{- argkey_begin_token + '{arg-key-1}' + argkey_end_token + '\\n' }}\n    {{- argvalue_begin_token + '{arg-value-1}' + argvalue_end_token + '\\n' }}\n    {{- argkey_begin_token + '{arg-key-2}' + argkey_end_token + '\\n' }}\n    {{- argvalue_begin_token + '{arg-value-2}' + argvalue_end_token + '\\n' }}\n    {{- '...\\n' }}\n    {{- toolcalls_end_token + '\\n' }}\n    {%- if reasoning_effort is defined and reasoning_effort is string and reasoning_effort != '' %}\n        {{- 'At the end of function call returns, you should print ' + toolcalls_end_token + reasoning_mode_token + 'reasoning_effort:' + reasoning_effort }}\n    {%- else %}\n        {{- 'At the end of function call returns, you should print ' + toolcalls_end_token }}\n    {%- endif %}\n{%- endif %}\n\n{%- set prev_ns = namespace(is_tool=false, is_tool_first=true) %}\n{%- set last_ns = namespace(last_is_assistant=false) %}\n{%- for message in messages %}\n    {%- if message['role'] == 'user' %}\n        {%- if prev_ns.is_tool and not is_ai_search %}\n            {{- toolresponses_end_token }}\n        {%- endif %}\n        {{- user_token + visible_text(message['content']) }}\n        {%- set prev_ns.is_tool = false %}\n    {%- endif %}\n    {%- if message['role'] == 'assistant' %}\n        {%- if is_training %}\n            {%- if 'reasoning_content' in message and message['reasoning_content'] is string %}\n                {%- set content = think_begin_token + message['reasoning_content'] + think_end_token + visible_text(message['content']) %}\n            {%- else %}\n                {%- set content = think_begin_token + think_end_token + visible_text(message['content']) %}\n            {%- endif %}\n        {%- else %}\n            {%- if interleaved_thinking %}\n                {%- if loop.index0 > ns.last_user_index and 'reasoning_content' in message and message['reasoning_content'] is string %}\n                    {%- set content = think_begin_token + message['reasoning_content'] + think_end_token + visible_text(message['content']) %}\n                {%- else %}\n                    {%- set content = think_begin_token + think_end_token + visible_text(message['content']) %}\n                {%- endif %}\n            {%- else %}\n                {%- set content = think_begin_token + think_end_token + visible_text(message['content']) %}\n            {%- endif %}\n        {%- endif %}\n        {%- if prev_ns.is_tool and not is_ai_search %}\n            {{- toolresponses_end_token }}\n        {%- endif %}\n        {{- assistant_token }}\n        {%- if message['tool_calls'] is defined and message['tool_calls'] %}\n            {%- set prev_ns.is_tool_first = true %}\n            {{- content }}\n            {{- toolcalls_begin_token + '\\n' }}\n            {%- for tool in message['tool_calls'] %}\n                {%- set arguments = tool['function']['arguments'] %}\n                {{- toolcall_begin_token + tool['function']['name'] + toolsep_token + '\\n' }}\n                {%- for key, value in arguments.items() %}\n                    {{- argkey_begin_token + key + argkey_end_token + '\\n' }}\n                    {%- if value is not string %}\n                        {%- set value = value | tojson(ensure_ascii=False) %}\n                    {%- endif %}\n                    {{- argvalue_begin_token + value + argvalue_end_token + '\\n' }}\n                {%- endfor %}\n                {{- toolcall_end_token + '\\n' }}\n            {%- endfor %}\n            {{- toolcalls_end_token + eos_token }}\n        {%- else %}\n            {%- if not loop.last or is_training %}\n                {{- content + eos_token }}\n            {%- else %}\n                {{- content }}\n            {%- endif %}\n        {%- endif %}\n        {%- set prev_ns.is_tool = false %}\n    {%- endif %}\n    {%- if message['role'] == 'tool' %}\n        {%- set prev_ns.is_tool = true %}\n        {%- if prev_ns.is_tool_first and not is_ai_search %}\n            {{- toolresponses_begin_token + '\\n' }}\n            {%- set prev_ns.is_tool_first = false %}\n        {%- endif %}\n        {%- if is_ai_search %}\n            {{- tooloutput_begin_ds_token + visible_text(message['content']) + tooloutput_end_ds_token }}\n        {%- else %}\n            {{- toolresponse_begin_token + '\\n' + visible_text(message['content']) + '\\n' + toolresponse_end_token + '\\n' }}\n        {%- endif %}\n    {%- endif %}\n    {%- if loop.last and message['role'] == 'assistant' %}\n        {%- set last_ns.last_is_assistant = true %}\n    {%- endif %}\n\n{%- endfor %}\n{%- if prev_ns.is_tool and not is_ai_search %}\n    {{- toolresponses_end_token }}\n{%- endif %}\n{%- if add_generation_prompt %}\n    {%- if not last_ns.last_is_assistant %}\n        {%- if is_ai_search %}\n            {{- assistant_token }}\n            {{- think_begin_token + think_end_token }}\n        {%- elif reasoning_effort is defined and reasoning_effort in ['low', 'high'] %}\n            {{- assistant_token + think_begin_token }}\n        {%- elif reasoning_effort is defined and reasoning_effort == 'no_think' %}\n            {{- assistant_token + think_begin_token + think_end_token }}\n        {%- else %}\n            {{- assistant_token }}\n        {%- endif %}\n    {%- endif %}\n{%- endif %}",
+    "stop_token_ids": [
+      120025
+    ],
+    "architectures": [
+      "HYV3ForCausalLM"
+    ],
+    "model_type": "hy_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.6.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "vllm>=0.29.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "sglang>=0.5.12 ; #engine# == \"sglang\"",
+        "xllamacpp>=2026.10.11870 ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1795478400
+  }
+]

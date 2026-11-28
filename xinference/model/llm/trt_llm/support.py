@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 """Text architectures and checkpoint formats in the pinned PyTorch backend."""
 
+from ..llm_family import HY_MT3_MODEL_NAMES
+
 # Keep this aligned with tensorrt_llm._torch.models in TRT-LLM 1.2.1.
 # Model sizes, derivatives and MoE variants do not need separate allowlists.
 SUPPORTED_ARCHITECTURES = [
@@ -42,6 +44,8 @@ SUPPORTED_FORMATS = {
 
 
 def match_model(llm_family, llm_spec, quantization):
+    if getattr(llm_family, "model_name", None) in HY_MT3_MODEL_NAMES:
+        return False, "TRT-LLM does not support Hy-MT3 checkpoints"
     if set(llm_family.model_ability) & {"vision", "audio", "omni", "embed"}:
         return False, "TRT-LLM currently supports text generation models only"
     if not llm_family.matches_supported_architectures(SUPPORTED_ARCHITECTURES):

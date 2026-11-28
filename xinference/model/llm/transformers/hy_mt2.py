@@ -12,20 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Optional, Tuple, Union
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+from packaging.version import InvalidVersion, Version
 
 from ....types import LoRA, PytorchModelConfig
-from ...utils import allow_trust_remote_code
-from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
+from ...utils import allow_trust_remote_code, virtual_env_allows_missing_engine
+from ..llm_family import (
+    HY_MT3_MODEL_NAMES,
+    LLMFamilyV2,
+    LLMSpecV1,
+    register_transformer,
+)
 from .core import PytorchChatModel, register_non_default_model
 
 
 @register_transformer
 @register_non_default_model("HunYuanDenseV1ForCausalLM", "HYV3ForCausalLM")
 class HyMT2PytorchModel(PytorchChatModel):
-    """Adapter for Tencent Hunyuan Hy-MT2 multilingual translation models.
+    """Adapter for Tencent Hunyuan Hy-MT2 and Hy-MT3 translation models.
 
-    Hy-MT2 ships two architectures:
+    Both series share two architectures:
       - HunYuanDenseV1ForCausalLM (1.8B / 7B dense)
       - HYV3ForCausalLM           (30B-A3B MoE)
 
@@ -63,16 +72,76 @@ class HyMT2PytorchModel(PytorchChatModel):
         config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
         return config  # type: ignore
 
+    def apply_quantization_config(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if (
+            self._device == "mps"
+            and self.model_family.model_name in HY_MT3_MODEL_NAMES
+            and self.model_spec.model_format == "fp8"
+            and self.model_spec.quantization_method == "compressed-tensors"
+        ):
+            raise ValueError(
+                f"{self.model_family.model_name} FP8 is unsupported on MPS with "
+                "Transformers. Set device=cpu or use CUDA with device=cuda. "
+                "For Apple GPU inference, use the BF16 checkpoint with Transformers "
+                "or the GGUF checkpoint with llama.cpp."
+            )
+        return super().apply_quantization_config(kwargs)
+
+    @classmethod
+    def validate_launch(cls, model_family: LLMFamilyV2) -> None:
+        if (
+            model_family.model_name not in HY_MT3_MODEL_NAMES
+            or virtual_env_allows_missing_engine()
+        ):
+            return
+
+        spec = model_family.model_specs[0]
+        compressed_fp8 = (
+            spec.model_format == "fp8"
+            and spec.quantization_method == "compressed-tensors"
+        )
+        if spec.model_format != "pytorch" and not compressed_fp8:
+            return
+
+        # Use the same runtime floors as the managed packages in the catalog.
+        precision = "FP8" if compressed_fp8 else "BF16"
+        requirements = [("Transformers", Version("5.6.0"))]
+        if compressed_fp8:
+            requirements.append(("compressed-tensors", Version("0.15.0")))
+
+        for package, minimum_version in requirements:
+            installed = None
+            try:
+                installed = distribution_version(package.lower())
+                if Version(installed) >= minimum_version:
+                    continue
+            except (PackageNotFoundError, InvalidVersion):
+                pass
+            raise ValueError(
+                f"{model_family.model_name} {precision} requires {package} >= "
+                f"{minimum_version}. Found {installed or 'not installed'}. "
+                f"Install or upgrade {package}, or enable the model virtual environment."
+            )
+
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch"]:
-            return False, "Hy-MT2 transformer only supports pytorch format"
         if not llm_family.has_architecture(*cls._ARCHITECTURES):
             return (
                 False,
-                "Hy-MT2 transformer only supports architectures: "
+                "Hy-MT Transformers supports architectures: "
                 f"{', '.join(sorted(cls._ARCHITECTURES))}",
             )
-        return True
+        if llm_spec.model_format == "pytorch":
+            return True
+        if (
+            llm_family.model_name in HY_MT3_MODEL_NAMES
+            and llm_spec.model_format == "fp8"
+        ):
+            if llm_spec.quantization_method == "compressed-tensors":
+                return True
+            return False, "Hy-MT3-30B-A3B FP8 requires vLLM or SGLang"
+        return False, "Hy-MT Transformers requires a supported PyTorch checkpoint"

@@ -274,6 +274,14 @@ msgstr ""
 msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 msgstr ""
 
+#: doc/source/getting_started/installation.rst:182
+msgid "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+msgstr "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+
+#: doc/source/getting_started/installation.rst:183
+msgid "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+msgstr "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+
 #: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp エンジン"

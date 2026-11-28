@@ -485,6 +485,14 @@ msgstr ""
 " ``Qwen3`` ou ``bce`` podem ser inicializadas com ``--model-engine vllm``"
 " — consulte :ref:`Embeddings <embed>`."
 
+#: doc/source/user_guide/backends.rst:175
+msgid "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+msgstr "``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT3-1.8B``, ``Hy-MT3-7B``"
+
+#: doc/source/user_guide/backends.rst:176
+msgid "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+msgstr "``Hy-MT2-30B-A3B``, ``Hy-MT3-30B-A3B``"
+
 #: ../../source/user_guide/backends.rst:179
 msgid ""
 "Besides LLMs, vLLM can also serve embedding models. Model families whose "

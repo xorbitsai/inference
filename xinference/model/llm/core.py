@@ -680,6 +680,7 @@ def create_llm_model_instance(
 ) -> LLM:
     from .cache_manager import LLMCacheManager
     from .llm_family import (
+        HY_MT3_MODEL_NAMES,
         LlamaCppLLMSpecV2,
         check_engine_by_spec_parameters,
         check_engine_by_spec_parameters_with_virtual_env,
@@ -688,7 +689,11 @@ def create_llm_model_instance(
 
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
-    from .context_length import configure_auto_yarn, map_context_length
+    from .context_length import (
+        CONTEXT_LENGTH_KEYS,
+        configure_auto_yarn,
+        map_context_length,
+    )
 
     # Validate early, but retain the per-request value while deriving YaRN.
     # llama.cpp's native n_ctx is the total capacity across all parallel slots.
@@ -765,6 +770,17 @@ def create_llm_model_instance(
             )
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
+
+    # Hy-MT3 recommends an 8K inference context, while its checkpoint
+    # config advertises a 256K positional limit.
+    if llm_family.model_name in HY_MT3_MODEL_NAMES:
+        native_context_key = CONTEXT_LENGTH_KEYS.get(model_engine.lower())
+        if (
+            native_context_key is not None
+            and kwargs.get("context_length") is None
+            and kwargs.get(native_context_key) is None
+        ):
+            kwargs["context_length"] = llm_family.context_length
 
     kwargs, context_env = configure_auto_yarn(
         llm_family, model_engine, kwargs, model_path

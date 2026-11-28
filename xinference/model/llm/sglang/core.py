@@ -219,6 +219,7 @@ LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 # generic five-minute server wait, especially for replicas loading together.
 DEEPSEEK_V41_SGLANG_LAUNCH_TIMEOUT = 3600.0
 MINICPMV47_MIN_SGLANG_VERSION = Version("0.5.23")
+HY_MT3_MOE_MIN_SGLANG_VERSION = Version("0.5.12")
 # deepseek-recipe rendering (sglang.srt.parser.deepseek_recipe_renderer).
 DEEPSEEK_V41_MIN_SGLANG_VERSION = Version("0.5.23")
 
@@ -299,7 +300,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         model_config: Optional[SGLANGModelConfig],
     ):
         super().__init__(model_uid, model_family, model_path)
-        self.validate_launch(model_family)
+        # Every instance needs the base checkpoint checks. Request-specific
+        # preflight runs in the factory before caching, with its venv setting.
+        SGLANGModel.validate_launch(model_family)
         self._model_config = model_config
         self._engine = None
         self._address = model_config.pop("address", None)  # type: ignore
@@ -1809,6 +1812,20 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
 
 
 class SGLANGChatModel(SGLANGModel):
+    @classmethod
+    def validate_launch(cls, model_family: "LLMFamilyV2") -> None:
+        super().validate_launch(model_family)
+        if (
+            model_family.model_name == "Hy-MT3-30B-A3B"
+            and not _virtual_env_allows_missing_sglang()
+        ):
+            installed = _get_sglang_version()
+            if installed is None or installed < HY_MT3_MOE_MIN_SGLANG_VERSION:
+                raise ValueError(
+                    "Hy-MT3-30B-A3B requires SGLang >= "
+                    f"{HY_MT3_MOE_MIN_SGLANG_VERSION} (found {installed or 'not installed'})"
+                )
+
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str

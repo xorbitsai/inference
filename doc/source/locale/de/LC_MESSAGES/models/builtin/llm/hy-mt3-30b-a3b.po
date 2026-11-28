@@ -1,0 +1,159 @@
+# Hy-MT3 translations for the de locale.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 00:00+0000\n"
+"PO-Revision-Date: 2026-11-27 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: de\n"
+"Language-Team: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:5
+msgid "Hy-MT3-30B-A3B"
+msgstr "Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:7
+msgid "**Context Length:** 8192"
+msgstr "**Kontextlänge:** 8192"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:8
+msgid "**Model Name:** Hy-MT3-30B-A3B"
+msgstr "**Modellname:** Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**Sprachen:** Englisch, Chinesisch"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:10
+msgid "**Abilities:** chat"
+msgstr "**Fähigkeiten:** Chat"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:11
+msgid ""
+"**Description:** Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation "
+"model from Tencent Hunyuan. It supports 102 languages and follows translation "
+"instructions."
+msgstr ""
+"**Beschreibung:** Hy-MT3-30B-A3B ist ein Mixture-of-Experts-basiertes "
+"mehrsprachiges Übersetzungsmodell von Tencent Hunyuan. Es unterstützt 102 Sprachen"
+" und befolgt Übersetzungsanweisungen."
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:14
+msgid "Specifications"
+msgstr "Spezifikationen"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:18
+msgid "Model Spec 1 (pytorch, 30 Billion)"
+msgstr "Modellspezifikation 1 (pytorch, 30 Milliarden)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**Modellformat:** pytorch"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:21
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:37
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:53
+msgid "**Model Size (in billions):** 30"
+msgstr "**Modellgröße (in Milliarden Parametern):** 30"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:22
+msgid "**Quantizations:** none"
+msgstr "**Quantisierungen:** none"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:23
+msgid "**Engines**: vLLM, Transformers, SGLang"
+msgstr "**Inferenz-Engines**: vLLM, Transformers, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:24
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B"
+msgstr "**Modell-ID:** tencent/Hy-MT3-30B-A3B"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B>`__,"
+" `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B>`__"
+msgstr ""
+"**Modell-Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-"
+"A3B>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-"
+"A3B>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:27
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:43
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:59
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr ""
+"Starten Sie das Modell mit dem folgenden Befehl. Ersetzen Sie ``${quantization}`` "
+"durch eine der oben aufgeführten Quantisierungsmethoden::"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:34
+msgid "Model Spec 2 (fp8, 30 Billion)"
+msgstr "Modellspezifikation 2 (fp8, 30 Milliarden)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**Modellformat:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:38
+msgid "**Quantizations:** fp8"
+msgstr "**Quantisierungen:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:39
+msgid "**Engines**: vLLM, SGLang"
+msgstr "**Inferenz-Engines**: vLLM, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:40
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B-FP8"
+msgstr "**Modell-ID:** tencent/Hy-MT3-30B-A3B-FP8"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-"
+"FP8>`__"
+msgstr ""
+"**Modell-Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-A3B-"
+"FP8>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:50
+msgid "Model Spec 3 (ggufv2, 30 Billion)"
+msgstr "Modellspezifikation 3 (ggufv2, 30 Milliarden)"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:52
+msgid "**Model Format:** ggufv2"
+msgstr "**Modellformat:** ggufv2"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:54
+msgid "**Quantizations:** Q4_K_M, Q8_0, IQ2"
+msgstr "**Quantisierungen:** Q4_K_M, Q8_0, IQ2"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:55
+msgid "**Engines**: llama.cpp"
+msgstr "**Inferenz-Engines**: llama.cpp"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:56
+msgid "**Model ID:** tencent/Hy-MT3-30B-A3B-GGUF"
+msgstr "**Modell-ID:** tencent/Hy-MT3-30B-A3B-GGUF"
+
+#: doc/source/models/builtin/llm/hy-mt3-30b-a3b.rst:57
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-"
+"A3B-GGUF>`__"
+msgstr ""
+"**Modell-Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-30B-A3B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-30B-"
+"A3B-GGUF>`__"
