@@ -76,6 +76,12 @@ The following is a list of built-in embedding models in Xinference:
    m3e-small
   
    multilingual-e5-large
+
+   nemotron-3.5-embed-1b-bf16
+
+   nemotron-3.5-embed-1b-nvfp4
+
+   nemotron-3.5-embed-8b-bf16
   
    qwen3-embedding-0.6b
   

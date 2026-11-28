@@ -1,0 +1,55 @@
+[
+  {
+    "version": 2,
+    "model_name": "Nemotron-3.5-Embed-8B-BF16",
+    "dimensions": 4096,
+    "max_tokens": 32768,
+    "model_ability": [
+      "embed_vision"
+    ],
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "nvidia/Nemotron-3.5-Embed-8B-BF16",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "nv-community/Nemotron-3.5-Embed-8B-BF16",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "vllm>=0.32.0 ; #engine# == \"vllm\"",
+        "transformers>=5.17.0,<5.20.0 ; #engine# == \"vllm\"",
+        "pillow",
+        "sentence-transformers[image]>5.4 ; #engine# == \"sentence_transformers\"",
+        "transformers>=5.20.0 ; #engine# == \"transformers\"",
+        "accelerate ; #engine# == \"transformers\"",
+        "torch>=2.8.0 ; #engine# == \"transformers\"",
+        "torchvision>=0.23.0 ; #engine# == \"transformers\"",
+        "torchaudio>=2.8.0 ; #engine# == \"transformers\"",
+        "transformers>=5.20.0 ; #engine# == \"sentence_transformers\"",
+        "accelerate ; #engine# == \"sentence_transformers\"",
+        "torch>=2.8.0 ; #engine# == \"sentence_transformers\"",
+        "torchvision>=0.23.0 ; #engine# == \"sentence_transformers\"",
+        "torchaudio>=2.8.0 ; #engine# == \"sentence_transformers\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1794849383
+  }
+]
