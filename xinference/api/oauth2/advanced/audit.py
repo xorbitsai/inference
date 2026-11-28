@@ -115,11 +115,34 @@ def classify_endpoint(endpoint: str) -> str:
 _uid_model_cache: dict[str, tuple[str, str]] = {}
 
 
-def update_model_cache(uid: str, model_name: str, model_type: str = "") -> None:
+# Only lifecycle events advance the revision. A list refresh updates metadata.
+_cache_revision = 0
+_launch_revisions: dict[str, int] = {}
+
+
+def model_cache_revision() -> int:
+    return _cache_revision
+
+
+def model_launch_revision(uid: str) -> int:
+    return _launch_revisions.get(uid, 0)
+
+
+def refresh_model_metadata(uid: str, model_name: str, model_type: str) -> None:
     _uid_model_cache[uid] = (model_name, model_type)
 
 
+def update_model_cache(uid: str, model_name: str, model_type: str = "") -> None:
+    global _cache_revision
+    _cache_revision += 1
+    _launch_revisions[uid] = _cache_revision
+    refresh_model_metadata(uid, model_name, model_type)
+
+
 def evict_model_cache(uid: str) -> None:
+    global _cache_revision
+    _cache_revision += 1
+    _launch_revisions.pop(uid, None)
     _uid_model_cache.pop(uid, None)
 
 

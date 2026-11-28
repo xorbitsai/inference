@@ -1,0 +1,153 @@
+# Hy-MT3 translations for the fr locale.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 00:00+0000\n"
+"PO-Revision-Date: 2026-11-27 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: fr\n"
+"Language-Team: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:5
+msgid "Hy-MT3-7B"
+msgstr "Hy-MT3-7B"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:7
+msgid "**Context Length:** 8192"
+msgstr "**Longueur du contexte:** 8192"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:8
+msgid "**Model Name:** Hy-MT3-7B"
+msgstr "**Nom du modèle:** Hy-MT3-7B"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**Langues:** anglais, chinois"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:10
+msgid "**Abilities:** chat"
+msgstr "**Capacités:** conversation"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:11
+msgid ""
+"**Description:** Hy-MT3-7B is a dense multilingual translation model from Tencent "
+"Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr ""
+"**Description:** Hy-MT3-7B est un modèle dense de traduction multilingue de "
+"Tencent Hunyuan. Il prend en charge 102 langues et suit les consignes de "
+"traduction."
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:14
+msgid "Specifications"
+msgstr "Spécifications"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:18
+msgid "Model Spec 1 (pytorch, 7 Billion)"
+msgstr "Spécification du modèle 1 (pytorch, 7 milliards)"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**Format du modèle:** pytorch"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:21
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:37
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:53
+msgid "**Model Size (in billions):** 7"
+msgstr "**Taille du modèle (en milliards de paramètres):** 7"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:22
+msgid "**Quantizations:** none"
+msgstr "**Quantifications:** none"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:23
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:39
+msgid "**Engines**: vLLM, Transformers, SGLang"
+msgstr "**Moteurs**: vLLM, Transformers, SGLang"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:24
+msgid "**Model ID:** tencent/Hy-MT3-7B"
+msgstr "**Identifiant du modèle:** tencent/Hy-MT3-7B"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-7B>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-7B>`__"
+msgstr ""
+"**Dépôts de modèles**:  `Hugging Face <https://huggingface.co/tencent/Hy-"
+"MT3-7B>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-"
+"MT3-7B>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:27
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:43
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:59
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options listed "
+"above::"
+msgstr ""
+"Exécutez la commande suivante pour lancer le modèle en remplaçant "
+"``${quantization}`` par l’une des méthodes de quantification indiquées ci-dessus::"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:34
+msgid "Model Spec 2 (fp8, 7 Billion)"
+msgstr "Spécification du modèle 2 (fp8, 7 milliards)"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**Format du modèle:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:38
+msgid "**Quantizations:** fp8"
+msgstr "**Quantifications:** fp8"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:40
+msgid "**Model ID:** tencent/Hy-MT3-7B-FP8"
+msgstr "**Identifiant du modèle:** tencent/Hy-MT3-7B-FP8"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-7B-FP8>`__, "
+"`ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-7B-FP8>`__"
+msgstr ""
+"**Dépôts de modèles**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-7B-"
+"FP8>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-7B-"
+"FP8>`__"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:50
+msgid "Model Spec 3 (ggufv2, 7 Billion)"
+msgstr "Spécification du modèle 3 (ggufv2, 7 milliards)"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:52
+msgid "**Model Format:** ggufv2"
+msgstr "**Format du modèle:** ggufv2"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:54
+msgid "**Quantizations:** Q4_K_M, Q8_0, IQ2"
+msgstr "**Quantifications:** Q4_K_M, Q8_0, IQ2"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:55
+msgid "**Engines**: llama.cpp"
+msgstr "**Moteurs**: llama.cpp"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:56
+msgid "**Model ID:** tencent/Hy-MT3-7B-GGUF"
+msgstr "**Identifiant du modèle:** tencent/Hy-MT3-7B-GGUF"
+
+#: doc/source/models/builtin/llm/hy-mt3-7b.rst:57
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-7B-GGUF>`__,"
+" `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-7B-GGUF>`__"
+msgstr ""
+"**Dépôts de modèles**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT3-7B-"
+"GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-7B-"
+"GGUF>`__"

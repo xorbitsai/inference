@@ -47,6 +47,7 @@ def test_qwen3_virtualenv_selects_trt_without_installed_engine(monkeypatch):
         ("gpt-oss", "pytorch", 20, "none"),
         ("DeepSeek-V3.2", "pytorch", 671, "none"),
         ("Qwen3-Next-Instruct", "pytorch", 80, "none"),
+        ("Hy-MT2-1.8B", "pytorch", 2, "none"),
     ],
 )
 def test_architecture_support_is_available_in_virtualenv_without_engine(

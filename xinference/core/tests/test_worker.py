@@ -2608,7 +2608,7 @@ def test_prepare_virtual_env_jina_flash_attn_uses_dedicated_hook_and_fingerprint
     monkeypatch.setattr(
         virtual_env_manager_module,
         "apply_flash_attn_wheel_post_install",
-        lambda *args: hook_calls.append(args),
+        lambda *args, cancel_event: hook_calls.append(args),
     )
     monkeypatch.setattr(
         WorkerActor, "_is_cuda_device_available", staticmethod(lambda: True)
@@ -2666,7 +2666,7 @@ def test_prepare_virtual_env_non_jina_keeps_flash_attn_in_regular_install(
     monkeypatch.setattr(
         virtual_env_manager_module,
         "apply_flash_attn_wheel_post_install",
-        lambda *args: hook_calls.append(args),
+        lambda *args, cancel_event: hook_calls.append(args),
     )
 
     WorkerActor._prepare_virtual_env(
@@ -4853,7 +4853,11 @@ def test_resolve_image_download_repositories_includes_auxiliary_models(monkeypat
         gguf_model_id="org/demo-image-gguf",
         lightning_model_id="org/demo-image-lightning",
     )
-    monkeypatch.setattr(image_core, "match_diffusion", lambda *_args: model_spec)
+    monkeypatch.setattr(
+        image_core,
+        "match_diffusion",
+        lambda name, hub, *, quantization=None: model_spec,
+    )
     payload = {
         "model_type": "image",
         "model_name": "demo-image",

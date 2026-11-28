@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
 import importlib.util
 import io
 
@@ -120,8 +121,8 @@ def test_deepdoc_gpu_repairs_onnxruntime_namespace(monkeypatch):
     )
 
     assert uninstall.call_args_list == [
-        call(manager, "onnxruntime"),
-        call(manager, "onnxruntime-gpu"),
+        call(manager, "onnxruntime", None),
+        call(manager, "onnxruntime-gpu", None),
     ]
     assert manager.install_packages.call_args_list[-1].args == (
         ["onnxruntime-gpu>=1.19.2"],

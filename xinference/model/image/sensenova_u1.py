@@ -26,6 +26,8 @@ from .sdapi import SDAPIDiffusionModelMixin
 from .utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
+    import torch
+
     from ...types import LoRA
     from .core import ImageModelFamilyV2
 
@@ -35,6 +37,29 @@ _IMAGE_GRID_FACTOR = 32
 _DEFAULT_TARGET_PIXELS = 2048 * 2048
 _DEFAULT_INPUT_MAX_PIXELS = 2048 * 2048
 _MIN_INPUT_MAX_PIXELS = 512 * 512
+
+
+def get_sensenova_checkpoint_files(model_spec: "ImageModelFamilyV2") -> List[str]:
+    """Return the selected standalone checkpoint and its hub resources."""
+    template = getattr(model_spec, "model_file_name_template", None)
+    if not template or model_spec.model_family != "sensenova_u1":
+        return []
+    quantization = getattr(model_spec, "quantization", None)
+    filename = template.format(quantization=quantization)
+    files = [
+        filename,
+        "config.json",
+        "tokenizer_config.json",
+        "vocab.json",
+        "merges.txt",
+        "added_tokens.json",
+        "special_tokens_map.json",
+    ]
+    if filename.endswith(".safetensors") and quantization != "BF16":
+        files.append(
+            filename.removesuffix(".safetensors") + ".quantization_config.json"
+        )
+    return files
 
 
 class SenseNovaU1Model(SDAPIDiffusionModelMixin):
@@ -98,6 +123,7 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             load_model_and_tokenizer,
             vram_mode_to_prefetch_count,
         )
+        from sensenova_u1.utils.accel import SUPPORTED_DEVICE_TYPES
 
         if self._lightning_model_path:
             raise ValueError("SenseNova-U1 does not support lightning models.")
@@ -113,6 +139,14 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
         self._vram_mode = kwargs.pop("vram_mode", DEFAULT_VRAM_MODE)
         self._prefetch_count = vram_mode_to_prefetch_count(self._vram_mode)
         self._device = self._device or str(best_available_device())
+        if (
+            self._prefetch_count > 0
+            and torch.device(self._device).type not in SUPPORTED_DEVICE_TYPES
+        ):
+            raise ValueError(
+                f"SenseNova-U1 vram_mode={self._vram_mode!r} requires a CUDA or XPU "
+                f"device for layer offload, but got device {self._device!r}."
+            )
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)
 
@@ -131,15 +165,26 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
         if kwargs:
             logger.warning("Ignore unsupported SenseNova-U1 load options: %s", kwargs)
 
-        self._model, self._tokenizer = load_model_and_tokenizer(
-            self._model_path,
-            dtype=torch_dtype,
-            device=self._device,
-            gguf_checkpoint=self._gguf_model_path,
-            device_map=device_map,
-            max_memory=max_memory,
-            for_offload=self._prefetch_count > 0,
+        checkpoint_files = get_sensenova_checkpoint_files(self._model_spec)
+        checkpoint = (
+            os.path.join(self._model_path, checkpoint_files[0])
+            if checkpoint_files
+            else None
         )
+        if checkpoint and checkpoint.endswith(".safetensors"):
+            self._model, self._tokenizer = self._load_native_checkpoint(
+                checkpoint, torch_dtype, device_map, max_memory
+            )
+        else:
+            self._model, self._tokenizer = load_model_and_tokenizer(
+                self._model_path,
+                dtype=torch_dtype,
+                device=self._device,
+                gguf_checkpoint=self._gguf_model_path or checkpoint,
+                device_map=device_map,
+                max_memory=max_memory,
+                for_offload=self._prefetch_count > 0,
+            )
 
         if self._lora_model:
             if self._lora_load_kwargs or self._lora_fuse_kwargs:
@@ -148,6 +193,98 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
                 self._model = load_and_merge_lora_weight_from_safetensors(
                     self._model, lora.local_path
                 )
+
+    def _load_native_checkpoint(
+        self, checkpoint: str, dtype: Any, device_map: Any, max_memory: Any
+    ):
+        import torch
+
+        quantization = getattr(self._model_spec, "quantization", None)
+        if quantization != "BF16":
+            device = torch.device(self._device)
+            if (
+                self._vram_mode != "full"
+                or device_map
+                or max_memory
+                or device.type != "cuda"
+                or dtype != torch.bfloat16
+            ):
+                raise ValueError(
+                    "SenseNova Native FP8/INT8 requires CUDA, BF16 compute, and "
+                    "vram_mode='full' without device_map or max_memory."
+                )
+            if self._lora_model:
+                raise ValueError(
+                    "SenseNova Native FP8/INT8 does not support LoRA merging."
+                )
+            if quantization == "FP8-E4M3FN-W8A8":
+                self._validate_native_fp8_device(device)
+
+            from sensenova_u1.utils.quant_runtime import load_quant
+
+            return load_quant(checkpoint, self._device)
+
+        from accelerate import init_empty_weights, load_checkpoint_and_dispatch
+        from sensenova_u1 import check_checkpoint_compatibility
+        from sensenova_u1.utils.checkpoint_loading import parse_max_memory
+        from transformers import AutoConfig, AutoModel, AutoTokenizer
+
+        config = AutoConfig.from_pretrained(self._model_path)
+        check_checkpoint_compatibility(config)
+        tokenizer = AutoTokenizer.from_pretrained(self._model_path)
+        with init_empty_weights():
+            model = AutoModel.from_config(config)
+        if self._prefetch_count > 0:
+            device_map = {"": "cpu"}
+        elif device_map is None:
+            device_map = {"": self._device}
+        model = load_checkpoint_and_dispatch(
+            model,
+            checkpoint,
+            device_map=device_map,
+            max_memory=parse_max_memory(max_memory),
+            no_split_module_classes=getattr(model, "_no_split_modules", None),
+            dtype=dtype,
+            strict=True,
+        )
+        return model.eval(), tokenizer
+
+    @staticmethod
+    def _validate_native_fp8_device(device: "torch.device") -> None:
+        import torch
+
+        rocm_version = torch.version.hip
+        if rocm_version is None:
+            # Match the CUDA capability check in torch._scaled_mm.
+            major, minor = torch.cuda.get_device_capability(device)
+            if (major, minor) < (8, 9):
+                raise ValueError(
+                    "SenseNova Native FP8 requires CUDA compute capability "
+                    f"8.9 or newer, but device {str(device)!r} has {major}.{minor}."
+                )
+            return
+
+        architecture = torch.cuda.get_device_properties(device).gcnArchName
+        # ROCm kernel support depends on the PyTorch build, GPU and FP8 format.
+        try:
+            matrix = torch.zeros((32, 32), device=device, dtype=torch.float32).to(
+                torch.float8_e4m3fn
+            )
+            scale = torch.ones((), device=device, dtype=torch.float32)
+            torch._scaled_mm(
+                matrix,
+                matrix.t(),
+                scale_a=scale,
+                scale_b=scale,
+                out_dtype=torch.float32,
+            )
+            torch.cuda.current_stream(device).synchronize()
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"SenseNova Native FP8 failed the PyTorch ROCm {rocm_version} "
+                f"kernel check on device {str(device)!r} ({architecture}). "
+                f"E4M3FN torch._scaled_mm with FP32 output is required. {exc}"
+            ) from exc
 
     def _offload_context(self):
         if self._model is None:

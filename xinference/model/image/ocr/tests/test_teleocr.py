@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CI: linux
+
 import base64
 import sys
 from pathlib import Path
@@ -146,7 +148,9 @@ def test_teleocr_accepts_image_gguf_options(monkeypatch):
     )
     calls = {}
 
-    monkeypatch.setattr(core, "match_diffusion", lambda name, hub: pytorch)
+    monkeypatch.setattr(
+        core, "match_diffusion", lambda name, hub, *, quantization=None: pytorch
+    )
 
     def select(name, engine, hub, **kwargs):
         calls["selection"] = (name, engine, kwargs)

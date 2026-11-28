@@ -5,6 +5,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 # CI: linux
 
+import hashlib
 import json
 import os
 import pickle
@@ -74,6 +75,70 @@ def test_cached_memory_counts_only_daemon_tree(monkeypatch):
     )
     monkeypatch.setitem(sys.modules, "pynvml", nvml)
     assert _cached_memory_fraction(10) == 0.5
+    nvml.nvmlShutdown.assert_called_once()
+
+
+class _FakeNVMLError(Exception):
+    def __init__(self, value):
+        super().__init__(f"NVML error {value}")
+        self.value = value
+
+
+def _nvml_with_failing_gpu(error_value):
+    def get_handle(index):
+        if index == 1:
+            raise _FakeNVMLError(error_value)
+        return index
+
+    return SimpleNamespace(
+        NVMLError=_FakeNVMLError,
+        NVML_ERROR_NO_PERMISSION=4,
+        NVML_ERROR_GPU_IS_LOST=15,
+        NVML_ERROR_UNKNOWN=999,
+        NVML_ERROR_RESET_REQUIRED=16,
+        NVML_ERROR_INSUFFICIENT_POWER=8,
+        NVML_ERROR_IRQ_ISSUE=11,
+        nvmlInit=MagicMock(),
+        nvmlShutdown=MagicMock(),
+        nvmlDeviceGetCount=lambda: 3,
+        nvmlDeviceGetHandleByIndex=get_handle,
+        nvmlDeviceGetComputeRunningProcesses=lambda index: [
+            SimpleNamespace(pid=10, usedGpuMemory=100 * (index + 1)),
+        ],
+        nvmlDeviceGetMemoryInfo_v2=lambda handle: SimpleNamespace(total=1000, free=100),
+    )
+
+
+@pytest.mark.parametrize("error_value", [15, 999, 16, 8, 11])
+def test_gpu_memory_snapshot_skips_a_gpu_that_cannot_be_queried(
+    monkeypatch, error_value
+):
+    from ..weight_cache import _gpu_memory_snapshot
+
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip=None))
+    )
+    nvml = _nvml_with_failing_gpu(error_value)
+    monkeypatch.setitem(sys.modules, "pynvml", nvml)
+
+    snapshot = _gpu_memory_snapshot()
+
+    assert sorted(snapshot) == [0, 2]
+    assert snapshot[2] == (1000, 100, {10: 300})
+    nvml.nvmlShutdown.assert_called_once()
+
+
+def test_gpu_memory_snapshot_still_fails_on_other_nvml_errors(monkeypatch):
+    from ..weight_cache import _gpu_memory_snapshot
+
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip=None))
+    )
+    nvml = _nvml_with_failing_gpu(4)  # NVML_ERROR_NO_PERMISSION
+    monkeypatch.setitem(sys.modules, "pynvml", nvml)
+
+    with pytest.raises(_FakeNVMLError):
+        _gpu_memory_snapshot()
     nvml.nvmlShutdown.assert_called_once()
 
 
@@ -371,6 +436,90 @@ def test_container_driver_pids_and_unknown_memory(monkeypatch):
     assert _cached_memory_fraction(os.getpid(), {0: {900}, 1: {900}}) == 0.4
     with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
         _cached_memory_fraction(os.getpid())
+
+
+def _start_with_snapshots(
+    monkeypatch, snapshots, tp, gpu_uuids=None, sockets=None, environment=None
+):
+    """Start a vLLM daemon whose two driver snapshots (before and after preload)
+    are given, and return it. `gpu_uuids` maps NVML index to UUID (None: no NVML,
+    as on ROCm); `sockets` are the UUIDs the daemon's ranks serve (named as vLLM
+    names their sockets)."""
+    snapshots = iter(snapshots)
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._gpu_uuids",
+        lambda: None if gpu_uuids is None else dict(gpu_uuids),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._gpu_process_memory",
+        lambda: next(snapshots),
+    )
+    daemon = WeightCacheDaemon(
+        "vllm", "/models/test", {"tensor_parallel_size": tp, "launch_timeout": 300}
+    )
+    process = MagicMock(pid=1234)
+    process.poll.return_value = None
+
+    def spawn(command, **kwargs):
+        if sockets is None:
+            for rank in range(tp):
+                (daemon.directory / f"gpu-{rank}.sock").touch()
+        for uuid in sockets or ():
+            digest = hashlib.md5(uuid.encode()).hexdigest()
+            (daemon.directory / f"vllm_weight_cache_{digest}.sock").touch()
+        return process
+
+    monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
+    monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", MagicMock())
+    monkeypatch.setattr("psutil.process_iter", lambda attrs: [])
+    monkeypatch.setattr(
+        "psutil.Process", lambda pid: SimpleNamespace(children=lambda recursive: [])
+    )
+    daemon.start(timeout=1, environment=environment)
+    return daemon
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_unrelated_gpu_seen_only_after_preload_is_not_counted(monkeypatch):
+    # GPU 1 cannot be queried before preload; once it can, its unrelated 85%
+    # process must not count as the daemon's reservation.
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{0: (1000, {})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}],
+        tp=1,
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+@pytest.mark.parametrize(
+    "snapshots,tp",
+    [
+        # The daemon's GPU 0 was not measured before preload.
+        ([{1: (1000, {950: 850})}, {0: (1000, {900: 300}), 1: (1000, {950: 850})}], 1),
+        # One of two ranks' GPUs was not measured before preload.
+        (
+            [
+                {0: (1000, {}), 2: (1000, {})},
+                {0: (1000, {900: 300}), 1: (1000, {901: 300}), 2: (1000, {})},
+            ],
+            2,
+        ),
+    ],
+)
+def test_daemon_gpu_missing_from_a_snapshot_cannot_be_accounted(
+    monkeypatch, snapshots, tp
+):
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(monkeypatch, snapshots, tp)
 
 
 def test_reload_config_reads_committed_snapshot_during_engine_mutation():
@@ -671,3 +820,89 @@ def test_disabled_cache_does_not_probe_environment(auto_cache_model, monkeypatch
     model._prepare_weight_cache()
     probe.assert_not_called()
     daemon.start.assert_not_called()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpu_missing_from_baseline_is_not_masked(monkeypatch):
+    # The daemon's GPU (NVML 0) is missing before preload; an unrelated process
+    # that starts on NVML 1 meanwhile must not stand in for it.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{1: (1000, {})}, {0: (1000, {900: 700}), 1: (1000, {950: 200})}],
+            tp=1,
+            gpu_uuids={0: "GPU-model", 1: "GPU-other"},
+            sockets=["GPU-model"],
+        )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpus_are_matched_by_uuid_not_cuda_ordinal(monkeypatch):
+    # CUDA ordinal 0 is NVML index 1 here. Only the unassigned NVML 0 fails its
+    # first query; the daemon's GPU is in both snapshots and holds 30%.
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{1: (1000, {})}, {0: (1000, {950: 200}), 1: (1000, {900: 300})}],
+        tp=1,
+        gpu_uuids={0: "GPU-other", 1: "GPU-model"},
+        sockets=["GPU-model"],
+        environment={"CUDA_VISIBLE_DEVICES": "0"},
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpu_that_cannot_be_queried_is_not_accounted(monkeypatch):
+    # One of two ranks serves a GPU whose UUID NVML no longer reports.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{0: (1000, {})}, {0: (1000, {900: 300})}],
+            tp=2,
+            gpu_uuids={0: "GPU-model"},
+            sockets=["GPU-model", "GPU-lost"],
+        )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpu_without_a_uuid_is_not_accounted(monkeypatch):
+    # The daemon's only GPU (NVML 0) is missing before preload and its UUID
+    # cannot be read after it, so no socket matches; an unrelated process that
+    # starts on NVML 1 meanwhile must not be counted as the daemon's rank.
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _start_with_snapshots(
+            monkeypatch,
+            [{1: (1000, {})}, {0: (1000, {900: 700}), 1: (1000, {950: 200})}],
+            tp=1,
+            gpu_uuids={1: "GPU-other"},
+            sockets=["GPU-model"],
+        )
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
+def test_daemon_gpus_without_nvml_fall_back_to_counting(monkeypatch):
+    # On ROCm there are no NVML UUIDs to match vLLM's socket names against.
+    daemon = _start_with_snapshots(
+        monkeypatch,
+        [{0: (1000, {})}, {0: (1000, {900: 300})}],
+        tp=1,
+        gpu_uuids=None,
+        sockets=["GPU-amd"],
+    )
+    try:
+        assert daemon._memory_fraction == 0.3
+    finally:
+        daemon.stop()

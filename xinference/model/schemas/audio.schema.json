@@ -102,6 +102,7 @@
           "type": "string",
           "enum": [
             "PyTorch",
+            "vLLM",
             "MLX",
             "transformers",
             "diffusers",

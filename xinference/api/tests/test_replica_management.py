@@ -13,6 +13,7 @@
 # limitations under the License.
 # CI: linux
 
+import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -21,7 +22,80 @@ import pytest
 from fastapi import HTTPException
 
 from ...core.exceptions import ModelReloadInProgress
+from ..replica_drain import (
+    ReplicaDrainMiddleware,
+    ReplicaDrainRequests,
+    track_model_lookup,
+)
 from ..restful_api import RESTfulAPI
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_tracks_through_stream_completion():
+    tracker = ReplicaDrainRequests()
+    looked_up = asyncio.Event()
+    selected = asyncio.Event()
+    finished = asyncio.Event()
+
+    async def app(_scope, _receive, _send):
+        lookup = track_model_lookup("demo")
+        looked_up.set()
+        await selected.wait()
+        lookup.selected(SimpleNamespace(uid=b"demo-rep1"))
+        await finished.wait()
+
+    middleware = ReplicaDrainMiddleware(app, tracker)
+    task = asyncio.create_task(
+        middleware({"type": "http", "method": "POST"}, AsyncMock(), AsyncMock())
+    )
+    await looked_up.wait()
+    window = tracker.start("demo")
+    window.collecting = False
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    selected.set()
+    await asyncio.sleep(0)
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    assert tracker.drained(window, "demo", b"demo-rep0")
+    finished.set()
+    await task
+    assert tracker.drained(window, "demo", b"demo-rep1")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["disconnect", "server_error", "exception"])
+async def test_manual_drain_finishes_after_interrupted_request(outcome):
+    # An interrupted request on the target no longer fails the drain. The
+    # Supervisor's routing-load check covers work the engine still runs.
+    tracker = ReplicaDrainRequests()
+    selected = asyncio.Event()
+    interrupted = asyncio.Event()
+
+    async def app(_scope, receive, send):
+        track_model_lookup("demo").selected(SimpleNamespace(uid=b"demo-rep1"))
+        selected.set()
+        await interrupted.wait()
+        if outcome == "disconnect":
+            await receive()
+        elif outcome == "server_error":
+            await send({"type": "http.response.start", "status": 500})
+        else:
+            raise RuntimeError("Stream failed")
+
+    middleware = ReplicaDrainMiddleware(app, tracker)
+    task = asyncio.create_task(
+        middleware(
+            {"type": "http", "method": "POST"},
+            AsyncMock(return_value={"type": "http.disconnect"}),
+            AsyncMock(),
+        )
+    )
+    await selected.wait()
+    window = tracker.start("demo")
+    window.collecting = False
+    assert not tracker.drained(window, "demo", b"demo-rep1")
+    interrupted.set()
+    await asyncio.gather(task, return_exceptions=True)
+    assert tracker.drained(window, "demo", b"demo-rep1")
 
 
 @pytest.fixture
@@ -30,6 +104,55 @@ def replica_api():
     api._uid_to_model_name = {}
     api._app = SimpleNamespace(router=SimpleNamespace(routes=[]))
     return api
+
+
+@pytest.mark.asyncio
+async def test_manual_drain_timeout_cancels_without_deleting(replica_api, monkeypatch):
+    monkeypatch.delenv("XINFERENCE_API_HOST", raising=False)
+    replica_api._replica_drain_requests = ReplicaDrainRequests()
+    supervisor = AsyncMock()
+    supervisor.begin_manual_replica_drain.return_value = {"status": "draining"}
+    supervisor.confirm_manual_replica_drain.return_value = False
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    with pytest.raises(HTTPException) as raised:
+        await replica_api.begin_model_replica_drain("demo", 1, "r1", timeout=0.02)
+    assert raised.value.status_code == 408
+    supervisor.cancel_manual_replica_drain.assert_awaited_once_with("demo", 1, "r1")
+    supervisor.terminate_drained_model_replica.assert_not_awaited()
+    assert not replica_api._replica_drain_requests.windows
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status, expected", [("failed", 409), ("succeeded", 200)])
+async def test_manual_drain_with_an_older_api_host(
+    replica_api, monkeypatch, status, expected
+):
+    from ...deploy import api_host
+
+    monkeypatch.setenv(api_host.API_HOST_ENV, "hosted")
+    # An older host ignores the liveness option and returns its operation list.
+    host = AsyncMock(return_value=[{"status": "failed"}, {"status": status}])
+    monkeypatch.setattr(api_host, "host_request", host)
+    replica_api._replica_drain_requests = ReplicaDrainRequests()
+    supervisor = AsyncMock()
+    supervisor.begin_manual_replica_drain.return_value = {"status": "draining"}
+    supervisor.confirm_manual_replica_drain.return_value = True
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    if expected == 409:
+        with pytest.raises(HTTPException) as raised:
+            await replica_api.begin_model_replica_drain("demo", 1, "r1", timeout=1)
+        assert raised.value.status_code == expected
+        supervisor.begin_manual_replica_drain.assert_not_awaited()
+    else:
+        response = await replica_api.begin_model_replica_drain(
+            "demo", 1, "r1", timeout=1
+        )
+        assert response.status_code == expected
+        assert json.loads(response.body)["status"] == "drained"
+    host.assert_awaited_once_with("list", require_single_api=True)
+    assert not replica_api._replica_drain_requests.windows
 
 
 @pytest.mark.asyncio
@@ -150,3 +273,116 @@ async def test_resize_during_reload_returns_conflict(replica_api, operation):
         else:
             await replica_api.terminate_model_replica("demo", 0)
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("last_replica", [False, True])
+async def test_late_delete_response_preserves_republished_cache(
+    replica_api, last_replica
+):
+    import asyncio
+
+    from xinference.api.oauth2.advanced import audit
+
+    uid = "cache-race"
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def delayed(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return 0
+
+    supervisor = AsyncMock()
+    supervisor.terminate_model.side_effect = delayed
+    supervisor.terminate_model_replica.side_effect = delayed
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    audit.update_model_cache(uid, "same", "LLM")
+    replica_api._uid_to_model_name[uid] = "same"
+    request = asyncio.create_task(
+        replica_api.terminate_model_replica(uid, 0)
+        if last_replica
+        else replica_api.terminate_model(uid)
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        audit.update_model_cache(uid, "same", "LLM")
+        replacement = audit.model_launch_revision(uid)
+        release.set()
+        await request
+        assert audit.model_launch_revision(uid) == replacement
+        assert audit.resolve_model_info(uid) == ("same", "LLM")
+        assert replica_api._uid_to_model_name[uid] == "same"
+    finally:
+        release.set()
+        await asyncio.gather(request, return_exceptions=True)
+        audit.evict_model_cache(uid)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("list_first", [True, False])
+async def test_list_refresh_during_delete(replica_api, monkeypatch, list_first):
+    import asyncio
+
+    from xinference.api.oauth2.advanced import audit
+
+    monkeypatch.setattr(
+        "xinference.api.restful_api.XINFERENCE_TOKEN_ROUTER_ENABLED", False
+    )
+    uid = "list-delete-race"
+    listed, deleting = asyncio.Event(), asyncio.Event()
+    send_list, finish_delete = asyncio.Event(), asyncio.Event()
+
+    async def list_models():
+        listed.set()
+        await send_list.wait()
+        return {uid: {"model_name": "old", "model_type": "LLM"}}
+
+    async def delete(*args, **kwargs):
+        deleting.set()
+        await finish_delete.wait()
+
+    supervisor = AsyncMock()
+    supervisor.list_models.side_effect = list_models
+    supervisor.terminate_model.side_effect = delete
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    listing = asyncio.create_task(replica_api.list_models())
+    removal = asyncio.create_task(replica_api.terminate_model(uid))
+    try:
+        await asyncio.wait_for(asyncio.gather(listed.wait(), deleting.wait()), 2)
+        if list_first:
+            send_list.set()
+            await listing
+            assert audit.resolve_model_info(uid) == ("old", "LLM")
+            finish_delete.set()
+        else:
+            finish_delete.set()
+            await removal
+            send_list.set()
+        await asyncio.gather(listing, removal)
+        assert uid not in replica_api._uid_to_model_name
+        assert audit.resolve_model_info(uid) == ("", "")
+    finally:
+        send_list.set()
+        finish_delete.set()
+        await asyncio.gather(listing, removal, return_exceptions=True)
+        audit.evict_model_cache(uid)
+
+
+@pytest.mark.asyncio
+async def test_delete_with_legacy_supervisor(replica_api):
+    class SupervisorActor:
+        def __init__(self):
+            self.deleted = []
+
+        async def terminate_model(self, model_uid, suppress_exception=False):
+            self.deleted.append(model_uid)
+
+    supervisor = SupervisorActor()
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    with pytest.raises(HTTPException) as exc:
+        await replica_api.terminate_model("demo", "stale-launch")
+    assert exc.value.status_code == 412
+    assert supervisor.deleted == []
+
+    assert (await replica_api.terminate_model("demo")).status_code == 200
+    assert supervisor.deleted == ["demo"]

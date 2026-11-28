@@ -111,27 +111,20 @@ Xinference can serve replicas with different engines concurrently under one mode
 
 ## Recent updates
 
-[Read the v4.2.0 release notes](https://github.com/xorbitsai/inference/releases/tag/v4.2.0)
+[Read the v4.3.0 release notes](https://github.com/xorbitsai/inference/releases/tag/v4.3.0)
 
 <details>
-<summary>Built-in models added in the last two releases (v4.1 and v4.2)</summary>
+<summary>Built-in models added in the last two releases (v4.2 and v4.3)</summary>
 
+- Built-in support for [ZONOS3-Mini](https://huggingface.co/Zyphra/ZONOS3-Mini): [#6172](https://github.com/xorbitsai/inference/pull/6172)
+- Built-in support for [Nemotron-3.5-Rerank-8B](https://huggingface.co/nvidia/Nemotron-3.5-Rerank-8B-BF16): [#6143](https://github.com/xorbitsai/inference/pull/6143)
+- Built-in support for Yuanbao-Reranker series ([0.6B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-0.6B), [4B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-4B), [8B](https://huggingface.co/Yuanbao-Search/Yuanbao-Reranker-8B)): [#6137](https://github.com/xorbitsai/inference/pull/6137)
+- Built-in support for [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image): [#6125](https://github.com/xorbitsai/inference/pull/6125)
+- Built-in support for [dots.tts.edit-v1.1](https://huggingface.co/dots-studio/dots.tts.edit): [#6117](https://github.com/xorbitsai/inference/pull/6117)
 - Built-in support for [Audio8-TTS-Realistic-0.6b](https://huggingface.co/Edge0/Audio8-TTS-Realistic-0.6b): [#6003](https://github.com/xorbitsai/inference/pull/6003)
 - Built-in support for [MiniCPM-OCR-1.0](https://huggingface.co/openbmb/MiniCPM-OCR-1.0): [#5916](https://github.com/xorbitsai/inference/pull/5916)
 - Built-in support for [OvisOCR3](https://huggingface.co/ATH-MaaS/OvisOCR3): [#5914](https://github.com/xorbitsai/inference/pull/5914)
 - Built-in support for [Unlimited-OCR-2](https://huggingface.co/baidu/Unlimited-OCR-2): [#5913](https://github.com/xorbitsai/inference/pull/5913)
-- Built-in support for [FLUX 3 Image Klein](https://huggingface.co/black-forest-labs/flux-3-image-klein): [#5792](https://github.com/xorbitsai/inference/pull/5792)
-- Built-in support for FIBO 2.0 series ([Dev](https://huggingface.co/briaai/Fibo-2.0-dev), [Edit Turbo](https://huggingface.co/briaai/Fibo-2.0-edit-turbo)): [#5790](https://github.com/xorbitsai/inference/pull/5790)
-- Built-in support for Ming-3.0 TTS series ([Tiny](https://huggingface.co/inclusionAI/Ming-3.0-tts-tiny), [0.5B](https://huggingface.co/inclusionAI/Ming-3.0-tts-0.5B)): [#5788](https://github.com/xorbitsai/inference/pull/5788)
-- Built-in support for [Xiaomi-OCR-0](https://huggingface.co/SeerRay-Lab/Xiaomi-OCR-0): [#5764](https://github.com/xorbitsai/inference/pull/5764)
-- Built-in support for [MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT): [#5755](https://github.com/xorbitsai/inference/pull/5755)
-- Built-in support for [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017): [#5753](https://github.com/xorbitsai/inference/pull/5753)
-- Built-in support for Iris-3B series ([Base](https://huggingface.co/speridlabs/iris-3b), [Turbo](https://huggingface.co/speridlabs/iris-3b/tree/main/turbo)): [#5686](https://github.com/xorbitsai/inference/pull/5686)
-- Built-in support for MiniCPM-V-4.7 series ([1B](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B), [35B-A3B](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B)): [#5676](https://github.com/xorbitsai/inference/pull/5676)
-- Built-in support for Qwen3.8-Flash-Next series ([Base](https://huggingface.co/Qwen/Qwen3.8-Flash-Next), [FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)): [#5673](https://github.com/xorbitsai/inference/pull/5673)
-- Built-in support for GLM-5.3 series ([BF16](https://huggingface.co/zai-org/GLM-5.3-BF16), [FP8](https://huggingface.co/zai-org/GLM-5.3)): [#5666](https://github.com/xorbitsai/inference/pull/5666)
-- Built-in support for [Qwen-Image-2.1-Turbo](https://huggingface.co/Qwen/Qwen-Image-2.1-Turbo): [#5665](https://github.com/xorbitsai/inference/pull/5665)
-- Built-in support for [DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash): [#5661](https://github.com/xorbitsai/inference/pull/5661)
 
 </details>
 

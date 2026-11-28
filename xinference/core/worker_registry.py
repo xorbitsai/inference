@@ -192,7 +192,7 @@ def shared_registry_operation(method):
     return checked
 
 
-def worker_message(*, registration=False):
+def worker_message(*, registration=False, forward_incarnation=False):
     def decorate(method):
         @functools.wraps(method)
         async def checked(self, worker_address, *args, incarnation=None, **kwargs):
@@ -214,6 +214,8 @@ def worker_message(*, registration=False):
                         != incarnation
                     ):
                         raise RuntimeError("Stale worker registration")
+                if forward_incarnation:
+                    kwargs["incarnation"] = incarnation
                 result = await method(self, worker_address, *args, **kwargs)
                 if registration and incarnation:
                     previous = registry.incarnations.get(worker_address)
@@ -692,6 +694,15 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
                 if worker_id:
                     self._pending_worker_names.pop(worker_id, None)
 
+            source_worker = self._worker_address_to_worker.get(snapshot.source)
+            retained_models = snapshot.state.get("_model_uid_to_model", {})
+            drains_to_rebind = [
+                (model_uid, drain)
+                for model_uid, drain in getattr(
+                    self, "_manual_replica_drains", {}
+                ).items()
+                if drain.holds_maintenance and drain.worker == source_worker
+            ]
             pending = dict(registry.pending)
             pending.pop(snapshot.source)
             retired = dict(registry.retired)
@@ -726,6 +737,10 @@ class SupervisorHandoffMixin(SupervisorRelaunchMixin):
             for info in self._model_uid_to_replica_info.values():
                 for index, refs in info.replica_to_worker_refs.items():
                     info.replica_to_worker_refs[index] = [replace(ref) for ref in refs]
+            for model_uid, drain in drains_to_rebind:
+                self._reconcile_manual_drain_handoff(
+                    model_uid, drain, worker, retained_models
+                )
             self._worker_address_to_worker.pop(snapshot.source, None)
             self._worker_address_to_worker[snapshot.target] = worker
             status = self._worker_status.pop(snapshot.source, None)

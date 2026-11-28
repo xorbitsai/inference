@@ -924,3 +924,62 @@ msgstr "El diálogo de despliegue muestra un mensaje de espera y el tiempo trans
 #: ../../source/user_guide/launch.rst:599
 msgid "Before a replacement starts, reload waits for earlier engines to retire only if they share GPU allocations on the same Worker or an engine process. Replicas on independent Workers or disjoint known GPUs can update while earlier requests finish. If placement is unknown, this wait is limited to 300 seconds; expiry returns a partial error that can be retried, while existing requests and cleanup continue. Required retirement-wait support is checked before any replica changes; restart models without that support."
 msgstr "Antes de iniciar un reemplazo, la recarga espera a que se retiren los motores anteriores solo si comparten asignaciones de GPU en el mismo Worker o un proceso del motor. Las réplicas en Workers independientes o en GPU que se sabe que son distintas pueden actualizarse mientras terminan las solicitudes anteriores. Si se desconoce la ubicación, esta espera se limita a 300 segundos; al vencer el plazo se devuelve un error parcial que permite reintentar, mientras continúan las solicitudes existentes y la limpieza. La compatibilidad necesaria para esperar la retirada se comprueba antes de cambiar cualquier réplica; reinicie los modelos que no la tengan."
+
+#: ../../source/user_guide/launch.rst:466
+msgid ""
+"To drain either replica of a fixed pair of vLLM language model replicas "
+"on one Worker, send ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. Send "
+"all inference for this model through one API process and let any "
+"previous API finish its requests before starting a drain. New requests "
+"go to the surviving replica while existing requests on the selected "
+"replica finish. After the drain returns ``drained``, send ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID`` to remove the "
+"selected replica. Use ``GET`` or ``DELETE`` on the drain URL to check or "
+"cancel the drain before replica deletion. A timed-out drain restores "
+"routing to both replicas."
+msgstr ""
+"Para drenar cualquiera de las réplicas de un par fijo de réplicas de un "
+"modelo de lenguaje vLLM en un Worker, envía ``POST "
+"/v1/models/{model_uid}/replicas/{replica_id}/drain?request_id=ID``. "
+"Envía todas las peticiones de inferencia de este modelo a un único "
+"proceso de API y deja que la API anterior termine sus peticiones antes "
+"de iniciar el drenaje. Las peticiones nuevas van a la réplica que queda "
+"activa mientras la réplica elegida termina las que ya atendía. Cuando se "
+"devuelva ``drained``, elimina la réplica con ``DELETE "
+"/v1/models/{model_uid}/replicas/{replica_id}?drain_id=ID``. Usa ``GET`` "
+"o ``DELETE`` en la URL de drenaje para consultar o cancelar la operación "
+"antes de eliminar la réplica. Si el drenaje se agota, se restablece el "
+"enrutamiento a ambas réplicas."
+
+#: ../../source/user_guide/launch.rst:475
+msgid "Retry an interrupted replica deletion with the same ``drain_id``. An API relaunch and a replica drain cannot start concurrently. If either is blocked by the other, the API returns HTTP 409."
+msgstr "Si se interrumpe la eliminación de una réplica, vuelva a intentarla con el mismo ``drain_id``. El reinicio de la API y el drenaje de una réplica no pueden iniciarse simultáneamente. Si una operación bloquea a la otra, la API devuelve HTTP 409."
+
+#: ../../source/user_guide/launch.rst:479
+msgid "A Worker handoff allows deletion to resume if it transferred the original surviving replica. In hosted deployments, a drain returns HTTP 409 while another API process is still running, including a replacement from a failed relaunch. If an older API Host cannot confirm process exit after a failure, complete a successful API relaunch before retrying the drain."
+msgstr "La eliminación puede reanudarse tras un traspaso de Worker si se transfirió la réplica original que sigue en servicio. En implementaciones alojadas, el drenaje devuelve HTTP 409 mientras siga activo otro proceso de la API, incluido un reemplazo de un reinicio fallido. Si un API Host anterior no puede confirmar que el proceso terminó tras un fallo, complete un reinicio de la API antes de volver a intentar el drenaje."
+
+#: ../../source/user_guide/launch.rst:485
+msgid "When the Supervisor evicts the Worker and removes the original deployment from routing, the drain becomes ``cancelled``. Start a new drain to scale down a replacement deployment."
+msgstr "Cuando el Supervisor retira el Worker y quita la implementación original del enrutamiento, el drenaje pasa a ``cancelled``. Inicie un nuevo drenaje para reducir el número de réplicas de una implementación de reemplazo."
+
+#: ../../source/user_guide/launch.rst:489
+msgid "For a Worker re-registration, the Supervisor preserves a drain when it can verify the same Worker and the original surviving replica. Registration by a new Worker process at the same address cancels the old drain."
+msgstr "Cuando un Worker vuelve a registrarse, el Supervisor mantiene el drenaje si puede confirmar que se trata del mismo Worker y que la réplica original sigue en servicio. El registro de un nuevo proceso Worker en la misma dirección cancela el drenaje anterior."
+
+#: ../../source/user_guide/launch.rst:493
+msgid "If a replica of the pair dies or the Worker recreates one while the Worker stays online, the drain becomes ``cancelled`` and the remaining replicas keep serving. If an interrupted deletion already removed the selected replica, the Supervisor also removes its route."
+msgstr "Si una réplica del par deja de funcionar o el Worker vuelve a crear una mientras sigue en línea, el drenaje pasa a ``cancelled`` y las réplicas restantes siguen en servicio. Si una eliminación interrumpida ya quitó la réplica seleccionada, el Supervisor también quita su enrutamiento."
+
+#: ../../source/user_guide/launch.rst:498
+msgid "The Supervisor cancels a drain and restores routing if no one renews it. A ``draining`` drain expires 30 seconds after the API process stops polling, and a ``drained`` replica must be deleted within 300 seconds. A deletion that is in progress or has an unknown outcome does not expire; retry it with the same ``drain_id``. Each ``request_id`` names one drain. After a drain becomes ``succeeded`` or ``cancelled``, use a new ID for the next drain."
+msgstr "El Supervisor cancela un drenaje y restaura el enrutamiento si nadie lo renueva. Un drenaje en estado ``draining`` caduca 30 segundos después de que el proceso de API deje de consultarlo, y una réplica en estado ``drained`` debe eliminarse en un plazo de 300 segundos. Una eliminación en curso o con resultado desconocido no caduca; reinténtela con el mismo ``drain_id``. Cada ``request_id`` identifica un único drenaje. Cuando un drenaje pase a ``succeeded`` o ``cancelled``, use un ID nuevo para el siguiente."
+
+#: ../../source/user_guide/launch.rst:505
+msgid "While a drain has not finished, its model UID stays reserved even if the model went offline. A launch with that UID is rejected and Autostart waits. Retry the deletion with the same ``drain_id`` to finish cleanup and release the UID."
+msgstr "Mientras un drenaje no haya terminado, su UID de modelo sigue reservado aunque el modelo se haya desconectado. Se rechaza cualquier lanzamiento con ese UID y Autostart espera. Reintente la eliminación con el mismo ``drain_id`` para terminar la limpieza y liberar el UID."
+
+#: ../../source/user_guide/launch.rst:20
+msgid "To stop and remove an active initial launch, get its current ``launch_id`` from ``GET /v1/models/instances`` and send ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. HTTP 412 means the ID is missing or stale. Refresh the instance list and verify which launch you intend to delete before sending another request. HTTP 409 with a message that the launch is still stopping means cleanup was registered and continues in the background. Refresh the instance list to check progress. If HTTP 409 says the cleanup request was not registered, retry the request with the current ID. A retry with the original ID succeeds if the launch and its record are already gone. Use ordinary DELETE without a launch ID to clear a failed record after cleanup."
+msgstr "Obtenga ``launch_id`` con ``GET /v1/models/instances`` y envíe ``DELETE /v1/models/{model_uid}?launch_id={launch_id}``. Ante 412, actualice la lista y confirme el inicio. Si 409 indica que se está deteniendo, consulte el progreso en la lista. Si la limpieza no se registró, reintente con el ID actual. El ID original permite reintentar si el inicio ya se eliminó. Para borrar un registro fallido tras la limpieza, use DELETE sin ID."

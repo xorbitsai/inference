@@ -107,7 +107,7 @@ class TransformersQwen3ASRAudioModel(Qwen3ASRModel, AudioEngineModel):
 
     @classmethod
     def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return model_family.model_family == "qwen3_asr"
+        return cls.match(model_family)
 
 
 class TransformersWhisperAudioModel(WhisperModel, AudioEngineModel):

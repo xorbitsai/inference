@@ -1,4 +1,5 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# CI: linux
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -129,3 +130,342 @@ async def test_ordinary_failure_still_releases_devices(monkeypatch):
 
     worker.release_devices.assert_called_once_with(model_uid="m-rep0")
     assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+@pytest.mark.asyncio
+async def test_cancel_dependency_install_reaches_uv(monkeypatch):
+    from xinference.core.worker import LaunchInfo
+
+    worker = _make_worker()
+    worker._status_guard_ref = None
+    worker._cancel_download = lambda info: info.cancel_event.set()
+    manager = MagicMock()
+    launch_info = LaunchInfo(virtual_env_manager=manager)
+    worker._model_uid_launching_guard["m-rep0"] = launch_info
+
+    def cancel_install():
+        assert launch_info.cancel_event.is_set()
+
+    manager.cancel_install.side_effect = cancel_install
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_CANCEL_LAUNCH_TIMEOUT", 0.01)
+    cancellation = asyncio.create_task(worker.cancel_launch_model("m-rep0"))
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(cancellation), 0.2)
+    finally:
+        worker._model_uid_launching_guard.pop("m-rep0")
+        await asyncio.wait_for(cancellation, 2)
+    manager.cancel_install.assert_called_once_with()
+    assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+def test_cancelled_dependency_setup_skips_install():
+    from xinference.core.worker import WorkerActor
+
+    cancel_event = threading.Event()
+    cancel_event.set()
+    manager = MagicMock()
+    with pytest.raises(RuntimeError, match="Launch cancelled during dependency setup"):
+        WorkerActor._prepare_virtual_env(
+            manager, None, ["example"], None, cancel_event=cancel_event
+        )
+    manager.install_packages.assert_not_called()
+
+
+def test_cancel_while_waiting_for_environment_lock(tmp_path):
+    from xinference.core.worker import _exclusive_venv_path_lock
+
+    path = str(tmp_path / "env")
+    cancelled = threading.Event()
+    with _exclusive_venv_path_lock(path):
+        cancelled.set()
+        with pytest.raises(RuntimeError, match="Launch cancelled"):
+            with _exclusive_venv_path_lock(path, cancelled):
+                pytest.fail("cancelled waiter acquired the environment")
+
+
+@pytest.mark.asyncio
+async def test_cancel_creation_waiter_before_environment_write(tmp_path, monkeypatch):
+    from xinference.core import worker as module
+
+    worker = _make_worker()
+    entered = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def create(enabled, name, path, cancel_event):
+        loop.call_soon_threadsafe(entered.set)
+        return module.WorkerActor._create_virtual_env_manager(
+            enabled, name, path, cancel_event
+        )
+
+    worker._create_virtual_env_manager = create
+    factory = MagicMock()
+    monkeypatch.setattr("xoscar.virtualenv.get_virtual_env_manager", factory)
+    monkeypatch.setattr(module, "XINFERENCE_VIRTUAL_ENV_DIR", str(tmp_path))
+    import platform
+
+    env = tmp_path / "v4" / "m" / "default" / platform.python_version()
+    with module._exclusive_venv_path_lock(str(env)):
+        launch = asyncio.create_task(
+            worker.launch_builtin_model(
+                model_uid="m-rep0",
+                model_name="m",
+                model_size_in_billions=None,
+                model_format=None,
+                quantization=None,
+                model_engine=None,
+                enable_virtual_env=True,
+            )
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 2)
+            launch.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(launch, 2)
+        finally:
+            launch.cancel()
+            await asyncio.gather(launch, return_exceptions=True)
+    factory.assert_not_called()
+    assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("existing_directory", [False, True])
+async def test_cancel_running_uv_venv(tmp_path, monkeypatch, existing_directory):
+    import os
+    import sys
+
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    from xinference.core.worker import WorkerActor, _exclusive_venv_path_lock
+
+    env = tmp_path / "env"
+    existing_file = env / "existing.txt"
+    if existing_directory:
+        env.mkdir()
+        existing_file.write_text("keep")
+    started = tmp_path / "started"
+    uv = tmp_path / "uv"
+    uv.write_text(
+        f"#!{sys.executable}\n"
+        "import os, pathlib, sys, time\n"
+        "env = pathlib.Path(sys.argv[2])\n"
+        "env.mkdir(exist_ok=True)\n"
+        "(env / 'pyvenv.cfg').touch()\n"
+        f"pathlib.Path({str(started)!r}).write_text(str(os.getpid()))\n"
+        "time.sleep(30)\n"
+    )
+    uv.chmod(0o755)
+    monkeypatch.setattr(
+        UVVirtualEnvManager, "_get_uv_path", staticmethod(lambda: str(uv))
+    )
+    cancelled = threading.Event()
+    creation = asyncio.create_task(
+        asyncio.to_thread(
+            WorkerActor._create_virtual_env_manager, True, "uv", str(env), cancelled
+        )
+    )
+
+    async def wait_for_uv():
+        while not started.exists() or not started.read_text():
+            if creation.done():
+                await creation
+                pytest.fail("uv venv exited before cancellation")
+            await asyncio.sleep(0.01)
+        return int(started.read_text())
+
+    try:
+        pid = await asyncio.wait_for(wait_for_uv(), 5)
+        cancelled.set()
+        with pytest.raises(RuntimeError, match="cancelled during virtual environment"):
+            await asyncio.wait_for(asyncio.shield(creation), 5)
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, 0)
+        with _exclusive_venv_path_lock(str(env)):
+            assert env.exists() == existing_directory
+            assert not UVVirtualEnvManager(env).exists_env()
+            if existing_directory:
+                assert existing_file.read_text() == "keep"
+
+        uv.write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, sys\n"
+            "env = pathlib.Path(sys.argv[2])\n"
+            "assert not env.exists() or '--allow-existing' in sys.argv\n"
+            "(env / 'bin').mkdir(parents=True, exist_ok=True)\n"
+            "(env / 'bin' / 'python').symlink_to(sys.executable)\n"
+            "(env / 'pyvenv.cfg').touch()\n"
+        )
+        manager = await asyncio.to_thread(
+            WorkerActor._create_virtual_env_manager,
+            True,
+            "uv",
+            str(env),
+            threading.Event(),
+        )
+        assert manager.exists_env()
+        assert os.path.exists(manager.get_python_path())
+        if existing_directory:
+            assert existing_file.read_text() == "keep"
+    finally:
+        cancelled.set()
+        await asyncio.gather(creation, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_cancel_launch_rpc_interrupts_dependency_preparation(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    worker = _make_worker()
+    manager = MagicMock()
+    manager.get_python_path.return_value = None
+    worker._create_virtual_env_manager.return_value = manager
+    worker._reserve_virtual_env_usage = MagicMock()
+    worker._resolve_virtualenv_model_format = MagicMock(return_value=None)
+    worker._download_model_files = AsyncMock(
+        return_value=(
+            SimpleNamespace(model_family=SimpleNamespace(virtualenv=None)),
+            SimpleNamespace(cancelled=False),
+        )
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.build_subpool_envs_for_virtual_env",
+        lambda *args: {},
+    )
+
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
+    entered = asyncio.Event()
+    interrupted = asyncio.Event()
+    release = threading.Event()
+
+    def prepare(*args, cancel_event, **kwargs):
+        loop.call_soon_threadsafe(entered.set)
+        assert release.wait(5)
+        assert cancel_event.is_set()
+        raise RuntimeError("dependency setup interrupted")
+
+    def cancel_install():
+        assert worker._model_uid_launching_guard["m-rep0"].cancel_event.is_set()
+        loop.call_soon_threadsafe(interrupted.set)
+
+    worker._prepare_virtual_env = prepare
+    manager.cancel_install.side_effect = cancel_install
+    launch = asyncio.create_task(
+        worker.launch_builtin_model(
+            model_uid="m-rep0",
+            model_name="m",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            enable_virtual_env=True,
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        launch.cancel()
+        await asyncio.wait_for(interrupted.wait(), 2)
+        launch.cancel()
+        await asyncio.sleep(0)
+        assert "m-rep0" in worker._model_uid_launching_guard
+        assert not launch.done()
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(launch, 2)
+    finally:
+        release.set()
+        if not launch.done():
+            launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+    manager.cancel_install.assert_called_once_with()
+    assert "m-rep0" not in worker._model_uid_launching_guard
+    worker.release_devices.assert_called_once_with(model_uid="m-rep0")
+
+
+@pytest.mark.asyncio
+async def test_repeated_rpc_cancellation_waits_for_environment_creation():
+    worker = _make_worker()
+    loop = asyncio.get_running_loop()
+    entered = asyncio.Event()
+    interrupted = asyncio.Event()
+    release = threading.Event()
+
+    def create(enabled, name, path, cancel_event):
+        loop.call_soon_threadsafe(entered.set)
+        assert cancel_event.wait(5)
+        loop.call_soon_threadsafe(interrupted.set)
+        assert release.wait(5)
+        raise RuntimeError("virtual environment creation interrupted")
+
+    worker._create_virtual_env_manager = create
+    launch = asyncio.create_task(
+        worker.launch_builtin_model(
+            model_uid="m-rep0",
+            model_name="m",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            enable_virtual_env=True,
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        launch.cancel()
+        await asyncio.wait_for(interrupted.wait(), 2)
+        launch.cancel()
+        await asyncio.sleep(0)
+        assert "m-rep0" in worker._model_uid_launching_guard
+        assert not launch.done()
+
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(launch, 2)
+    finally:
+        release.set()
+        if not launch.done():
+            launch.cancel()
+        await asyncio.gather(launch, return_exceptions=True)
+
+    assert "m-rep0" not in worker._model_uid_launching_guard
+
+
+def test_frozen_uv_creation_selects_bundled_python(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+    from xinference.core import worker
+
+    frozen_sys = SimpleNamespace(
+        _MEIPASS=str(tmp_path),
+        version_info=(3, 14, 0, "candidate", 2),
+    )
+    monkeypatch.setattr(worker, "sys", frozen_sys)
+    monkeypatch.setattr(worker.platform, "python_version", lambda: "3.14.0rc2")
+    monkeypatch.setattr(UVVirtualEnvManager, "_get_uv_path", staticmethod(lambda: "uv"))
+    process = MagicMock()
+    process.__enter__.return_value.poll.return_value = 0
+    process.__enter__.return_value.returncode = 1
+    popen = MagicMock(return_value=process)
+    monkeypatch.setattr(worker.subprocess, "Popen", popen)
+    env = str(tmp_path / "env")
+
+    with pytest.raises(worker.subprocess.CalledProcessError):
+        worker.WorkerActor._create_virtual_env_manager(
+            True, "uv", env, threading.Event()
+        )
+
+    popen.assert_called_once_with(
+        [
+            "uv",
+            "venv",
+            env,
+            "--system-site-packages",
+            "--python",
+            "3.14.0",
+        ]
+    )

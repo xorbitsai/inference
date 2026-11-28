@@ -838,7 +838,9 @@ class TestApplyFlashAttnWheelPostInstall:
         assert "--no-index" not in command
         assert command[-1] == "flash-attn==2.8.3.post1+cvte1"
         validate_mock.assert_called_once_with(
-            fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            fake_venv_manager,
+            ["flash-attn==2.8.3.post1+cvte1"],
+            cancel_event=None,
         )
 
     def test_find_links_install_failure_is_fatal_and_redacts_output(
@@ -1160,7 +1162,7 @@ class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
             mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
             mock.patch(
                 "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-                side_effect=lambda _manager, name: versions[name],
+                side_effect=lambda _manager, name, _cancel_event: versions[name],
             ),
             mock.patch(
                 "xinference.core.virtual_env_manager.subprocess.run"
@@ -1746,3 +1748,200 @@ def test_list_virtual_env_packages_requires_exact_environment(tmp_path, monkeypa
 
     with pytest.raises(ValueError, match="Virtual environment not found"):
         VirtualEnvManager("worker-0").list_virtual_env_packages("Qwen3", "vllm", "3.12")
+
+
+def test_cancel_post_install_stops_process_and_skips_public_fallback(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from ..virtual_env_manager import PostInstallCancelled
+
+    attempts = tmp_path / "attempts"
+    command = [
+        sys.executable,
+        "-c",
+        "from pathlib import Path; import sys, time; "
+        "with_open = Path(sys.argv[1]).open('a'); "
+        "with_open.write('started\\n'); with_open.close(); time.sleep(30); sys.exit(1)",
+        str(attempts),
+    ]
+    cancelled = threading.Event()
+    with (
+        mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.Popen",
+            wraps=subprocess.Popen,
+        ) as popen,
+        ThreadPoolExecutor(max_workers=1) as executor,
+    ):
+        install = executor.submit(
+            _run_uv_install_with_source_fallback,
+            command,
+            ["flashinfer-cubin"],
+            {"index_url": "https://example.invalid/simple"},
+            public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
+            cancel_event=cancelled,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while not attempts.exists() or not attempts.read_text():
+                if install.done():
+                    install.result()
+                    pytest.fail("post-install command exited before cancellation")
+                if time.monotonic() > deadline:
+                    pytest.fail("post-install command did not start")
+                time.sleep(0.01)
+        finally:
+            cancelled.set()
+        with pytest.raises(PostInstallCancelled):
+            install.result(timeout=5)
+        assert popen.call_count == 1
+        assert attempts.read_text() == "started\n"
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="checks Linux process state")
+@pytest.mark.parametrize("tracked_uv", [False, True])
+def test_cancel_dependency_command_kills_build_subprocess(tmp_path, tracked_uv):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from ..virtual_env_manager import PostInstallCancelled, _run_post_install_command
+
+    child_pid_file = tmp_path / "build.pid"
+    build = "import time; time.sleep(30)"
+    launcher = (
+        "import subprocess, sys; from pathlib import Path; "
+        "child = subprocess.Popen([sys.executable, '-c', sys.argv[2]]); "
+        "Path(sys.argv[1]).write_text(str(child.pid)); child.wait()"
+    )
+    command = [sys.executable, "-c", launcher, str(child_pid_file), build]
+    cancelled = threading.Event()
+    cancel = cancelled.set
+    expected_error = PostInstallCancelled
+
+    def install_dependencies():
+        _run_post_install_command(command, cancelled)
+
+    if tracked_uv:
+        from xoscar.virtualenv.uv import UVVirtualEnvManager
+
+        if not hasattr(UVVirtualEnvManager, "_tracked_install_process"):
+            pytest.skip("xoscar does not expose tracked dependency processes")
+        from xoscar.virtualenv.uv import UVInstallCancelled
+
+        from ..worker import ProcessGroupUVVirtualEnvManager
+
+        manager = ProcessGroupUVVirtualEnvManager(tmp_path)
+        cancel = manager.cancel_install
+        expected_error = UVInstallCancelled
+
+        def install_dependencies():
+            with manager.dependency_operations():
+                with manager._tracked_install_process(command) as process:
+                    process.wait()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        install = executor.submit(install_dependencies)
+        deadline = time.monotonic() + 5
+        pid = None
+        try:
+            while pid is None:
+                if child_pid_file.exists() and (value := child_pid_file.read_text()):
+                    pid = int(value)
+                    break
+                if install.done():
+                    install.result()
+                    pytest.fail("uv exited before starting its build process")
+                if time.monotonic() > deadline:
+                    pytest.fail("uv did not start its build process")
+                time.sleep(0.01)
+        finally:
+            cancel()
+
+        with pytest.raises(expected_error):
+            install.result(timeout=5)
+
+    assert pid is not None
+    deadline = time.monotonic() + 5
+    status = Path(f"/proc/{pid}/stat")
+    while time.monotonic() < deadline:
+        try:
+            state = status.read_text().rsplit(")", 1)[1].split()[0]
+        except (FileNotFoundError, ProcessLookupError):
+            break
+        if state == "Z":
+            break
+        time.sleep(0.01)
+    else:
+        pytest.fail("build process survived cancellation")
+
+
+@pytest.mark.parametrize("hook", ["flash-attn", "sglang"])
+def test_post_install_hooks_propagate_cancellation(hook, monkeypatch):
+    from xinference.core import virtual_env_manager as module
+
+    manager = mock.MagicMock()
+    manager._get_uv_path.return_value = "/fake/uv"
+    manager.get_python_path.return_value = "/fake/venv/bin/python"
+    cancelled = threading.Event()
+
+    def cancel_command(command, cancel_event):
+        assert cancel_event is cancelled
+        assert command[2] == ("install" if hook == "flash-attn" else "uninstall")
+        cancelled.set()
+        raise module.PostInstallCancelled("cancelled")
+
+    run = mock.Mock(side_effect=cancel_command)
+    validate = mock.Mock()
+    distribution = mock.Mock(return_value="3.0.0")
+    monkeypatch.setattr(module, "_run_post_install_command", run)
+    monkeypatch.setattr(module, "_validate_flash_attn_install", validate)
+    monkeypatch.setattr(module, "_get_virtualenv_distribution_version", distribution)
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "2.2.0")
+    with pytest.raises(module.PostInstallCancelled):
+        if hook == "flash-attn":
+            apply_flash_attn_wheel_post_install(
+                "jina-embeddings-v3",
+                ["flash-attn"],
+                manager,
+                {"find_links": ["/wheels"]},
+                True,
+                cancel_event=cancelled,
+            )
+        else:
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", manager, cancel_event=cancelled
+            )
+    assert cancelled.is_set()
+    assert run.call_count == 1
+    validate.assert_not_called()
+    if hook == "sglang":
+        distribution.assert_called_once_with(manager, "numpy", cancelled)
+
+
+@pytest.mark.parametrize("operation", ["uninstall", "version-probe"])
+def test_dependency_commands_propagate_cancellation(operation, monkeypatch):
+    from xinference.core import virtual_env_manager as module
+    from xinference.core.worker import WorkerActor
+
+    manager = mock.MagicMock()
+    manager.get_python_path.return_value = sys.executable
+    cancelled = threading.Event()
+    run = mock.Mock(side_effect=module.PostInstallCancelled("cancelled"))
+    monkeypatch.setattr(module, "_run_post_install_command", run)
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda _: "2.2.0")
+    with pytest.raises(module.PostInstallCancelled):
+        if operation == "uninstall":
+            WorkerActor._uninstall_venv_package(manager, "onnxruntime", cancelled)
+        else:
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", manager, cancel_event=cancelled
+            )
+
+    run.assert_called_once()
+    command, actual_event = run.call_args.args
+    assert actual_event is cancelled
+    assert command[0] == sys.executable
+    if operation == "uninstall":
+        assert command[1:] == ["-m", "pip", "uninstall", "-y", "onnxruntime"]
+    else:
+        assert command[1] == "-c"
+        assert "metadata.version('numpy')" in command[2]

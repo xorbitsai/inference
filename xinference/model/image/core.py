@@ -95,14 +95,21 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         cache_manager = ImageCacheManager(self)
 
         if not self.controlnet:
-            return [
-                {
-                    "model_version": get_model_version(self, None),
-                    "model_file_location": cache_manager.get_cache_dir(),
-                    "cache_status": cache_manager.get_cache_status(),
-                    "controlnet": "zoe-depth",
-                }
-            ]
+            version_info = {
+                "model_version": get_model_version(self, None),
+                "model_file_location": cache_manager.get_cache_dir(),
+                "cache_status": cache_manager.get_cache_status(),
+            }
+            quantization = getattr(self, "quantization", None)
+            if self.model_family == "sensenova_u1" and quantization:
+                version_info.update(
+                    model_version=f"{version_info['model_version']}--{quantization}",
+                    model_format=getattr(self, "model_format", None),
+                    quantization=quantization,
+                )
+            else:
+                version_info["controlnet"] = "zoe-depth"
+            return [version_info]
         else:
             res = []
             for cn in self.controlnet:
@@ -183,6 +190,8 @@ def match_diffusion(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
+    *,
+    quantization: Optional[str] = None,
 ) -> ImageModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_IMAGE_MODELS
@@ -192,33 +201,39 @@ def match_diffusion(
         if model_spec.model_name == model_name:
             return model_spec
 
-    if model_name in BUILTIN_IMAGE_MODELS:
-        if download_hub == "modelscope" or (
-            download_hub is None and download_from_modelscope()
-        ):
-            return (
-                [
-                    x
-                    for x in BUILTIN_IMAGE_MODELS[model_name]
-                    if x.model_hub == "modelscope"
-                ]
-                + [
-                    x
-                    for x in BUILTIN_IMAGE_MODELS[model_name]
-                    if x.model_hub == "huggingface"
-                ]
-            )[0]
-        else:
-            return [
-                x
-                for x in BUILTIN_IMAGE_MODELS[model_name]
-                if x.model_hub == "huggingface"
-            ][0]
-    else:
+    candidates = BUILTIN_IMAGE_MODELS.get(model_name)
+    if not candidates:
         raise ValueError(
             f"Image model {model_name} not found, available"
             f"model list: {BUILTIN_IMAGE_MODELS.keys()}"
         )
+
+    # OCR selects its own format and quantization in _select_ocr_model_family.
+    quantizations = {
+        getattr(spec, "quantization")
+        for spec in candidates
+        if "ocr" not in (spec.model_ability or [])
+        and getattr(spec, "quantization", None)
+    }
+    if quantization and quantizations:
+        if quantization not in quantizations:
+            raise ValueError(
+                f"Image model {model_name} does not support quantization "
+                f"{quantization!r}; available: {sorted(quantizations)}."
+            )
+        candidates = [
+            spec
+            for spec in candidates
+            if getattr(spec, "quantization", None) == quantization
+        ]
+
+    if download_hub == "modelscope" or (
+        download_hub is None and download_from_modelscope()
+    ):
+        for spec in candidates:
+            if spec.model_hub == "modelscope":
+                return spec
+    return next(spec for spec in candidates if spec.model_hub == "huggingface")
 
 
 def create_ocr_model_instance(
@@ -357,7 +372,7 @@ def create_image_model_instance(
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     skip_preflight = kwargs.pop("_xinference_skip_runtime_preflight", False)
     python_executable = kwargs.pop("_xinference_model_python_executable", None)
-    model_spec = match_diffusion(model_name, download_hub)
+    model_spec = match_diffusion(model_name, download_hub, quantization=quantization)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         ocr_gguf = _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path)
         ocr_engine = model_engine or ("llama.cpp" if ocr_gguf else "transformers")

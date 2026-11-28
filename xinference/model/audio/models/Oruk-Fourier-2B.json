@@ -1,0 +1,35 @@
+[
+  {
+    "version": 2,
+    "model_name": "Oruk-Fourier-2B",
+    "model_family": "qwen3_asr",
+    "model_description": "English speech recognition from Oruk. CC BY-NC 4.0 weights. Hosted or API serving requires separate permission from Oruk.",
+    "multilingual": false,
+    "language": "en",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "audio2text"
+    ],
+    "engine": "vLLM",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "oruk/oruk-fourier-2b",
+        "model_revision": "8c2a8871f1304aa2f634da4fb95e24438c4945b9"
+      }
+    },
+    "default_model_config": {},
+    "default_transcription_config": {},
+    "virtualenv": {
+      "packages": [
+        "vllm[audio]==0.34.0 ; #engine# == \"vLLM\"",
+        "silero-vad[onnx-cpu]>=6.2.3 ; #engine# == \"vLLM\"",
+        "soundfile>=0.13.1",
+        "#system_numpy#"
+      ]
+    },
+    "featured": false
+  }
+]

@@ -28,12 +28,14 @@ import re
 import shutil
 import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
 import uuid
 from collections import defaultdict
-from contextlib import ExitStack, contextmanager, suppress
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack, contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -57,6 +59,7 @@ from typing import (
 import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
+from xoscar.virtualenv.uv import UVVirtualEnvManager
 
 from .. import __version__
 from ..client.restful.restful_client import Client as RESTfulClient
@@ -487,8 +490,54 @@ def _wait_for_metrics_export_server(
                 raise RuntimeError("Timed out waiting for metrics server startup.")
 
 
+# Dependency preparation can occupy every thread in the default executor.
+_dependency_cancel_executor = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="xinference-dependency-cancel"
+)
+
+
+async def _cancel_dependency_install(virtual_env_manager: "VirtualEnvManager") -> None:
+    await asyncio.get_running_loop().run_in_executor(
+        _dependency_cancel_executor, virtual_env_manager.cancel_install
+    )
+
+
+class ProcessGroupUVVirtualEnvManager(UVVirtualEnvManager):
+    """Run xoscar-tracked dependency commands in separate POSIX sessions."""
+
+    @contextmanager
+    def _tracked_install_process(self, cmd, **kwargs):
+        with super()._tracked_install_process(
+            cmd, start_new_session=True, **kwargs
+        ) as process:
+            yield process
+
+    def cancel_install(self):
+        # Keep xoscar's cancellation flag and process lookup atomic.
+        with self._install_lock:
+            self._install_cancelled = True
+            if self._install_process is not None:
+                try:
+                    os.killpg(self._install_process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+
+async def _wait_for_launch_cleanup(cleanup: asyncio.Future) -> None:
+    # Repeated RPC cancellations must not release the launch guard while a
+    # background thread is still modifying the environment.
+    while not cleanup.done():
+        try:
+            await asyncio.shield(cleanup)
+        except asyncio.CancelledError:
+            continue
+    cleanup.result()
+
+
 @contextmanager
-def _exclusive_venv_path_lock(env_path: str):
+def _exclusive_venv_path_lock(
+    env_path: str, cancel_event: Optional[threading.Event] = None
+):
     """
     Serialize ``uv venv`` creation and subsequent .pth injection for the same
     logical virtualenv path. Avoids TOCTOU races when multiple model replicas
@@ -508,7 +557,20 @@ def _exclusive_venv_path_lock(env_path: str):
             _venv_locks[real] = threading.Lock()
         venv_lock = _venv_locks[real]
 
-    with venv_lock:
+    def check_cancelled():
+        if cancel_event is not None and cancel_event.is_set():
+            raise RuntimeError(
+                "Launch cancelled while waiting for the virtual environment"
+            )
+
+    with ExitStack() as stack:
+        if cancel_event is None:
+            stack.enter_context(venv_lock)
+        else:
+            while not venv_lock.acquire(timeout=0.1):
+                check_cancelled()
+            stack.callback(venv_lock.release)
+            check_cancelled()
         if os.name == "nt":
             yield
             return
@@ -521,7 +583,17 @@ def _exclusive_venv_path_lock(env_path: str):
             os.makedirs(lock_dir, exist_ok=True)
         fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            if cancel_event is None:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            else:
+                while True:
+                    check_cancelled()
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        cancel_event.wait(0.1)
+                check_cancelled()
             yield
         finally:
             fcntl.flock(fd, fcntl.LOCK_UN)
@@ -3815,7 +3887,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         cache_manager = ImageCacheManager(family)
                         model_specs = [
                             {
-                                "model_format": "pytorch",
+                                "model_format": getattr(family, "model_format", None)
+                                or "pytorch",
+                                "quantization": getattr(family, "quantization", None),
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_status": cache_manager.get_cache_status(),
@@ -4389,9 +4463,14 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             )
             return
         if isinstance(version_info, list):  # image model
-            model_path = version_info[0]["model_file_location"]
+            info = version_info[0]
+            model_version = None
+            if info.get("quantization"):
+                if not info["cache_status"]:
+                    return
+                model_version = info["model_version"]
             await self._cache_tracker_ref.update_cache_status(
-                self.address, model_name, None, model_path
+                self.address, model_name, model_version, info["model_file_location"]
             )
         else:
             await self._cache_tracker_ref.update_cache_status(
@@ -4407,6 +4486,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         enable_virtual_env: Optional[bool],
         virtual_env_name: Optional[str],
         env_path: str,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Optional[VirtualEnvManager]:
         if enable_virtual_env is None:
             enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
@@ -4417,7 +4497,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
         from xoscar.virtualenv import get_virtual_env_manager
 
-        with _exclusive_venv_path_lock(env_path):
+        with _exclusive_venv_path_lock(env_path, cancel_event):
             virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
                 virtual_env_name or "uv", env_path
             )
@@ -4428,7 +4508,67 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 # we specify python_path explicitly
                 # sometimes uv would find other versions.
                 python_path = pathlib.Path(sys.executable)
-            virtual_env_manager.create_env(python_path=python_path)
+            if (
+                cancel_event is not None
+                and type(virtual_env_manager) is UVVirtualEnvManager
+            ):
+                if not virtual_env_manager.exists_env():
+                    # xoscar tracks dependency installs, but uv venv is synchronous.
+                    command = [
+                        virtual_env_manager._get_uv_path(),
+                        "venv",
+                        env_path,
+                        "--system-site-packages",
+                    ]
+                    python_selector = (
+                        str(python_path)
+                        if python_path is not None
+                        else ".".join(map(str, sys.version_info[:3]))
+                    )
+                    command.extend(["--python", python_selector])
+                    env_exists = os.path.lexists(env_path)
+                    if env_exists:
+                        command.append("--allow-existing")
+                    with subprocess.Popen(command) as process:
+                        while process.poll() is None:
+                            if cancel_event.wait(0.1):
+                                process.kill()
+                                process.wait()
+                                break
+                        if cancel_event.is_set():
+                            if not env_exists:
+                                virtual_env_manager.remove_env()
+                            elif process.returncode:
+                                # exists_env() treats pyvenv.cfg as proof of creation.
+                                # Invalidate the partial env while preserving its directory.
+                                (pathlib.Path(env_path) / "pyvenv.cfg").unlink(
+                                    missing_ok=True
+                                )
+                            raise RuntimeError(
+                                "Launch cancelled during virtual environment creation"
+                            )
+                        if process.returncode:
+                            raise subprocess.CalledProcessError(
+                                process.returncode, command
+                            )
+            else:
+                virtual_env_manager.create_env(python_path=python_path)
+
+            if (
+                os.name == "posix"
+                and cancel_event is not None
+                and type(virtual_env_manager) is UVVirtualEnvManager
+                and hasattr(UVVirtualEnvManager, "_tracked_install_process")
+                and hasattr(UVVirtualEnvManager, "dependency_operations")
+            ):
+                virtual_env_manager = ProcessGroupUVVirtualEnvManager(
+                    virtual_env_manager.env_path
+                )
+
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError(
+                    "Launch cancelled during virtual environment creation"
+                )
 
             import site as _site
             import sysconfig as _sysconfig
@@ -4548,7 +4688,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @staticmethod
     def _uninstall_venv_package(
-        virtual_env_manager: "VirtualEnvManager", package: str
+        virtual_env_manager: "VirtualEnvManager",
+        package: str,
+        cancel_event: Optional[threading.Event] = None,
     ) -> None:
         """
         Uninstall a package from the virtual environment, if present.
@@ -4559,20 +4701,23 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         swallowed so a missing package or uninstall hiccup does not abort the
         launch.
         """
-        import subprocess
 
-        from .virtual_env_manager import resolve_virtualenv_python_path
+        from .virtual_env_manager import (
+            PostInstallCancelled,
+            _run_post_install_command,
+            resolve_virtualenv_python_path,
+        )
 
         venv_python = resolve_virtualenv_python_path(virtual_env_manager)
         if not venv_python:
             return
         try:
-            subprocess.run(
+            _run_post_install_command(
                 [venv_python, "-m", "pip", "uninstall", "-y", package],
-                check=False,
-                capture_output=True,
-                text=True,
+                cancel_event,
             )
+        except PostInstallCancelled:
+            raise
         except Exception as e:  # pragma: no cover - best effort cleanup
             logger.warning("Failed to uninstall %s from virtual env: %s", package, e)
 
@@ -4692,7 +4837,15 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
         report_install_stage: Optional[Callable[[str], None]] = None,
         report_install_progress: Optional[Callable[[int, int, List[str]], None]] = None,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Optional[str]:
+        def check_install_cancelled() -> None:
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError(
+                    f"Launch cancelled during dependency setup: {model_uid}"
+                )
+
+        check_install_cancelled()
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
         )
@@ -4717,7 +4870,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 model_engine=model_engine,
                 python_version=python_version,
             )
-            with _exclusive_venv_path_lock(venv_path):
+            with _exclusive_venv_path_lock(venv_path, cancel_event):
                 if reserve_usage is not None and model_uid is not None:
                     reserve_usage(venv_path, fingerprint, model_uid, False)
             return fingerprint
@@ -5048,7 +5201,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         )
         venv_path = str(virtual_env_manager.env_path)
         python_version = pathlib.Path(venv_path).name
-        with _exclusive_venv_path_lock(venv_path):
+        with _exclusive_venv_path_lock(venv_path, cancel_event):
+            check_install_cancelled()
             fingerprint = _make_fingerprint(
                 setup_packages,
                 conf,
@@ -5076,13 +5230,23 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 if not setup_matches:
                     if report_install_stage is not None:
                         report_install_stage("installing_dependencies")
+                    check_install_cancelled()
+                    # An interrupted reconfiguration can leave a partially changed env.
+                    (pathlib.Path(venv_path) / ".xinference_setup_done").unlink(
+                        missing_ok=True
+                    )
+                    _venv_setup_done.pop(venv_path, None)
                     if modern_sglang_kernel:
                         # SGLang 0.5.11 renamed the distribution while retaining the
                         # same import package.  Remove the cached legacy owner before
                         # the new wheel writes those files.
-                        cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
+                        cls._uninstall_venv_package(
+                            virtual_env_manager, "sgl-kernel", cancel_event
+                        )
                     if force_reinstall_xllamacpp:
-                        cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
+                        cls._uninstall_venv_package(
+                            virtual_env_manager, "xllamacpp", cancel_event
+                        )
                     from .virtual_env_manager import (
                         observe_dependency_install,
                         resolve_dependency_install_plan,
@@ -5095,6 +5259,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         if report_install_progress is not None
                         else None
                     )
+                    check_install_cancelled()
                     observer = None
                     if plan is not None and report_install_progress is not None:
                         plan_labels = [f"{name}=={version}" for name, version in plan]
@@ -5115,6 +5280,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 )
                     try:
                         with _sglang_source_build_environment(regular_packages):
+                            check_install_cancelled()
                             virtual_env_manager.install_packages(
                                 regular_packages, **conf, **variables
                             )
@@ -5123,6 +5289,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                             stopped, thread = observer
                             stopped.set()
                             thread.join(timeout=1)
+                    check_install_cancelled()
                     if plan is not None and report_install_progress is not None:
                         report_install_progress(len(plan), len(plan), plan_labels)
 
@@ -5134,6 +5301,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         virtual_env_manager,
                         conf,
                         flash_attn_cuda_available,
+                        cancel_event=cancel_event,
                     )
 
                     # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
@@ -5142,10 +5310,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     # GPU distribution is present. Remove both distributions and put
                     # back only the GPU build after dependency resolution.
                     if model_name == "DeepDoc" and cls._is_cuda_device_available():
-                        cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
                         cls._uninstall_venv_package(
-                            virtual_env_manager, "onnxruntime-gpu"
+                            virtual_env_manager, "onnxruntime", cancel_event
                         )
+                        cls._uninstall_venv_package(
+                            virtual_env_manager, "onnxruntime-gpu", cancel_event
+                        )
+                        check_install_cancelled()
                         gpu_conf = conf.copy()
                         gpu_conf["skip_installed"] = False
                         virtual_env_manager.install_packages(
@@ -5166,7 +5337,9 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                     )
 
                     ensure_sglang_inherited_packages_compatible_post_install(
-                        model_engine, virtual_env_manager
+                        model_engine,
+                        virtual_env_manager,
+                        cancel_event=cancel_event,
                     )
                     allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
                     apply_flashinfer_aot_post_install(
@@ -5176,11 +5349,13 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         conf,
                         cuda_version,
                         allow_public_install=allow_public_install,
+                        cancel_event=cancel_event,
                     )
                     ensure_flashinfer_cubin_matches_post_install(
                         model_engine,
                         virtual_env_manager,
                         allow_public_install=allow_public_install,
+                        cancel_event=cancel_event,
                         conf=conf,
                     )
 
@@ -5203,6 +5378,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 architectures=architectures,
                             )
 
+                    check_install_cancelled()
                     _mark_venv_setup_done(
                         venv_path,
                         setup_packages,
@@ -5825,12 +6001,23 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         engine_name,
                         python_version,
                     )
-                    virtual_env_manager = await asyncio.to_thread(
-                        self._create_virtual_env_manager,
-                        enable_virtual_env,
-                        virtual_env_name,
-                        virtual_env_path,
+                    create_task = asyncio.create_task(
+                        asyncio.to_thread(
+                            self._create_virtual_env_manager,
+                            enable_virtual_env,
+                            virtual_env_name,
+                            virtual_env_path,
+                            launch_info.cancel_event,
+                        )
                     )
+                    try:
+                        virtual_env_manager = await asyncio.shield(create_task)
+                    except asyncio.CancelledError:
+                        launch_info.cancel_event.set()
+                        await _wait_for_launch_cleanup(
+                            asyncio.gather(create_task, return_exceptions=True)
+                        )
+                        raise
                     subpool_python_path = (
                         model_python_executable
                         or resolve_virtualenv_python_path(virtual_env_manager)
@@ -5976,9 +6163,27 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                         },
                                     )
 
+                                launch_info.virtual_env_manager = virtual_env_manager
+
+                                def prepare_dependencies(*args, **kwargs):
+                                    scope = getattr(
+                                        type(virtual_env_manager),
+                                        "dependency_operations",
+                                        None,
+                                    )
+                                    manager_scope = (
+                                        scope(virtual_env_manager)
+                                        if scope
+                                        else nullcontext()
+                                    )
+                                    with manager_scope:
+                                        return self._prepare_virtual_env(
+                                            *args, **kwargs
+                                        )
+
                                 prepare_task = asyncio.create_task(
                                     asyncio.to_thread(
-                                        self._prepare_virtual_env,
+                                        prepare_dependencies,
                                         virtual_env_manager,
                                         family.virtualenv,
                                         virtual_env_packages,
@@ -5998,6 +6203,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                         release_usage=self._release_virtual_env_usage,
                                         report_install_stage=report_install_stage,
                                         report_install_progress=report_install_progress,
+                                        cancel_event=launch_info.cancel_event,
                                     )
                                 )
                                 try:
@@ -6008,10 +6214,26 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                     # asyncio.to_thread cannot stop the underlying
                                     # installer. Wait for it to leave the path lock
                                     # before releasing the usage reservation.
-                                    try:
-                                        await prepare_task
-                                    except Exception:
-                                        pass
+                                    launch_info.cancel_event.set()
+
+                                    async def stop_preparation():
+                                        try:
+                                            await _cancel_dependency_install(
+                                                virtual_env_manager
+                                            )
+                                        except Exception:
+                                            logger.warning(
+                                                "Failed to interrupt dependency setup for %s",
+                                                model_uid,
+                                                exc_info=True,
+                                            )
+                                        await asyncio.gather(
+                                            prepare_task, return_exceptions=True
+                                        )
+
+                                    await _wait_for_launch_cleanup(
+                                        asyncio.create_task(stop_preparation())
+                                    )
                                     raise
                                 assert virtual_env_fingerprint is not None
                                 if (
@@ -6026,7 +6248,6 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                     virtual_env_fingerprint,
                                     model_uid,
                                 )
-                                launch_info.virtual_env_manager = virtual_env_manager
 
                         progressor = await self._get_progressor(
                             "launching-" + model_uid, launch=True
@@ -6462,7 +6683,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             # The event also covers cancellation before the downloader starts.
             self._cancel_download(launch_info)
             if launch_info.virtual_env_manager:
-                launch_info.virtual_env_manager.cancel_install()
+                await _cancel_dependency_install(launch_info.virtual_env_manager)
             if launch_info.sub_pools:
                 logger.debug("Try to stop sub pools: %s", launch_info.sub_pools)
                 coros = []
@@ -6484,17 +6705,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         # (download abort, sub-pool teardown), so returning before that makes an
         # immediate relaunch fail with "<uid> is running".
         deadline = time.monotonic() + XINFERENCE_CANCEL_LAUNCH_TIMEOUT
-        while (
-            model_uid in self._model_uid_launching_guard and time.monotonic() < deadline
-        ):
+        reported = False
+        while self._model_uid_launching_guard.get(model_uid) is launch_info:
+            if not reported and time.monotonic() >= deadline:
+                reported = True
+                logger.warning(
+                    "Launch of %s still unwinding after %ss",
+                    model_uid,
+                    XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
+                )
             await asyncio.sleep(0.1)
-        if model_uid in self._model_uid_launching_guard:
-            logger.warning(
-                "Launch of %s still unwinding after %ss; a relaunch may be "
-                "rejected as already running",
-                model_uid,
-                XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
-            )
 
     @log_async(logger=logger, level=logging.INFO)
     @management_operation
@@ -6595,7 +6815,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         elif model_type == "image":
             from ..model.image.core import _select_ocr_model_family, match_diffusion
 
-            spec = match_diffusion(model_name, download_hub)
+            spec = match_diffusion(model_name, download_hub, quantization=quantization)
             if "ocr" in (spec.model_ability or []):
                 spec = _select_ocr_model_family(
                     model_name,

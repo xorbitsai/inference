@@ -192,3 +192,64 @@ async def test_worker_listed_builtin_audio_registrations_can_be_described():
         registration = await worker.get_model_registration("audio", model_name)
         assert registration is not None, model_name
         assert registration.model_name == model_name
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("suffix", "quantizations"),
+    [
+        ("GGUF", ("Q4_0", "Q6_K", "Q8_0")),
+        ("Native", ("BF16", "FP8-E4M3FN-W8A8", "INT8-ConvRot-W8A8")),
+    ],
+)
+async def test_image_catalog_preserves_quantization_cache_status(
+    monkeypatch, suffix, quantizations
+):
+    import json
+
+    from ...api.restful_api import RESTfulAPI
+    from ...model import image
+    from ...model.image.cache_manager import ImageCacheManager
+
+    model_name = f"SenseNova-U1.6-8B-MoT-{suffix}"
+    cached_quantization = quantizations[1]
+    families = image.BUILTIN_IMAGE_MODELS[model_name]
+    monkeypatch.setattr(image, "BUILTIN_IMAGE_MODELS", {model_name: families})
+    monkeypatch.setattr("xinference.model.image.custom.get_user_defined_images", list)
+    worker = WorkerActor.__new__(WorkerActor)
+
+    monkeypatch.setattr(ImageCacheManager, "get_cache_status", lambda self: False)
+    uncached = await worker.list_model_registrations("image", detailed=True)
+    monkeypatch.setattr(
+        ImageCacheManager,
+        "get_cache_status",
+        lambda self: self._model_family.quantization == cached_quantization,
+    )
+    partially_cached = await worker.list_model_registrations("image", detailed=True)
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._worker_address_to_worker = {
+        "first": SimpleNamespace(
+            list_model_registrations=AsyncMock(return_value=uncached)
+        ),
+        "second": SimpleNamespace(
+            list_model_registrations=AsyncMock(return_value=partially_cached)
+        ),
+    }
+    api = SimpleNamespace(_get_supervisor_ref=AsyncMock(return_value=supervisor))
+    response = await RESTfulAPI.list_model_registrations(api, "image", detailed=True)
+
+    (registration,) = json.loads(response.body)
+    assert registration["model_name"] == model_name
+    assert set(registration["download_hubs"]) == {"huggingface", "modelscope"}
+    specs = registration["model_specs"]
+    assert len(specs) == 6
+    assert {
+        (spec["model_hub"], spec["model_format"], spec["quantization"]): spec[
+            "cache_status"
+        ]
+        for spec in specs
+    } == {
+        (hub, "pytorch", quant): quant == cached_quantization
+        for hub in ("huggingface", "modelscope")
+        for quant in quantizations
+    }

@@ -47,6 +47,10 @@ air-gapped.
    direct wheel URLs are downloaded with their dependencies, and sdist-only
    downloads are built into wheels. Unsupported direct references are recorded
    and skipped by the downloader.
+   Hash mismatches are retried with pip's cache disabled, up to three attempts
+   in total. Persistent hash mismatches fail the build. Source archive fallbacks
+   preserve requested extras when fetching the built wheel's dependencies,
+   including when the same base wheel is already in the mirror.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
    shared runtime constraint, index-compatible engine set, pin and direct wheel
    against the baked mirror alone (`--disable-fallback`). The selfcheck server

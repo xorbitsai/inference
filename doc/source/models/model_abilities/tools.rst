@@ -55,6 +55,13 @@ Quickstart
 An optional parameter ``tools`` in the Chat API can be used to provide function specifications.
 The purpose of this is to enable models to generate function arguments which adhere to the provided specifications. 
 
+For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice="required"``
+or select a named function to force a tool call. Xinference turns off thinking
+for that request when no thinking controls are supplied. A forced tool call
+with thinking explicitly enabled returns HTTP 400.
+Streaming returns tool arguments once they are complete. Forced tool choice
+is unavailable with prefill/decode disaggregation.
+
 Example using OpenAI Client
 ------------------------------
 

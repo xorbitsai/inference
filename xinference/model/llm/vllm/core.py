@@ -74,16 +74,22 @@ from ...utils import allow_trust_remote_code
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..context_length import (
     ContextLengthExceeded,
+    _read_checkpoint_config,
     classify_vllm_context_error,
     normalize_runtime_positive_int,
     normalize_vllm_context_error,
 )
 from ..core import chat_context_var, get_model_speculative_tokens_default
-from ..llm_family import PytorchLLMSpecV2, cache_model_tokenizer_and_config
+from ..llm_family import (
+    HY_MT3_MODEL_NAMES,
+    PytorchLLMSpecV2,
+    cache_model_tokenizer_and_config,
+)
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..reasoning_controls import has_reasoning_controls
 from ..tool_controls import (
     convert_forced_completion,
+    is_deepseek_v41_forced_tool_choice,
     is_forced_tool_choice,
     prepare_forced_tools,
     single_tool_completion,
@@ -229,6 +235,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+HY_MT3_MIN_VLLM_VERSION = version.parse("0.21.0")
 MIN_VLLM_REQUEST_PRIORITY_VERSION = version.parse("0.6.3")
 MINICPMV47_MIN_VLLM_VERSION = version.parse("0.32.0")
 
@@ -628,6 +635,76 @@ class VLLMModel(WeightCachedModel, LLM):
                         "disabled during thinking"
                     )
 
+    def _deepseek_v41_forces_tools(self, config: Dict) -> bool:
+        family = getattr(self, "model_family", None)
+        name = getattr(family, "model_family", None) or getattr(
+            family, "model_name", ""
+        )
+        return is_deepseek_v41_forced_tool_choice(config, name)
+
+    def _prepare_openai_forced_tool_config(self, config: Dict) -> Dict:
+        if config.get("_pd_kv_transfer_params") is not None:
+            raise NotImplementedError(
+                "Forced tool choice is not supported for P/D models"
+            )
+        # The tool-call array is the only decoding constraint vLLM may receive.
+        # A user guided_* option would replace it or make vLLM reject the
+        # request. response_format applies only to text replies and is
+        # replaced by prepare_forced_tools.
+        conflicts = [
+            key
+            for key in (
+                "guided_choice",
+                "guided_regex",
+                "guided_grammar",
+                "guided_json_object",
+            )
+            if config.get(key)
+        ]
+        if config.get("guided_json") is not None:
+            conflicts.insert(0, "guided_json")
+        if conflicts:
+            raise ValueError(
+                "Forced tool choice cannot be combined with " + ", ".join(conflicts)
+            )
+        context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+                config, getattr(self, "reasoning_parser", None)
+            )
+            or {}
+        )
+        # A forced tool call overrides the launch default for this request.
+        # Read the template arguments without the parser to detect caller intent.
+        requested_context = (
+            ChatModelMixin._get_chat_template_kwargs_from_generate_config(config) or {}
+        )
+        if (
+            context.get("enable_thinking")
+            and context.get("reasoning_effort") != "none"
+            and {"enable_thinking", "thinking", "reasoning_effort", "thinking_budget"}
+            & requested_context.keys()
+        ):
+            raise ValueError(
+                "Forced tool choice requires disabling thinking for DeepSeek V4.1"
+            )
+        config = {
+            **config,
+            "chat_template_kwargs": {
+                **context,
+                "enable_thinking": False,
+                "thinking": False,
+            },
+        }
+        validate_forced_tool_choice(config)
+        self._validate_forced_tools(config)
+        return config
+
+    def prepare_reasoning_request(self, config: Dict) -> Dict:
+        config = super().prepare_reasoning_request(config)
+        if self._deepseek_v41_forces_tools(config):
+            config = self._prepare_openai_forced_tool_config(config)
+        return config
+
     def _prepare_structured_reasoning_prompt(
         self, prompt: Union[str, dict], config: Dict, context: Dict
     ) -> Union[str, dict]:
@@ -735,7 +812,8 @@ class VLLMModel(WeightCachedModel, LLM):
         ):
             return None
         if (
-            config.get("lora_name")
+            self._deepseek_v41_forces_tools(config)
+            or config.get("lora_name")
             or config.get("add_special_tokens") is False
             or config.get("truncate_prompt_tokens") is not None
             or config.get("prompt_logprobs") is not None
@@ -784,14 +862,13 @@ class VLLMModel(WeightCachedModel, LLM):
             )
         config = copy.deepcopy(config or {})
         messages = copy.deepcopy(messages)
-        # Render the same prompt async_chat would: only Anthropic requests use
-        # the constrained forced-tool prompt (_forced_tool_chat); OpenAI requests
-        # keep native tool rendering even for tool_choice="required", but still
-        # reject a forced choice without a matching declared tool before the
-        # choice is dropped below.
+        # Count the same constrained prompt that async_chat sends to the engine.
         anthropic = config.pop("_anthropic_request", False)
         if is_forced_tool_choice(config):
             if anthropic:
+                messages, config = prepare_forced_tools(messages, config)
+            elif self._deepseek_v41_forces_tools(config):
+                config = self._prepare_openai_forced_tool_config(config)
                 messages, config = prepare_forced_tools(messages, config)
             else:
                 validate_forced_tool_choice(config)
@@ -1028,8 +1105,11 @@ class VLLMModel(WeightCachedModel, LLM):
             "effective_max_tokens": effective_max_tokens,
         }
 
-    async def _forced_tool_chat(self, messages, config, request_id):
-        self._validate_forced_tools(config)
+    async def _forced_tool_chat(self, messages, config, request_id, *, anthropic=True):
+        if anthropic:
+            self._validate_forced_tools(config)
+        else:
+            config = self._prepare_openai_forced_tool_config(config)
         stream = config.get("stream", False)
         include_usage = (config.get("stream_options") or {}).get("include_usage", False)
         context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
@@ -1042,7 +1122,8 @@ class VLLMModel(WeightCachedModel, LLM):
             "chat_template_kwargs": {**context, "reasoning_content": True},
         }
         messages, config = prepare_forced_tools(messages, config)
-        config["_anthropic_request"] = True
+        if anthropic:
+            config["_anthropic_request"] = True
         config["stream"] = False
         completion = await self.async_chat(messages, config, request_id=request_id)  # type: ignore[attr-defined]
         completion = convert_forced_completion(completion)
@@ -2017,6 +2098,100 @@ class VLLMModel(WeightCachedModel, LLM):
                 return isinstance(method, str) and method.lower() == "fp8"
         return True
 
+    def _apply_rope_scaling(
+        self, model_config: VLLMModelConfig, scaling: Dict[str, Any]
+    ) -> None:
+        overrides = self.parse_str_field_to_dict(
+            model_config.get("hf_overrides"), "hf_overrides"
+        )
+        overrides, scaling = copy.deepcopy((overrides, scaling))
+        saved = {}
+        if self.model_spec.model_format != "ggufv2" and model_config.get(
+            "config_format"
+        ) in (None, "auto", "hf"):
+            path = cast(str, model_config.get("hf_config_path") or self.model_path)
+            saved = _read_checkpoint_config(self.model_family, "vllm", path)
+        text = saved.get("text_config") if isinstance(saved, dict) else None
+        nested = isinstance(text, dict)
+        if nested and (VLLM_VERSION is None or VLLM_VERSION < version.parse("0.11.1")):
+            overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
+            return
+        target = overrides.get("text_config", {}) if nested else overrides
+        if not isinstance(saved, dict) or not saved or not isinstance(target, dict):
+            overrides["rope_scaling"] = scaling
+            model_config["hf_overrides"] = overrides
+            return
+        base = ("rope_theta", "partial_rotary_factor")
+        aliases = ("rope_scaling", "rope_parameters")
+        checkpoint = text if isinstance(text, dict) else saved
+        native_type = "default"
+        parameters: Dict[str, Any] = {}
+        type_key = "rope_type"
+        for owner, explicit in ((checkpoint, None), (target, scaling)):
+            for source in (
+                {key: owner.get(key) for key in base},
+                *(owner.get(key) for key in aliases),
+                explicit,
+            ):
+                if not isinstance(source, dict):
+                    continue
+                if any(isinstance(value, dict) for value in source.values()):
+                    overrides["rope_scaling"] = scaling
+                    model_config["hf_overrides"] = overrides
+                    return
+                fields = {
+                    k: v for k, v in source.items() if v is not None or k not in base
+                }
+                if "rope_type" in fields or "type" in fields:
+                    type_key = "rope_type" if "rope_type" in fields else "type"
+                    fields.setdefault("rope_type", fields.pop("type", None))
+                parameters.update(fields)
+            if explicit is None and "mrope_section" in parameters:
+                native_type = parameters.get("rope_type", "default")
+        rope_type = parameters.get("rope_type", "default")
+        if "mrope_section" in parameters and rope_type not in (
+            "default",
+            "mrope",
+            "yarn",
+            native_type,
+        ):
+            detail = f"{rope_type!r} is unsupported for multimodal RoPE (mrope_section)"
+            raise ValueError(detail)
+        if "mrope_section" in parameters and rope_type == "yarn":
+            if VLLM_VERSION is not None and (
+                version.parse("0.12.0") <= VLLM_VERSION < version.parse("0.17.0")
+            ):
+                raise ValueError(
+                    "YaRN with multimodal RoPE (mrope_section) is unsupported on vLLM "
+                    ">=0.12.0,<0.17.0. Use vLLM 0.11.2 or >=0.17.0."
+                )
+        if rope_type == "mrope":
+            if "mrope_section" not in parameters:
+                raise ValueError("'mrope' requires multimodal RoPE (mrope_section)")
+            parameters["rope_type"] = "default"
+        model_config["hf_overrides"] = overrides
+        for key in (*base, *aliases):
+            target.pop(key, None)
+        if target is not overrides:
+            overrides["text_config"] = target
+        transformers_version = _get_transformers_version()
+        if transformers_version and transformers_version.major < 5:
+            legacy = {k: v for k, v in parameters.items() if k not in base}
+            target.update({key: parameters[key] for key in base if key in parameters})
+            if VLLM_VERSION is not None and VLLM_VERSION >= version.parse("0.11.1"):
+                saved_rope = checkpoint.get("rope_scaling")
+                if nested and isinstance(saved_rope, dict) and "type" in saved_rope:
+                    legacy["type"] = legacy["rope_type"]
+            elif type_key == "type":
+                legacy["type"] = legacy.pop("rope_type")
+            target["rope_scaling"] = copy.deepcopy(legacy)
+            # vLLM may derive rope_parameters before applying overrides.
+            loader = importlib.import_module("vllm.transformers_utils.config")
+            if not hasattr(loader, "patch_rope_parameters"):
+                return
+        target["rope_parameters"] = parameters
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -2120,10 +2295,10 @@ class VLLMModel(WeightCachedModel, LLM):
         self._apply_draft_model(model_config)
         if "rope_scaling" in model_config:
             rope_scaling = self.parse_str_field_to_dict(
-                model_config["rope_scaling"], "rope_scaling"
+                model_config.pop("rope_scaling"), "rope_scaling"
             )
-            model_config["hf_overrides"] = {"rope_scaling": rope_scaling}
-            model_config.pop("rope_scaling", {})
+            if rope_scaling:
+                self._apply_rope_scaling(model_config, rope_scaling)
 
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if VLLM_VERSION >= version.parse("0.6.3"):
@@ -3224,6 +3399,16 @@ class VLLMModel(WeightCachedModel, LLM):
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
     @classmethod
+    def validate_launch(cls, llm_family: "LLMFamilyV2") -> None:
+        if llm_family.model_name in HY_MT3_MODEL_NAMES:
+            effective_version = _get_effective_vllm_version_for_family(llm_family)
+            if effective_version < HY_MT3_MIN_VLLM_VERSION:
+                raise ValueError(
+                    f"{llm_family.model_name} requires vLLM >= {HY_MT3_MIN_VLLM_VERSION} "
+                    f"(found {effective_version})"
+                )
+
+    @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
@@ -3267,7 +3452,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
+        is_hy_mt3 = llm_family.model_name in HY_MT3_MODEL_NAMES
         if llm_spec.model_format == "ggufv2":
+            if is_hy_mt3:
+                return False, "Hy-MT3 GGUF checkpoints require llama.cpp"
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False, "ggufv2 support requires vLLM >= 0.8.2"
         if (
@@ -3280,6 +3468,16 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         supported_architectures = list(VLLM_SUPPORTED_CHAT_MODELS)
         if is_ling3:
             _append_unique(supported_architectures, "BailingMoeV3ForCausalLM")
+        if (
+            is_hy_mt3
+            and _get_effective_vllm_version_for_family(llm_family)
+            >= HY_MT3_MIN_VLLM_VERSION
+        ):
+            # The Hy-MT3 virtualenv installs a supporting version even when
+            # these architectures were absent from the host runtime's registry.
+            _append_unique(
+                supported_architectures, "HunYuanDenseV1ForCausalLM", "HYV3ForCausalLM"
+            )
         if not llm_family.matches_supported_architectures(supported_architectures):
             return (
                 False,
@@ -3400,8 +3598,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         generate_config = dict(generate_config or {})
         continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
-        if anthropic and is_forced_tool_choice(generate_config):
-            return await self._forced_tool_chat(messages, generate_config, request_id)
+        if (anthropic and is_forced_tool_choice(generate_config)) or (
+            self._deepseek_v41_forces_tools(generate_config)
+        ):
+            return await self._forced_tool_chat(
+                messages, generate_config, request_id, anthropic=anthropic
+            )
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         self._normalize_tool_choice_for_prompt(generate_config)
@@ -4016,8 +4218,12 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         generate_config = dict(generate_config or {})
         continuous_usage = continuous_usage_requested(generate_config)
         anthropic = generate_config.pop("_anthropic_request", False)
-        if anthropic and is_forced_tool_choice(generate_config):
-            return await self._forced_tool_chat(messages, generate_config, request_id)
+        if (anthropic and is_forced_tool_choice(generate_config)) or (
+            self._deepseek_v41_forces_tools(generate_config)
+        ):
+            return await self._forced_tool_chat(
+                messages, generate_config, request_id, anthropic=anthropic
+            )
         plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         self._normalize_tool_choice_for_prompt(generate_config)
