@@ -1153,6 +1153,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Nemotron-3.5-Embed-"):
+            return False, "Nemotron 3.5 Embed requires its modality-aware adapter"
         if model_family.model_name == "embeddinggemma-2":
             return False, "EmbeddingGemma 2 requires its modality-aware adapter"
         if is_wemm_model(model_family.model_name):

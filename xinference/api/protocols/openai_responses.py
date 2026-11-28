@@ -417,6 +417,33 @@ def _response_format(text: Any) -> Optional[Dict[str, Any]]:
     raise ResponsesProtocolError(f"Unsupported text.format type: {fmt['type']}")
 
 
+def _chat_template_kwargs(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Accept the Chat Completions thinking extension.
+
+    ``enable_thinking`` may be top-level or in ``extra_body``, as with Chat
+    Completions. It is the only way to disable thinking for a request, since
+    ``reasoning`` is echoed but not applied.
+    """
+    kwargs = raw.get("chat_template_kwargs")
+    if kwargs is not None and not isinstance(kwargs, dict):
+        raise ResponsesProtocolError(
+            "chat_template_kwargs must be an object", param="chat_template_kwargs"
+        )
+    kwargs = dict(kwargs or {})
+    enable_thinking = raw.get("enable_thinking")
+    extra_body = raw.get("extra_body")
+    if enable_thinking is None and isinstance(extra_body, dict):
+        enable_thinking = extra_body.get("enable_thinking")
+    if enable_thinking is not None:
+        if not isinstance(enable_thinking, bool):
+            raise ResponsesProtocolError(
+                "enable_thinking must be a boolean", param="enable_thinking"
+            )
+        kwargs["enable_thinking"] = enable_thinking
+        kwargs["thinking"] = enable_thinking
+    return kwargs
+
+
 def parse_responses_request(raw: Any) -> ResponsesRequest:
     if not isinstance(raw, dict):
         raise ResponsesProtocolError("Request body must be a JSON object")
@@ -449,6 +476,14 @@ def parse_responses_request(raw: Any) -> ResponsesRequest:
     for key in ("temperature", "top_p"):
         if raw.get(key) is not None:
             body[key] = raw[key]
+    reasoning = raw.get("reasoning")
+    effort = reasoning.get("effort") if isinstance(reasoning, dict) else None
+    if effort is not None:
+        if not isinstance(effort, str):
+            raise ResponsesProtocolError(
+                "reasoning.effort must be a string", param="reasoning.effort"
+            )
+        body["reasoning_effort"] = effort
     choice = None
     if tools:
         tools, choice = _apply_tool_choice(tools, raw.get("tool_choice"))
@@ -461,6 +496,9 @@ def parse_responses_request(raw: Any) -> ResponsesRequest:
     response_format = _response_format(raw.get("text"))
     if response_format:
         body["response_format"] = response_format
+    template_kwargs = _chat_template_kwargs(raw)
+    if template_kwargs:
+        body["chat_template_kwargs"] = template_kwargs
     if stream:
         body["stream_options"] = {"include_usage": True}
 

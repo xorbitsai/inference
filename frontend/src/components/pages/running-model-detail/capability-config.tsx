@@ -49,6 +49,7 @@ import {
   fileToDataUrl,
   firstUpload,
   formatOCRPrompt,
+  isLtx25Distilled,
   numberValue,
   parseJsonObject,
   sizeFromValues,
@@ -108,6 +109,29 @@ const videoDefaults = {
   seed: -1,
 };
 
+const ltx25DistilledDefaults = {
+  width: 960,
+  height: 544,
+  num_frames: 121,
+  fps: 24,
+  num_inference_steps: undefined,
+  guidance_scale: undefined,
+};
+
+const ltx25DevDefaults = {
+  ...ltx25DistilledDefaults,
+  num_inference_steps: 30,
+  guidance_scale: 3,
+};
+
+function getVideoInitialValueOverrides({
+  model_name,
+}: Pick<TransformContext['model'], 'model_name'>) {
+  if (isLtx25Distilled(model_name)) return ltx25DistilledDefaults;
+  if (model_name === 'LTX-2.5-Dev') return ltx25DevDefaults;
+  return undefined;
+}
+
 const imageKwargsExample = {
   guidance_scale: 7.5,
   num_inference_steps: 25,
@@ -123,6 +147,20 @@ const videoKwargsExample = {
   guidance_scale: 7.5,
   seed: 11,
 };
+
+function getVideoKwargsExampleField(modelName?: string) {
+  const modelDefaults = modelName
+    ? getVideoInitialValueOverrides({ model_name: modelName })
+    : undefined;
+  return {
+    key: 'kwargs',
+    value: modelDefaults
+      ? buildGenerationKwargs({ ...modelDefaults, seed: videoKwargsExample.seed })
+      : videoKwargsExample,
+    stringify: true,
+    comment: 'Optional(other key/value)',
+  };
+}
 
 function commonImageBody(context: TransformContext, fallbackSize?: string) {
   const { modelUid, values } = context;
@@ -174,9 +212,17 @@ function buildMediaKwargs(
   return kwargs;
 }
 
+function buildVideoKwargs(context: TransformContext) {
+  const kwargs = buildMediaKwargs(context);
+  if (isLtx25Distilled(context.model.model_name)) {
+    delete kwargs.num_inference_steps;
+    delete kwargs.guidance_scale;
+  }
+  return kwargs;
+}
+
 function commonVideoBody(context: TransformContext) {
   const { modelUid, values } = context;
-  const kwargs = buildMediaKwargs(context);
 
   return withKwargsIfPresent(
     {
@@ -184,18 +230,17 @@ function commonVideoBody(context: TransformContext) {
       prompt: stringValue(values.prompt),
       negative_prompt: stringValue(values.negative_prompt) || undefined,
     },
-    kwargs
+    buildVideoKwargs(context)
   );
 }
 
 function appendCommonVideoFormData(formData: FormData, context: TransformContext) {
   const { modelUid, values } = context;
-  const kwargs = buildMediaKwargs(context);
 
   formData.append('model', modelUid);
   appendIfPresent(formData, 'prompt', values.prompt);
   appendIfPresent(formData, 'negative_prompt', values.negative_prompt);
-  appendKwargsIfPresent(formData, kwargs);
+  appendKwargsIfPresent(formData, buildVideoKwargs(context));
 }
 
 async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | 'video') {
@@ -648,7 +693,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.text2video',
     icon: Video,
     requestApi: '/v1/video/generations',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'json',
       fields: [
@@ -659,15 +704,11 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           value: 'A cute little cat walking through a sunny garden',
         },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: videoDefaults,
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: TextToVideoPanel,
     resultPanel: ResultPanels.Universal,
@@ -679,7 +720,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.image2video',
     icon: Video,
     requestApi: '/v1/video/generations/image',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'form',
       fields: [
@@ -687,15 +728,11 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
         { key: 'prompt', required: true, value: 'Animate the scene with gentle camera movement' },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: { ...videoDefaults, image: [] },
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: ImageToVideoPanel,
     resultPanel: ResultPanels.Universal,
@@ -713,7 +750,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     labelKey: 'launchModel.firstlastframe2video',
     icon: Video,
     requestApi: '/v1/video/generations/flf',
-    codeExample: {
+    codeExample: (modelName) => ({
       method: 'POST',
       contentType: 'form',
       fields: [
@@ -722,15 +759,11 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'last_frame', required: true, type: 'file', value: '/path/to/last-frame.png' },
         { key: 'prompt', required: true, value: 'Create a smooth transition between these frames' },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: videoKwargsExample,
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
+        getVideoKwargsExampleField(modelName),
       ],
-    },
+    }),
     initialValues: { ...videoDefaults, first_frame: [], last_frame: [] },
+    getInitialValueOverrides: getVideoInitialValueOverrides,
     showProgress: true,
     formPanel: FirstLastFrameVideoPanel,
     resultPanel: ResultPanels.Universal,

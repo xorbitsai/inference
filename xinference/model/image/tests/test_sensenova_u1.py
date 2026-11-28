@@ -17,6 +17,8 @@
 import contextlib
 import io
 import json
+from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -29,6 +31,295 @@ from PIL import Image
 from ....api.restful_api import RESTfulAPI
 from ....core.model import ModelActor
 from .. import sensenova_u1
+from ..cache_manager import ImageCacheManager
+from ..core import (
+    IMAGE_MODEL_DESCRIPTIONS,
+    create_image_model_instance,
+    match_diffusion,
+)
+from ..engine import TransformersSenseNovaU1ImageModel
+
+
+@pytest.mark.parametrize(
+    ("hub", "namespace", "revision"),
+    [("huggingface", "sensenova", "main"), ("modelscope", "SenseNova", "master")],
+)
+def test_u16_uses_shared_transformers_image_engine(tmp_path, hub, namespace, revision):
+    model_name = "SenseNova-U1.6-8B-MoT"
+
+    model = create_image_model_instance(
+        model_uid="sensenova-u16",
+        model_name=model_name,
+        download_hub=hub,
+        model_path=str(tmp_path),
+    )
+
+    assert isinstance(model, TransformersSenseNovaU1ImageModel)
+    assert model.model_spec.model_engine == "transformers"
+    assert model.model_spec.model_hub == hub
+    assert model.model_spec.model_id == f"{namespace}/{model_name}"
+    assert model.model_spec.model_revision == revision
+    assert set(model.model_ability) == {"text2image", "image2image"}
+
+
+@pytest.mark.parametrize(
+    ("suffix", "quantization", "filename"),
+    [
+        ("Native", None, "SenseNova-U1.6-BF16.safetensors"),
+        ("Native", "FP8-E4M3FN-W8A8", "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"),
+        ("Native", "INT8-ConvRot-W8A8", "SenseNova-U1.6-INT8-ConvRot-W8A8.safetensors"),
+        ("GGUF", None, "SenseNova-U1.6-8B-MoT-Q4_0.gguf"),
+        ("GGUF", "Q6_K", "SenseNova-U1.6-8B-MoT-Q6_K.gguf"),
+        ("GGUF", "Q8_0", "SenseNova-U1.6-8B-MoT-Q8_0.gguf"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("hub", "namespace", "revision", "pattern_key", "download_target"),
+    [
+        ("huggingface", "sensenova", "main", "allow_patterns", "huggingface_hub"),
+        (
+            "modelscope",
+            "SenseNova",
+            "master",
+            "allow_file_pattern",
+            "modelscope.hub.snapshot_download",
+        ),
+    ],
+)
+def test_u16_variant_downloads_one_checkpoint(
+    monkeypatch,
+    tmp_path,
+    suffix,
+    quantization,
+    filename,
+    hub,
+    namespace,
+    revision,
+    pattern_key,
+    download_target,
+):
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_CACHE_DIR", str(tmp_path / "cache")
+    )
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path / "models")
+    )
+    model_name = f"SenseNova-U1.6-8B-MoT-{suffix}"
+    expected = {
+        filename,
+        "config.json",
+        "tokenizer_config.json",
+        "vocab.json",
+        "merges.txt",
+        "added_tokens.json",
+        "special_tokens_map.json",
+    }
+    if suffix == "Native" and quantization:
+        expected.add(
+            filename.removesuffix(".safetensors") + ".quantization_config.json"
+        )
+
+    def download(model_id, **kwargs):
+        assert model_id == f"{namespace}/{model_name}"
+        assert kwargs["revision"] == revision
+        assert set(kwargs[pattern_key]) == expected
+        snapshot = Path(kwargs.get("local_dir") or tmp_path / "snapshot")
+        snapshot.mkdir(parents=True, exist_ok=True)
+        for file in expected:
+            (snapshot / file).touch()
+        return str(snapshot)
+
+    mocked_download = Mock(side_effect=download)
+    monkeypatch.setattr(
+        import_module(download_target), "snapshot_download", mocked_download
+    )
+    spec = match_diffusion(model_name, hub, quantization=quantization)
+    assert not ImageCacheManager(spec).get_cache_status()
+
+    model = create_image_model_instance(
+        model_uid="sensenova-variant",
+        model_name=model_name,
+        download_hub=hub,
+        quantization=quantization,
+    )
+
+    assert isinstance(model, TransformersSenseNovaU1ImageModel)
+    assert model.model_ability == ["text2image"]
+    assert model.model_spec.quantization == (
+        quantization or ("BF16" if suffix == "Native" else "Q4_0")
+    )
+    assert set(p.name for p in Path(model._model_path).iterdir()) == expected
+    assert ImageCacheManager(spec).get_cache_status()
+    version = model.model_spec.to_version_info()[0]
+    assert version["model_version"] == f"{model_name}--{model.model_spec.quantization}"
+    assert version["cache_status"]
+    assert len({v["model_version"] for v in IMAGE_MODEL_DESCRIPTIONS[model_name]}) == 3
+    mocked_download.assert_called_once()
+
+
+def test_u16_variant_rejects_unknown_quantization():
+    with pytest.raises(ValueError, match="does not support quantization"):
+        create_image_model_instance(
+            model_uid="sensenova-variant",
+            model_name="SenseNova-U1.6-8B-MoT-GGUF",
+            quantization="Q5_K_M",
+            enable_virtual_env=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("device", "options", "requires_offload"),
+    [
+        (None, {}, True),
+        ("cpu", {"vram_mode": "fast"}, True),
+        ("mps", {"vram_mode": "low"}, True),
+        ("cpu", {"vram_mode": "full"}, False),
+        ("mps", {"vram_mode": "full"}, False),
+        ("cuda:0", {}, True),
+        ("xpu:0", {}, True),
+    ],
+)
+def test_u16_gguf_validates_offload_device_before_loading(
+    monkeypatch, tmp_path, device, options, requires_offload
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    runtime_utils = import_module("sensenova_u1.utils")
+    monkeypatch.setattr(
+        runtime_utils, "best_available_device", lambda: torch.device("cpu")
+    )
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(runtime_utils, "load_model_and_tokenizer", loader)
+    model = create_image_model_instance(
+        model_uid="sensenova-gguf",
+        model_name="SenseNova-U1.6-8B-MoT-GGUF",
+        model_path=str(tmp_path),
+        device=device,
+        **options,
+    )
+
+    resolved_device = device or "cpu"
+    mode = options.get("vram_mode", "balanced")
+    if requires_offload and torch.device(resolved_device).type in ("cpu", "mps"):
+        with pytest.raises(
+            ValueError,
+            match=f"vram_mode='{mode}'.*CUDA or XPU.*device '{resolved_device}'",
+        ):
+            model.load()
+        loader.assert_not_called()
+    else:
+        model.load()
+        loader.assert_called_once()
+        assert loader.call_args.kwargs["device"] == resolved_device
+        assert loader.call_args.kwargs["for_offload"] is requires_offload
+
+
+@pytest.mark.parametrize(
+    ("capability", "supported"), [((8, 0), False), ((8, 9), True), ((9, 0), True)]
+)
+def test_u16_native_fp8_validates_cuda_capability_before_loading(
+    monkeypatch, tmp_path, capability, supported
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    quant_runtime = import_module("sensenova_u1.utils.quant_runtime")
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(quant_runtime, "load_quant", loader)
+    get_device_capability = Mock(return_value=capability)
+    monkeypatch.setattr(torch.cuda, "get_device_capability", get_device_capability)
+    monkeypatch.setattr(torch.version, "hip", None)
+    model = create_image_model_instance(
+        model_uid="sensenova-native-fp8",
+        model_name="SenseNova-U1.6-8B-MoT-Native",
+        quantization="FP8-E4M3FN-W8A8",
+        model_path=str(tmp_path),
+        device="cuda:1",
+        vram_mode="full",
+    )
+
+    if supported:
+        model.load()
+        loader.assert_called_once_with(
+            str(tmp_path / "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"), "cuda:1"
+        )
+    else:
+        with pytest.raises(
+            ValueError, match=r"FP8.*compute capability 8\.9.*cuda:1.*8\.0"
+        ):
+            model.load()
+        loader.assert_not_called()
+    get_device_capability.assert_called_once_with(torch.device("cuda:1"))
+
+
+@pytest.mark.parametrize(
+    ("architecture", "kernel_error"),
+    [
+        ("gfx90a", RuntimeError("torch._scaled_mm requires ROCm MI300+")),
+        ("gfx942", ValueError("E4M3FN is unsupported on this device")),
+        ("gfx950", None),
+    ],
+)
+def test_u16_native_fp8_checks_rocm_kernel_before_loading(
+    monkeypatch, tmp_path, architecture, kernel_error
+):
+    monkeypatch.syspath_prepend(
+        str(Path(sensenova_u1.__file__).resolve().parents[2] / "thirdparty")
+    )
+    quant_runtime = import_module("sensenova_u1.utils.quant_runtime")
+    loader = Mock(return_value=(object(), object()))
+    monkeypatch.setattr(quant_runtime, "load_quant", loader)
+    monkeypatch.setattr(torch.version, "hip", "7.0")
+    properties = Mock(return_value=SimpleNamespace(gcnArchName=architecture))
+    monkeypatch.setattr(torch.cuda, "get_device_properties", properties)
+    model = create_image_model_instance(
+        model_uid="sensenova-native-fp8",
+        model_name="SenseNova-U1.6-8B-MoT-Native",
+        quantization="FP8-E4M3FN-W8A8",
+        model_path=str(tmp_path),
+        device="cuda:1",
+        vram_mode="full",
+    )
+    activations = Mock(return_value=torch.zeros((32, 32), dtype=torch.float32))
+    scale = torch.ones((), dtype=torch.float32)
+    scales = Mock(return_value=scale)
+    scaled_mm = Mock(side_effect=kernel_error)
+    stream = Mock()
+    current_stream = Mock(return_value=stream)
+    monkeypatch.setattr(torch, "zeros", activations)
+    monkeypatch.setattr(torch, "ones", scales)
+    monkeypatch.setattr(torch, "_scaled_mm", scaled_mm)
+    monkeypatch.setattr(torch.cuda, "current_stream", current_stream)
+
+    device = torch.device("cuda:1")
+    if kernel_error is None:
+        model.load()
+        loader.assert_called_once_with(
+            str(tmp_path / "SenseNova-U1.6-FP8-E4M3FN-W8A8.safetensors"), "cuda:1"
+        )
+        current_stream.assert_called_once_with(device)
+        stream.synchronize.assert_called_once_with()
+    else:
+        with pytest.raises(
+            ValueError, match=rf"ROCm 7\.0.*cuda:1.*{architecture}.*E4M3FN"
+        ):
+            model.load()
+        loader.assert_not_called()
+
+    properties.assert_called_once_with(device)
+    activations.assert_called_once_with((32, 32), device=device, dtype=torch.float32)
+    scales.assert_called_once_with((), device=device, dtype=torch.float32)
+    scaled_mm.assert_called_once()
+    left, right = scaled_mm.call_args.args
+    assert left.dtype == right.dtype == torch.float8_e4m3fn
+    assert left.stride() == (32, 1)
+    assert right.stride() == (1, 32)
+    assert scaled_mm.call_args.kwargs == {
+        "scale_a": scale,
+        "scale_b": scale,
+        "out_dtype": torch.float32,
+    }
 
 
 def _make_model():

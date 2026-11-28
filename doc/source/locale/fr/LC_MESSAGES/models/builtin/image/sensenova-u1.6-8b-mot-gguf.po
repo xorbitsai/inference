@@ -1,0 +1,68 @@
+# Xinference documentation translations.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 18:16+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % "
+"1000000 == 0 ? 1 : 2;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.19.0\n"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:5
+msgid "SenseNova-U1.6-8B-MoT-GGUF"
+msgstr "SenseNova-U1.6-8B-MoT-GGUF"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:7
+msgid "**Model Name:** SenseNova-U1.6-8B-MoT-GGUF"
+msgstr "**Nom du modèle:** SenseNova-U1.6-8B-MoT-GGUF"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:8
+msgid "**Model Family:** sensenova_u1"
+msgstr "**Famille du modèle:** sensenova_u1"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:9
+msgid "**Abilities:** text2image"
+msgstr "**Capacités:** text2image"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:10
+msgid "**Available ControlNet:** None"
+msgstr "**ControlNet disponible:** Aucun"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:13
+msgid "Specifications"
+msgstr "Spécifications"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:15
+msgid "**Model ID:** sensenova/SenseNova-U1.6-8B-MoT-GGUF"
+msgstr "**Identifiant du modèle:** sensenova/SenseNova-U1.6-8B-MoT-GGUF"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "Exécutez la commande suivante pour lancer le modèle::"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:22
+msgid ""
+"Select a checkpoint with ``--quantization``. Available values: Q4_0, "
+"Q6_K, Q8_0. The default is ``Q4_0``::"
+msgstr ""
+"Sélectionnez un point de contrôle avec ``--quantization``. Les valeurs "
+"disponibles sont Q4_0, Q6_K, Q8_0. La valeur par défaut est ``Q4_0``::"
+
+#: ../../source/models/builtin/image/sensenova-u1.6-8b-mot-gguf.rst:28
+msgid ""
+"The default ``vram_mode=balanced`` requires CUDA or XPU for layer "
+"offload. On CPU or MPS, use ``--vram_mode full``::"
+msgstr ""
+"Le mode par défaut ``vram_mode=balanced`` nécessite CUDA ou XPU pour "
+"décharger les couches. Avec un CPU ou MPS, utilisez ``--vram_mode "
+"full``::"

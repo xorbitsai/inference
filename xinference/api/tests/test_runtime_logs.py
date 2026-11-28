@@ -203,3 +203,64 @@ async def test_runtime_log_reads_registered_worker(monkeypatch):
     )
     assert _body(response)["text"] == "worker error\n"
     worker.read_runtime_logs.assert_awaited_once_with("1:2:0")
+
+
+def test_runtime_log_chunk_boundary_keeps_multibyte_characters(tmp_path, monkeypatch):
+    path = tmp_path / "xinference.log"
+    monkeypatch.setattr(log_reader, "get_log_file", lambda _: str(path))
+    monkeypatch.setattr(log_reader, "MAX_RUNTIME_LOG_BYTES", 10)
+    # Each CJK character is 3 bytes, so the 10 byte chunks end inside one.
+    text = "模型加载完成\n模型\n"
+    path.write_bytes(text.encode("utf-8"))
+
+    cursor = log_reader._cursor(path.stat(), 0)
+    collected = ""
+    for _ in range(10):
+        chunk = log_reader.read_runtime_log(cursor)
+        collected += chunk["text"]
+        cursor = chunk["cursor"]
+        if not chunk["has_more"]:
+            break
+
+    assert collected == text
+
+
+def test_runtime_log_append_during_read_keeps_multibyte_characters(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "xinference.log"
+    monkeypatch.setattr(log_reader, "get_log_file", lambda _: str(path))
+    monkeypatch.setattr(log_reader, "MAX_RUNTIME_LOG_BYTES", 10)
+    path.write_bytes(b"start\n")
+    cursor = log_reader._cursor(path.stat(), path.stat().st_size)
+    appended = "x" * 9 + "中文\n"
+
+    real_fstat = log_reader.os.fstat
+    appended_once = []
+
+    def fstat_then_append(fd):
+        # Return the size before the append, as if the log grew right after
+        # fstat() and before read().
+        result = real_fstat(fd)
+        if not appended_once:
+            appended_once.append(True)
+            with open(path, "ab") as stream:
+                stream.write(appended.encode("utf-8"))
+        return result
+
+    monkeypatch.setattr(log_reader.os, "fstat", fstat_then_append)
+
+    first = log_reader.read_runtime_log(cursor)
+    assert first["has_more"] is True
+    assert first["text"] == "x" * 9
+
+    collected = first["text"]
+    cursor = first["cursor"]
+    for _ in range(10):
+        chunk = log_reader.read_runtime_log(cursor)
+        collected += chunk["text"]
+        cursor = chunk["cursor"]
+        if not chunk["has_more"]:
+            break
+
+    assert collected == appended

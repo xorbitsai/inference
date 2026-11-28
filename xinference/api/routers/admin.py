@@ -10,6 +10,7 @@ import re
 import signal
 import uuid
 from bisect import bisect_left
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -30,6 +31,7 @@ from ..model_request_logging import get_model_request_id
 from ..responses import JSONResponse
 
 if TYPE_CHECKING:
+    from ..replica_drain import ReplicaDrainRequests
     from ..restful_api import RESTfulAPI
 
 logger = logging.getLogger(__name__)
@@ -140,7 +142,9 @@ async def get_supervisor_info(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def _relaunch_service(request: Request, command: str) -> JSONResponse:
+async def _relaunch_service(
+    request: Request, command: str, tracker: Optional[ReplicaDrainRequests] = None
+) -> JSONResponse:
     from ...deploy.api_host import host_request
 
     try:
@@ -154,7 +158,8 @@ async def _relaunch_service(request: Request, command: str) -> JSONResponse:
             raise ValueError("Expected python_executable, request_id and/or version")
         validate_relaunch_options(body.get("python_executable"), body.get("request_id"))
         validate_upgrade(body.get("version"), body.get("python_executable"))
-        result = await host_request(command, **body)
+        with tracker.admit_relaunch() if tracker is not None else nullcontext():
+            result = await host_request(command, **body)
         return JSONResponse(content=result, status_code=202)
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -187,7 +192,8 @@ async def _list_service_relaunches(command: str) -> JSONResponse:
 async def relaunch_api(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
-    return await _relaunch_service(request, "relaunch")
+    tracker = getattr(api, "_replica_drain_requests", None)
+    return await _relaunch_service(request, "relaunch", tracker)
 
 
 async def get_api_relaunch(
@@ -266,6 +272,43 @@ async def relaunch_worker(
         raise HTTPException(status_code=503, detail=str(error))
     except (ValueError, TypeError) as error:
         raise HTTPException(status_code=400, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+
+
+class WorkerHandoffRecoveryRequest(BaseModel):
+    ticket: str
+    target_incarnation: str
+    target_exit_verified: bool = False
+
+
+async def get_pending_worker_handoff(
+    worker_address: str, api: "RESTfulAPI" = Depends(get_api)
+) -> JSONResponse:
+    supervisor = await api._get_supervisor_ref()
+    try:
+        return JSONResponse(
+            content=await supervisor.get_pending_worker_handoff(worker_address)
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="No pending Worker handoff")
+
+
+async def recover_confirmed_worker_handoff(
+    worker_address: str,
+    body: WorkerHandoffRecoveryRequest,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    if not body.target_exit_verified:
+        raise HTTPException(status_code=400, detail="Verify the target process exited")
+    supervisor = await api._get_supervisor_ref()
+    try:
+        result = await supervisor.recover_confirmed_worker_handoff(
+            worker_address, body.ticket, body.target_incarnation
+        )
+        return JSONResponse(content=result)
+    except (WorkerJournalError, asyncio.TimeoutError) as error:
+        raise HTTPException(status_code=503, detail=str(error))
     except RuntimeError as error:
         raise HTTPException(status_code=409, detail=str(error))
 
@@ -2361,6 +2404,18 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/workers/{worker_address}/relaunch",
         relaunch_worker,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/handoff",
+        get_pending_worker_handoff,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/workers/{worker_address}/handoff/recover",
+        recover_confirmed_worker_handoff,
         methods=["POST"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

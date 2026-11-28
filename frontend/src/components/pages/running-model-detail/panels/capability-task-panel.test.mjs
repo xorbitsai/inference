@@ -5,6 +5,7 @@ import test from 'node:test';
 import { runInThisContext } from 'node:vm';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { JSDOM } from 'jsdom';
 import ts from 'typescript';
 
@@ -61,6 +62,94 @@ test('image and video requests apply the selected Lightning mode and its step de
   }
 });
 
+test('Try API generates valid Python payloads for both LTX-2.5 variants', (t) => {
+  const Module = require('node:module');
+  const drawerPath = require.resolve('../components/try-api-drawer.tsx');
+  const originalRequire = Module.prototype.require;
+  const previousCssLoader = require.extensions['.css'];
+  const passThrough = ({ children }) => children;
+  const empty = () => null;
+  let code;
+  const mocks = {
+    'next/navigation': { useRouter: () => ({}) },
+    '@/hooks/use-menu-auth': { useMenuAuth: () => ({ canAccessKeysPage: true }) },
+    '@/contexts/i18n-context': { useI18n: () => ({ t: (key) => key }) },
+    '@/components/ui/sheet': {
+      Sheet: passThrough,
+      SheetClose: passThrough,
+      SheetContent: passThrough,
+      SheetDescription: passThrough,
+      SheetHeader: passThrough,
+      SheetTitle: passThrough,
+    },
+    '@/components/ui/tabs': {
+      Tabs: passThrough,
+      TabsContent: passThrough,
+      TabsList: empty,
+      TabsTrigger: empty,
+    },
+    '@/components/ui/json-syntax-highlighter': {
+      JSONSyntaxHighlighter: (props) => {
+        code = props.code;
+        return null;
+      },
+    },
+  };
+  Module.prototype.require = function (id) {
+    return this.filename === drawerPath && Object.hasOwn(mocks, id)
+      ? mocks[id]
+      : originalRequire.call(this, id);
+  };
+  require.extensions['.css'] = empty;
+  t.after(() => {
+    Module.prototype.require = originalRequire;
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+    delete require.cache[drawerPath];
+  });
+
+  const { TryApiDrawer } = require(drawerPath);
+  const distilled = { width: 960, height: 544, num_frames: 121, fps: 24, seed: 11 };
+  const otherVideo = {
+    width: 512,
+    height: 512,
+    num_frames: 16,
+    fps: 8,
+    num_inference_steps: 25,
+    guidance_scale: 7.5,
+    seed: 11,
+  };
+  for (const [ability, endpoint, files] of [
+    ['text2video', '/v1/video/generations', []],
+    ['image2video', '/v1/video/generations/image', ['image']],
+    ['firstlastframe2video', '/v1/video/generations/flf', ['first_frame', 'last_frame']],
+  ]) {
+    for (const [modelName, expected] of [
+      ['LTX-2.5', distilled],
+      ['LTX-2.5-Dev', { ...distilled, num_inference_steps: 30, guidance_scale: 3 }],
+      ['Wan2.2-A14B', otherVideo],
+    ]) {
+      code = undefined;
+      renderToStaticMarkup(
+        React.createElement(TryApiDrawer, {
+          open: true,
+          ability,
+          modelName,
+          modelUid: 'custom-video-uid',
+          onOpenChange: empty,
+        })
+      );
+      assert.ok(code.includes(`${endpoint}"`));
+      assert.ok(code.includes('"model": "custom-video-uid"'));
+      assert.ok(code.includes(files.length ? 'data=data, files=files' : 'json=data'));
+      for (const file of files) assert.ok(code.includes(`"${file}": open(`));
+      const kwargs = code.match(/^\s*"kwargs": json\.dumps\((.*)\),/m);
+      assert.ok(kwargs, `${ability}: ${modelName} should include generation kwargs`);
+      assert.deepEqual(JSON.parse(kwargs[1]), expected, `${ability}: ${modelName}`);
+    }
+  }
+});
+
 function mountTestDom(t) {
   const dom = new JSDOM('<div id="root"></div>');
   const previous = {};
@@ -84,6 +173,105 @@ function mountTestDom(t) {
   });
   return { dom, root };
 }
+
+test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling controls', async (t) => {
+  const { dom, root } = mountTestDom(t);
+  const previousCssLoader = require.extensions['.css'];
+  require.extensions['.css'] = () => {};
+  t.after(() => {
+    if (previousCssLoader) require.extensions['.css'] = previousCssLoader;
+    else delete require.extensions['.css'];
+  });
+  const { I18nProvider } = require('@/contexts/i18n-context');
+  const request = require('@/lib/request').default;
+  const { CAPABILITY_CONFIGS } = require('../capability-config.tsx');
+  const CapabilityTaskPanel = require('./capability-task-panel.tsx').default;
+  const post = t.mock.method(request, 'post', async () => ({ data: [] }));
+  const file = new File(['image'], 'frame.png', { type: 'image/png' });
+  const ltxDefaults = { width: 960, height: 544, num_frames: 121, fps: 24, seed: -1 };
+
+  for (const [ability, uploadFields] of [
+    ['text2video', []],
+    ['image2video', ['image']],
+    ['firstlastframe2video', ['first_frame', 'last_frame']],
+  ]) {
+    const { formPanel: VideoPanel, ...capability } = CAPABILITY_CONFIGS[ability];
+    let form;
+    const config = {
+      ...capability,
+      formPanel: (props) => {
+        form = props.form;
+        return React.createElement(VideoPanel, props);
+      },
+    };
+
+    for (const [model_name, expectedKwargs] of [
+      [
+        'Wan2.2',
+        {
+          width: 512,
+          height: 512,
+          num_frames: 16,
+          fps: 8,
+          num_inference_steps: 25,
+          guidance_scale: 7.5,
+          seed: -1,
+        },
+      ],
+      ['LTX-2.5-Dev', { ...ltxDefaults, num_inference_steps: 30, guidance_scale: 3 }],
+      ['LTX-2.5', ltxDefaults],
+    ]) {
+      await act(async () => {
+        root.render(
+          React.createElement(
+            I18nProvider,
+            null,
+            React.createElement(CapabilityTaskPanel, {
+              key: ability,
+              config,
+              model: { model_name, model_type: 'video' },
+              modelUid: 'video-uid',
+            })
+          )
+        );
+      });
+      await act(async () => {
+        form.setFieldValue('prompt', 'A cat in a garden');
+        for (const field of uploadFields) {
+          form.setFieldValue(field, [{ file }]);
+        }
+      });
+      const submitAndAssert = async () => {
+        await act(async () => {
+          document
+            .querySelector('form')
+            .dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+        });
+        assert.equal(post.mock.callCount(), 1, `${ability}: ${model_name}`);
+        const [endpoint, body] = post.mock.calls[0].arguments;
+        post.mock.resetCalls();
+        assert.equal(endpoint, capability.requestApi);
+        assert.equal(body instanceof FormData, uploadFields.length > 0);
+        for (const field of uploadFields) assert.equal(await body.get(field).text(), 'image');
+        const { request_id, ...kwargs } = JSON.parse(
+          body instanceof FormData ? body.get('kwargs') : body.kwargs
+        );
+        assert.match(request_id, /^request-/);
+        assert.deepEqual(kwargs, expectedKwargs, `${ability}: ${model_name}`);
+      };
+      await submitAndAssert();
+
+      if (model_name === 'LTX-2.5') {
+        assert.equal(form.hasFieldValue('num_inference_steps'), false);
+        assert.equal(form.hasFieldValue('guidance_scale'), false);
+        await act(async () =>
+          form.setFieldsValue({ num_inference_steps: 25, guidance_scale: 7.5 })
+        );
+        await submitAndAssert();
+      }
+    }
+  }
+});
 
 function enablePcmPlayback(
   window,

@@ -1,5 +1,6 @@
 """Bounded reads of the current Xinference application log."""
 
+import codecs
 import os
 import re
 from typing import Dict, Optional, Tuple
@@ -90,8 +91,21 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
                 stream.readline(MAX_RUNTIME_LOG_BYTES)
             data = stream.read(MAX_RUNTIME_LOG_BYTES)
             offset = stream.tell()
+            # The file may have grown while we read it. Use its size after the
+            # read, so has_more and the decoder's end-of-file check agree with data.
+            stat = os.fstat(stream.fileno())
     except FileNotFoundError:
         return {"text": "", "cursor": "", "has_more": False, "reset": True}
+
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    text = decoder.decode(data)
+    pending = decoder.getstate()[0]
+    if pending and len(pending) < len(data) and offset < stat.st_size:
+        # The chunk ends inside a multi-byte character: leave its first bytes
+        # for the next read instead of turning both halves into U+FFFD.
+        offset -= len(pending)
+    else:
+        text += decoder.decode(b"", final=True)
 
     if read_path != path and offset >= stat.st_size:
         # Resume from the next retained archive, then continue into the active file.
@@ -106,7 +120,7 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
         has_more = offset < stat.st_size
 
     return {
-        "text": data.decode("utf-8", errors="replace"),
+        "text": text,
         "cursor": next_cursor,
         "has_more": has_more,
         "reset": reset,

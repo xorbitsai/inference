@@ -98,7 +98,6 @@ class CacheManager:
                 revision=self._model_family.model_revision,
                 **cache_config,
             )
-            self._link_snapshot(download_dir, cache_dir)
         else:
             from huggingface_hub import snapshot_download as hf_download
 
@@ -117,8 +116,8 @@ class CacheManager:
                 revision=self._model_family.model_revision,
                 **use_symlinks,
             )
-            if IS_NEW_HUGGINGFACE_HUB:
-                self._link_snapshot(download_dir, cache_dir)
+        if from_modelscope or IS_NEW_HUGGINGFACE_HUB:
+            self._link_snapshot(download_dir, cache_dir)
         return cache_dir
 
     def cache(self) -> str:

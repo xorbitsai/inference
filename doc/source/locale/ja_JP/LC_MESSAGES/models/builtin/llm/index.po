@@ -1,0 +1,48 @@
+# Hy-MT3 translations for the ja_JP locale.
+# Copyright (C) 2026 Xinference Holdings Pte. Ltd
+# This file is distributed under the same license as the Xinference project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-11-27 00:00+0000\n"
+"PO-Revision-Date: 2026-11-27 00:00+0000\n"
+"Last-Translator: Xinference contributors\n"
+"Language: ja_JP\n"
+"Language-Team: ja_JP\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: doc/source/models/builtin/llm/index.rst:334
+msgid ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+msgstr ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+
+#: doc/source/models/builtin/llm/index.rst:337
+msgid ""
+"Hy-MT3-1.8B is a lightweight dense multilingual translation model from Tencent "
+"Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-1.8B は、Tencent Hunyuan の軽量な高密度の多言語翻訳モデルです。102 の言語に対応し、翻訳の指示に従います。"
+
+#: doc/source/models/builtin/llm/index.rst:339
+msgid ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+msgstr ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+
+#: doc/source/models/builtin/llm/index.rst:342
+msgid ""
+"Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation model from Tencent"
+" Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-30B-A3B は、Tencent Hunyuan の混合エキスパート（MoE）型の多言語翻訳モデルです。102 の言語に対応し、翻訳の指示に従います。"
+
+#: doc/source/models/builtin/llm/index.rst:344
+msgid ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+msgstr ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+
+#: doc/source/models/builtin/llm/index.rst:347
+msgid ""
+"Hy-MT3-7B is a dense multilingual translation model from Tencent Hunyuan. It "
+"supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-7B は、Tencent Hunyuan の高密度の多言語翻訳モデルです。102 の言語に対応し、翻訳の指示に従います。"

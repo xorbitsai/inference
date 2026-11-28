@@ -6,6 +6,18 @@ from ..cache_manager import CacheManager
 
 class ImageCacheManager(CacheManager):
     def __init__(self, model_family):
+        from .sensenova_u1 import get_sensenova_checkpoint_files
+
+        self._checkpoint_files = get_sensenova_checkpoint_files(model_family)
+        if self._checkpoint_files:
+            cache_config = dict(model_family.cache_config or {})
+            pattern_key = (
+                "allow_file_pattern"
+                if model_family.model_hub == "modelscope"
+                else "allow_patterns"
+            )
+            cache_config[pattern_key] = self._checkpoint_files
+            model_family = model_family.copy(update={"cache_config": cache_config})
         super().__init__(model_family)
         model_format = getattr(model_family, "model_format", None)
         quantization = getattr(model_family, "quantization", None)
@@ -21,15 +33,32 @@ class ImageCacheManager(CacheManager):
                 f"{self._model_family.model_name.replace('.', '_')}-{suffix}",
             )
 
+    def get_cache_status(self):
+        if self._checkpoint_files:
+            return all(
+                os.path.isfile(os.path.join(self.get_cache_dir(), filename))
+                for filename in self._checkpoint_files
+            )
+        return super().get_cache_status()
+
     def _link_snapshot(self, download_dir: str, cache_dir: str) -> None:
-        from ..utils import create_symlink
+        from ..utils import create_symlink, symlink_local_file
         from .minimax_h3 import MINIMAX_H3_IMAGE_NAME
 
-        if self._model_family.model_name == MINIMAX_H3_IMAGE_NAME:
-            patterns = (self._model_family.cache_config or {}).get("allow_patterns")
-            create_symlink(download_dir, cache_dir, allow_patterns=patterns)
-        else:
-            super()._link_snapshot(download_dir, cache_dir)
+        if not self._checkpoint_files:
+            if self._model_family.model_name == MINIMAX_H3_IMAGE_NAME:
+                patterns = (self._model_family.cache_config or {}).get("allow_patterns")
+                create_symlink(download_dir, cache_dir, allow_patterns=patterns)
+            else:
+                super()._link_snapshot(download_dir, cache_dir)
+            return
+
+        # Hub download filters do not remove files already in a shared snapshot.
+        for filename in self._checkpoint_files:
+            source = os.path.join(download_dir, filename)
+            if not os.path.isfile(source):
+                raise FileNotFoundError(f"Missing required checkpoint file: {source}")
+            symlink_local_file(source, cache_dir, filename)
 
     def cache_ocr_gguf(self) -> str:
         """Download one GGUF quantization and its vision projector."""

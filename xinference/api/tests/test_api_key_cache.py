@@ -39,3 +39,50 @@ def test_build_entry_expiry(expires_at, expected, valid):
     assert entry.expires_at == expected
     assert entry.expires_at.tzinfo is None
     assert entry.is_valid() is valid
+
+
+class _RecordingGauge:
+    def __init__(self):
+        self.value = None
+
+    def set(self, labels, value):
+        self.value = value
+
+
+class _FakeAuth:
+    def __init__(self, keys):
+        self._keys = keys
+        self.db = self._db = self
+
+    def list_api_keys(self):
+        return self._keys
+
+
+_GAUGE_KEYS = [
+    {"enabled": 1, "expires_at": "2000-01-01T00:00:00Z"},
+    {"enabled": 1, "expires_at": "2099-01-01T00:00:00Z"},
+    {"enabled": 1, "expires_at": "2000-01-01T00:00:00+08:00"},
+    {"enabled": 1, "expires_at": "2099-01-01T00:00:00+08:00"},
+    {"enabled": 1, "expires_at": "2000-01-01T00:00:00"},
+    {"enabled": 1, "expires_at": "2099-01-01T00:00:00"},
+    {"enabled": 1, "expires_at": None},
+    {"enabled": 0, "expires_at": "2099-01-01T00:00:00Z"},
+]
+
+
+@pytest.mark.parametrize("target", ["routes", "metrics"])
+def test_key_gauges_count_keys_with_offset_expiry(monkeypatch, target):
+    from xinference.api.oauth2.advanced import routes
+    from xinference.core import metrics
+
+    active, expired = _RecordingGauge(), _RecordingGauge()
+    monkeypatch.setattr(metrics, "api_keys_active_total", active)
+    monkeypatch.setattr(metrics, "api_keys_expired_total", expired)
+
+    auth = _FakeAuth(_GAUGE_KEYS)
+    if target == "routes":
+        routes._refresh_key_gauges(auth)
+    else:
+        metrics.update_security_gauges(auth)
+
+    assert (active.value, expired.value) == (4, 3)

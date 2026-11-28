@@ -208,3 +208,6 @@ msgstr "學習一個完整的範例，展示函數呼叫的過程。"
 
 #~ msgid ":ref:`models_llm_qwen-chat`"
 #~ msgstr ""
+
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Xinference turns off thinking for that request when no thinking controls are supplied. A forced tool call with thinking explicitly enabled returns HTTP 400. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "在 vLLM 上使用 DeepSeek V4.1 Flash 和 Flash 1017 時，可設定 ``tool_choice=\"required\"`` 或指定函式名稱來強制呼叫工具。請求未指定思考參數時，Xinference 會為該請求關閉思考模式。強制呼叫工具時明確開啟思考模式會傳回 HTTP 400。串流回應會在工具引數完整後傳回這些引數。預填充與解碼分離的部署不支援強制工具選擇。"

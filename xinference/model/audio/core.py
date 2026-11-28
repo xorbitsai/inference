@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type, Union
 
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -335,7 +335,7 @@ def create_audio_model_instance(
         model_engine=model_engine,
         quantization=quantization,
     )
-    audio_cls = None
+    audio_cls: Optional[Type[AudioEngineModel]] = None
 
     if model_spec.model_family == "dots_tts_edit" and not cache_only:
         if not is_dots_tts_python_supported(model_python_executable):
@@ -356,10 +356,37 @@ def create_audio_model_instance(
     if model_spec.model_family == "yue2" and model_spec.model_name not in AUDIO_ENGINES:
         raise ValueError("YuE2 requires an NVIDIA CUDA device.")
 
+    if cache_only and (model_engine or model_spec.engine or "").lower() == "vllm":
+        from .vllm import VLLMQwen3ASRAudioModel
+
+        # The download worker uses the model's metadata without loading vLLM.
+        if VLLMQwen3ASRAudioModel.is_model_family_supported(model_spec):
+            audio_cls = VLLMQwen3ASRAudioModel
+            model_engine = "vLLM"
+
+    if audio_cls is None and (model_spec.engine or "").lower() == "vllm":
+        available_engines = AUDIO_ENGINES.get(model_spec.model_name, {})
+        has_vllm_engine = any(engine.lower() == "vllm" for engine in available_engines)
+        if not has_vllm_engine:
+            if model_engine is not None and model_engine.lower() != "vllm":
+                raise ValueError(
+                    f"Audio model {model_spec.model_name} cannot be run on engine "
+                    f"{model_engine}; it requires the vLLM engine on Linux with an "
+                    "NVIDIA CUDA device and does not support falling back to a "
+                    "non-vLLM loader."
+                )
+            raise ValueError(
+                f"Audio model {model_spec.model_name} requires the vLLM engine on "
+                "Linux with an NVIDIA CUDA device; falling back to a non-vLLM "
+                "loader is not supported."
+            )
+
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
     # engines keep the legacy dispatch below.
-    if model_spec.model_name in AUDIO_ENGINES or model_engine is not None:
+    if audio_cls is None and (
+        model_spec.model_name in AUDIO_ENGINES or model_engine is not None
+    ):
         from .engine_family import (
             check_engine_by_model_name_and_engine,
             check_engine_by_model_name_and_engine_with_virtual_env,
@@ -515,6 +542,12 @@ def create_audio_model_instance(
     elif model_spec.model_family == "qwen3_asr":
         if (model_spec.engine or "").lower() == "mlx":
             model = MLXAudioSTTModel(model_uid, model_path, model_spec, **kwargs)
+        elif (model_spec.engine or "").lower() == "vllm":
+            raise ValueError(
+                f"Audio model {model_spec.model_name} requires the vLLM engine on "
+                "Linux with an NVIDIA CUDA device; falling back to a non-vLLM "
+                "loader is not supported."
+            )
         else:
             model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_tts":

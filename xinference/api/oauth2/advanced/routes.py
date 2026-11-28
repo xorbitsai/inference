@@ -26,6 +26,7 @@ from ..advanced.auth_service import (
     PASSWORD_MIN_LENGTH,
     AdvancedAuthService,
 )
+from ..advanced.cache import parse_expires_at
 from ..advanced.crypto import get_password_hash, verify_password
 from ..advanced.database import ApiKeyNameConflictError, ApiKeyNameRequiredError
 from ..scope_aliases import _normalize_scopes
@@ -58,7 +59,7 @@ def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
             expires_at = k.get("expires_at")
             if expires_at:
                 try:
-                    if datetime.fromisoformat(expires_at) < now:
+                    if parse_expires_at(expires_at) < now:
                         expired += 1
                         continue
                 except ValueError:

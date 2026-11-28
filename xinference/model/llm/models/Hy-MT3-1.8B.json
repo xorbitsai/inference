@@ -1,0 +1,195 @@
+[
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "Hy-MT3-1.8B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT3-1.8B is a lightweight dense multilingual translation model from Tencent Hunyuan. It supports 102 languages and follows translation instructions.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT3-1.8B",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT3-1.8B/resolve/79e9c301609d6a4009fbb110922dca379dfe1e9a/config.json",
+              "config_sha256": "478ada4b2ad7673c55fb76c1fa2501a2751bf55d545c32807275e3198428f0f6",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-1.8B",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B/resolve/master/config.json",
+              "config_sha256": "478ada4b2ad7673c55fb76c1fa2501a2751bf55d545c32807275e3198428f0f6",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT3-1.8B-FP8",
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT3-1.8B-FP8/resolve/a7f8e386d47dc5a0547ab4e315390f23dd229c2e/config.json",
+              "config_sha256": "bad874c7f2eb34f44abd4edb7f34b2f254fb8eb8a68aed16af3c4da561e25660",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-1.8B-FP8",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-FP8/resolve/master/config.json",
+              "config_sha256": "bad874c7f2eb34f44abd4edb7f34b2f254fb8eb8a68aed16af3c4da561e25660",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
+          }
+        },
+        "quantization_method": "compressed-tensors"
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ],
+            "model_id": "tencent/Hy-MT3-1.8B-GGUF",
+            "model_revision": "main",
+            "model_file_name_template": "Hy-MT3-1.8B-{quantization}.gguf",
+            "model_metadata_by_quantization": {
+              "Q4_K_M": {
+                "vocab_size": 120818,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/tencent/Hy-MT3-1.8B-GGUF/resolve/7f97e076a8622b09f3a6f14cff38a733441ace43/Hy-MT3-1.8B-Q4_K_M.gguf",
+                "config_sha256": "97cfae3bc4371b82bfec1808b3249944b812fc7bc2982bedb5bbd237c757da75",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 32
+              },
+              "Q8_0": {
+                "vocab_size": 120818,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/tencent/Hy-MT3-1.8B-GGUF/resolve/7f97e076a8622b09f3a6f14cff38a733441ace43/Hy-MT3-1.8B-Q8_0.gguf",
+                "config_sha256": "fc714a94e6e66baa59819ca2dbc7134d1899c76ab837da35cdced28f696042c6",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 32
+              }
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT3-1.8B-GGUF",
+            "model_revision": "master",
+            "model_file_name_template": "Hy-MT3-1.8B-{quantization}.gguf",
+            "model_metadata_by_quantization": {
+              "Q4_K_M": {
+                "vocab_size": 120818,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-GGUF/resolve/master/Hy-MT3-1.8B-Q4_K_M.gguf",
+                "config_sha256": "97cfae3bc4371b82bfec1808b3249944b812fc7bc2982bedb5bbd237c757da75",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 32
+              },
+              "Q8_0": {
+                "vocab_size": 120818,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT3-1.8B-GGUF/resolve/master/Hy-MT3-1.8B-Q8_0.gguf",
+                "config_sha256": "fc714a94e6e66baa59819ca2dbc7134d1899c76ab837da35cdced28f696042c6",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 32
+              }
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120020
+    ],
+    "architectures": [
+      "HunYuanDenseV1ForCausalLM"
+    ],
+    "model_type": "hunyuan_v1_dense",
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.6.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
+        "vllm>=0.29.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "sglang>=0.5.12 ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1795478400
+  }
+]

@@ -38,6 +38,7 @@ class _DummyAutostartRunner:
 
     def __init__(self, model_status, attempts: int):
         self._model_status = model_status
+        self._worker_address_to_worker = {"worker": object()}
         self._autostart_model_states = {
             "uid-1": {"attempts": attempts, "last_error": "previous failure"}
         }
@@ -145,6 +146,38 @@ async def test_autostart_transitional_model_preserves_retry_attempts(model_statu
         "message": f"Model is {model_status.lower()}.",
         "last_error": "previous failure",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("drain_status", ["unknown", "cancelled"])
+async def test_autostart_waits_for_unfinished_replica_drain(drain_status):
+    # An unfinished drain still owns the UID's cleanup; Autostart waits for it
+    # without spending the retry budget.
+    from xinference.core.supervisor import ManualReplicaDrain
+
+    supervisor = _DummyAutostartRunner(model_status=None, attempts=1)
+    supervisor._manual_replica_drains = {
+        "uid-1": ManualReplicaDrain(
+            "r1", 1, None, {}, None, status=drain_status  # type: ignore[arg-type]
+        )
+    }
+    entry = {
+        "max_retries": 3,
+        "retry_interval_seconds": 30,
+        "launch": {"model_name": "llama", "model_uid": "uid-1"},
+    }
+
+    retry_delay = await supervisor._autostart_one_model(entry)
+
+    if drain_status == "cancelled":
+        assert supervisor.launched == [entry["launch"]]
+        return
+    assert retry_delay == 30
+    assert supervisor.launched == []
+    state = supervisor._autostart_model_states["uid-1"]
+    assert state["status"] == "waiting_model"
+    assert state["attempts"] == 1
+    assert "r1 of model uid-1 has not finished" in state["message"]
 
 
 class _DummyReplicaDeathSupervisor:
@@ -393,3 +426,279 @@ async def test_trusted_autostart_interpreter_is_loaded_but_never_disclosed():
         not in redact_autostart_model_entries(entries)[0]["launch"]
     )
     assert entries[0]["launch"]["model_python_executable"] == "/private/python"
+
+
+@pytest.mark.asyncio
+async def test_autostart_rechecks_recovered_handoff_with_no_registered_workers(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from .. import worker_registry
+
+    owner = SupervisorActor()
+    journal = tmp_path / "ownership.json"
+    source = "127.0.0.1:12001"
+    target = "127.0.0.1:12002"
+    clock = SimpleNamespace(now=100.0)
+    monkeypatch.setattr(
+        worker_registry,
+        "time",
+        SimpleNamespace(monotonic=lambda: clock.now, time=worker_registry.time.time),
+    )
+    registry = worker_registry.WorkerOwnership(journal)
+    registry.set_pending(
+        source,
+        {
+            "key": (1, "ticket", source, target, "supervisor", "old", "new", 1),
+            "extensions": [],
+            "models": ["counter"],
+            "committed": False,
+            "deadline": 110.0,
+        },
+    )
+    owner._worker_ownership = worker_registry.WorkerOwnership(journal)
+    owner._load_autostart_entries = AsyncMock(
+        return_value=[
+            {"launch": {"model_uid": "counter"}, "retry_interval_seconds": 10}
+        ]
+    )
+    launch = AsyncMock()
+    owner._launch_autostart_model = launch
+    lookup = AsyncMock(side_effect=ConnectionRefusedError)
+    monkeypatch.setattr(worker_registry.xo, "actor_ref", lookup)
+
+    async def advance(delay):
+        assert delay == 10
+        assert owner._autostart_model_states["counter"]["message"] == (
+            "Waiting for worker handoff."
+        )
+        lookup.assert_not_awaited()
+        clock.now = 111.0
+
+    owner._wait_for_autostart_wakeup = advance
+    await asyncio.wait_for(owner._run_autostart_with_retries(0), 2)
+
+    lookup.assert_awaited_once()
+    launch.assert_not_awaited()
+    assert owner._autostart_model_states["counter"]["message"] == (
+        "Waiting for worker registration."
+    )
+
+
+@pytest.mark.asyncio
+async def test_autostart_releases_committed_handoff_after_target_exit(
+    tmp_path, monkeypatch
+):
+    import os
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    import psutil
+
+    from .. import worker_handoff, worker_registry
+
+    namespace = ("test-boot", 123)
+    monkeypatch.setattr(worker_handoff, "local_process_namespace", lambda: namespace)
+    owner = SupervisorActor()
+    source = "127.0.0.1:12001"
+    registry = worker_registry.WorkerOwnership(tmp_path / "ownership.json")
+    live_identity = [*namespace, os.getpid(), psutil.Process().create_time()]
+    record = {
+        "key": (1, "ticket", source, "127.0.0.1:12002", "supervisor", "old", "new", 1),
+        "extensions": [],
+        "models": ["counter"],
+        "committed": True,
+        "deadline": 0,
+        "target_process": live_identity,
+    }
+    registry.set_pending(source, record)
+    owner._worker_ownership = worker_registry.WorkerOwnership(registry.path)
+    owner._status_guard_ref = None
+    owner._worker_address_to_worker["healthy"] = object()
+    launch = AsyncMock(return_value="counter")
+    owner._launch_autostart_model = launch
+    entry = {"launch": {"model_uid": "counter"}, "retry_interval_seconds": 10}
+
+    assert await owner._autostart_one_model(entry) == 10
+    assert owner._worker_ownership.protected(source)
+    launch.assert_not_awaited()
+
+    dead_identity = [*live_identity[:-1], live_identity[-1] - 1]
+    owner._worker_ownership.set_pending(
+        source, dict(record, target_process=dead_identity)
+    )
+    ref = SimpleNamespace(address=source)
+    owner._worker_address_to_worker[source] = ref
+    owner._replica_model_uid_to_worker["counter-rep0"] = ref
+    replica_update = AsyncMock(side_effect=[TimeoutError("replica status"), None])
+    model_update = AsyncMock(side_effect=[TimeoutError("model status"), None])
+    owner._status_guard_ref = SimpleNamespace(
+        get_instance_info=AsyncMock(return_value=[]),
+        update_replica_status=replica_update,
+        update_instance_info=model_update,
+    )
+
+    assert await owner._autostart_one_model(entry) == 10
+    assert source in worker_registry.WorkerOwnership(registry.path).pending
+    assert "counter-rep0" in owner._replica_model_uid_to_worker
+    model_update.assert_not_awaited()
+
+    assert await owner._autostart_one_model(entry) == 10
+    assert source in worker_registry.WorkerOwnership(registry.path).pending
+    assert "counter-rep0" not in owner._replica_model_uid_to_worker
+
+    assert await owner._autostart_one_model(entry) == 10
+    assert source not in worker_registry.WorkerOwnership(registry.path).pending
+    assert replica_update.await_count == 2
+    replica_update.assert_awaited_with("counter", 0, {"status": "TERMINATED"})
+    assert model_update.await_count == 2
+    model_update.assert_awaited_with("counter", {"replica": 0, "status": "TERMINATED"})
+    assert await owner._autostart_one_model(entry) is None
+    launch.assert_awaited_once_with(entry["launch"])
+
+
+@pytest.mark.asyncio
+async def test_health_check_releases_abandoned_handoff_without_autostart(
+    tmp_path, monkeypatch
+):
+    import os
+
+    import psutil
+
+    from .. import worker_handoff, worker_registry
+
+    namespace = ("test-boot", 123)
+    monkeypatch.setattr(worker_handoff, "local_process_namespace", lambda: namespace)
+    owner = SupervisorActor()
+    owner._status_guard_ref = None
+    # Use the ordinary synchronous scheduler interface without starting a task.
+    owner._schedule_autostart = MagicMock()
+    source = "127.0.0.1:12001"
+    registry = worker_registry.WorkerOwnership(tmp_path / "ownership.json")
+    registry.set_pending(
+        source,
+        {
+            "key": (
+                1,
+                "ticket",
+                source,
+                "127.0.0.1:12002",
+                "supervisor",
+                "old",
+                "new",
+                1,
+            ),
+            "extensions": [],
+            "models": [],
+            "committed": True,
+            "deadline": 0,
+            "target_process": [
+                *namespace,
+                os.getpid(),
+                psutil.Process().create_time() - 1,
+            ],
+        },
+    )
+    owner._worker_ownership = worker_registry.WorkerOwnership(registry.path)
+
+    check = asyncio.create_task(owner._check_dead_nodes())
+    try:
+        for _ in range(100):
+            if source not in owner._worker_ownership.pending:
+                break
+            await asyncio.sleep(0.01)
+        assert source not in worker_registry.WorkerOwnership(registry.path).pending
+        owner._schedule_autostart.assert_called_once()
+    finally:
+        check.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await check
+
+
+@pytest.mark.asyncio
+async def test_hung_handoff_status_update_does_not_stop_other_worker_checks(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from .. import worker_handoff, worker_registry
+
+    owner = SupervisorActor()
+    source = "127.0.0.1:12001"
+    other = "127.0.0.1:12003"
+    second = "127.0.0.1:12004"
+    ref = SimpleNamespace(address=other)
+    owner._worker_address_to_worker[other] = ref
+    owner._worker_status[other] = WorkerStatus(
+        update_time=0.0, failure_remaining_count=1, status={}
+    )
+    owner._status_guard_ref = SimpleNamespace()
+    owner._schedule_autostart = MagicMock()
+    registry = worker_registry.WorkerOwnership(tmp_path / "ownership.json")
+    registry.set_pending(
+        source,
+        {
+            "key": (
+                1,
+                "ticket",
+                source,
+                "127.0.0.1:12002",
+                "supervisor",
+                "old",
+                "new",
+                1,
+            ),
+            "extensions": [],
+            "models": ["counter"],
+            "committed": True,
+            "deadline": 0,
+        },
+    )
+    registry.set_pending(
+        second,
+        dict(
+            registry.pending[source],
+            key=(1, "second", second, "127.0.0.1:12005", "supervisor", "a", "b", 1),
+            models=["second"],
+        ),
+    )
+    owner._worker_ownership = registry
+    monkeypatch.setattr(worker_handoff, "worker_handoff_process_exited", lambda _: True)
+    monkeypatch.setattr(worker_registry, "XINFERENCE_HEALTH_CHECK_TIMEOUT", 0.02)
+
+    attempted = []
+    cancelled = asyncio.Queue()
+    blocked = asyncio.Event()
+
+    async def update(model_uid, *args):
+        attempted.append(model_uid)
+        try:
+            await blocked.wait()
+        except asyncio.CancelledError:
+            cancelled.put_nowait(model_uid)
+            raise
+
+    owner._status_guard_ref.update_instance_info = update
+
+    with patch(
+        "xinference.core.supervisor.asyncio.sleep",
+        AsyncMock(side_effect=_StopCheckLoop),
+    ):
+        with pytest.raises(_StopCheckLoop):
+            await asyncio.wait_for(owner._check_dead_nodes(), 1)
+
+    assert attempted == ["counter"]
+    assert await asyncio.wait_for(cancelled.get(), 1) == "counter"
+    assert other not in owner._worker_address_to_worker
+    assert source in worker_registry.WorkerOwnership(registry.path).pending
+
+    await owner._check_abandoned_worker_handoffs()
+    assert attempted == ["counter", "second"]
+    assert await asyncio.wait_for(cancelled.get(), 1) == "second"
+    assert set(registry.pending) == {source, second}
+
+    owner._status_guard_ref.update_instance_info = AsyncMock()
+    await owner._check_abandoned_worker_handoffs()
+    assert not worker_registry.WorkerOwnership(registry.path).pending

@@ -232,3 +232,6 @@ msgstr ""
 
 #~ msgid ":ref:`models_llm_qwen-chat`"
 #~ msgstr ""
+
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Xinference turns off thinking for that request when no thinking controls are supplied. A forced tool call with thinking explicitly enabled returns HTTP 400. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "No DeepSeek V4.1 Flash e no Flash 1017 com vLLM, use ``tool_choice=\"required\"`` ou selecione uma função pelo nome para forçar uma chamada de ferramenta. Se a solicitação não especificar opções de raciocínio, o Xinference desativa o raciocínio para ela. Uma chamada forçada com o raciocínio explicitamente ativado retorna HTTP 400. Na transmissão em fluxo, os argumentos da ferramenta são retornados quando estiverem completos. A escolha forçada de ferramenta não está disponível com prefill e decodificação separados."

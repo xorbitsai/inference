@@ -209,3 +209,6 @@ msgstr "함수 호출 과정을 보여주는 완전한 예제를 학습해 보�
 
 #~ msgid ":ref:`models_llm_qwen-chat`"
 #~ msgstr ""
+
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Xinference turns off thinking for that request when no thinking controls are supplied. A forced tool call with thinking explicitly enabled returns HTTP 400. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "vLLM에서 DeepSeek V4.1 Flash 및 Flash 1017을 사용할 때 ``tool_choice=\"required\"``를 지정하거나 이름으로 함수를 선택하면 도구 호출을 강제할 수 있습니다. 요청에 사고 설정이 없으면 Xinference는 해당 요청의 사고 모드를 끕니다. 사고 모드를 명시적으로 켠 상태에서 도구 호출을 강제하면 HTTP 400을 반환합니다. 스트리밍에서는 도구 인수가 모두 생성된 후 반환됩니다. 프리필과 디코딩을 분리한 구성에서는 도구 호출을 강제할 수 없습니다."

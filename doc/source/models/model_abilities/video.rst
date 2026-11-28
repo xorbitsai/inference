@@ -44,6 +44,8 @@ The text-to-video API is supported with the following models in Xinference:
 * :ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`
 * :ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`
 * :ref:`HunyuanVideo <models_builtin_hunyuanvideo>`
+* :ref:`LTX-2.5 <models_builtin_ltx-2.5>`
+* :ref:`LTX-2.5-Dev <models_builtin_ltx-2.5-dev>`
 * :ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`
 * :ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`
 * :ref:`Wan2.2-A14B <models_builtin_wan2.2-a14b>`
@@ -56,6 +58,8 @@ The text-to-video API is supported with the following models in Xinference:
 The image-to-video API is supported with the following models in Xinference:
 
 * :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
+* :ref:`LTX-2.5 <models_builtin_ltx-2.5>`
+* :ref:`LTX-2.5-Dev <models_builtin_ltx-2.5-dev>`
 * :ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`
 * :ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`
 * :ref:`Wan2.2-i2v-A14B <models_builtin_wan2.2-i2v-a14b>`
@@ -70,6 +74,8 @@ The image-to-video API is supported with the following models in Xinference:
 The firstlastframe-to-video API is supported with the following models in Xinference:
 
 * :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
+* :ref:`LTX-2.5 <models_builtin_ltx-2.5>`
+* :ref:`LTX-2.5-Dev <models_builtin_ltx-2.5-dev>`
 * :ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`
 * :ref:`LTX-2-distilled <models_builtin_ltx-2-distilled>`
 * :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
@@ -98,12 +104,12 @@ On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also sup
 The ``MLX`` engine uses `Blaizzy/mlx-video
 <https://github.com/Blaizzy/mlx-video>`_ and is available on Apple Silicon with
 Python 3.11 or newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the
-LTX-2/LTX-2.3 distilled and dev models listed above. The LTX models are MLX-only
-in Xinference.
+LTX-2/LTX-2.3 distilled and dev models listed above. LTX-2 and LTX-2.3 are
+MLX-only in Xinference.
 
 Wan2.1's official checkpoints are converted to the native MLX layout on first
 load and the converted copy is reused by later launches. This first launch
-therefore needs additional time and disk space. Wan2.2 and LTX use
+therefore needs additional time and disk space. Wan2.2 and the MLX LTX models use
 pre-converted checkpoints.
 
 The Web UI obtains the engines supported by each model from the engine query
@@ -168,6 +174,139 @@ on four suitable CUDA GPUs, launch H3 with Lightning using::
     xinference launch --model-name MiniMax-H3 --model-type video --model-engine vLLM \
         --n-gpu 4 --num_gpus 4 --ulysses_degree 4 --vae_patch_parallel_size 4 --vae_parallel_mode tile \
         --vae_use_tiling True --lightning_version 4step_v1.0_768p_bf16
+
+.. _ltx_2_5_usage:
+
+LTX-2.5
+-------
+
+Xinference provides two official-only LTX-2.5 configurations:
+
+* ``LTX-2.5`` loads the Distilled BF16 transformer and is the recommended
+  default. It uses the exact eight-value sigma schedule published by
+  Lightricks and Hugging Face.
+* ``LTX-2.5-Dev`` loads the Full/Dev BF16 transformer from
+  ``transformer_full`` and uses the official guided scheduler configuration.
+
+Both configurations use the official Diffusers-format repository from
+`Hugging Face <https://huggingface.co/Lightricks/LTX-2.5-Diffusers>`_ or
+`ModelScope <https://modelscope.cn/models/Lightricks/LTX-2.5-Diffusers>`_.
+The separate `ModelScope native checkpoint repository
+<https://modelscope.cn/models/Lightricks/LTX-2.5>`_ uses the ``ltx-pipelines``
+split format and cannot be loaded directly by ``LTX2ConditionPipeline``;
+Xinference therefore uses Lightricks' official Diffusers-format mirror.
+Xinference does not register third-party, modified, repacked, GGUF, INT8, FP8,
+or NVFP4 checkpoints for these models and only loads the official BF16 files.
+The LTX adapter rejects custom ``model_path`` overrides and alternate-weight
+options it receives.
+
+Access and dependencies
+-----------------------
+
+When downloading from Hugging Face, the official repository is gated. Before
+launching the model from that hub:
+
+#. Open the official model page and accept its access terms.
+#. Authenticate the Xinference process with a Hugging Face token that can read
+   the gated repository.
+#. Keep model virtual environments enabled. Xinference pins the official
+   Diffusers LTX-2.5 implementation to a tested PyPI release.
+
+The runtime requires Python 3.10 or newer, PyTorch 2.7 or newer, a
+BF16-capable accelerator, PyAV, and an FFmpeg build with H.264/AAC encoding.
+The official model pack is large, and CPU offload is enabled by default.
+Downloading and running it also requires substantial disk space and system
+RAM.
+
+Model CPU offload still moves the complete roughly 38 GB transformer onto one
+accelerator while it runs. On an accelerator that cannot hold that component,
+launch with ``sequential_cpu_offload=true``; it uses substantially less device
+memory but is slower. This adapter does not implement LTX's native distributed
+transformer sharding.
+
+.. warning::
+
+   The LTX-2.5 weights use the `LTX-2.x Community License
+   <https://github.com/Lightricks/LTX-2/blob/main/LICENSE.md>`_, not Xinference's
+   Apache license. Review that license before use. In particular, organizations
+   at or above the license's revenue threshold may require a separate commercial
+   agreement. This documentation is not legal advice.
+
+Generation behavior
+-------------------
+
+The default request generates 121 frames at 960x544 and 24 FPS. The MP4 output
+contains LTX-2.5's synchronized generated audio; the audio sampling rate is read
+from the official vocoder configuration instead of being hard-coded.
+
+LTX-2.5 generation has the following constraints:
+
+* ``width`` and ``height`` must be positive multiples of 32.
+* ``fps``/``frame_rate`` must be a positive integer so the generated audio and
+  encoded video retain the same timing.
+* An explicit ``num_frames`` must satisfy ``num_frames % 8 == 1``.
+* The default is 121 frames. Explicitly pass ``num_frames=None`` from Python,
+  or ``"num_frames": null`` inside the REST ``kwargs`` JSON, to enable the
+  official duration head for a single prompt. Use ``min_seconds`` and
+  ``max_seconds`` to bound the prediction. Prompt batches must specify an
+  integer ``num_frames``.
+* Distilled generation always uses the official fixed sigma schedule and fixed
+  guidance values. It rejects ``num_inference_steps``, custom timesteps, custom
+  sigma schedules, and incompatible guidance values rather than silently
+  degrading quality. Because classifier-free guidance is disabled in this
+  configuration, ``negative_prompt`` is ignored; it is effective with
+  ``LTX-2.5-Dev``.
+* Prompt enhancement is not supported. Xinference skips the prompt-enhancer
+  weights when downloading and loading the model.
+* Image conditions use the official LTX-2.5 compression behavior (CRF 18 by
+  default). Pass ``image_crf=0`` to explicitly disable recompression.
+
+Implementation scope
+--------------------
+
+This integration targets the official LTX-2.5 support in the tested Hugging
+Face Diffusers release and the official Diffusers-format checkpoint. It
+covers all three video abilities currently exposed by Xinference: text-to-video,
+image-to-video, and first/last-frame interpolation, including synchronized
+audio.
+
+It does not claim bit-for-bit or sampler-equivalent output with Lightricks'
+separate native ``ltx-pipelines`` v1.2 production recipes. In particular,
+Xinference currently uses the official Diffusers convolutional VAE path,
+provides the Diffusers latent-upscaler recipe only for the Distilled model, and
+does not expose the native diffusion decoder, Dev two-stage recipe, audio/video
+editing pipelines, or native multi-GPU execution.
+
+For example, a text-to-video request can use the model defaults::
+
+   curl -X POST http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/video/generations \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "model": "<MODEL_UID>",
+       "prompt": "A slow cinematic tracking shot through a rain-soaked market"
+     }'
+
+Distilled two-stage generation
+------------------------------
+
+``LTX-2.5`` also supports the official latent spatial upscaler. Set
+``two_stage=true`` to generate the first stage at half resolution, upscale its
+video latents by 2x, and refine them with the official stage-two sigma schedule.
+For this mode, ``width`` and ``height`` are the final output size and must be
+multiples of 64; ``num_frames`` must be explicit. For example, the following
+uses a 960x544 first stage and produces 1920x1088 output::
+
+   model.text_to_video(
+       "A detailed aerial shot of waves breaking over black volcanic rock",
+       width=1920,
+       height=1088,
+       num_frames=121,
+       two_stage=True,
+   )
+
+``two_stage`` is not available for ``LTX-2.5-Dev``. The Dev model is exposed as
+the official Full/SFT single-stage configuration; it is intended for users who
+need guided generation rather than the fastest distilled path.
 
 Quickstart
 ===================

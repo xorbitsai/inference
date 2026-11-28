@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import threading
@@ -1170,7 +1171,9 @@ FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
 
 
 def _get_virtualenv_distribution_version(
-    virtual_env_manager: Any, distribution: str
+    virtual_env_manager: Any,
+    distribution: str,
+    cancel_event: Optional[threading.Event] = None,
 ) -> Optional[str]:
     try:
         python_path = resolve_virtualenv_python_path(virtual_env_manager)
@@ -1179,7 +1182,7 @@ def _get_virtualenv_distribution_version(
     if not python_path:
         return None
     try:
-        result = subprocess.run(
+        result = _run_post_install_command(
             [
                 python_path,
                 "-c",
@@ -1188,9 +1191,7 @@ def _get_virtualenv_distribution_version(
                     f"print(metadata.version({distribution!r}))"
                 ),
             ],
-            check=False,
-            capture_output=True,
-            text=True,
+            cancel_event,
         )
     except OSError:
         return None
@@ -1200,7 +1201,10 @@ def _get_virtualenv_distribution_version(
 
 
 def ensure_sglang_inherited_packages_compatible_post_install(
-    model_engine: Optional[str], virtual_env_manager: Any
+    model_engine: Optional[str],
+    virtual_env_manager: Any,
+    *,
+    cancel_event: Optional[threading.Event] = None,
 ) -> None:
     """Keep SGLang dependencies compatible with inherited numba/cudf packages.
 
@@ -1227,7 +1231,7 @@ def ensure_sglang_inherited_packages_compatible_post_install(
         except importlib.metadata.PackageNotFoundError:
             continue
         virtualenv_version = _get_virtualenv_distribution_version(
-            virtual_env_manager, distribution
+            virtual_env_manager, distribution, cancel_event
         )
         if virtualenv_version is None or Version(virtualenv_version) in compatible:
             continue
@@ -1263,7 +1267,7 @@ def ensure_sglang_inherited_packages_compatible_post_install(
                 "virtualenv Python was not found."
             )
 
-        result = subprocess.run(
+        result = _run_post_install_command(
             [
                 uv_path,
                 "pip",
@@ -1272,12 +1276,10 @@ def ensure_sglang_inherited_packages_compatible_post_install(
                 python_path,
                 distribution,
             ],
-            check=False,
-            capture_output=True,
-            text=True,
+            cancel_event,
         )
         repaired_version = _get_virtualenv_distribution_version(
-            virtual_env_manager, distribution
+            virtual_env_manager, distribution, cancel_event
         )
         if (
             result.returncode != 0
@@ -1431,7 +1433,10 @@ def _format_subprocess_output(output: Any) -> str:
 
 
 def _validate_flash_attn_install(
-    virtual_env_manager: Any, flash_attn_packages: List[str]
+    virtual_env_manager: Any,
+    flash_attn_packages: List[str],
+    *,
+    cancel_event: Optional[threading.Event] = None,
 ) -> bool:
     """Validate flash-attn metadata and CUDA imports in a fresh venv process."""
     from packaging.requirements import InvalidRequirement, Requirement
@@ -1473,12 +1478,8 @@ print(json.dumps({"version": distribution.version}, sort_keys=True))
     for variable in ("VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME"):
         env.pop(variable, None)
     try:
-        result = subprocess.run(
-            [python_path, "-c", validation_script],
-            check=False,
-            capture_output=True,
-            text=True,
-            env=env,
+        result = _run_post_install_command(
+            [python_path, "-c", validation_script], cancel_event, env=env
         )
     except OSError:
         logger.warning("flash-attn validation process could not be started")
@@ -1534,6 +1535,8 @@ def apply_flash_attn_wheel_post_install(
     virtual_env_manager: Any,
     conf: Dict[str, Any],
     cuda_available: bool,
+    *,
+    cancel_event: Optional[threading.Event] = None,
 ) -> None:
     """Install Jina's flash-attn requirement from configured Wheel sources."""
     if (
@@ -1548,7 +1551,9 @@ def apply_flash_attn_wheel_post_install(
         raise RuntimeError("flash-attn post-install has no virtualenv Python")
 
     if not conf.get("find_links"):
-        if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+        if not _validate_flash_attn_install(
+            virtual_env_manager, flash_attn_packages, cancel_event=cancel_event
+        ):
             logger.warning(
                 "flash-attn is not installed or invalid for %s, and no Find "
                 "Links source was configured. The model will use PyTorch "
@@ -1579,7 +1584,7 @@ def apply_flash_attn_wheel_post_install(
         *flash_attn_packages,
     ]
     try:
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        result = _run_post_install_command(command, cancel_event)
     except OSError as exc:
         raise RuntimeError(
             "flash-attn Wheel installation could not be started"
@@ -1600,7 +1605,9 @@ def apply_flash_attn_wheel_post_install(
             f"with exit code {result.returncode}. stdout={stdout!r}, stderr={stderr!r}"
         )
 
-    if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+    if not _validate_flash_attn_install(
+        virtual_env_manager, flash_attn_packages, cancel_event=cancel_event
+    ):
         raise RuntimeError(
             "flash-attn Wheel installation completed, but fresh-process "
             "version/path/CUDA import validation failed."
@@ -1689,6 +1696,53 @@ def _has_configured_package_source(conf: Dict[str, Any]) -> bool:
     return any(conf.get(key) for key in ("index_url", "extra_index_url", "find_links"))
 
 
+class PostInstallCancelled(RuntimeError):
+    """A model launch was cancelled during a post-install command."""
+
+
+def _run_post_install_command(
+    command: List[str],
+    cancel_event: Optional[threading.Event],
+    *,
+    env: Optional[Dict[str, str]] = None,
+) -> subprocess.CompletedProcess:
+    if cancel_event is None:
+        return subprocess.run(
+            command, check=False, capture_output=True, text=True, env=env
+        )
+    if cancel_event.is_set():
+        raise PostInstallCancelled("Launch cancelled during dependency setup")
+    use_process_group = os.name == "posix"
+    with subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=use_process_group,
+        env=env,
+    ) as process:
+        while not cancel_event.is_set():
+            try:
+                stdout, stderr = process.communicate(timeout=0.1)
+            except subprocess.TimeoutExpired:
+                continue
+            if not cancel_event.is_set():
+                return subprocess.CompletedProcess(
+                    command, process.returncode, stdout, stderr
+                )
+            break
+        if use_process_group:
+            # Build subprocesses may outlive uv and retain its output pipes.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        else:
+            process.kill()
+        process.wait()
+        raise PostInstallCancelled("Launch cancelled during dependency setup")
+
+
 def _run_uv_install_with_source_fallback(
     base_cmd: List[str],
     packages: List[str],
@@ -1696,6 +1750,7 @@ def _run_uv_install_with_source_fallback(
     *,
     public_index_urls: Optional[List[str]] = None,
     allow_public_install: bool = True,
+    cancel_event: Optional[threading.Event] = None,
 ) -> subprocess.CompletedProcess:
     """Run uv with configured sources before consulting public fallbacks."""
     source_conf = conf
@@ -1707,12 +1762,7 @@ def _run_uv_install_with_source_fallback(
         configured_cmd = base_cmd + build_uv_source_options(
             conf, allow_public_install=False
         )
-        result = subprocess.run(
-            configured_cmd + packages,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        result = _run_post_install_command(configured_cmd + packages, cancel_event)
         if result.returncode == 0:
             return result
         logger.info(
@@ -1730,12 +1780,7 @@ def _run_uv_install_with_source_fallback(
         public_index_urls=public_index_urls,
         allow_public_install=allow_public_install,
     )
-    return subprocess.run(
-        cmd + packages,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    return _run_post_install_command(cmd + packages, cancel_event)
 
 
 def ensure_flashinfer_cubin_matches_post_install(
@@ -1743,6 +1788,8 @@ def ensure_flashinfer_cubin_matches_post_install(
     virtual_env_manager: Any,
     allow_public_install: bool = True,
     conf: Optional[Dict[str, Any]] = None,
+    *,
+    cancel_event: Optional[threading.Event] = None,
 ) -> None:
     """Keep FlashInfer's Python package and cubin package on the same version.
 
@@ -1759,12 +1806,12 @@ def ensure_flashinfer_cubin_matches_post_install(
         return
 
     python_version = _get_virtualenv_distribution_version(
-        virtual_env_manager, "flashinfer-python"
+        virtual_env_manager, "flashinfer-python", cancel_event
     )
     if python_version is None:
         return
     cubin_version = _get_virtualenv_distribution_version(
-        virtual_env_manager, "flashinfer-cubin"
+        virtual_env_manager, "flashinfer-cubin", cancel_event
     )
     if cubin_version == python_version:
         return
@@ -1804,10 +1851,11 @@ def ensure_flashinfer_cubin_matches_post_install(
                 conf,
                 public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
                 allow_public_install=allow_public_install,
+                cancel_event=cancel_event,
             )
             if result.returncode == 0:
                 repaired_version = _get_virtualenv_distribution_version(
-                    virtual_env_manager, "flashinfer-cubin"
+                    virtual_env_manager, "flashinfer-cubin", cancel_event
                 )
                 if repaired_version == python_version:
                     logger.info(
@@ -1821,6 +1869,8 @@ def ensure_flashinfer_cubin_matches_post_install(
                     result.returncode,
                     result.stderr[-500:] if result.stderr else "(empty)",
                 )
+        except PostInstallCancelled:
+            raise
         except Exception as e:
             logger.warning("Failed to synchronize flashinfer-cubin: %s", e)
 
@@ -1862,6 +1912,8 @@ def apply_flashinfer_aot_post_install(
     conf: Dict[str, Any],
     cuda_version: Optional[str] = None,
     allow_public_install: bool = True,
+    *,
+    cancel_event: Optional[threading.Event] = None,
 ) -> None:
     """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
 
@@ -1924,6 +1976,7 @@ def apply_flashinfer_aot_post_install(
             conf,
             public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
             allow_public_install=allow_public_install,
+            cancel_event=cancel_event,
         )
         if result.returncode == 0:
             logger.info(
@@ -1944,6 +1997,8 @@ def apply_flashinfer_aot_post_install(
                 "work via AOT .so load (verified 0.6.8.post1 binding + "
                 "0.6.11.post3 .so ABI compatible for fused_moe)"
             )
+    except PostInstallCancelled:
+        raise
     except Exception as e:
         logger.warning(
             "Post-install: flashinfer AOT upgrade exception: %s. "

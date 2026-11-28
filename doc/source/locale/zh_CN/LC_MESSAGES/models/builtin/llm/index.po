@@ -784,3 +784,33 @@ msgstr "对话、视觉、工具调用、推理、混合思考模式"
 #: ../../models/builtin/llm/index.rst
 msgid "We introduce DeepSeek-V4.1-Flash-1017, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
 msgstr ""
+
+#: doc/source/models/builtin/llm/index.rst:334
+msgid ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+msgstr ":ref:`hy-mt3-1.8b <models_llm_hy-mt3-1.8b>`"
+
+#: doc/source/models/builtin/llm/index.rst:337
+msgid ""
+"Hy-MT3-1.8B is a lightweight dense multilingual translation model from Tencent "
+"Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-1.8B 是腾讯混元的轻量级稠密多语言翻译模型，支持 102 种语言，可遵循翻译指令。"
+
+#: doc/source/models/builtin/llm/index.rst:339
+msgid ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+msgstr ":ref:`hy-mt3-30b-a3b <models_llm_hy-mt3-30b-a3b>`"
+
+#: doc/source/models/builtin/llm/index.rst:342
+msgid ""
+"Hy-MT3-30B-A3B is a mixture-of-experts multilingual translation model from Tencent"
+" Hunyuan. It supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-30B-A3B 是腾讯混元的混合专家多语言翻译模型，支持 102 种语言，可遵循翻译指令。"
+
+#: doc/source/models/builtin/llm/index.rst:344
+msgid ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+msgstr ":ref:`hy-mt3-7b <models_llm_hy-mt3-7b>`"
+
+#: doc/source/models/builtin/llm/index.rst:347
+msgid ""
+"Hy-MT3-7B is a dense multilingual translation model from Tencent Hunyuan. It "
+"supports 102 languages and follows translation instructions."
+msgstr "Hy-MT3-7B 是腾讯混元的稠密多语言翻译模型，支持 102 种语言，可遵循翻译指令。"

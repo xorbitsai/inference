@@ -19,11 +19,20 @@ from typing import (
 from ...types import ChatCompletionChunk
 
 _CompletionT = TypeVar("_CompletionT", bound=Mapping[str, Any])
+_DEEPSEEK_V41_FAMILIES = frozenset({"deepseek-v4.1-flash", "deepseek-v4.1-flash-1017"})
 
 
 def is_forced_tool_choice(config: Mapping[str, Any]) -> bool:
     choice = config.get("tool_choice")
     return choice == "required" or isinstance(choice, dict)
+
+
+def is_deepseek_v41_forced_tool_choice(config: Mapping[str, Any], family: Any) -> bool:
+    return (
+        isinstance(family, str)
+        and family.lower() in _DEEPSEEK_V41_FAMILIES
+        and is_forced_tool_choice(config)
+    )
 
 
 def _select_forced_tools(

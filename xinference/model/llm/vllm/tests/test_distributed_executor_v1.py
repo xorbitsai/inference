@@ -3,6 +3,7 @@
 
 import asyncio
 import importlib.util
+import pickle
 import sys
 import threading
 import time
@@ -11,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from packaging.version import Version
 
 
 @pytest.fixture
@@ -40,6 +42,98 @@ def executor_module(monkeypatch):
     monkeypatch.setitem(sys.modules, name, module)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("plain_dict", [False, True])
+def test_vllm_executor_class_and_placement_survive_spawn(
+    executor_module, monkeypatch, plain_dict
+):
+    executor_cls = executor_module.XinferenceDistributedExecutorV1
+    caller_config = {"gdn_prefill_backend": "triton"}
+    engine_args = SimpleNamespace(
+        distributed_executor_backend="mp", additional_config=caller_config
+    )
+    executor_cls.configure_engine_args(engine_args, ["node-a:1000", "node-b:1000"], 2)
+
+    assert issubclass(
+        engine_args.distributed_executor_backend, executor_module.Executor
+    )
+    assert caller_config == {"gdn_prefill_backend": "triton"}
+    assert engine_args.additional_config.compile_factors() == caller_config
+    config_payload = engine_args.additional_config
+    if plain_dict:
+        config_payload = dict(config_payload)
+
+    cls, config = pickle.loads(
+        pickle.dumps(
+            (
+                engine_args.distributed_executor_backend,
+                SimpleNamespace(
+                    additional_config=config_payload,
+                    parallel_config=None,
+                    scheduler_config=None,
+                ),
+            )
+        )
+    )
+    assert config.additional_config["gdn_prefill_backend"] == "triton"
+    monkeypatch.setattr(cls, "_init_executor", lambda self: None)
+    instance = cls(config)
+    try:
+        assert instance._pool_addresses == ["node-a:1000", "node-b:1000"]
+        assert instance._n_worker == 2
+        assert config.additional_config == caller_config
+    finally:
+        instance.shutdown()
+
+
+def test_vllm_parallel_config_accepts_two_xoscar_workers(monkeypatch):
+    vllm = pytest.importorskip("vllm")
+    if Version(vllm.__version__) < Version("0.34.0"):
+        pytest.skip("Class-based Xoscar registration requires vLLM 0.34 or newer")
+
+    from vllm.config import DeviceConfig, ParallelConfig, VllmConfig
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.v1.executor.abstract import Executor
+
+    from xinference.model.llm.vllm.distributed_executor_v1 import (
+        XinferenceDistributedExecutorV1,
+    )
+
+    # Two Xinference Workers with two GPU actors each, as configured by
+    # VLLMModel._sanitize_model_config before Xoscar registers its executor.
+    addresses = ["node-a:1000", "node-a:1001", "node-b:1000", "node-b:1001"]
+    engine_args = AsyncEngineArgs(
+        tensor_parallel_size=2,
+        pipeline_parallel_size=2,
+        nnodes=2,
+        node_rank=0,
+        distributed_executor_backend="mp",
+    )
+    XinferenceDistributedExecutorV1.configure_engine_args(engine_args, addresses, 2)
+
+    parallel_config = ParallelConfig(
+        tensor_parallel_size=engine_args.tensor_parallel_size,
+        pipeline_parallel_size=engine_args.pipeline_parallel_size,
+        nnodes=engine_args.nnodes,
+        node_rank=engine_args.node_rank,
+        distributed_executor_backend=engine_args.distributed_executor_backend,
+    )
+    config = VllmConfig(
+        device_config=DeviceConfig("cpu"),
+        parallel_config=parallel_config,
+        additional_config=engine_args.additional_config,
+    )
+    executor_cls = Executor.get_class(config)
+    assert executor_cls is XinferenceDistributedExecutorV1
+    assert parallel_config.world_size == len(addresses)
+    monkeypatch.setattr(executor_cls, "_init_executor", lambda self: None)
+    instance = executor_cls(config)
+    try:
+        assert instance._pool_addresses == addresses
+        assert instance._n_worker == 2
+    finally:
+        instance.shutdown()
 
 
 class Worker:

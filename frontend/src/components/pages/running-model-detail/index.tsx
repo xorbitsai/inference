@@ -311,6 +311,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
         open={tryApiOpen}
         onOpenChange={setTryApiOpen}
         modelUid={modelUid}
+        modelName={model?.model_name}
         ability={tryApiAbility}
       />
     </PageContainer>

@@ -205,3 +205,6 @@ msgstr "完全な例を学び、関数呼び出しのプロセスを実演しま
 
 #~ msgid ":ref:`models_llm_qwen-chat`"
 #~ msgstr ""
+
+msgid "For DeepSeek V4.1 Flash and Flash 1017 on vLLM, use ``tool_choice=\"required\"`` or select a named function to force a tool call. Xinference turns off thinking for that request when no thinking controls are supplied. A forced tool call with thinking explicitly enabled returns HTTP 400. Streaming returns tool arguments once they are complete. Forced tool choice is unavailable with prefill/decode disaggregation."
+msgstr "vLLM 上の DeepSeek V4.1 Flash および Flash 1017 では、``tool_choice=\"required\"`` を指定するか、関数名を選択するとツール呼び出しを強制できます。思考モードの設定が指定されていない場合、Xinference はそのリクエストで思考モードを無効にします。思考モードを明示的に有効にしてツール呼び出しを強制すると、HTTP 400 が返されます。ストリーミングでは、ツールの引数がそろった時点で返されます。プリフィルとデコードを分離した構成では、ツール呼び出しを強制できません。"

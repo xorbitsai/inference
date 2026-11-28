@@ -1221,6 +1221,8 @@ def update_security_gauges(auth_service) -> None:
     """
     from datetime import datetime
 
+    from ..api.oauth2.advanced.cache import parse_expires_at
+
     try:
         keys = auth_service._db.list_api_keys()
         active = 0
@@ -1232,7 +1234,7 @@ def update_security_gauges(auth_service) -> None:
             expires_at = k.get("expires_at")
             if expires_at:
                 try:
-                    if datetime.fromisoformat(expires_at) < now:
+                    if parse_expires_at(expires_at) < now:
                         expired += 1
                         continue
                 except ValueError:
