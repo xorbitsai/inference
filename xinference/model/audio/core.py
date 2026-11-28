@@ -431,6 +431,12 @@ def create_audio_model_instance(
         else:
             Audio8TTSModel._check_model_trust(model_spec)
 
+    if model_spec.model_family == "fireredasr2" and (
+        model_path is not None or getattr(model_spec, "model_uri", None) is not None
+    ):
+        model_spec = model_spec.copy(deep=True)
+        model_spec.is_builtin = False
+
     if model_spec.model_family == "zonos3_mini":
         if audio_cls is None:
             raise ValueError(f"Unsupported ZONOS3-Mini engine: {model_engine}.")

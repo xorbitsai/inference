@@ -38,6 +38,10 @@ The following is a list of built-in audio models in Xinference:
 
    f5-tts
   
+   fireredasr2-aed
+
+   fireredasr2-llm
+
    fireredtts3-base
   
    fireredtts3-instruct

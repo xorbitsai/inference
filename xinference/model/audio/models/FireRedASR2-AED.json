@@ -1,0 +1,39 @@
+[
+  {
+    "version": 2,
+    "model_name": "FireRedASR2-AED",
+    "model_description": "FireRedASR2-AED is an attention-based encoder-decoder model for Chinese and English speech and singing transcription, including Chinese dialects and code-switching.",
+    "model_family": "fireredasr2",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "zh",
+      "en"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "virtualenv": {
+      "packages": [
+        "kaldiio==2.18.1 ; #engine# == \"PyTorch\"",
+        "kaldi-native-fbank>=1.15",
+        "sentencepiece==0.2.1",
+        "imageio-ffmpeg==0.8.2",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FireRedTeam/FireRedASR2-AED",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "xukaituo/FireRedASR2-AED",
+        "model_revision": "master"
+      }
+    }
+  }
+]

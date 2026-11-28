@@ -25,6 +25,7 @@ from .dots_tts import DotsTTSEditModel, is_dots_tts_python_supported
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
+from .fireredasr2 import FireRedASR2Model
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .irodori_tts import IrodoriTTSModel
@@ -301,6 +302,22 @@ class PyTorchFunASRAudioModel(FunASRModel, AudioEngineModel):
         return (
             model_family.model_name in MLX_AUDIO_STT_MODEL_NAMES
             and model_family.model_family == "funasr"
+        )
+
+
+class PyTorchFireRedASR2AudioModel(FireRedASR2Model, AudioEngineModel):
+    required_libs = (
+        "kaldiio",
+        "kaldi_native_fbank",
+        "sentencepiece",
+        "torchaudio",
+        "imageio_ffmpeg",
+    )
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "fireredasr2" and _is_engine_or_unspecified(
+            model_family, "PyTorch"
         )
 
 
@@ -594,6 +611,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchMingTTSAudioModel,
         PyTorchIrodoriAudioModel,
         PyTorchFunASRAudioModel,
+        PyTorchFireRedASR2AudioModel,
         PyTorchQwen3TTSAudioModel,
         PyTorchMeloTTSAudioModel,
         PyTorchVoxCPMAudioModel,
