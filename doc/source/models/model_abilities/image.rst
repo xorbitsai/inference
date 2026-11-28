@@ -200,6 +200,12 @@ Text-to-image
 --------------------
 
 The Text-to-image API mimics OpenAI's `create images API <https://platform.openai.com/docs/api-reference/images/create>`_.
+
+For Ming-Image Design, set ``size`` in width-by-height order, such as
+``2560x1440`` for a rectangular image or ``2048x2048`` for a square image.
+Ming-Image-0.2-Design also returns the requested dimensions for square sizes
+such as ``1536x1536``, resizing from an internal resolution bucket when needed.
+
 We can try Text-to-image API out either via cURL, OpenAI Client, or Xinference's python client:
 
 .. tabs::

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -130,6 +131,27 @@ def resolve_task_resolution(task: str, requested: int | None) -> int:
     if isinstance(requested, bool) or not isinstance(requested, int) or requested <= 0:
         raise ValueError("--resolution must be a positive integer")
     return min(buckets, key=lambda value: (abs(value - requested), value))
+
+
+def resolve_t2i_size(
+    task: str, resolution: int | None, width: int | None, height: int | None
+) -> tuple[int, int, int]:
+    """Resolve the output dimensions and the internal resolution bucket."""
+    if width is None and height is None:
+        bucket = resolve_task_resolution(task, resolution)
+        return bucket, bucket, bucket
+    if task != "text-to-image":
+        raise ValueError("width and height are supported only for text-to-image")
+    if width is None or height is None:
+        raise ValueError("width and height must be supplied together")
+    if resolution is not None:
+        raise ValueError("resolution cannot be combined with width and height")
+    if type(width) is not int or type(height) is not int or min(width, height) <= 0:
+        raise ValueError("width and height must be positive integers")
+    if not 0.25 <= width / height <= 4.0:
+        raise ValueError("text-to-image width/height ratio must be between 1:4 and 4:1")
+    bucket = resolve_task_resolution(task, round(math.sqrt(width * height)))
+    return width, height, bucket
 
 
 def _load_prompt(prompt: str) -> str:
@@ -362,17 +384,24 @@ def run_generation(
     task: str,
     prompt: str,
     input_image,
-    resolution: int,
+    resolution: int | None,
     sampling,
     seed: int,
     num_layers: int,
     dtype,
+    width: int | None = None,
+    height: int | None = None,
 ) -> List:
     """Run one inference with an already-loaded model and processor."""
     import torch
     from PIL import Image
 
-    resolution = resolve_task_resolution(task, resolution)
+    output_width, output_height, resolution = resolve_t2i_size(
+        task, resolution, width, height
+    )
+    aspect_ratio = (
+        output_width / output_height if output_width != output_height else None
+    )
 
     messages = _build_messages(task, prompt, input_image)
     text = processor.apply_chat_template(messages, add_generation_prompt=True)
@@ -389,6 +418,7 @@ def run_generation(
         videos=video_inputs,
         return_tensors="pt",
         image_gen_highres=resolution,
+        image_gen_aspect_ratio=aspect_ratio,
         image_gen_ref_images=reference_image,
         image_gen_input_channels=profile.vae_input_channels,
     )
@@ -408,6 +438,14 @@ def run_generation(
         num_frames_per_prompt=num_layers+1 if task == "layer-decompose" else num_layers,
     )
     images = _normalize_outputs(output)
+    if width is not None:
+        requested_size = (output_width, output_height)
+        images = [
+            image
+            if image.size == requested_size
+            else image.resize(requested_size, Image.Resampling.LANCZOS)
+            for image in images
+        ]
     expected_outputs = num_layers + 1 if task == "layer-decompose" else 1
     if len(images) != expected_outputs:
         raise RuntimeError(

@@ -4,6 +4,10 @@ Source: https://github.com/inclusionAI/Ming-Image
 
 Commit: `62c6072e1ff15af83f7c4963a0a1954c1424e80e`
 
+Only the rectangular text-to-image sizing logic in `infer.py` was backported
+from upstream commit
+[`ec2fae127fbe149e4d54ff42a5455517693b578b`](https://github.com/inclusionAI/Ming-Image/commit/ec2fae127fbe149e4d54ff42a5455517693b578b).
+
 The upstream repository uses MIT (`LICENSE`). Some source files carry their own
 Apache-2.0 headers; those notices are retained, with the license text in
 `LICENSE-APACHE`.
