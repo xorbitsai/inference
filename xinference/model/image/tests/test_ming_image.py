@@ -187,6 +187,8 @@ def _require_ming_image_attention_dependencies():
     ],
 )
 def test_ming_image_edit_outputs(monkeypatch, name, expected_task, expected_count):
+    from xinference.thirdparty.ming_image.infer import resolve_task_resolution
+
     from .. import ming_image
 
     calls = []
@@ -207,7 +209,7 @@ def test_ming_image_edit_outputs(monkeypatch, name, expected_task, expected_coun
         return [Image.new("RGB", (8, 8))]
 
     upstream = SimpleNamespace(
-        resolve_task_resolution=lambda task, value: value or 1024,
+        resolve_task_resolution=resolve_task_resolution,
         parse_num_layers=lambda prompt: 2,
         run_generation=run_generation,
     )
@@ -220,11 +222,17 @@ def test_ming_image_edit_outputs(monkeypatch, name, expected_task, expected_coun
     model._dtype = torch.bfloat16
 
     images = model.image_to_image(
-        Image.new("RGB", (8, 8)), "Decompose this image into 2 layers.", seed=7
+        Image.new("RGB", (8, 8)),
+        "Decompose this image into 2 layers.",
+        size="1536x768",
+        seed=7,
     )
     assert len(images) == expected_count
     assert calls[0]["task"] == expected_task
     assert calls[0]["prompt"] == "Decompose this image into 2 layers."
+    assert calls[0]["resolution"] == 1024
+    assert calls[0].get("width") is None
+    assert calls[0].get("height") is None
     assert calls[0]["seed"] == 7
     assert not calls[0]["input_image"].exists()
 
@@ -275,6 +283,51 @@ def test_ming_image_text_to_image_uses_one_call_per_seed(monkeypatch):
     assert [call["seed"] for call in calls] == [3, 4]
     assert all(call["task"] == "text-to-image" for call in calls)
     assert all(call["resolution"] == 2048 for call in calls)
+
+
+@pytest.mark.parametrize(
+    "size,aspect_ratio,generated_size,expected_size",
+    [
+        ("2560x1440", 16 / 9, (1280, 720), (2560, 1440)),
+        ("2048x2048", None, (2048, 2048), (2048, 2048)),
+    ],
+)
+def test_ming_image_text_to_image_output_size(
+    monkeypatch, size, aspect_ratio, generated_size, expected_size
+):
+    from xinference.thirdparty.ming_image import infer
+
+    from .. import ming_image
+
+    class Processor:
+        def apply_chat_template(self, messages, **kwargs):
+            return "a poster"
+
+        def process_vision_info(self, messages):
+            return None, None, None
+
+        def __call__(self, **kwargs):
+            assert kwargs["image_gen_highres"] == 2048
+            assert kwargs.get("image_gen_aspect_ratio") == aspect_ratio
+            return SimpleNamespace(to=lambda device: {})
+
+    monkeypatch.setattr(ming_image, "handle_image_result", lambda fmt, images: images)
+    model = MingImageModel("ming", "/unused", _spec("Ming-Image-0.2-Design"))
+    model._model = SimpleNamespace(
+        device=torch.device("cpu"),
+        generate=lambda **kwargs: Image.new("RGBA", generated_size),
+    )
+    model._processor = Processor()
+    model._profile = SimpleNamespace(
+        resolve_sampling_parameters=lambda **kwargs: SimpleNamespace(**kwargs),
+        validate_task=lambda *args, **kwargs: None,
+        vae_input_channels=4,
+    )
+    model._infer = infer
+    model._dtype = torch.bfloat16
+
+    (image,) = model.text_to_image("a poster", size=size, seed=7)
+    assert image.size == expected_size
 
 
 def test_ming_image_vendored_inference_imports():

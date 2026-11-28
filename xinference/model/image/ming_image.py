@@ -142,12 +142,18 @@ class MingImageModel(SDAPIDiffusionModelMixin):
                 "num_layers is only supported by Ming-Image-0.1-Design-Layer"
             )
         resolution = config.get("resolution")
+        width = height = None
         if size:
             dimensions = [int(value) for value in re.split(r"\D+", size) if value]
             if len(dimensions) != 2 or min(dimensions) <= 0:
                 raise ValueError(f"Invalid image size: {size!r}")
-            resolution = max(dimensions)
-        resolution = self._infer.resolve_task_resolution(task, resolution)
+            if task == "text-to-image" and dimensions[0] != dimensions[1]:
+                width, height = dimensions
+                resolution = None
+            else:
+                resolution = max(dimensions)
+        if width is None:
+            resolution = self._infer.resolve_task_resolution(task, resolution)
         steps = config.get("num_inference_steps", config.get("steps"))
         cfg = config.get("guidance_scale", config.get("cfg"))
         sampling = self._profile.resolve_sampling_parameters(steps=steps, cfg=cfg)
@@ -199,6 +205,8 @@ class MingImageModel(SDAPIDiffusionModelMixin):
                         prompt=prompt,
                         input_image=temporary,
                         resolution=resolution,
+                        width=width,
+                        height=height,
                         sampling=sampling,
                         seed=seed,
                         num_layers=num_layers,
