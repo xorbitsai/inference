@@ -354,6 +354,80 @@ async def test_video_host_preflight_precedes_virtualenv_creation(monkeypatch):
     assert worker.venv_created is False
 
 
+@pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
+@pytest.mark.parametrize("preflight_fails", [False, True])
+@pytest.mark.asyncio
+async def test_fireredasr2_preflight_uses_prepared_model_environment(
+    monkeypatch, tmp_path, model_name, preflight_fails
+):
+    from unittest.mock import AsyncMock, Mock
+
+    from ...model.audio.core import match_audio
+    from ...model.audio.fireredasr2 import FireRedASR2Model
+
+    model_uid = "fireredasr2-rep0"
+    model_python = tmp_path / (
+        "Scripts/python.exe" if os.name == "nt" else "bin/python"
+    )
+    model_python.parent.mkdir()
+    model_python.touch()
+    manager = SimpleNamespace(get_python_path=lambda: str(model_python))
+
+    steps = Mock()
+    steps.prepare.return_value = "prepared-environment"
+    preflight_error = "FireRedASR2 dependency check failed"
+    if preflight_fails:
+        steps.preflight.side_effect = RuntimeError(preflight_error)
+    download_boundary = "Reached model download"
+    steps.attach_mock(
+        AsyncMock(side_effect=RuntimeError(download_boundary)), "download"
+    )
+
+    worker = WorkerActor("test", None, SimpleNamespace(), gpu_devices=[])
+    monkeypatch.setattr(worker, "get_supervisor_ref", AsyncMock())
+    monkeypatch.setattr(worker, "_get_progressor", AsyncMock(return_value=Mock()))
+    monkeypatch.setattr(
+        worker, "_create_virtual_env_manager", Mock(return_value=manager)
+    )
+    monkeypatch.setattr(worker, "_prepare_virtual_env", steps.prepare)
+    monkeypatch.setattr(worker, "_activate_virtual_env_usage", Mock())
+    monkeypatch.setattr(worker, "_download_model_files", steps.download)
+    monkeypatch.setattr(FireRedASR2Model, "preflight", steps.preflight)
+
+    with pytest.raises(
+        RuntimeError, match=preflight_error if preflight_fails else download_boundary
+    ):
+        await WorkerActor.launch_builtin_model.__wrapped__(
+            worker,
+            model_uid=model_uid,
+            model_name=model_name,
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="audio",
+            n_gpu=None,
+            enable_virtual_env=True,
+            download_hub="modelscope",
+        )
+
+    expected_steps = ["prepare", "preflight"]
+    if not preflight_fails:
+        expected_steps.append("download")
+        assert steps.download.await_args.kwargs["model_python_executable"] == str(
+            model_python
+        )
+    assert [entry[0] for entry in steps.mock_calls] == expected_steps
+
+    family = match_audio(model_name, "modelscope", model_engine="PyTorch")
+    assert steps.prepare.call_args.args[:2] == (manager, family.virtualenv)
+    assert steps.prepare.call_args.kwargs["model_format"] == family.model_format
+    python_executable, env = steps.preflight.call_args.args
+    assert python_executable == str(model_python)
+    assert env["VIRTUAL_ENV"] == str(tmp_path)
+    assert env["XINFERENCE_MODEL_UID"] == model_uid
+
+
 class MockWorkerActorRealTerminate(MockWorkerActor):
     """Variant that keeps the real ``WorkerActor.terminate_model`` so tests
     cover the actual cleanup path instead of the simplified override above."""

@@ -75,7 +75,10 @@ Audio to text
 
 FireRedASR2-AED and FireRedASR2-LLM run independently and transcribe Chinese,
 English, and code-switched speech through ``/v1/audio/transcriptions``.
-Both models require ``ffmpeg`` on ``PATH``. LLM requires Python 3.11 or later.
+Both models use the FFmpeg executable bundled in the ``imageio-ffmpeg`` wheel.
+Xinference installs it in the model virtual environment. If you disable the
+virtual environment, install the platform wheel in the model's Python
+environment. LLM requires Python 3.11 or later.
 Xinference converts uploads to 16 kHz mono PCM. Submit audio of at least 25 ms,
 up to 60 seconds per request for AED or 40 seconds for LLM. Split longer
 recordings before upload.

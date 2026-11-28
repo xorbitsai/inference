@@ -14,7 +14,6 @@
 
 import importlib.util
 import io
-import shutil
 import sys
 import wave
 from contextlib import nullcontext
@@ -33,25 +32,13 @@ from ...utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
+from .. import fireredasr2
 from ..core import create_audio_model_instance, match_audio
 from ..engine import PyTorchFireRedASR2AudioModel
 from ..engine_family import AUDIO_ENGINES
 from ..fireredasr2 import FireRedASR2Model
 
 
-@pytest.fixture
-def ffmpeg_on_path(monkeypatch):
-    which = shutil.which
-
-    def find_ffmpeg(command, *args, **kwargs):
-        if command == "ffmpeg":
-            return "/mock-bin/ffmpeg"
-        return which(command, *args, **kwargs)
-
-    monkeypatch.setattr(shutil, "which", find_ffmpeg)
-
-
-@pytest.mark.usefixtures("ffmpeg_on_path")
 @pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
 @pytest.mark.parametrize(
     "hub, owner, revision",
@@ -89,21 +76,11 @@ def test_fireredasr2_registration(
 
 
 @pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
-def test_fireredasr2_requires_ffmpeg_before_caching(monkeypatch, tmp_path, model_name):
-    monkeypatch.setattr(shutil, "which", Mock(return_value=None))
+def test_fireredasr2_can_cache_without_ffmpeg(monkeypatch, tmp_path, model_name):
+    monkeypatch.setitem(sys.modules, "imageio_ffmpeg", None)
+    monkeypatch.setitem(sys.modules, "imageio_ffmpeg.binaries", None)
     cache = Mock(return_value=str(tmp_path))
     monkeypatch.setattr(CacheManager, "cache", cache)
-
-    with pytest.raises(ValueError, match="ffmpeg on PATH") as error:
-        create_audio_model_instance(
-            model_name, model_name, download_hub="modelscope", enable_virtual_env=True
-        )
-    cache.assert_not_called()
-
-    params = get_engine_params_by_name_with_virtual_env(
-        "audio", model_name, enable_virtual_env=True
-    )
-    assert params == {"PyTorch": str(error.value)}
 
     model = create_audio_model_instance(
         model_name,
@@ -116,22 +93,27 @@ def test_fireredasr2_requires_ffmpeg_before_caching(monkeypatch, tmp_path, model
     assert isinstance(model, FireRedASR2Model)
 
 
-@pytest.mark.usefixtures("ffmpeg_on_path")
 @pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
-def test_fireredasr2_discovery_can_install_missing_kaldiio(monkeypatch, model_name):
+@pytest.mark.parametrize(
+    "missing_lib, requirement",
+    [("kaldiio", "kaldiio==2.18.1"), ("imageio_ffmpeg", "imageio-ffmpeg==0.8.2")],
+)
+def test_fireredasr2_discovery_can_install_missing_dependencies(
+    monkeypatch, model_name, missing_lib, requirement
+):
     find_spec = importlib.util.find_spec
 
-    def find_spec_without_kaldiio(name, *args, **kwargs):
-        if name == "kaldiio":
+    def find_spec_without_dependency(name, *args, **kwargs):
+        if name == missing_lib:
             return None
         if name in PyTorchFireRedASR2AudioModel.required_libs:
             return SimpleNamespace()
         return find_spec(name, *args, **kwargs)
 
-    monkeypatch.setattr(importlib.util, "find_spec", find_spec_without_kaldiio)
+    monkeypatch.setattr(importlib.util, "find_spec", find_spec_without_dependency)
 
     strict = get_engine_params_by_name("audio", model_name, enable_virtual_env=False)
-    assert strict == {"PyTorch": "Library 'kaldiio' is not installed"}
+    assert strict == {"PyTorch": f"Library '{missing_lib}' is not installed"}
 
     installable = get_engine_params_by_name_with_virtual_env(
         "audio", model_name, enable_virtual_env=True
@@ -148,10 +130,9 @@ def test_fireredasr2_discovery_can_install_missing_kaldiio(monkeypatch, model_na
     packages = filter_virtualenv_packages_by_markers(
         spec.virtualenv.packages, model_engine="PyTorch", cuda_version=None
     )
-    assert "kaldiio==2.18.1" in packages
+    assert requirement in packages
 
 
-@pytest.mark.usefixtures("ffmpeg_on_path")
 def test_explicit_model_path_requires_trust(monkeypatch, tmp_path):
     monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", False)
     monkeypatch.setitem(sys.modules, "xinference.thirdparty.fireredasr2", None)
@@ -181,7 +162,43 @@ def _stereo_wav(seconds, sample_rate=8000):
     return buffer.getvalue()
 
 
-@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is required")
+@pytest.mark.parametrize("bundled_binaries", [0, 1, 2])
+def test_ffmpeg_resolver_uses_only_wheel_binary(
+    monkeypatch, tmp_path, bundled_binaries
+):
+    binaries = tmp_path / "binaries"
+    binaries.mkdir()
+    (binaries / "README.md").touch()
+    for index in range(bundled_binaries):
+        binary = binaries / f"ffmpeg-test-{index}"
+        binary.touch(mode=0o755)
+
+    system_ffmpeg = tmp_path / "ffmpeg"
+    system_ffmpeg.write_text("#!/bin/sh\nexit 0\n")
+    system_ffmpeg.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setenv("IMAGEIO_FFMPEG_EXE", str(system_ffmpeg))
+    find_resources = Mock(return_value=binaries)
+    monkeypatch.setattr(fireredasr2, "files", find_resources)
+
+    if bundled_binaries == 1:
+        assert fireredasr2._get_ffmpeg_executable() == str(
+            (binaries / "ffmpeg-test-0").resolve()
+        )
+    else:
+        with pytest.raises(RuntimeError, match="imageio-ffmpeg wheel"):
+            fireredasr2._get_ffmpeg_executable()
+    find_resources.assert_called_once_with("imageio_ffmpeg.binaries")
+
+
+@pytest.fixture
+def bundled_ffmpeg(monkeypatch, tmp_path):
+    pytest.importorskip("imageio_ffmpeg")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setenv("IMAGEIO_FFMPEG_EXE", str(tmp_path / "missing-ffmpeg"))
+
+
+@pytest.mark.usefixtures("bundled_ffmpeg")
 @pytest.mark.parametrize(
     "variant, text, response_format, device",
     [
@@ -238,7 +255,7 @@ def test_fireredasr2_transcription(
         ]
 
 
-@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is required")
+@pytest.mark.usefixtures("bundled_ffmpeg")
 @pytest.mark.parametrize("variant, limit", [("AED", 60), ("LLM", 40)])
 def test_fireredasr2_duration_limit(tmp_path, variant, limit):
     spec = match_audio(f"FireRedASR2-{variant}", download_hub="huggingface")

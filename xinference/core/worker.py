@@ -6318,6 +6318,49 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                                 model_kwargs["_xinference_skip_runtime_preflight"] = (
                                     True
                                 )
+                        elif model_type.lower() == "audio":
+                            from ..model.audio.fireredasr2 import (
+                                FIREREDASR2_MODEL_NAMES,
+                                FireRedASR2Model,
+                            )
+
+                            if model_name in FIREREDASR2_MODEL_NAMES:
+                                from ..model.audio.core import match_audio
+
+                                download_hub = cast(
+                                    Optional[
+                                        Literal[
+                                            "huggingface",
+                                            "modelscope",
+                                            "openmind_hub",
+                                            "csghub",
+                                        ]
+                                    ],
+                                    await asyncio.to_thread(
+                                        resolve_model_download_hub,
+                                        download_hub,
+                                        model_path,
+                                    ),
+                                )
+                                family = await asyncio.to_thread(
+                                    match_audio,
+                                    model_name,
+                                    download_hub,
+                                    model_engine=model_engine,
+                                    quantization=quantization,
+                                )
+                                await prepare_model_environment(
+                                    family, family.model_format
+                                )
+                                if launch_info.cancel_event.is_set():
+                                    raise RuntimeError(
+                                        f"Launch cancelled before runtime preflight: {model_uid}"
+                                    )
+                                await asyncio.to_thread(
+                                    FireRedASR2Model.preflight,
+                                    subpool_python_path or sys.executable,
+                                    subpool_alloc_env,
+                                )
 
                         if launch_info.cancel_event.is_set():
                             raise RuntimeError(

@@ -19,6 +19,7 @@
         "kaldiio==2.18.1 ; #engine# == \"PyTorch\"",
         "kaldi-native-fbank>=1.15",
         "sentencepiece==0.2.1",
+        "imageio-ffmpeg==0.8.2",
         "transformers==5.13.1",
         "peft==0.22.0",
         "#system_torch#",

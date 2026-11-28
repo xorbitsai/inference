@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import logging
-import shutil
+import os
 import subprocess
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from importlib.resources import files
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 
@@ -31,7 +33,28 @@ logger = logging.getLogger(__name__)
 
 _SAMPLE_RATE = 16000
 _VARIANTS = {"FireRedASR2-AED": ("aed", 60), "FireRedASR2-LLM": ("llm", 40)}
-_FFMPEG_REQUIRED = "FireRedASR2 requires ffmpeg on PATH."
+FIREREDASR2_MODEL_NAMES = frozenset(_VARIANTS)
+_FFMPEG_REQUIRED = (
+    "FireRedASR2 requires an imageio-ffmpeg wheel with a bundled FFmpeg executable."
+)
+
+
+def _get_ffmpeg_executable() -> str:
+    try:
+        binaries = files("imageio_ffmpeg.binaries")
+        executables = [
+            entry
+            for entry in binaries.iterdir()
+            if entry.name.startswith("ffmpeg-") and entry.is_file()
+        ]
+    except (ModuleNotFoundError, FileNotFoundError) as exc:
+        raise RuntimeError(_FFMPEG_REQUIRED) from exc
+    if len(executables) != 1:
+        raise RuntimeError(_FFMPEG_REQUIRED)
+    executable = Path(str(executables[0])).resolve()
+    if not os.access(executable, os.X_OK):
+        raise RuntimeError(_FFMPEG_REQUIRED)
+    return str(executable)
 
 
 class FireRedASR2Model:
@@ -56,11 +79,26 @@ class FireRedASR2Model:
     def model_ability(self):
         return self.model_family.model_ability
 
-    @classmethod
-    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
-        if shutil.which("ffmpeg") is None:
-            return False, _FFMPEG_REQUIRED
-        return True
+    @staticmethod
+    def preflight(python_executable: str, env: Dict[str, str]) -> None:
+        result = subprocess.run(
+            [
+                python_executable,
+                "-c",
+                "import subprocess; "
+                "from xinference.model.audio.fireredasr2 import _get_ffmpeg_executable; "
+                "subprocess.run([_get_ffmpeg_executable(), '-version'], "
+                "check=True, stdout=subprocess.DEVNULL)",
+            ],
+            env={**os.environ, **env},
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode:
+            raise ValueError(
+                f"FireRedASR2 FFmpeg preflight failed: {result.stderr.strip()}"
+            )
 
     def load(self):
         import torch
@@ -72,6 +110,7 @@ class FireRedASR2Model:
                 "or explicit model_path, set XINFERENCE_TRUST_REMOTE_CODE=1 only "
                 "if you trust the checkpoint source."
             )
+        _get_ffmpeg_executable()
         device = torch.device(
             self._device or ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -101,7 +140,7 @@ class FireRedASR2Model:
         try:
             result = subprocess.run(
                 [
-                    "ffmpeg",
+                    _get_ffmpeg_executable(),
                     "-nostdin",
                     "-v",
                     "error",

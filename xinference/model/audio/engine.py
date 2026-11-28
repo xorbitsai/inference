@@ -306,7 +306,13 @@ class PyTorchFunASRAudioModel(FunASRModel, AudioEngineModel):
 
 
 class PyTorchFireRedASR2AudioModel(FireRedASR2Model, AudioEngineModel):
-    required_libs = ("kaldiio", "kaldi_native_fbank", "sentencepiece", "torchaudio")
+    required_libs = (
+        "kaldiio",
+        "kaldi_native_fbank",
+        "sentencepiece",
+        "torchaudio",
+        "imageio_ffmpeg",
+    )
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
