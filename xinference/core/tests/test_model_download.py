@@ -17,6 +17,7 @@
 import asyncio
 import os
 import threading
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -259,6 +260,149 @@ async def test_cancel_cache_operation_reports_unwind_timeout(monkeypatch):
 
     assert download_info.cancel_event.is_set()
     download_info.downloader.cancel.assert_called_once_with()
+
+
+def _modelscope_download_paths(model_id, root):
+    file_download = pytest.importorskip("modelscope.hub.file_download")
+    if hasattr(file_download, "create_temporary_directory_and_cache"):
+        staging, sdk_cache = file_download.create_temporary_directory_and_cache(
+            model_id, cache_dir=root
+        )
+    else:
+        from modelscope.hub.utils.caching import ModelFileSystemCache
+
+        owner, name = model_id.split("/")
+        sdk_cache = ModelFileSystemCache(root, owner, name.replace(".", "___"))
+        staging = root / "._____temp" / owner / name
+        staging.mkdir(parents=True)
+    return Path(sdk_cache.get_root_location()), Path(staging)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reference", ["none", "cached", "active"])
+async def test_cancelled_modelscope_download_cleans_sdk_repositories(
+    monkeypatch, tmp_path, reference
+):
+    from xinference.core import worker as worker_module
+    from xinference.core.worker import DownloadInfo, WorkerActor
+
+    modelscope_root = tmp_path / "modelscope"
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    cache_dir = tmp_path / "xinference-cache"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_dir))
+
+    model_ids = ("PhaiModelLab/Phai-M1", "Lightricks/LTX-2.5-Diffusers")
+    repositories = []
+    stages = []
+    for model_id in model_ids:
+        repository, staging = _modelscope_download_paths(
+            model_id, modelscope_root / "models"
+        )
+        (repository / "ready.safetensors").write_bytes(b"complete weights")
+        (staging / "temporary-file").write_bytes(b"partial download")
+        repositories.append(repository)
+        stages.append(staging)
+
+    # SDKs expose the model ID as a compatibility link for dotted names.
+    base_alias = modelscope_root / "models" / model_ids[1]
+    base_alias.symlink_to(repositories[1], target_is_directory=True)
+    unrelated, unrelated_stage = _modelscope_download_paths(
+        "Lightricks/Other-Model", modelscope_root / "models"
+    )
+    repository_specs = [
+        {"model_hub": "modelscope", "model_id": model_id} for model_id in model_ids
+    ]
+    payload = {"_download_repositories": repository_specs}
+    worker = WorkerActor.__new__(WorkerActor)
+    current = DownloadInfo(payload=payload)
+    worker._cache_uid_to_download_info = {"cancelled": current}
+    worker._model_uid_launching_guard = {}
+
+    def finish_cancelled_download():
+        worker._cache_uid_to_download_info.pop("cancelled")
+
+    current.downloader = MagicMock()
+    current.downloader.cancel.side_effect = finish_cancelled_download
+    await worker.cancel_cache_model("cancelled")
+    assert current.cancel_event.is_set()
+
+    if reference == "active":
+        worker._cache_uid_to_download_info["other"] = DownloadInfo(
+            payload={"_download_repositories": [repository_specs[1]]}
+        )
+        with pytest.raises(RuntimeError, match="another download task"):
+            await worker.delete_cache_model_artifacts(payload)
+        assert all(path.is_dir() for path in repositories + stages)
+        assert base_alias.is_symlink()
+    else:
+        if reference == "cached":
+            cache_dir.mkdir()
+            (cache_dir / "shared-weights").symlink_to(base_alias / "ready.safetensors")
+        result = await worker.delete_cache_model_artifacts(payload)
+        assert not any(stage.exists() for stage in stages)
+        assert result["removed_bytes"] > 0
+        retained = [repositories[1]] if reference == "cached" else []
+        assert result["preserved_repositories"] == [str(path) for path in retained]
+        assert [path for path in repositories if path.exists()] == retained
+        assert base_alias.is_symlink() == bool(retained)
+        if retained:
+            assert (cache_dir / "shared-weights").read_bytes() == b"complete weights"
+
+    assert unrelated.is_dir()
+    assert unrelated_stage.is_dir()
+
+
+def test_download_cleanup_refuses_symlinked_modelscope_owner(monkeypatch, tmp_path):
+    from xinference.core.worker import WorkerActor
+
+    modelscope_root = tmp_path / "modelscope"
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    models = modelscope_root / "models"
+    unrelated = models / "OtherOwner" / "Phai-M1"
+    unrelated.mkdir(parents=True)
+    (models / "PhaiModelLab").symlink_to(unrelated.parent, target_is_directory=True)
+    payload = {
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "PhaiModelLab/Phai-M1"}
+        ]
+    }
+
+    with pytest.raises(ValueError, match="symlinked Hub repository parent"):
+        WorkerActor._remove_download_repository_paths(
+            WorkerActor._download_repository_paths(payload), set()
+        )
+
+    assert unrelated.is_dir()
+
+
+def test_download_cleanup_removes_modelscope_snapshot_alias(monkeypatch, tmp_path):
+    from xinference.core import worker as worker_module
+    from xinference.core.worker import WorkerActor
+
+    modelscope_root = tmp_path / "modelscope"
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(tmp_path / "cache"))
+    models = modelscope_root / "models"
+    repository = models / "PhaiModelLab--Phai-M1"
+    snapshot = repository / "snapshots" / "master"
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.safetensors.incomplete").write_bytes(b"partial")
+    alias = models / "PhaiModelLab" / "Phai-M1"
+    alias.parent.mkdir()
+    alias.symlink_to(snapshot, target_is_directory=True)
+    payload = {
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "PhaiModelLab/Phai-M1"}
+        ]
+    }
+
+    result = WorkerActor._remove_download_repository_paths(
+        WorkerActor._download_repository_paths(payload), set()
+    )
+
+    assert result["removed_repositories"] == [str(repository)]
+    assert not repository.exists()
+    assert not alias.is_symlink()
 
 
 @pytest.mark.asyncio

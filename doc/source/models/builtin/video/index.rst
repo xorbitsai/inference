@@ -31,6 +31,10 @@ The following is a list of built-in video models in Xinference:
 
    minimax-h3
   
+   phai-m1-dev
+
+   phai-m1-distilled
+
    wan2.1-1.3b
   
    wan2.1-14b

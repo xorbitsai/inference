@@ -82,14 +82,14 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         return description
 
     def to_version_info(self):
-        from ..cache_manager import CacheManager
+        from .cache_manager import VideoCacheManager
 
-        cache_manager = CacheManager(self)
+        cache_manager = VideoCacheManager(self)
 
         return {
             "model_version": self.cache_name or self.model_name,
             "model_file_location": cache_manager.get_cache_dir(),
-            "cache_status": cache_manager.get_cache_status(),
+            "cache_status": cache_manager.has_managed_cache(),
         }
 
 
@@ -204,15 +204,16 @@ def create_video_model_instance(
     )
     model_spec = match_diffusion(model_name, download_hub, model_engine=model_engine)
 
+    from .ltx2 import LTX2VideoModel
     from .precision import apply_runtime_precision
 
     kwargs = apply_runtime_precision(model_spec, model_engine, kwargs)
 
-    if model_spec.model_family == "LTX2":
-        from .ltx2 import LTX2VideoModel
-
+    if LTX2VideoModel.is_model_family_supported(model_spec):
         LTX2VideoModel.validate_model_spec(model_spec)
-        if model_path is not None:
+        if model_spec.model_family == "Phai-M1":
+            LTX2VideoModel.validate_phai_m1_device_map(kwargs.get("device_map"))
+        if model_spec.model_family == "LTX2" and model_path is not None:
             raise ValueError(
                 "LTX-2.5 must be downloaded from its official Hugging Face or "
                 "ModelScope source; a custom model_path is not allowed"
@@ -241,8 +242,13 @@ def create_video_model_instance(
         if "variant" in kwargs and _is_set(kwargs["variant"]):
             forbidden_options.append("variant")
         if gguf_model_path or _is_set(gguf_quantization) or forbidden_options:
+            model_label = (
+                "LTX-2.5"
+                if model_spec.model_family == "LTX2"
+                else model_spec.model_family
+            )
             raise ValueError(
-                "LTX-2.5 only supports the official BF16 weights; "
+                f"{model_label} only supports the official BF16 weights; "
                 "quantization, GGUF, and alternate weight variants are not allowed"
             )
         gguf_quantization = None
@@ -282,7 +288,12 @@ def create_video_model_instance(
     if not gguf_model_path and gguf_quantization:
         VideoCacheManager(model_spec).check_gguf(gguf_quantization)
 
-    if not model_path:
+    if model_spec.model_family == "Phai-M1":
+        cache_manager = VideoCacheManager(model_spec)
+        model_path, kwargs["base_model_path"] = cache_manager.cache_phai_m1(
+            model_path, kwargs.get("base_model_path")
+        )
+    elif not model_path:
         cache_manager = VideoCacheManager(model_spec)
         model_path = cache_manager.cache()
     if not gguf_model_path and gguf_quantization:

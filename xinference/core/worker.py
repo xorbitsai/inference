@@ -4010,8 +4010,8 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ret.sort(key=sort_helper)
             return ret
         elif model_type == "video":
-            from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.cache_manager import VideoCacheManager
             from ..model.video.core import VIDEO_REGISTRY_LOCK
 
             # Add one catalog entry per model and retain each engine/hub source
@@ -4031,7 +4031,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 if detailed:
                     model_specs = []
                     for family in families:
-                        video_cache_manager = CacheManager(family)
+                        video_cache_manager = VideoCacheManager(family)
                         model_specs.append(
                             {
                                 "model_format": family.model_format or "diffusers",
@@ -6912,6 +6912,16 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ):
                 add_repository(model_hub, getattr(spec, "lightning_model_id", None))
 
+        if (
+            model_type == "video"
+            and spec.model_family == "Phai-M1"
+            and payload.get("base_model_path") is None
+        ):
+            from ..model.video.ltx25_checkpoint import LTX25_MODEL_SOURCES
+
+            base_model_id, _ = LTX25_MODEL_SOURCES[spec.model_hub]
+            add_repository(spec.model_hub, base_model_id)
+
         return repositories
 
     async def resolve_model_download_repositories(
@@ -6921,12 +6931,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @classmethod
     def _download_repository_paths(cls, payload: Dict[str, Any]) -> Set[str]:
-        roots = dict(
-            zip(
-                ("huggingface", "modelscope", "openmind_hub", "csghub"),
-                cls._download_cache_roots(),
-            )
-        )
+        roots = cls._download_cache_roots_by_hub()
         paths: Set[str] = set()
         for repository in cls._resolve_model_download_repositories(payload):
             model_hub = repository["model_hub"]
@@ -6941,19 +6946,34 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
             ):
                 raise ValueError(f"Unsafe download repository: {model_hub}/{model_id}")
             safe_id = "--".join(parts)
-            directory_name = (
-                safe_id if model_hub == "modelscope" else f"models--{safe_id}"
-            )
-            repository_path = os.path.abspath(os.path.join(root, directory_name))
-            root = os.path.abspath(root)
-            if repository_path == root or not cls._is_path_within(
-                repository_path, root
-            ):
-                raise ValueError(
-                    f"Refusing to resolve repository outside Hub cache: "
-                    f"{repository_path}"
+            directory_names: Tuple[str, ...]
+            if model_hub == "modelscope":
+                if len(parts) != 2 or parts[0] == "._____temp":
+                    raise ValueError(
+                        f"Unsafe download repository: {model_hub}/{model_id}"
+                    )
+                owner, name = parts
+                # Older SDKs escape dots in the final directory, but stage
+                # downloads under the original repository name.
+                directory_names = (
+                    safe_id,
+                    os.path.join(owner, name.replace(".", "___")),
+                    os.path.join(owner, name),
+                    os.path.join("._____temp", owner, name),
                 )
-            paths.add(repository_path)
+            else:
+                directory_names = (f"models--{safe_id}",)
+
+            for directory_name in directory_names:
+                repository_path = os.path.abspath(os.path.join(root, directory_name))
+                if repository_path == root or not cls._is_path_within(
+                    repository_path, root
+                ):
+                    raise ValueError(
+                        f"Refusing to resolve repository outside Hub cache: "
+                        f"{repository_path}"
+                    )
+                paths.add(repository_path)
         return paths
 
     @classmethod
@@ -6988,10 +7008,46 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return total
 
     @classmethod
+    def _modelscope_compatibility_link_target(
+        cls, path: str, modelscope_root: str, target_paths: Set[str]
+    ) -> Optional[str]:
+        if not cls._is_path_within(path, modelscope_root):
+            return None
+        parts = pathlib.Path(os.path.relpath(path, modelscope_root)).parts
+        if len(parts) != 2:
+            return None
+        owner, name = parts
+        target = os.path.realpath(path)
+        masked_path = os.path.join(modelscope_root, owner, name.replace(".", "___"))
+        if (
+            masked_path != path
+            and target == masked_path
+            and masked_path in target_paths
+        ):
+            return masked_path
+        flat_path = os.path.join(modelscope_root, f"{owner}--{name}")
+        snapshots = os.path.join(flat_path, "snapshots")
+        if (
+            flat_path in target_paths
+            and target != snapshots
+            and cls._is_path_within(target, snapshots)
+        ):
+            return flat_path
+        return None
+
+    @classmethod
     def _remove_download_repository_paths(
         cls, target_paths: Set[str], protected_paths: Set[str]
     ) -> Dict[str, Any]:
-        overlapping = target_paths & protected_paths
+        overlapping = {
+            path
+            for path in target_paths
+            if any(
+                cls._is_path_within(path, protected)
+                or cls._is_path_within(protected, path)
+                for protected in protected_paths
+            )
+        }
         if overlapping:
             raise RuntimeError(
                 "Cannot delete download files while another download task uses "
@@ -7002,28 +7058,36 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         removed_repositories: List[str] = []
         preserved_repositories: List[str] = []
         partial_suffixes = (".incomplete", ".partial", ".part", ".tmp")
-        managed_roots = cls._download_cache_roots()
+        modelscope_root = cls._download_cache_roots_by_hub()["modelscope"]
+        repositories: List[str] = []
+        aliases: Dict[str, str] = {}
 
         for repository_path in sorted(target_paths):
             root = cls._download_cache_root_for_path(repository_path)
-            if root is None or root not in managed_roots:
+            if root is None or not cls._is_path_within(repository_path, root):
                 raise ValueError(
                     f"Refusing to delete unmanaged Hub repository: {repository_path}"
                 )
             if not os.path.lexists(repository_path):
                 continue
+            parent = pathlib.Path(repository_path).parent
+            if parent.resolve() != parent:
+                raise ValueError(f"Refusing symlinked Hub repository parent: {parent}")
+            if os.path.islink(repository_path):
+                alias_target = cls._modelscope_compatibility_link_target(
+                    repository_path, modelscope_root, target_paths
+                )
+                if alias_target is not None:
+                    aliases[repository_path] = alias_target
+                    continue
             if os.path.islink(repository_path) or not os.path.isdir(repository_path):
                 raise ValueError(
                     f"Refusing to delete unexpected Hub repository path: "
                     f"{repository_path}"
                 )
-            real_repository_path = os.path.realpath(repository_path)
-            if not cls._is_path_within(real_repository_path, root):
-                raise ValueError(
-                    f"Refusing to delete repository outside Hub cache: "
-                    f"{real_repository_path}"
-                )
+            repositories.append(repository_path)
 
+        for repository_path in repositories:
             if not cls._repository_has_cache_reference(repository_path):
                 removed_bytes += cls._path_size(repository_path)
                 shutil.rmtree(repository_path)
@@ -7055,6 +7119,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         os.rmdir(directory)
                     except OSError:
                         pass
+
+        for alias, target in aliases.items():
+            if not os.path.lexists(target):
+                with suppress(FileNotFoundError):
+                    os.unlink(alias)
 
         return {
             "removed_bytes": removed_bytes,
@@ -8086,8 +8155,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         return targets
 
     @staticmethod
-    def _download_cache_roots() -> Tuple[str, ...]:
-        """Return managed Hub roots that may have empty directories pruned."""
+    def _download_cache_roots_by_hub() -> Dict[str, str]:
         huggingface_root = os.environ.get("HUGGINGFACE_HUB_CACHE") or os.path.join(
             XINFERENCE_HOME, "huggingface"
         )
@@ -8105,17 +8173,20 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
         csghub_root = os.environ.get("CSGHUB_CACHE") or os.path.join(
             os.path.expanduser("~"), ".cache", "csg", "hub"
         )
-        return tuple(
-            dict.fromkeys(
-                os.path.realpath(root)
-                for root in (
-                    huggingface_root,
-                    modelscope_root,
-                    openmind_root,
-                    csghub_root,
-                )
+        return {
+            hub: os.path.realpath(root)
+            for hub, root in (
+                ("huggingface", huggingface_root),
+                ("modelscope", modelscope_root),
+                ("openmind_hub", openmind_root),
+                ("csghub", csghub_root),
             )
-        )
+        }
+
+    @classmethod
+    def _download_cache_roots(cls) -> Tuple[str, ...]:
+        """Return managed Hub roots that may have empty directories pruned."""
+        return tuple(dict.fromkeys(cls._download_cache_roots_by_hub().values()))
 
     @classmethod
     def _download_cache_root_for_path(cls, path: str) -> Optional[str]:
@@ -8290,10 +8361,37 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
 
     @management_operation
     async def confirm_and_remove_model(self, model_version: str) -> bool:
+        from contextlib import AsyncExitStack
+
         # Defensive: see list_cached_models for rationale.
         if self._cache_tracker_ref is None:
             logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
             return False
+        from ..model.video.cache_manager import PHAI_M1_VARIANTS, phai_m1_base_lock_path
+
+        result = False
+        async with AsyncExitStack() as stack:
+            if model_version in {f"Phai-M1-{variant}" for variant in PHAI_M1_VARIANTS}:
+                from filelock import AsyncFileLock
+
+                from ..model.video.ltx25_checkpoint import LTX25_MODEL_SOURCES
+
+                cache_root = pathlib.Path(XINFERENCE_CACHE_DIR) / "v2"
+                # Decide which files are exclusive while no other Phai cache can
+                # add a reference to the shared base or migrate its old view.
+                for hub in sorted(LTX25_MODEL_SOURCES):
+                    await stack.enter_async_context(
+                        AsyncFileLock(
+                            phai_m1_base_lock_path(cache_root, hub),
+                            preserve_lock_file=True,
+                        )
+                    )
+            result = await WorkerActor._confirm_and_remove_model_files(
+                self, model_version
+            )
+        return result
+
+    async def _confirm_and_remove_model_files(self, model_version: str) -> bool:
         paths = await self.list_deletable_models(model_version)
 
         # Coordinate with Wan conversion using the producer's exact FileLock.

@@ -86,7 +86,13 @@ def test_builtin_video_models_register_expected_engines():
                     "quantization": "none",
                     "video_class": (
                         LTX2VideoModel
-                        if model_name in {"LTX-2.5", "LTX-2.5-Dev"}
+                        if model_name
+                        in {
+                            "LTX-2.5",
+                            "LTX-2.5-Dev",
+                            "Phai-M1-dev",
+                            "Phai-M1-distilled",
+                        }
                         else DiffusersVideoEngineModel
                     ),
                     "default_model_config": next(
@@ -143,6 +149,30 @@ def test_create_video_model_instance_records_default_engine():
     assert isinstance(model, DiffusersVideoEngineModel)
     assert model.model_family.model_engine == "diffusers"
     assert model.model_family.to_description()["model_engine"] == "diffusers"
+
+
+def test_create_phai_m1_from_a_local_checkpoint(monkeypatch, tmp_path):
+    download = Mock(side_effect=AssertionError("Local Phai-M1 should bypass downloads"))
+    monkeypatch.setattr(VideoCacheManager, "_download_phai_m1_checkpoint", download)
+    monkeypatch.setattr(VideoCacheManager, "_prepare_phai_m1_base", download)
+    checkpoint = tmp_path / "phai.safetensors"
+    checkpoint.touch()
+    (tmp_path / "model_index.json").touch()
+
+    model = create_video_model_instance(
+        "uid",
+        "Phai-M1-distilled",
+        model_path=str(checkpoint),
+        base_model_path=str(tmp_path),
+        download_hub="modelscope",
+        enable_virtual_env=False,
+    )
+
+    assert isinstance(model, LTX2VideoModel)
+    assert model.model_family.model_family == "Phai-M1"
+    assert model.model_family.model_hub == "modelscope"
+    assert model._model_path == str(checkpoint)
+    download.assert_not_called()
 
 
 def test_create_mlx_video_model_instance():

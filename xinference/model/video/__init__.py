@@ -62,6 +62,7 @@ def register_builtin_model():
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
+    from .cache_manager import VideoCacheManager
     from .engine import register_builtin_video_engines
 
     # Build a complete replacement away from the live registries. A reload can
@@ -85,17 +86,25 @@ def _install():
         ),
     )
 
-    # Register one cache/version entry per engine variant. Hugging Face is the
-    # preferred representative when the same variant has multiple hubs.
+    VideoCacheManager.migrate_legacy_phai_m1_bases()
+
+    # Prefer a hub with managed artifacts for cache inventory. Keep Hugging
+    # Face first when the cache states are equal.
     for model_name, model_specs in new_builtin_video_models.items():
         variants = {}
         for model_spec in model_specs:
             version = model_spec.cache_name or model_spec.model_name
-            current = variants.get(version)
-            if current is None or model_spec.model_hub == "huggingface":
-                variants[version] = model_spec
+            hub_versions = variants.setdefault(version, [])
+            version_info = model_spec.to_version_info()
+            if model_spec.model_hub == "huggingface":
+                hub_versions.insert(0, version_info)
+            else:
+                hub_versions.append(version_info)
         new_video_model_descriptions[model_name] = [
-            model_spec.to_version_info() for model_spec in variants.values()
+            next(
+                (info for info in hub_versions if info["cache_status"]), hub_versions[0]
+            )
+            for hub_versions in variants.values()
         ]
 
     register_builtin_video_engines()

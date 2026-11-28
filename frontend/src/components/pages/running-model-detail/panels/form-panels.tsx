@@ -41,7 +41,7 @@ import {
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import { getSpeechOptions } from '../speech-options';
 import type { CapabilityFormProps } from '../types';
-import { isJsonObject, isLtx25Distilled } from '../utils';
+import { isJsonObject, usesFixedVideoSampling } from '../utils';
 import { DOCUMENT_UPLOAD_ACCEPT, validateDocumentFile } from '../document-upload-utils';
 
 const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
@@ -359,7 +359,7 @@ function VideoFields({ form, model }: Pick<CapabilityFormProps, 'form' | 'model'
         >
           <Input type="number" />
         </FormField>
-        {!isLtx25Distilled(model.model_name) && (
+        {!usesFixedVideoSampling(model.model_name) && (
           <>
             <InferenceStepsField form={form} model={model} />
             <FormField

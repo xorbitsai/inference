@@ -62,7 +62,7 @@ test('image and video requests apply the selected Lightning mode and its step de
   }
 });
 
-test('Try API generates valid Python payloads for both LTX-2.5 variants', (t) => {
+test('Try API applies video variant defaults to Python payloads', (t) => {
   const Module = require('node:module');
   const drawerPath = require.resolve('../components/try-api-drawer.tsx');
   const originalRequire = Module.prototype.require;
@@ -110,6 +110,11 @@ test('Try API generates valid Python payloads for both LTX-2.5 variants', (t) =>
 
   const { TryApiDrawer } = require(drawerPath);
   const distilled = { width: 960, height: 544, num_frames: 121, fps: 24, seed: 11 };
+  const phaiDefaults = { ...distilled, width: 768, height: 512 };
+  const phaiModels = [
+    ['Phai-M1-distilled', phaiDefaults],
+    ['Phai-M1-dev', { ...phaiDefaults, num_inference_steps: 30, guidance_scale: 3 }],
+  ];
   const otherVideo = {
     width: 512,
     height: 512,
@@ -127,6 +132,7 @@ test('Try API generates valid Python payloads for both LTX-2.5 variants', (t) =>
     for (const [modelName, expected] of [
       ['LTX-2.5', distilled],
       ['LTX-2.5-Dev', { ...distilled, num_inference_steps: 30, guidance_scale: 3 }],
+      ...(ability === 'firstlastframe2video' ? [] : phaiModels),
       ['Wan2.2-A14B', otherVideo],
     ]) {
       code = undefined;
@@ -174,7 +180,7 @@ function mountTestDom(t) {
   return { dom, root };
 }
 
-test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling controls', async (t) => {
+test('video forms apply variant defaults and omit fixed sampling controls', async (t) => {
   const { dom, root } = mountTestDom(t);
   const previousCssLoader = require.extensions['.css'];
   require.extensions['.css'] = () => {};
@@ -189,6 +195,11 @@ test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling
   const post = t.mock.method(request, 'post', async () => ({ data: [] }));
   const file = new File(['image'], 'frame.png', { type: 'image/png' });
   const ltxDefaults = { width: 960, height: 544, num_frames: 121, fps: 24, seed: -1 };
+  const phaiDefaults = { ...ltxDefaults, width: 768, height: 512 };
+  const phaiModels = [
+    ['Phai-M1-dev', { ...phaiDefaults, num_inference_steps: 30, guidance_scale: 3 }],
+    ['Phai-M1-distilled', phaiDefaults],
+  ];
 
   for (const [ability, uploadFields] of [
     ['text2video', []],
@@ -220,6 +231,7 @@ test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling
       ],
       ['LTX-2.5-Dev', { ...ltxDefaults, num_inference_steps: 30, guidance_scale: 3 }],
       ['LTX-2.5', ltxDefaults],
+      ...(ability === 'firstlastframe2video' ? [] : phaiModels),
     ]) {
       await act(async () => {
         root.render(
@@ -261,7 +273,7 @@ test('initial video forms use LTX-2.5 defaults and omit fixed Distilled sampling
       };
       await submitAndAssert();
 
-      if (model_name === 'LTX-2.5') {
+      if (!Object.hasOwn(expectedKwargs, 'num_inference_steps')) {
         assert.equal(form.hasFieldValue('num_inference_steps'), false);
         assert.equal(form.hasFieldValue('guidance_scale'), false);
         await act(async () =>

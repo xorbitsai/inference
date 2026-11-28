@@ -2679,14 +2679,14 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
     async def _to_video_model_reg(
         self, model_family: "VideoModelFamilyV2", is_builtin: bool
     ) -> Dict[str, Any]:
-        from ..model.cache_manager import CacheManager
+        from ..model.video.cache_manager import VideoCacheManager
 
         instance_cnt = await self.get_instance_count(model_family.model_name)
         version_cnt = await self.get_model_version_count(model_family.model_name)
 
         if self._has_inprocess_worker():
             # TODO: does not work when the supervisor and worker are running on separate nodes.
-            cache_manager = CacheManager(model_family)
+            cache_manager = VideoCacheManager(model_family)
             # Create model_specs with cache_status for frontend compatibility
             model_specs = [
                 {

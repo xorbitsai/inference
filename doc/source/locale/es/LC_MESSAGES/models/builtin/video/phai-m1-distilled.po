@@ -1,0 +1,42 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-26 22:17+0800\n"
+"PO-Revision-Date: 2026-11-26 22:17+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:5
+msgid "Phai-M1-distilled"
+msgstr "Phai-M1-distilled"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:7
+msgid "**Model Name:** Phai-M1-distilled"
+msgstr "**Nombre del modelo:** Phai-M1-distilled"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:8
+msgid "**Model Family:** Phai-M1"
+msgstr "**Familia del modelo:** Phai-M1"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:9
+msgid "**Abilities:** text2video, image2video"
+msgstr "**Capacidades:** text2video, image2video"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:12
+msgid "Specifications"
+msgstr "Especificaciones"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:14
+msgid "**Model ID:** PhaiModelLab/Phai-M1"
+msgstr "**ID del modelo:** PhaiModelLab/Phai-M1"
+
+#: ../../source/models/builtin/video/phai-m1-distilled.rst:16
+msgid "Execute the following command to launch the model::"
+msgstr "Ejecute el siguiente comando para iniciar el modelo::"

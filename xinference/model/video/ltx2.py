@@ -25,10 +25,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 import PIL.Image
 
 from ...constants import XINFERENCE_VIDEO_DIR
+from ...core.exceptions import InvalidModelRequestError
 from ...device_utils import empty_cache, get_available_device
 from ...types import Video, VideoList
+from ..lightning import resolve_request_lightning
+from ..utils import resolve_media_seed
 from .diffusers import DiffusersVideoModel
 from .engine_family import VideoEngineModel
+from .ltx25_checkpoint import LTX25_MODEL_SOURCES, load_phai_m1_components
 
 if TYPE_CHECKING:
     from ...core.progress_tracker import Progressor
@@ -39,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
-    """Official LTX-2.5 audio-video model backed by Hugging Face Diffusers."""
+    """LTX-2.5 and Phai-M1 audio-video models backed by Diffusers."""
 
     _model: Any
     replica_autoscaling = "serialized"
@@ -47,12 +51,9 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
     engine_quantization = "none"
     required_libs = ("diffusers",)
 
-    _OFFICIAL_MODEL_SOURCES = {
-        "huggingface": (
-            "Lightricks/LTX-2.5-Diffusers",
-            "a6de4b5354f078db24d9cf4778c14846788aea3d",
-        ),
-        "modelscope": ("Lightricks/LTX-2.5-Diffusers", "master"),
+    _PHAI_M1_MODEL_SOURCES = {
+        "huggingface": ("PhaiModelLab/Phai-M1", "main"),
+        "modelscope": ("PhaiModelLab/Phai-M1", "master"),
     }
     _DISTILLED = "distilled"
     _DEV = "dev"
@@ -67,13 +68,13 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
 
     @classmethod
     def match(cls, model_family: "VideoModelFamilyV2") -> bool:
-        return model_family.model_family == "LTX2" and (
+        return cls.is_model_family_supported(model_family) and (
             not model_family.engine or model_family.engine.lower() == "diffusers"
         )
 
     @classmethod
     def is_model_family_supported(cls, model_family: "VideoModelFamilyV2") -> bool:
-        return model_family.model_family == "LTX2"
+        return model_family.model_family in {"LTX2", "Phai-M1"}
 
     def __init__(
         self,
@@ -83,6 +84,7 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         **kwargs: Any,
     ) -> None:
         super().__init__(model_uid, model_path, model_spec, **kwargs)
+        self._is_phai_m1 = model_spec.model_family == "Phai-M1"
         self._variant = self._variant_from_spec(model_spec)
         self._device = "cpu"
         self._torch_dtype: Any = None
@@ -104,20 +106,26 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
     @classmethod
     def validate_model_spec(cls, model_spec: "VideoModelFamilyV2") -> None:
         """Reject non-official LTX specs before a model download can start."""
-        official_source = cls._OFFICIAL_MODEL_SOURCES.get(model_spec.model_hub)
+        if model_spec.model_family == "Phai-M1":
+            model_label = "Phai-M1"
+            sources = cls._PHAI_M1_MODEL_SOURCES
+        else:
+            model_label = "LTX-2.5"
+            sources = LTX25_MODEL_SOURCES
+        official_source = sources.get(model_spec.model_hub)
         if official_source is None:
             raise ValueError(
-                "LTX-2.5 only supports the official Hugging Face and ModelScope "
+                f"{model_label} only supports the official Hugging Face and ModelScope "
                 "sources"
             )
         official_model_id, official_model_revision = official_source
         if model_spec.model_id != official_model_id:
             raise ValueError(
-                "LTX-2.5 must use the official " f"{official_model_id} model repository"
+                f"{model_label} must use the official {official_model_id} model repository"
             )
         if model_spec.model_revision != official_model_revision:
             raise ValueError(
-                "LTX-2.5 must use the tested official model revision "
+                f"{model_label} must use the tested official model revision "
                 f"{official_model_revision}"
             )
         cls._variant_from_spec(model_spec)
@@ -136,6 +144,14 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
 
     def _validate_official_model(self) -> None:
         self.validate_model_spec(self._model_spec)
+
+    @staticmethod
+    def validate_phai_m1_device_map(device_map: Any) -> None:
+        if device_map:
+            raise ValueError(
+                "Phai-M1 does not support device_map with its preloaded transformer "
+                "and connectors; use CPU offload or a single accelerator"
+            )
 
     def _reject_quantization(self, kwargs: Dict[str, Any]) -> None:
         quantization_options = (
@@ -248,6 +264,8 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         self._device = str(device)
 
         device_map = kwargs.get("device_map")
+        if self._is_phai_m1:
+            self.validate_phai_m1_device_map(kwargs.pop("device_map", None))
         if device_map:
             if self._variant == self._DEV:
                 raise ValueError(
@@ -279,31 +297,36 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         # The ModelScope snapshot declares this optional, unused component.
         load_kwargs["prompt_enhancer"] = None
 
-        if self._variant == self._DEV:
+        pipeline_path = self._model_path
+        if self._is_phai_m1:
+            transformer_filename = load_kwargs.pop("transformer_filename")
+            base_model_path = load_kwargs.pop("base_model_path")
+            pipeline_path, transformer, connectors = load_phai_m1_components(
+                self._model_path,
+                transformer_filename,
+                base_model_path,
+                dtype,
+            )
+            load_kwargs.update(
+                transformer=transformer, connectors=connectors, processor=None
+            )
+        elif self._variant == self._DEV:
             transformer_kwargs = {
                 key: value
                 for key, value in load_kwargs.items()
                 if key in {"dtype", "local_files_only", "use_safetensors"}
             }
-            transformer = LTX2VideoTransformer3DModel.from_pretrained(
+            load_kwargs["transformer"] = LTX2VideoTransformer3DModel.from_pretrained(
                 self._model_path,
                 subfolder="transformer_full",
                 **transformer_kwargs,
             )
-            pipeline = LTX2ConditionPipeline.from_pretrained(
-                self._model_path,
-                transformer=transformer,
-                **load_kwargs,
-            )
+        pipeline = LTX2ConditionPipeline.from_pretrained(pipeline_path, **load_kwargs)
+        if self._variant == self._DEV:
             pipeline.scheduler = FlowMatchEulerDiscreteScheduler.from_config(
                 pipeline.scheduler.config,
                 use_dynamic_shifting=True,
                 shift_terminal=0.1,
-            )
-        else:
-            pipeline = LTX2ConditionPipeline.from_pretrained(
-                self._model_path,
-                **load_kwargs,
             )
 
         if compile_graph:
@@ -465,7 +488,10 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
             DISTILLED_SIGMA_VALUES,
         )
 
-        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 10:
+        if self._is_phai_m1:
+            if n < 1:
+                raise ValueError("n must be at least 1")
+        elif not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 10:
             raise ValueError("n must be an integer between 1 and 10")
 
         generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
@@ -473,6 +499,14 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
 
         progressor = generate_kwargs.pop("progressor", None)
         two_stage = self._option_enabled(generate_kwargs.pop("two_stage", False))
+        if self._is_phai_m1:
+            if two_stage:
+                raise ValueError("Phai-M1 supports single-stage generation")
+            resolve_request_lightning(generate_kwargs.pop("use_lightning", None), False)
+            frames = generate_kwargs.get("num_frames")
+            if isinstance(frames, int) and frames > 0:
+                # Keep the requested audio duration aligned with decodable frames.
+                generate_kwargs["num_frames"] = 1 + 8 * ((frames + 3) // 8)
 
         fps = generate_kwargs.pop("fps", None)
         frame_rate = generate_kwargs.pop("frame_rate", fps if fps is not None else 24.0)
@@ -483,6 +517,8 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
             generate_kwargs["num_inference_steps"] = num_inference_steps
 
         seed = generate_kwargs.pop("seed", None)
+        if self._is_phai_m1:
+            seed = resolve_media_seed(seed)
         if seed is not None:
             if "generator" in generate_kwargs:
                 raise ValueError("Pass either seed or generator, not both")
@@ -507,11 +543,15 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
 
         negative_prompt = generate_kwargs.get("negative_prompt")
         if negative_prompt is None:
-            missing_prefixes = [
-                value
-                for value in self._LTX25_NEGATIVE_PROMPT_PREFIX
-                if value not in DEFAULT_NEGATIVE_PROMPT
-            ]
+            missing_prefixes = (
+                []
+                if self._is_phai_m1
+                else [
+                    value
+                    for value in self._LTX25_NEGATIVE_PROMPT_PREFIX
+                    if value not in DEFAULT_NEGATIVE_PROMPT
+                ]
+            )
             generate_kwargs["negative_prompt"] = ", ".join(
                 [*missing_prefixes, DEFAULT_NEGATIVE_PROMPT]
             )
@@ -520,17 +560,21 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         generate_kwargs["return_dict"] = True
 
         if self._variant == self._DISTILLED:
-            if generate_kwargs.pop("num_inference_steps", None) is not None:
+            steps = generate_kwargs.pop("num_inference_steps", None)
+            timesteps = generate_kwargs.pop("timesteps", None)
+            supplied_sigmas = generate_kwargs.pop("sigmas", None)
+            if self._is_phai_m1 and steps is not None and steps < 1:
+                raise ValueError("num_inference_steps must be positive")
+            if not self._is_phai_m1 and steps is not None:
                 raise ValueError(
                     "LTX-2.5 Distilled uses the official fixed sigma schedule; "
                     "num_inference_steps must not be supplied"
                 )
-            if generate_kwargs.pop("timesteps", None) is not None:
+            if not self._is_phai_m1 and timesteps is not None:
                 raise ValueError(
                     "LTX-2.5 Distilled uses sigmas and does not accept timesteps"
                 )
-            supplied_sigmas = generate_kwargs.pop("sigmas", None)
-            if supplied_sigmas is not None:
+            if not self._is_phai_m1 and supplied_sigmas is not None:
                 try:
                     normalized_sigmas = [float(value) for value in supplied_sigmas]
                 except (TypeError, ValueError) as exc:
@@ -553,7 +597,11 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
                 "audio_guidance_rescale": 0.0,
             }
             for name, expected in distilled_guidance.items():
-                actual = generate_kwargs.get(name, expected)
+                actual = (
+                    expected
+                    if self._is_phai_m1
+                    else generate_kwargs.get(name, expected)
+                )
                 if float(actual) != expected:
                     raise ValueError(
                         f"LTX-2.5 Distilled requires {name}={expected}, got {actual}"
@@ -720,12 +768,19 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
     ) -> VideoList:
         if self._model is None:
             raise RuntimeError("LTX-2.5 model is not loaded")
-        if response_format not in {"url", "b64_json"}:
-            raise ValueError(f"Unsupported response format: {response_format}")
 
-        generate_kwargs, frame_rate, two_stage, progressor = (
-            self._prepare_generate_kwargs(n, num_inference_steps, kwargs)
-        )
+        try:
+            if response_format not in {"url", "b64_json"}:
+                raise ValueError(f"Unsupported response format: {response_format}")
+            generate_kwargs, frame_rate, two_stage, progressor = (
+                self._prepare_generate_kwargs(n, num_inference_steps, kwargs)
+            )
+        except InvalidModelRequestError:
+            raise
+        except ValueError as exc:
+            if self._is_phai_m1:
+                raise InvalidModelRequestError(str(exc)) from exc
+            raise
         negative_prompt = generate_kwargs["negative_prompt"]
         self._validate_prompt_batch(prompt, negative_prompt)
         if generate_kwargs.get("num_frames") is None and isinstance(prompt, list):
@@ -803,6 +858,10 @@ class LTX2VideoModel(DiffusersVideoModel, VideoEngineModel):
         response_format: str = "b64_json",
         **kwargs: Any,
     ) -> VideoList:
+        if self._is_phai_m1:
+            raise InvalidModelRequestError(
+                "Phai-M1 does not support first/last-frame generation"
+            )
         from diffusers.pipelines.ltx2.pipeline_ltx2_condition import LTX2VideoCondition
 
         if not isinstance(first_frame, PIL.Image.Image) or not isinstance(
