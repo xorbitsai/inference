@@ -18,7 +18,7 @@ import subprocess
 from contextlib import nullcontext
 from importlib.resources import files
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 
@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 _SAMPLE_RATE = 16000
 _VARIANTS = {"FireRedASR2-AED": ("aed", 60), "FireRedASR2-LLM": ("llm", 40)}
-FIREREDASR2_MODEL_NAMES = frozenset(_VARIANTS)
 _FFMPEG_REQUIRED = (
     "FireRedASR2 requires an imageio-ffmpeg wheel with a bundled FFmpeg executable."
 )
@@ -79,27 +78,6 @@ class FireRedASR2Model:
     def model_ability(self):
         return self.model_family.model_ability
 
-    @staticmethod
-    def preflight(python_executable: str, env: Dict[str, str]) -> None:
-        result = subprocess.run(
-            [
-                python_executable,
-                "-c",
-                "import subprocess; "
-                "from xinference.model.audio.fireredasr2 import _get_ffmpeg_executable; "
-                "subprocess.run([_get_ffmpeg_executable(), '-version'], "
-                "check=True, stdout=subprocess.DEVNULL)",
-            ],
-            env={**os.environ, **env},
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode:
-            raise ValueError(
-                f"FireRedASR2 FFmpeg preflight failed: {result.stderr.strip()}"
-            )
-
     def load(self):
         import torch
 
@@ -110,7 +88,19 @@ class FireRedASR2Model:
                 "or explicit model_path, set XINFERENCE_TRUST_REMOTE_CODE=1 only "
                 "if you trust the checkpoint source."
             )
-        _get_ffmpeg_executable()
+        executable = _get_ffmpeg_executable()
+        try:
+            subprocess.run(
+                [executable, "-version"], capture_output=True, check=True, timeout=60
+            )
+        except (
+            OSError,
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ) as exc:
+            raise RuntimeError(
+                "FireRedASR2 could not run the bundled FFmpeg executable."
+            ) from exc
         device = torch.device(
             self._device or ("cuda" if torch.cuda.is_available() else "cpu")
         )

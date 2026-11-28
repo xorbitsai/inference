@@ -14,6 +14,7 @@
 
 import importlib.util
 import io
+import subprocess
 import sys
 import wave
 from contextlib import nullcontext
@@ -136,6 +137,8 @@ def test_fireredasr2_discovery_can_install_missing_dependencies(
 def test_explicit_model_path_requires_trust(monkeypatch, tmp_path):
     monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", False)
     monkeypatch.setitem(sys.modules, "xinference.thirdparty.fireredasr2", None)
+    resolve_ffmpeg = Mock()
+    monkeypatch.setattr(fireredasr2, "_get_ffmpeg_executable", resolve_ffmpeg)
     name = "FireRedASR2-AED"
     spec = match_audio(name, download_hub="huggingface")
 
@@ -150,6 +153,37 @@ def test_explicit_model_path_requires_trust(monkeypatch, tmp_path):
         model.load()
 
     assert spec.is_builtin
+    resolve_ffmpeg.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        OSError(),
+        subprocess.CalledProcessError(1, "ffmpeg"),
+        subprocess.TimeoutExpired("ffmpeg", 60),
+    ],
+    ids=["cannot-execute", "nonzero-exit", "timeout"],
+)
+def test_fireredasr2_load_rejects_unusable_bundled_ffmpeg(monkeypatch, tmp_path, error):
+    executable = str(tmp_path / "ffmpeg-bundled")
+    monkeypatch.setattr(fireredasr2, "_get_ffmpeg_executable", lambda: executable)
+    run_ffmpeg = Mock(side_effect=error)
+    monkeypatch.setattr(fireredasr2.subprocess, "run", run_ffmpeg)
+    # Make an upstream import fail if it occurs before the FFmpeg check.
+    monkeypatch.setitem(sys.modules, "xinference.thirdparty.fireredasr2", None)
+    spec = match_audio("FireRedASR2-AED", download_hub="huggingface")
+    model = FireRedASR2Model("firered-test", str(tmp_path), spec, device="cpu")
+
+    with pytest.raises(
+        RuntimeError, match="FireRedASR2 could not run the bundled FFmpeg executable"
+    ) as failure:
+        model.load()
+
+    assert failure.value.__cause__ is error
+    run_ffmpeg.assert_called_once_with(
+        [executable, "-version"], capture_output=True, check=True, timeout=60
+    )
 
 
 def _stereo_wav(seconds, sample_rate=8000):
@@ -209,12 +243,22 @@ def bundled_ffmpeg(monkeypatch, tmp_path):
 def test_fireredasr2_transcription(
     monkeypatch, tmp_path, variant, text, response_format, device
 ):
+    executable = fireredasr2._get_ffmpeg_executable()
+    run_ffmpeg = Mock(wraps=subprocess.run)
+    monkeypatch.setattr(fireredasr2.subprocess, "run", run_ffmpeg)
     upstream = ModuleType("xinference.thirdparty.fireredasr2")
     upstream.FireRedAsr2Config = SimpleNamespace
     recognizer = Mock()
     recognizer.transcribe.return_value = [{"text": text}]
+
+    def load_upstream(*args):
+        run_ffmpeg.assert_called_once_with(
+            [executable, "-version"], capture_output=True, check=True, timeout=60
+        )
+        return recognizer
+
     upstream.FireRedAsr2 = SimpleNamespace(
-        from_pretrained=Mock(return_value=recognizer)
+        from_pretrained=Mock(side_effect=load_upstream)
     )
     monkeypatch.setitem(sys.modules, upstream.__name__, upstream)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
@@ -230,6 +274,8 @@ def test_fireredasr2_transcription(
     assert config.use_half is False
 
     result = model.transcriptions(_stereo_wav(1), response_format=response_format)
+    assert run_ffmpeg.call_count == 2
+    assert run_ffmpeg.call_args.args[0][0] == executable
     assert result == (
         {"text": text}
         if response_format == "json"
