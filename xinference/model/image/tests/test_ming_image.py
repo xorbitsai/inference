@@ -286,14 +286,22 @@ def test_ming_image_text_to_image_uses_one_call_per_seed(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "size,aspect_ratio,generated_size,expected_size",
+    "model_name,size,resolution,aspect_ratio,generated_size,expected_size",
     [
-        ("2560x1440", 16 / 9, (1280, 720), (2560, 1440)),
-        ("2048x2048", None, (2048, 2048), (2048, 2048)),
+        ("Ming-Image-0.2-Design", "2560x1440", 2048, 16 / 9, (1280, 720), (2560, 1440)),
+        ("Ming-Image-0.2-Design", "2048x2048", 2048, None, (2048, 2048), (2048, 2048)),
+        ("Ming-Image-0.2-Design", "1536x1536", 1024, None, (1024, 1024), (1536, 1536)),
+        ("Ming-Image-0.1-Design", "1536x1536", 1024, None, (1024, 1024), (1024, 1024)),
     ],
 )
 def test_ming_image_text_to_image_output_size(
-    monkeypatch, size, aspect_ratio, generated_size, expected_size
+    monkeypatch,
+    model_name,
+    size,
+    resolution,
+    aspect_ratio,
+    generated_size,
+    expected_size,
 ):
     from xinference.thirdparty.ming_image import infer
 
@@ -307,12 +315,12 @@ def test_ming_image_text_to_image_output_size(
             return None, None, None
 
         def __call__(self, **kwargs):
-            assert kwargs["image_gen_highres"] == 2048
+            assert kwargs["image_gen_highres"] == resolution
             assert kwargs.get("image_gen_aspect_ratio") == aspect_ratio
             return SimpleNamespace(to=lambda device: {})
 
     monkeypatch.setattr(ming_image, "handle_image_result", lambda fmt, images: images)
-    model = MingImageModel("ming", "/unused", _spec("Ming-Image-0.2-Design"))
+    model = MingImageModel("ming", "/unused", _spec(model_name))
     model._model = SimpleNamespace(
         device=torch.device("cpu"),
         generate=lambda **kwargs: Image.new("RGBA", generated_size),

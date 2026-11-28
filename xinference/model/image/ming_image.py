@@ -147,7 +147,13 @@ class MingImageModel(SDAPIDiffusionModelMixin):
             dimensions = [int(value) for value in re.split(r"\D+", size) if value]
             if len(dimensions) != 2 or min(dimensions) <= 0:
                 raise ValueError(f"Invalid image size: {size!r}")
-            if task == "text-to-image" and dimensions[0] != dimensions[1]:
+            if task == "text-to-image" and (
+                dimensions[0] != dimensions[1]
+                or (
+                    self._model_spec.model_name == "Ming-Image-0.2-Design"
+                    and dimensions[0] not in self._infer.TASK_RESOLUTION_BUCKETS[task]
+                )
+            ):
                 width, height = dimensions
                 resolution = None
             else:
