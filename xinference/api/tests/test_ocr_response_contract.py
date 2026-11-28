@@ -1,3 +1,4 @@
+# CI: linux
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,17 +21,19 @@ with response.json(). The endpoint must therefore declare application/json:
 with text/plain, aiohttp's content-type check makes the async client raise
 ContentTypeError on perfectly normal OCR text.
 
-These tests run without deepdoc-lib installed: the model actor is replaced
-by a stub that runs the real DeepDocModel (onnx internals mocked) and
-serializes its output exactly like ModelActor does. The full HTTP round
-trip — endpoint, real uvicorn server, real sync/async clients — is real.
+The model actor is replaced by a stub that runs the real OCR adapter and
+serializes its output exactly like ModelActor does. The adapters use mocked
+DeepDoc detection or a tiny Transformers causal LM with a mocked processor.
+The requests go through the actual HTTP endpoint on a uvicorn server.
 """
 
 import asyncio
 import io
+import json
 import threading
 import time
 import weakref
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -61,6 +64,52 @@ def _make_deepdoc_model():
     return model
 
 
+def _make_lightonocr3_model():
+    import torch
+
+    transformers = pytest.importorskip("transformers")
+
+    from ...model.image.ocr.lighton_ocr3 import LightOnOCR3Model
+
+    model = LightOnOCR3Model(model_uid=MODEL_UID)
+    model._model = transformers.GPT2LMHeadModel(
+        transformers.GPT2Config(
+            vocab_size=8,
+            n_positions=8,
+            n_embd=8,
+            n_layer=1,
+            n_head=1,
+            bos_token_id=1,
+            pad_token_id=0,
+            eos_token_id=None,
+        )
+    ).eval()
+    model._processor = MagicMock()
+    model._processor.apply_chat_template.return_value = transformers.BatchFeature(
+        {"input_ids": torch.tensor([[1, 2]]), "attention_mask": torch.tensor([[1, 1]])}
+    )
+    model._processor.decode.side_effect = lambda tokens, **_: f"{tokens.numel()} tokens"
+    return model
+
+
+def _make_nondeterministic_sglang_ocr_model():
+    from ...model.image.ocr.sglang import SGLangLightOnOCR3Model
+
+    model = SGLangLightOnOCR3Model(MODEL_UID)
+    model._processor = SimpleNamespace(apply_chat_template=lambda *a, **kw: "prompt")
+    model._model = SimpleNamespace(
+        server_args=SimpleNamespace(enable_deterministic_inference=False),
+        tokenizer_manager=SimpleNamespace(
+            preferred_sampling_params={},
+            sampling_params_class=lambda **kw: SimpleNamespace(
+                top_k=2, max_new_tokens=kw["max_new_tokens"]
+            ),
+        ),
+        generate=lambda **kw: {"text": "OCR"},
+    )
+    return model
+
+
 class _FakeModelRef:
     """Mimics ModelActor.ocr: runs the real adapter, then serializes the
     result to JSON bytes exactly like _call_wrapper_json does."""
@@ -75,7 +124,7 @@ class _FakeModelRef:
 
 
 @pytest.fixture
-def endpoint():
+def endpoint(request):
     # Skip RESTfulAPI.__init__: no supervisor, auth or on-disk stores are
     # needed to exercise create_ocr (same pattern as test_auth_advanced_toggle).
     api = RESTfulAPI.__new__(RESTfulAPI)
@@ -84,8 +133,9 @@ def endpoint():
     api._uid_to_model_name = {}
     api._running_tasks = weakref.WeakValueDictionary()
 
+    model_factory = getattr(request, "param", _make_deepdoc_model)
     supervisor = MagicMock()
-    supervisor.get_model = AsyncMock(return_value=_FakeModelRef(_make_deepdoc_model()))
+    supervisor.get_model = AsyncMock(return_value=_FakeModelRef(model_factory()))
 
     async def _get_supervisor_ref():
         return supervisor
@@ -133,6 +183,62 @@ def test_response_body_is_json(endpoint):
     assert response.headers["content-type"].startswith("application/json")
     # plain OCR text arrives as a JSON-encoded string, not raw text
     assert response.json() == "hello world"
+
+
+@pytest.mark.parametrize("endpoint", [_make_lightonocr3_model], indirect=True)
+@pytest.mark.parametrize("is_pdf", [False, True], ids=["image", "pdf"])
+@pytest.mark.parametrize("do_sample", [False, True], ids=["greedy", "sampling"])
+def test_lightonocr3_seeded_ocr(endpoint, is_pdf, do_sample):
+    import requests
+
+    if is_pdf:
+        pytest.importorskip("pypdfium2")
+        from .test_ocr_pdf import make_pdf
+
+        upload = ("pages.pdf", make_pdf(page_count=2), "application/pdf")
+    else:
+        upload = ("page.png", _png_bytes(), "image/png")
+    options = {
+        "seed": 123,
+        "do_sample": do_sample,
+        "temperature": 0.7,
+        "max_tokens": 2,
+    }
+    response = requests.post(
+        f"{endpoint}/v1/images/ocr",
+        data={"model": MODEL_UID, "kwargs": json.dumps(options)},
+        files={"image": upload},
+        timeout=30,
+    )
+    if do_sample:
+        assert response.status_code == 400, response.text
+        assert response.json() == {
+            "detail": "Seeded sampling is not supported by the Transformers engine for LightOnOCR-3."
+        }
+    else:
+        assert response.status_code == 200, response.text
+        assert response.json() == ("2 tokens\n\n2 tokens" if is_pdf else "2 tokens")
+
+
+@pytest.mark.parametrize(
+    "endpoint", [_make_nondeterministic_sglang_ocr_model], indirect=True
+)
+def test_lightonocr3_sglang_rejects_seeded_sampling_without_determinism(endpoint):
+    import requests
+
+    response = requests.post(
+        f"{endpoint}/v1/images/ocr",
+        data={
+            "model": MODEL_UID,
+            "kwargs": json.dumps(
+                {"do_sample": True, "temperature": 0.7, "seed": 123, "max_tokens": 2}
+            ),
+        },
+        files={"image": ("page.png", _png_bytes(), "image/png")},
+        timeout=30,
+    )
+    assert response.status_code == 400, response.text
+    assert "enable_deterministic_inference=True" in response.json()["detail"]
 
 
 def test_sync_client_plain_text(endpoint):

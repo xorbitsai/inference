@@ -1,0 +1,46 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-27 18:42+0800\n"
+"PO-Revision-Date: 2026-11-27 18:42+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:5
+msgid "LightOnOCR-3-4B"
+msgstr "LightOnOCR-3-4B"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:7
+msgid "**Model Name:** LightOnOCR-3-4B"
+msgstr "**モデル名:** LightOnOCR-3-4B"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:8
+msgid "**Model Family:** ocr"
+msgstr "**モデルファミリー:** ocr"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:9
+msgid "**Abilities:** ocr"
+msgstr "**機能:** ocr"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:10
+msgid "**Available ControlNet:** None"
+msgstr "**利用可能な ControlNet:** なし"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:13
+msgid "Specifications"
+msgstr "モデル仕様"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:15
+msgid "**Model ID:** lightonai/LightOnOCR-3-4B"
+msgstr "**モデル ID:** lightonai/LightOnOCR-3-4B"
+
+#: ../../source/models/builtin/image/lightonocr-3-4b.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "次のコマンドを実行してモデルを起動します::"

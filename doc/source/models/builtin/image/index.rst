@@ -73,6 +73,12 @@ The following is a list of built-in image models in Xinference:
 
    krea-2-turbo
 
+   lightonocr-3-0.8b
+
+   lightonocr-3-1b
+
+   lightonocr-3-4b
+
    mineru2.5
 
    ming-image-0.1-design

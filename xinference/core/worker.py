@@ -5538,6 +5538,11 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                 "_xinference_cache_only": completion_stage == "completed",
                 "_xinference_model_python_executable": model_python_executable,
             }
+        elif model_type.lower() == "image":
+            model_kwargs = {
+                **model_kwargs,
+                "_xinference_model_python_executable": model_python_executable,
+            }
         upload_progress_task: Optional[asyncio.Task] = None
         succeeded_event = threading.Event()
         downloader = CancellableDownloader(cancelled_event=download_info.cancel_event)
@@ -6250,6 +6255,7 @@ class WorkerActor(WorkerHandoffMixin, xo.StatelessActor):
                         # split into download and launch
                         progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
                         if model_type.lower() == "image":
+                            model_kwargs.pop("_xinference_skip_runtime_preflight", None)
                             from ..model.image.core import (
                                 match_diffusion as match_image_diffusion,
                             )

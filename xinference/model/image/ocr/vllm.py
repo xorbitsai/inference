@@ -26,6 +26,7 @@ from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .lighton_ocr3 import ThreadedLightOnOCR3Model
 from .minicpm_ocr import MiniCPMOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ovisocr2 import OvisOCR2Model
@@ -713,6 +714,61 @@ class VLLMOvisOCR3Model(ThreadedOvisOCR3Model):
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
     required_libs = ("vllm",)
+
+
+class VLLMLightOnOCR3Model(ThreadedLightOnOCR3Model):
+    required_libs = ("vllm",)
+
+    def load(self) -> None:
+        config = _sanitize_vllm_kwargs(self._kwargs)
+        config.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
+        config.setdefault("max_model_len", self._context_length)
+        config.setdefault("limit_mm_per_prompt", {"image": 1, "video": 0})
+        config.setdefault("mm_processor_cache_gb", 0)
+        config.setdefault("enable_prefix_caching", False)
+        try:
+            self._model = self._run_on_engine_thread(
+                _load_vllm_model, self._model_path, config
+            )
+            self._processor = self._run_on_engine_thread(self._model.get_tokenizer)
+        except Exception:
+            self.stop()
+            raise
+
+    def _shutdown_model(self) -> None:
+        _shutdown_vllm_model(self._model)
+
+    def ocr(
+        self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
+    ) -> str:
+        from vllm import SamplingParams
+
+        image = self._prepare_image(image)
+        if self._model is None or self._processor is None:
+            self.load()
+        assert self._model is not None
+        assert self._processor is not None
+        text = self._processor.apply_chat_template(
+            self._messages(prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            **self._chat_template_kwargs,
+        )
+        inputs = [{"prompt": text, "multi_modal_data": {"image": image}}]
+        sampling_kwargs = self._generation_kwargs(kwargs)
+        sampling_kwargs.pop("use_cache", None)
+        sampling_kwargs["max_tokens"] = sampling_kwargs.pop("max_new_tokens")
+        if sampling_kwargs.pop("do_sample", True):
+            sampling_kwargs.setdefault("temperature", 0.1)
+        else:
+            sampling_kwargs["temperature"] = 0.0
+        outputs = self._run_on_engine_thread(
+            self._model.generate, inputs, SamplingParams(**sampling_kwargs)
+        )
+        texts = _extract_text(outputs)
+        return texts[0] if texts else ""
 
 
 class VLLMMiniCPMOCRModel(MiniCPMOCRModel):

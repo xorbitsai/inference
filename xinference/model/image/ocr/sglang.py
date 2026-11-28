@@ -12,12 +12,111 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import PIL.Image
 
+from ....core.exceptions import InvalidModelRequestError
 from ...utils import allow_trust_remote_code
+from .lighton_ocr3 import ThreadedLightOnOCR3Model
 from .ovisocr3 import ThreadedOvisOCR3Model
+
+if TYPE_CHECKING:
+    from ..core import ImageModelFamilyV2
+
+
+class SGLangLightOnOCR3Model(ThreadedLightOnOCR3Model):
+    required_libs = ("sglang", "transformers")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        # SGLang's LightOnOCR loader expects the older LightOnOCR-2 weights.
+        return (
+            super().match(model_family) and model_family.model_name != "LightOnOCR-3-1B"
+        )
+
+    def load(self) -> None:
+        from sglang import Engine
+        from transformers import AutoTokenizer
+
+        from ...llm.sglang.runtime import prepare_jit_cache
+
+        prepare_jit_cache()
+        config = self._kwargs.copy()
+        for key in ("cpu_offload", "device_map", "torch_dtype", "attn_implementation"):
+            config.pop(key, None)
+        trust_remote_code = allow_trust_remote_code(self.model_family)
+        config.setdefault("trust_remote_code", trust_remote_code)
+        config.setdefault("context_length", self._context_length)
+        config.setdefault("mem_fraction_static", 0.8)
+        self._processor = AutoTokenizer.from_pretrained(
+            self._model_path, trust_remote_code=trust_remote_code
+        )
+        try:
+            self._model = self._run_on_engine_thread(
+                Engine, model_path=self._model_path, **config
+            )
+        except Exception:
+            self.stop()
+            raise
+
+    def _validate_sampling_seed(self, sampling_params: dict) -> None:
+        server_args = self._model.server_args
+        resolved_dict = getattr(server_args, "resolved_dict", None)
+        deterministic = (
+            resolved_dict()["enable_deterministic_inference"]
+            if resolved_dict is not None
+            else server_args.enable_deterministic_inference
+        )
+        if deterministic:
+            return
+
+        # Match the scheduler's greedy decision after SGLang applies model
+        # defaults and normalizes near-zero temperatures to top_k=1.
+        manager = self._model.tokenizer_manager
+        defaults = manager.preferred_sampling_params or {}
+        effective = manager.sampling_params_class(**{**defaults, **sampling_params})
+        if (
+            effective.top_k > 1
+            and effective.max_new_tokens != 0
+            and (getattr(effective, "beam_width", None) or 1) <= 1
+        ):
+            raise InvalidModelRequestError(
+                "Seeded sampling requires deterministic inference in the SGLang engine. "
+                "Relaunch the model with enable_deterministic_inference=True, "
+                "omit the seed, or use greedy decoding."
+            )
+
+    def ocr(
+        self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
+    ) -> str:
+        image = self._prepare_image(image)
+        if self._model is None or self._processor is None:
+            self.load()
+        sampling_params = self._generation_kwargs(kwargs)
+        sampling_params.pop("use_cache", None)
+        if sampling_params.pop("do_sample", True):
+            sampling_params.setdefault("temperature", 0.1)
+        else:
+            sampling_params["temperature"] = 0.0
+        seed = sampling_params.pop("seed", None)
+        if seed is not None and sampling_params.get("sampling_seed") is None:
+            sampling_params["sampling_seed"] = seed
+        if sampling_params.get("sampling_seed") is not None:
+            self._validate_sampling_seed(sampling_params)
+        text = self._processor.apply_chat_template(
+            self._messages(prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            **self._chat_template_kwargs,
+        )
+        output = self._run_on_engine_thread(
+            self._model.generate,
+            prompt=text,
+            image_data=image,
+            sampling_params=sampling_params,
+        )
+        return (output.get("text") or "").strip()
 
 
 class SGLangOvisOCR3Model(ThreadedOvisOCR3Model):
