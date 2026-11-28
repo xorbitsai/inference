@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import logging
+import shutil
 import subprocess
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -30,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 _SAMPLE_RATE = 16000
 _VARIANTS = {"FireRedASR2-AED": ("aed", 60), "FireRedASR2-LLM": ("llm", 40)}
+_FFMPEG_REQUIRED = "FireRedASR2 requires ffmpeg on PATH."
 
 
 class FireRedASR2Model:
@@ -53,6 +55,12 @@ class FireRedASR2Model:
     @property
     def model_ability(self):
         return self.model_family.model_ability
+
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        if shutil.which("ffmpeg") is None:
+            return False, _FFMPEG_REQUIRED
+        return True
 
     def load(self):
         import torch
@@ -120,7 +128,7 @@ class FireRedASR2Model:
                 check=True,
             )
         except FileNotFoundError as exc:
-            raise RuntimeError("FireRedASR2 requires ffmpeg on PATH.") from exc
+            raise RuntimeError(_FFMPEG_REQUIRED) from exc
         except subprocess.CalledProcessError as exc:
             raise InvalidAudioInputError(
                 "Invalid audio file: unable to decode audio."

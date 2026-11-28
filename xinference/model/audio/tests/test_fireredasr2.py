@@ -39,6 +39,19 @@ from ..engine_family import AUDIO_ENGINES
 from ..fireredasr2 import FireRedASR2Model
 
 
+@pytest.fixture
+def ffmpeg_on_path(monkeypatch):
+    which = shutil.which
+
+    def find_ffmpeg(command, *args, **kwargs):
+        if command == "ffmpeg":
+            return "/mock-bin/ffmpeg"
+        return which(command, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "which", find_ffmpeg)
+
+
+@pytest.mark.usefixtures("ffmpeg_on_path")
 @pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
 @pytest.mark.parametrize(
     "hub, owner, revision",
@@ -76,6 +89,35 @@ def test_fireredasr2_registration(
 
 
 @pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
+def test_fireredasr2_requires_ffmpeg_before_caching(monkeypatch, tmp_path, model_name):
+    monkeypatch.setattr(shutil, "which", Mock(return_value=None))
+    cache = Mock(return_value=str(tmp_path))
+    monkeypatch.setattr(CacheManager, "cache", cache)
+
+    with pytest.raises(ValueError, match="ffmpeg on PATH") as error:
+        create_audio_model_instance(
+            model_name, model_name, download_hub="modelscope", enable_virtual_env=True
+        )
+    cache.assert_not_called()
+
+    params = get_engine_params_by_name_with_virtual_env(
+        "audio", model_name, enable_virtual_env=True
+    )
+    assert params == {"PyTorch": str(error.value)}
+
+    model = create_audio_model_instance(
+        model_name,
+        model_name,
+        download_hub="modelscope",
+        enable_virtual_env=True,
+        _xinference_cache_only=True,
+    )
+    cache.assert_called_once()
+    assert isinstance(model, FireRedASR2Model)
+
+
+@pytest.mark.usefixtures("ffmpeg_on_path")
+@pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
 def test_fireredasr2_discovery_can_install_missing_kaldiio(monkeypatch, model_name):
     find_spec = importlib.util.find_spec
 
@@ -109,6 +151,7 @@ def test_fireredasr2_discovery_can_install_missing_kaldiio(monkeypatch, model_na
     assert "kaldiio==2.18.1" in packages
 
 
+@pytest.mark.usefixtures("ffmpeg_on_path")
 def test_explicit_model_path_requires_trust(monkeypatch, tmp_path):
     monkeypatch.setattr(constants, "XINFERENCE_TRUST_REMOTE_CODE", False)
     monkeypatch.setitem(sys.modules, "xinference.thirdparty.fireredasr2", None)
