@@ -79,6 +79,8 @@ The following is a list of built-in image models in Xinference:
 
    ming-image-0.1-design-layer
 
+   ming-image-0.2-design
+
    minicpm-ocr-1.0
 
    minimax-h3-image

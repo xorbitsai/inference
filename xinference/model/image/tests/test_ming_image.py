@@ -1,3 +1,5 @@
+# CI: linux
+
 from importlib.metadata import version
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +19,7 @@ from ..ming_image import MingImageModel
     [
         ("Ming-Image-0.1-Design", ["text2image", "image2image"], 1.0),
         ("Ming-Image-0.1-Design-Layer", ["image2image"], 2.0),
+        ("Ming-Image-0.2-Design", ["text2image"], 1.0),
     ],
 )
 def test_ming_image_catalog(name, abilities, cfg):
