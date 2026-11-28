@@ -521,11 +521,18 @@ def test_closed_rejected_frame_does_not_absorb_following_calls(parser_name):
         end = "\n" + chr(96) * 3
         rejected = feed(model, end, history, state)
         assert rejected["choices"][0]["delta"]["content"] == prefix + end
+        assert not deltas(rejected)
     else:
-        rejected = feed(
-            model, "<｜tool▁call▁end｜><｜tool▁calls▁end｜>", history, state
-        )
-    assert not deltas(rejected)
+        # The string is still open, so the call end tokens may belong to its
+        # value and cannot close the call yet. They are kept as part of that
+        # value (nothing leaks as content) and the call is rejected once the
+        # next call starts.
+        ambiguous = "<｜tool▁call▁end｜><｜tool▁calls▁end｜>"
+        held = feed(model, ambiguous, history, state)
+        assert not held["choices"][0]["delta"]["content"]
+        (held_call,) = deltas(held)
+        assert held_call["index"] == 0
+        assert held_call["function"]["arguments"] == ambiguous
 
     (later,) = deltas(feed(model, opening + value, history, state))
     assert later["index"] == 1
@@ -697,3 +704,64 @@ def test_rejected_fence_does_not_match_identical_valid_sibling():
         feed(model, "", history, state, "stop")["choices"][0]["finish_reason"]
         == "length"
     )
+
+
+@pytest.mark.parametrize("size", (1, 17, 1000))
+def test_v31_call_end_token_inside_a_string_argument_keeps_one_call(size):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS["deepseek-v3.1"]()
+    history, state = [""], {}
+    code = 'print("<｜tool▁call▁end｜><｜tool▁calls▁end｜>")'
+    arguments = json.dumps({"code": code, "line": 7}, ensure_ascii=False)
+    text = (
+        "<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>write<｜tool▁sep｜>"
+        + arguments
+        + "<｜tool▁call▁end｜><｜tool▁calls▁end｜>"
+    )
+    calls = []
+    for offset in range(0, len(text), size):
+        calls += deltas(feed(model, text[offset : offset + size], history, state))
+    assert {call["index"] for call in calls} == {0}
+    streamed = "".join(call["function"].get("arguments", "") for call in calls)
+    assert json.loads(streamed) == {"code": code, "line": 7}
+    last = feed(model, "", history, state, "stop")
+    assert last["choices"][0]["finish_reason"] == "tool_calls"
+
+
+ODD_QUOTE_VALUES = ('27" monitor', '{"city": "unfinished}')
+
+
+@pytest.mark.parametrize("parser_name", ["deepseek-v3.2", "deepseek-v4"])
+@pytest.mark.parametrize("size", (1, 3, 8, 17, 1000))
+@pytest.mark.parametrize("value", ODD_QUOTE_VALUES)
+@pytest.mark.parametrize("string_first", (False, True))
+def test_dsml_call_with_an_odd_quote_in_a_json_value_is_kept(
+    parser_name, size, value, string_first
+):
+    model = ChatModelMixin()
+    model.tool_parser = TOOL_PARSERS[parser_name]()
+    history, state = [""], {}
+    wrapper = "function_calls" if parser_name == "deepseek-v3.2" else "tool_calls"
+    broken = (
+        f'<｜DSML｜parameter name="code" string="false">{value}</｜DSML｜parameter>'
+    )
+    note = '<｜DSML｜parameter name="path" string="true">hello</｜DSML｜parameter>'
+    text = (
+        f'<｜DSML｜{wrapper}><｜DSML｜invoke name="write">'
+        + (note + broken if string_first else broken + note)
+        + f"</｜DSML｜invoke></｜DSML｜{wrapper}>"
+    )
+    calls, content = [], ""
+    for offset in range(0, len(text), size):
+        chunk = feed(model, text[offset : offset + size], history, state)
+        calls += deltas(chunk)
+        if chunk:
+            content += chunk["choices"][0]["delta"].get("content") or ""
+    last = feed(model, "", history, state, "stop")
+    calls += deltas(last)
+    content += last["choices"][0]["delta"].get("content") or ""
+    assert not content
+    assert {call["index"] for call in calls} == {0}
+    streamed = "".join(call["function"].get("arguments", "") for call in calls)
+    assert json.loads(streamed) == {"code": value, "path": "hello"}
+    assert last["choices"][0]["finish_reason"] == "tool_calls"

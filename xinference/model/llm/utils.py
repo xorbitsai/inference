@@ -1337,6 +1337,7 @@ class ChatModelMixin:
                     previous_texts[-1] + delta_text if previous_texts else delta_text
                 )
                 llama_state = None
+                streamed = False
                 if (
                     isinstance(self.tool_parser, QwenToolParser)
                     and tool_call_state is not None
@@ -1377,6 +1378,7 @@ class ChatModelMixin:
                         )
                     )
                 ):
+                    streamed = True
                     stream = tool_call_state.get("argument_stream")
                     if stream is None:
                         stream = tool_call_state["argument_stream"] = ArgumentStream()
@@ -1416,6 +1418,24 @@ class ChatModelMixin:
                             tool_result = [tool_result, (suffix, None, None)]
                         else:
                             tool_result = (suffix, None, None)
+                if (
+                    finish_reason is not None
+                    and not streamed
+                    and not (llama_state and llama_state.settled)
+                    and (
+                        flush_calls := getattr(
+                            self.tool_parser, "flush_streaming_tool_calls", None
+                        )
+                    )
+                ):
+                    late = flush_calls(current_text)
+                    if late:
+                        if isinstance(tool_result, list):
+                            tool_result = tool_result + late
+                        elif tool_result:
+                            tool_result = [tool_result, *late]
+                        else:
+                            tool_result = late
                 previous_texts[-1] = current_text
         finally:
             request_tools_var.reset(token)

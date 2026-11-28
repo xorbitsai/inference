@@ -1,5 +1,6 @@
+import re
 from contextvars import ContextVar
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional
 
 # Tools of the request whose output is being parsed. One parser instance serves
 # every request to a model, so the chat helpers set this around each parse call
@@ -108,3 +109,131 @@ class ToolParser:
         start = len(previous_text) - self._partial_marker_length(previous_text, markers)
         end = len(current_text) - self._partial_marker_length(current_text, markers)
         return current_text[start:end] or None
+
+    def _text_outside_blocks(
+        self,
+        current_text: str,
+        delta_text: str,
+        start: str,
+        end: str,
+        held_markers: Optional[Iterable[str]] = None,
+        call_start: Optional[str] = None,
+        call_end: Optional[Callable[[str, int], int]] = None,
+    ) -> Optional[str]:
+        """
+        Return the plain text this chunk adds outside ``start``...``end``
+        blocks, or None when there is none.
+
+        Text before a block, between blocks and after the last one is content,
+        even when it shares a chunk with a marker. A trailing piece that may be
+        the start of a marker (``held_markers``, default ``start``) is held
+        back, as in ``_plain_text_delta``, and nothing is returned while a block
+        is still open.
+
+        ``end`` only closes a block outside a call. When ``call_start`` and
+        ``call_end`` are given, a call that starts with ``call_start`` is
+        skipped as a whole, so an ``end`` marker written inside a tool argument
+        does not close the block. ``call_end(text, index)`` takes the index of
+        a ``call_start`` and returns the index just past the end of that call,
+        or -1 while it is still open. It reads the arguments by their syntax,
+        so a literal end marker inside an argument does not end the call.
+        """
+        markers = tuple(held_markers or (start,))
+        previous_length = len(current_text) - len(delta_text)
+        floor = previous_length - self._partial_marker_length(
+            current_text[:previous_length], markers
+        )
+        parts = []
+        position = 0
+        while (block := current_text.find(start, position)) != -1:
+            parts.append(current_text[max(position, floor) : block])
+            body_end = self.block_end(
+                current_text, block + len(start), end, call_start, call_end
+            )
+            if body_end == -1:
+                return "".join(parts) or None
+            position = body_end + len(end)
+        content_end = len(current_text) - self._partial_marker_length(
+            current_text, markers
+        )
+        parts.append(current_text[max(position, floor) : content_end])
+        return "".join(parts) or None
+
+    @staticmethod
+    def block_end(
+        text: str,
+        position: int,
+        end: str,
+        call_start: Optional[str] = None,
+        call_end: Optional[Callable[[str, int], int]] = None,
+    ) -> int:
+        """
+        Return the index of the ``end`` marker that closes the block whose body
+        starts at ``position``, or -1 while it is still open. A call that
+        starts with ``call_start`` is skipped as a whole (see
+        ``_text_outside_blocks``), so ``end`` is never looked for inside it.
+        """
+        while True:
+            closing = text.find(end, position)
+            if not call_start or call_end is None:
+                return closing
+            opening = text.find(call_start, position)
+            if opening == -1 or (closing != -1 and closing < opening):
+                return closing
+            call_close = call_end(text, opening)
+            if call_close == -1:
+                return -1
+            position = call_close
+
+
+# The body of a JSON string up to and including its closing quote, read from
+# just after the opening quote.
+_JSON_STRING_BODY = re.compile(r'[^"\\]*(?:\\.[^"\\]*)*"', re.DOTALL)
+
+
+def find_outside_json_string(
+    text: str,
+    marker: str,
+    position: int,
+    restart: Optional[str] = None,
+    final: bool = False,
+) -> int:
+    """
+    Return the index of the first ``marker`` at or after ``position`` that is
+    not inside a JSON string, or -1 when there is none yet. A marker written
+    inside a string value is part of the value, so it is skipped, and a string
+    that is still open hides the rest of the text.
+
+    A string that holds a ``marker`` and is still open when the next
+    ``restart`` token (the start of a following call) begins was cut short, so
+    that first marker counts after all.
+
+    With ``final`` the text is complete, so a string still open at its end was
+    cut short too, and so is one that hides every ``marker`` from ``position``:
+    the first ``marker`` at or after ``position`` counts.
+
+    The marker is looked for once and the quotes are only looked for before
+    it, so a value that is still arriving costs little to check again on
+    every delta: a text without ``marker`` returns at once, and each string is
+    read with one regular expression.
+    """
+    found = text.find(marker, position)
+    if found == -1:
+        return -1
+    index = position
+    while True:
+        quote = text.find('"', index, found)
+        if quote == -1:
+            return found
+        body = _JSON_STRING_BODY.match(text, quote + 1)
+        end = body.end() if body is not None else len(text)
+        if restart and found + len(marker) <= end:
+            if text.find(restart, found + 1, end) != -1:
+                return found
+        if body is None:
+            return text.find(marker, position) if final else -1
+        index = end
+        if found < index:
+            found = text.find(marker, index)
+            if found == -1:
+                return text.find(marker, position) if final else -1

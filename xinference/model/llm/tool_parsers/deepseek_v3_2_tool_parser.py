@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
 from .argument_stream import ArgumentStart, dsml_argument_start
+from .invoke_scan import invoke_end, iter_invokes
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,15 @@ class DeepseekV3_2ToolParser(ToolParser):
         """Return True when DSML-prefixed format is detected, False for plain."""
         return f"{self._DSML}function_calls>" in text
 
+    def _wrapper_tags(self, dsml: bool) -> Tuple[str, str]:
+        """Return the tags that open and close the tool calls block."""
+        if dsml:
+            return f"{self._DSML}function_calls>", f"</{self._DSML[1:]}function_calls>"
+        return "<function_calls>", "</function_calls>"
+
+    def _call_start(self, dsml: bool) -> str:
+        return f"{self._DSML}invoke" if dsml else "<invoke"
+
     def extract_tool_calls(
         self, model_output: str
     ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
@@ -115,26 +125,38 @@ class DeepseekV3_2ToolParser(ToolParser):
         if not has_any:
             return [(model_output, None, None)]
 
-        tool_call_regex, invoke_regex, parameter_regex = self._regexes[
-            self._detect_format(model_output)
-        ]
+        dsml = self._detect_format(model_output)
+        parameter_regex = self._regexes[dsml][2]
+        wrapper_start, wrapper_end = self._wrapper_tags(dsml)
 
         results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
             []
         )
 
         content_start = 0
-        for tool_call_match in tool_call_regex.finditer(model_output):
-            invokes = invoke_regex.findall(tool_call_match.group(1))
+        position = 0
+        while (block := model_output.find(wrapper_start, position)) != -1:
+            body = block + len(wrapper_start)
+            close = self.block_end(
+                model_output,
+                body,
+                wrapper_end,
+                self._call_start(dsml),
+                lambda text, index: invoke_end(text, index, dsml, True),
+            )
+            if close == -1:
+                break
+            position = close + len(wrapper_end)
+            invokes = list(iter_invokes(model_output, dsml, body, close, True))
             if not invokes:
                 continue
-            content = model_output[content_start : tool_call_match.start()]
+            content = model_output[content_start:block]
             if content:
                 results.append((content, None, None))
-            for invoke_name, invoke_content in invokes:
+            for invoke_name, invoke_content, _ in invokes:
                 param_dict = self._parse_invoke_params(invoke_content, parameter_regex)
                 results.append((None, invoke_name, param_dict))
-            content_start = tool_call_match.end()
+            content_start = position
 
         if not results:
             return [(model_output, None, None)]
@@ -186,24 +208,42 @@ class DeepseekV3_2ToolParser(ToolParser):
             # Inside tool-call region: return the invokes whose closing tag
             # arrived in this delta
             dsml = self._detect_format(current_text)
-            _, invoke_regex, parameter_regex = self._regexes[dsml]
+            parameter_regex = self._regexes[dsml][2]
             previous_length = len(current_text) - len(delta_text)
-            # Every invoke ends with its closing tag, so none can complete in
-            # this delta unless the tag does. Skip the regex scan until then.
+            # An invoke completes when its closing tag arrives, or when the
+            # start of the next invoke shows that a cut short JSON string
+            # ended it. Skip the scan until one of them does.
             invoke_close = f"</{self._DSML[1:]}invoke>" if dsml else "</invoke>"
+            invoke_start = self._call_start(dsml)
+            # Text outside the tool call blocks is content, even when it
+            # shares a chunk with a marker.
+            wrapper_start, wrapper_end = self._wrapper_tags(dsml)
+            content = self._text_outside_blocks(
+                current_text,
+                delta_text,
+                wrapper_start,
+                wrapper_end,
+                self.tool_call_start_tokens,
+                call_start=self._call_start(dsml),
+                call_end=lambda text, index: invoke_end(text, index, dsml),
+            )
+            tail = max(
+                previous_length - max(len(invoke_close), len(invoke_start)) + 1, 0
+            )
             if (
-                current_text.find(
-                    invoke_close, max(previous_length - len(invoke_close) + 1, 0)
-                )
-                == -1
+                current_text.find(invoke_close, tail) == -1
+                and current_text.find(invoke_start, tail) == -1
             ):
-                return None
-            results: List[ToolCall] = []
-            for invoke in invoke_regex.finditer(current_text):
-                if invoke.end() > previous_length:
-                    invoke_name, invoke_body = invoke.groups()
-                    param_dict = self._parse_invoke_params(invoke_body, parameter_regex)
-                    results.append((None, invoke_name, param_dict))
+                return (content, None, None) if content else None
+            results: List[ToolCall] = [(content, None, None)] if content else []
+            # New invokes are counted, not located: a cut short invoke ends
+            # before this delta, but is only known to be complete now.
+            completed = len(list(iter_invokes(current_text[:previous_length], dsml)))
+            for invoke_name, invoke_body, _ in list(iter_invokes(current_text, dsml))[
+                completed:
+            ]:
+                param_dict = self._parse_invoke_params(invoke_body, parameter_regex)
+                results.append((None, invoke_name, param_dict))
 
             if not results:
                 # Buffering — no invoke completed in this delta
@@ -213,3 +253,38 @@ class DeepseekV3_2ToolParser(ToolParser):
         except Exception as e:
             logger.error("Error in DeepSeek V3.2 streaming tool call extraction: %s", e)
             raise
+
+    def flush_streaming_tool_calls(
+        self, current_text: str
+    ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+        """
+        Return what the finished stream adds once the text is known to be
+        complete: a JSON string still open at the end was cut short, so the
+        invokes it hid are complete, and so is the block that holds them.
+        """
+        if not any(tok in current_text for tok in self.tool_call_start_tokens):
+            return []
+        dsml = self._detect_format(current_text)
+        parameter_regex = self._regexes[dsml][2]
+        wrapper_start, wrapper_end = self._wrapper_tags(dsml)
+        results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
+            []
+        )
+        emitted = len(list(iter_invokes(current_text, dsml)))
+        for invoke_name, invoke_body, _ in list(
+            iter_invokes(current_text, dsml, final=True)
+        )[emitted:]:
+            param_dict = self._parse_invoke_params(invoke_body, parameter_regex)
+            results.append((None, invoke_name, param_dict))
+        if results:
+            block = current_text.rfind(wrapper_start)
+            close = self.block_end(
+                current_text,
+                block + len(wrapper_start),
+                wrapper_end,
+                self._call_start(dsml),
+                lambda text, index: invoke_end(text, index, dsml, True),
+            )
+            if close != -1 and current_text[close + len(wrapper_end) :]:
+                results.append((current_text[close + len(wrapper_end) :], None, None))
+        return results

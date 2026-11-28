@@ -1,10 +1,10 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from . import register_tool_parser
-from .abstract_tool_parser import ToolParser
+from .abstract_tool_parser import ToolParser, find_outside_json_string
 from .argument_stream import ArgumentStart, open_block
 
 logger = logging.getLogger(__name__)
@@ -25,17 +25,49 @@ class DeepseekV3_1ToolParser(ToolParser):
         Initialize the DeepSeek V3.1 tool parser.
         """
         super().__init__()
-        # Sentinel tokens for streaming mode
-        self.new_tool_calls_regex = re.compile(
-            r"(?:<｜tool▁calls▁begin｜>|<｜tool▁call▁begin｜>)(?:<｜tool▁call▁begin｜>)?\s*(.*?)\s*<｜tool▁sep｜>\s*(.*?)\s*<｜tool▁call▁end｜>",
+        # The start of a call, up to the separator before its arguments
+        self._call_head_regex = re.compile(
+            r"(?:<｜tool▁calls▁begin｜>|<｜tool▁call▁begin｜>)(?:<｜tool▁call▁begin｜>)?\s*(.*?)\s*(?=<｜tool▁sep｜>)",
             re.DOTALL,
         )
-        # One call plus a trailing end-of-calls token, so the text around it
-        # can be returned as content.
-        self.tool_call_span_regex = re.compile(
-            self.new_tool_calls_regex.pattern + r"(?:\s*<｜tool▁calls▁end｜>)?",
-            re.DOTALL,
+        self._calls_end_regex = re.compile(r"\s*<｜tool▁calls▁end｜>")
+
+    _SEPARATOR = "<｜tool▁sep｜>"
+    _CALL_BEGIN = "<｜tool▁call▁begin｜>"
+    _CALL_END = "<｜tool▁call▁end｜>"
+
+    def _call_end(self, text: str, separator: int) -> int:
+        """
+        Return the index just past the end of the call whose separator token is
+        at ``separator``, or -1 while it is still open. A JSON argument ends
+        where the JSON does, so a literal call end token inside a string value
+        does not end the call.
+        """
+        close = find_outside_json_string(
+            text,
+            self._CALL_END,
+            separator + len(self._SEPARATOR),
+            self._CALL_BEGIN,
         )
+        return -1 if close == -1 else close + len(self._CALL_END)
+
+    def _iter_calls(self, text: str) -> Iterator[Tuple[str, str, int, int]]:
+        """
+        Yield ``(name, arguments, start, end)`` for each complete call in
+        ``text``, where ``end`` is just past the call and the end of calls
+        token that follows it, if any.
+        """
+        position = 0
+        while (head := self._call_head_regex.search(text, position)) is not None:
+            separator = head.end()
+            close = self._call_end(text, separator)
+            if close == -1:
+                return
+            arguments = text[separator + len(self._SEPARATOR) : close]
+            arguments = arguments[: -len(self._CALL_END)].strip()
+            trailing = self._calls_end_regex.match(text, close)
+            position = trailing.end() if trailing else close
+            yield head[1], arguments, head.start(), position
 
     def extract_tool_calls(
         self, model_output: str
@@ -64,7 +96,7 @@ class DeepseekV3_1ToolParser(ToolParser):
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
-        new_matches = list(self.tool_call_span_regex.finditer(model_output))
+        new_matches = list(self._iter_calls(model_output))
 
         if not new_matches:
             # No tool calls found, return the original output as content
@@ -77,12 +109,11 @@ class DeepseekV3_1ToolParser(ToolParser):
         )
 
         content_start = 0
-        for match in new_matches:
-            content = model_output[content_start : match.start()]
+        for name, args_json, start, end in new_matches:
+            content = model_output[content_start:start]
             if content:
                 results.append((content, None, None))
-            name, args_json = match.groups()
-            content_start = match.end()
+            content_start = end
             tool_call_tuple: Tuple[
                 Optional[str], Optional[str], Optional[Dict[str, Any]]
             ]
@@ -136,9 +167,11 @@ class DeepseekV3_1ToolParser(ToolParser):
             close_frame=self._close_call,
         )
 
-    @staticmethod
-    def _close_call(text: str, start: int) -> int:
-        return text.find("<｜tool▁call▁end｜>", start)
+    @classmethod
+    def _close_call(cls, text: str, start: int) -> int:
+        # Same boundary as _call_end: a call end token inside a JSON string
+        # value does not close the call.
+        return find_outside_json_string(text, cls._CALL_END, start, cls._CALL_BEGIN)
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
@@ -177,6 +210,17 @@ class DeepseekV3_1ToolParser(ToolParser):
 
             # New pattern check
             if new_pattern_start in current_text:
+                # Text outside the tool calls block is content, even when it
+                # shares a chunk with a marker
+                content = self._text_outside_blocks(
+                    current_text,
+                    delta_text,
+                    new_pattern_start,
+                    "<｜tool▁calls▁end｜>",
+                    call_start=self._SEPARATOR,
+                    call_end=self._call_end,
+                )
+                content_events = [(content, None, None)] if content else []
                 # Calculate tool calls in previous and current text to detect new completions
                 full_previous_text = "".join(previous_text)
                 # Every match ends with the call end token, so the number of
@@ -188,16 +232,16 @@ class DeepseekV3_1ToolParser(ToolParser):
                     )
                     == -1
                 ):
-                    return None
-                previous_tool_calls = self.new_tool_calls_regex.findall(
-                    full_previous_text
-                )
-                current_tool_calls = self.new_tool_calls_regex.findall(current_text)
+                    return content_events[0] if content_events else None
+                previous_tool_calls = list(self._iter_calls(full_previous_text))
+                current_tool_calls = list(self._iter_calls(current_text))
 
                 new_tool_calls: List[
                     Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
                 ] = []
-                for name, args_json in current_tool_calls[len(previous_tool_calls) :]:
+                for name, args_json, _, _ in current_tool_calls[
+                    len(previous_tool_calls) :
+                ]:
                     try:
                         arguments = json.loads(args_json)
                     except json.JSONDecodeError:
@@ -206,6 +250,7 @@ class DeepseekV3_1ToolParser(ToolParser):
                         continue
                     new_tool_calls.append((None, name, arguments))
 
+                new_tool_calls = content_events + new_tool_calls
                 if new_tool_calls:
                     return (
                         new_tool_calls[0]
