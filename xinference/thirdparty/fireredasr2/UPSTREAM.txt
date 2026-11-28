@@ -1,0 +1,10 @@
+FireRedASR2 standalone inference from FireRedASR2S
+
+Repository: https://github.com/FireRedTeam/FireRedASR2S
+Revision: 4e7d9aaf4482a47cec1724807026b9b151926eb5
+Upstream directory: fireredasr2s/fireredasr2
+License: Apache-2.0 (see LICENSE)
+
+Xinference includes the standalone AED and LLM inference modules. Package
+initializers support local imports and setuptools discovery. The entry point
+loads LLM dependencies only for the LLM variant.

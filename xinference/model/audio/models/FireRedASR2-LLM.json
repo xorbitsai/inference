@@ -1,0 +1,41 @@
+[
+  {
+    "version": 2,
+    "model_name": "FireRedASR2-LLM",
+    "model_description": "FireRedASR2-LLM is an encoder-adapter-LLM model for Chinese and English speech and singing transcription, including Chinese dialects and code-switching.",
+    "model_family": "fireredasr2",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "zh",
+      "en"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "virtualenv": {
+      "packages": [
+        "kaldiio==2.18.1",
+        "kaldi-native-fbank>=1.15",
+        "sentencepiece==0.2.1",
+        "transformers==5.13.1",
+        "peft==0.22.0",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FireRedTeam/FireRedASR2-LLM",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "xukaituo/FireRedASR2-LLM",
+        "model_revision": "master"
+      }
+    }
+  }
+]
