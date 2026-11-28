@@ -16,7 +16,7 @@
     "model_format": "pytorch",
     "virtualenv": {
       "packages": [
-        "kaldiio==2.18.1",
+        "kaldiio==2.18.1 ; #engine# == \"PyTorch\"",
         "kaldi-native-fbank>=1.15",
         "sentencepiece==0.2.1",
         "transformers==5.13.1",

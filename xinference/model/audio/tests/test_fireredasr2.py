@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 import io
 import shutil
 import sys
@@ -26,8 +27,14 @@ import torch
 
 from .... import constants
 from ....core.exceptions import InvalidAudioInputError
+from ....core.utils import filter_virtualenv_packages_by_markers
 from ...cache_manager import CacheManager
+from ...utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..core import create_audio_model_instance, match_audio
+from ..engine import PyTorchFireRedASR2AudioModel
 from ..engine_family import AUDIO_ENGINES
 from ..fireredasr2 import FireRedASR2Model
 
@@ -66,6 +73,40 @@ def test_fireredasr2_registration(
     )
     assert cached_specs == [spec]
     assert isinstance(model, FireRedASR2Model)
+
+
+@pytest.mark.parametrize("model_name", ["FireRedASR2-AED", "FireRedASR2-LLM"])
+def test_fireredasr2_discovery_can_install_missing_kaldiio(monkeypatch, model_name):
+    find_spec = importlib.util.find_spec
+
+    def find_spec_without_kaldiio(name, *args, **kwargs):
+        if name == "kaldiio":
+            return None
+        if name in PyTorchFireRedASR2AudioModel.required_libs:
+            return SimpleNamespace()
+        return find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib.util, "find_spec", find_spec_without_kaldiio)
+
+    strict = get_engine_params_by_name("audio", model_name, enable_virtual_env=False)
+    assert strict == {"PyTorch": "Library 'kaldiio' is not installed"}
+
+    installable = get_engine_params_by_name_with_virtual_env(
+        "audio", model_name, enable_virtual_env=True
+    )
+    assert set(installable) == {"PyTorch"}
+    assert isinstance(installable["PyTorch"], list)
+    (engine,) = installable["PyTorch"]
+    assert engine["model_name"] == model_name
+    assert engine["model_format"] == "pytorch"
+    assert engine["virtualenv_required"] is True
+    assert strict["PyTorch"] in engine["virtualenv_reason"]
+
+    spec = match_audio(model_name, "modelscope")
+    packages = filter_virtualenv_packages_by_markers(
+        spec.virtualenv.packages, model_engine="PyTorch", cuda_version=None
+    )
+    assert "kaldiio==2.18.1" in packages
 
 
 def test_explicit_model_path_requires_trust(monkeypatch, tmp_path):
