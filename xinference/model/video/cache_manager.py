@@ -15,6 +15,7 @@ from .ltx25_checkpoint import (
 )
 
 if TYPE_CHECKING:
+    from ..utils import CancellableDownloader
     from .core import VideoModelFamilyV2
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,9 @@ def phai_m1_base_lock_path(cache_root: Path, hub: str) -> Path:
 
 
 @contextmanager
-def _phai_m1_download_lock(cache_root: Path, hub: str) -> Iterator[None]:
+def _phai_m1_download_lock(
+    cache_root: Path, hub: str
+) -> Iterator[Optional["CancellableDownloader"]]:
     from filelock import FileLock, Timeout
 
     from ..utils import _cancellable_downloaders_var
@@ -52,7 +55,7 @@ def _phai_m1_download_lock(cache_root: Path, hub: str) -> Iterator[None]:
     try:
         if downloader is not None and downloader.cancelled:
             downloader.raise_error()
-        yield
+        yield downloader
     finally:
         lock.release()
 
@@ -92,6 +95,17 @@ class VideoCacheManager(CacheManager):
         if checkpoint is None:
             return False
         return not _missing_ltx25_base_files(self._phai_m1_base_path())
+
+    def has_managed_cache(self) -> bool:
+        """Check for files that the cache tracker can list and reclaim."""
+        if self._model_family.model_family != "Phai-M1":
+            return self.get_cache_status()
+        # The managed checkpoint and per-hub base view remain on disk after
+        # restart, even when the caller supplied the other component locally.
+        if find_phai_m1_checkpoint(self.get_cache_dir(), self._phai_m1_filename()):
+            return True
+        base_path = self._phai_m1_base_path()
+        return any((base_path / name).is_file() for name in LTX25_BASE_FILES)
 
     @staticmethod
     def migrate_legacy_phai_m1_bases() -> None:
@@ -155,26 +169,30 @@ class VideoCacheManager(CacheManager):
         # the same files through its own cache entry.
         shutil.rmtree(legacy)
 
-    def _cache_phai_m1_base(self) -> str:
-        from ..utils import symlink_local_file
-
+    def _prepare_phai_m1_base(
+        self, cache_checkpoint: bool
+    ) -> Tuple[str, dict[str, Path]]:
         hub = self._model_family.model_hub
         cache_root = Path(self._v2_cache_dir_prefix)
         base_path = self._phai_m1_base_path()
         self._migrate_phai_m1_base(cache_root, hub)
         missing = _missing_ltx25_base_files(base_path)
+        # A standalone cache with no owner can be adopted once the new
+        # checkpoint is linked. Reuse those files during preparation too.
+        legacy = cache_root / f"Phai-M1-LTX-2.5-{hub}"
+        if cache_checkpoint and legacy.is_dir() and not legacy.is_symlink():
+            missing = [name for name in missing if not (legacy / name).is_file()]
         if not missing:
-            return str(base_path)
+            return str(base_path), {}
         reusable = self._find_phai_m1_base(cache_root, hub, base_path, missing)
         source_dir = reusable or Path(_download_ltx25_base(hub))
+        links = {}
         for name in missing:
             source = source_dir / name
             if not source.is_file():
                 raise FileNotFoundError(f"LTX-2.5 base artifact not found: {source}")
-            symlink_local_file(
-                str(source), self.get_cache_dir(), f"{base_path.name}/{name}"
-            )
-        return str(base_path)
+            links[f"{base_path.name}/{name}"] = source
+        return str(base_path), links
 
     @staticmethod
     def _find_phai_m1_base(
@@ -221,6 +239,9 @@ class VideoCacheManager(CacheManager):
 
         cache_dir = self.get_cache_dir()
         filename = self._phai_m1_filename()
+        cache_root = Path(self._v2_cache_dir_prefix)
+        hub = self._model_family.model_hub
+        use_managed_base = base_model_path is None
         if (
             base_model_path is not None
             and not (Path(base_model_path) / "model_index.json").is_file()
@@ -231,21 +252,38 @@ class VideoCacheManager(CacheManager):
         lock = (
             nullcontext()
             if model_path and base_model_path is not None
-            else _phai_m1_download_lock(
-                Path(self._v2_cache_dir_prefix), self._model_family.model_hub
-            )
+            else _phai_m1_download_lock(cache_root, hub)
         )
-        with lock:
+        with lock as downloader:
             checkpoint = find_phai_m1_checkpoint(model_path or cache_dir, filename)
+            checkpoint_source = None
             if checkpoint is None:
                 if model_path:
                     raise FileNotFoundError(
                         f"Phai-M1 checkpoint not found in {model_path}"
                     )
-                downloaded = self._download_phai_m1_checkpoint(filename)
-                checkpoint = Path(symlink_local_file(downloaded, cache_dir, filename))
+                checkpoint_source = Path(self._download_phai_m1_checkpoint(filename))
+                if not checkpoint_source.is_file():
+                    raise FileNotFoundError(
+                        f"Phai-M1 checkpoint not found: {checkpoint_source}"
+                    )
+                checkpoint = Path(cache_dir) / filename
+            base_links: dict[str, Path] = {}
             if base_model_path is None:
-                base_model_path = self._cache_phai_m1_base()
+                base_model_path, base_links = self._prepare_phai_m1_base(
+                    cache_checkpoint=checkpoint_source is not None
+                )
+
+            # Only publish references once every requested component is ready.
+            # A canceled Hub download then leaves only the SDK's own files.
+            if downloader is not None and downloader.cancelled:
+                downloader.raise_error()
+            for name, source in base_links.items():
+                symlink_local_file(str(source), cache_dir, name)
+            if checkpoint_source is not None:
+                symlink_local_file(str(checkpoint_source), cache_dir, filename)
+                if use_managed_base:
+                    self._migrate_phai_m1_base(cache_root, hub)
             if not model_path:
                 # Older caches could mirror the sibling variant from a shared snapshot.
                 for directory in (

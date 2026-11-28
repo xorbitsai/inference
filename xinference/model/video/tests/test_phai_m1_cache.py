@@ -285,12 +285,8 @@ def test_phai_m1_factory_rejects_device_map_before_downloading(
     assert hub_cache.base_calls == []
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("hub", HUBS)
-async def test_worker_phai_m1_pre_download_supports_offline_launch(
-    registered_catalog, hub_cache, monkeypatch, hub
-):
-    model_name = registered_catalog[hub, "distilled"].model_name
+@pytest.fixture
+def cache_worker(monkeypatch):
     monkeypatch.setattr(worker_module, "XINFERENCE_LOG_CONSOLE", True)
     worker = SimpleNamespace(
         address="127.0.0.1:0",
@@ -301,8 +297,21 @@ async def test_worker_phai_m1_pre_download_supports_offline_launch(
         _get_progressor=AsyncMock(return_value=nullcontext()),
         _upload_download_progress=Mock(),
         update_cache_status=AsyncMock(),
+        _cancel_download=WorkerActor._cancel_download,
+        _download_repository_paths=WorkerActor._download_repository_paths,
+        _remove_download_repository_paths=WorkerActor._remove_download_repository_paths,
+        _model_uid_launching_guard={},
     )
     worker._download_model_files = partial(WorkerActor._download_model_files, worker)
+    return worker
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hub", HUBS)
+async def test_worker_phai_m1_pre_download_supports_offline_launch(
+    registered_catalog, hub_cache, cache_worker, monkeypatch, hub
+):
+    model_name = registered_catalog[hub, "distilled"].model_name
 
     transformer, connectors = Mock(), Mock()
     converter = Mock(return_value=(transformer, connectors))
@@ -311,7 +320,7 @@ async def test_worker_phai_m1_pre_download_supports_offline_launch(
     )
     cache_builtin_model = inspect.unwrap(WorkerActor.cache_builtin_model)
     result = await cache_builtin_model(
-        worker,
+        cache_worker,
         cache_uid="phai-cache",
         model_type="video",
         model_name=model_name,
@@ -323,7 +332,7 @@ async def test_worker_phai_m1_pre_download_supports_offline_launch(
         enable_virtual_env=False,
     )
     assert result["version_info"]["cache_status"] is True
-    worker.update_cache_status.assert_awaited_once_with(
+    cache_worker.update_cache_status.assert_awaited_once_with(
         model_name, result["version_info"]
     )
     converter.assert_not_called()
@@ -359,6 +368,84 @@ async def test_worker_phai_m1_pre_download_supports_offline_launch(
     assert kwargs["local_files_only"] is True
     assert kwargs["transformer"] is transformer
     assert kwargs["connectors"] is connectors
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hub", HUBS)
+@pytest.mark.parametrize(
+    "sdk_completes", [False, True], ids=["progress-update", "quiet-completion"]
+)
+async def test_worker_phai_m1_cancels_base_download_then_reclaims_checkpoint(
+    registered_catalog, hub_cache, cache_worker, monkeypatch, hub, sdk_completes
+):
+    from tqdm.auto import tqdm
+
+    variant = "dev"
+    spec = registered_catalog[hub, variant]
+    manager = VideoCacheManager(spec)
+    cache_link = Path(manager.get_cache_dir()) / _checkpoint_name(variant)
+    checkpoint_blob = hub_cache.phai_snapshots[hub] / _remote_checkpoint(hub, variant)
+    partial_base = hub_cache.base_snapshots[hub] / "model.safetensors.incomplete"
+    cache_uid = "phai-cancelled"
+    base_started = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def download_base(model_id, *, revision, **kwargs):
+        assert (model_id, revision) == ltx25_checkpoint.LTX25_MODEL_SOURCES[hub]
+        _write_fixture(partial_base)
+        download_info = cache_worker._cache_uid_to_download_info[cache_uid]
+        loop.call_soon_threadsafe(base_started.set)
+        if not download_info.cancel_event.wait(timeout=10):
+            pytest.fail("Worker did not cancel the shared download")
+        if sdk_completes:
+            for filename in ltx25_checkpoint.LTX25_BASE_FILES:
+                _write_fixture(hub_cache.base_snapshots[hub] / filename)
+            return str(hub_cache.base_snapshots[hub])
+        with tqdm(total=2, unit="B", disable=True) as progress:
+            progress.update(1)
+        pytest.fail("CancellableDownloader did not interrupt SDK progress")
+
+    if hub == "huggingface":
+        monkeypatch.setattr("huggingface_hub.snapshot_download", download_base)
+    else:
+        monkeypatch.setattr(
+            sys.modules["modelscope.hub.snapshot_download"],
+            "snapshot_download",
+            download_base,
+        )
+
+    cache_builtin_model = inspect.unwrap(WorkerActor.cache_builtin_model)
+    cache_task = asyncio.create_task(
+        cache_builtin_model(
+            cache_worker,
+            cache_uid=cache_uid,
+            model_type="video",
+            model_name=spec.model_name,
+            model_engine="diffusers",
+            model_format="diffusers",
+            model_size_in_billions=None,
+            quantization=None,
+            download_hub=hub,
+            enable_virtual_env=False,
+        )
+    )
+    await asyncio.wait_for(base_started.wait(), timeout=10)
+    assert hub_cache.checkpoint_calls == [(hub, _remote_checkpoint(hub, variant))]
+    assert checkpoint_blob.is_file()
+    assert partial_base.is_file()
+    payload = cache_worker._cache_uid_to_download_info[cache_uid].payload
+
+    await WorkerActor.cancel_cache_model(cache_worker, cache_uid)
+    with pytest.raises(asyncio.CancelledError):
+        await cache_task
+    assert not manager.get_cache_status()
+    cache_worker.update_cache_status.assert_not_called()
+
+    result = await WorkerActor.delete_cache_model_artifacts(cache_worker, payload)
+    assert not checkpoint_blob.exists(), result
+    assert not cache_link.exists() and not cache_link.is_symlink()
+    assert not partial_base.exists()
+    assert not hub_cache.base_snapshots[hub].exists()
 
 
 @pytest.mark.asyncio
@@ -494,3 +581,22 @@ def test_phai_m1_reuses_legacy_shared_base_without_orphaning_links(
                 hub_cache.base_snapshots[hub] / filename
             )
     assert all(manager.get_cache_status() for manager in managers)
+
+
+@pytest.mark.parametrize("hub", HUBS)
+def test_phai_m1_adopts_legacy_base_when_caching_first_checkpoint(
+    catalog, hub_cache, tmp_path, hub
+):
+    legacy_base = tmp_path / "cache" / "v2" / f"Phai-M1-LTX-2.5-{hub}"
+    for filename in ltx25_checkpoint.LTX25_BASE_FILES:
+        _write_fixture(legacy_base / filename)
+    manager = VideoCacheManager(catalog[hub, "dev"])
+
+    _, base = manager.cache_phai_m1()
+
+    assert hub_cache.checkpoint_calls == [(hub, _remote_checkpoint(hub, "dev"))]
+    assert hub_cache.base_calls == []
+    assert not legacy_base.exists()
+    assert manager.get_cache_status()
+    for filename in ltx25_checkpoint.LTX25_BASE_FILES:
+        assert not (Path(base) / filename).is_symlink()

@@ -154,7 +154,7 @@ def test_create_video_model_instance_records_default_engine():
 def test_create_phai_m1_from_a_local_checkpoint(monkeypatch, tmp_path):
     download = Mock(side_effect=AssertionError("Local Phai-M1 should bypass downloads"))
     monkeypatch.setattr(VideoCacheManager, "_download_phai_m1_checkpoint", download)
-    monkeypatch.setattr(VideoCacheManager, "_cache_phai_m1_base", download)
+    monkeypatch.setattr(VideoCacheManager, "_prepare_phai_m1_base", download)
     checkpoint = tmp_path / "phai.safetensors"
     checkpoint.touch()
     (tmp_path / "model_index.json").touch()

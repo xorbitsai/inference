@@ -88,8 +88,8 @@ def _install():
 
     VideoCacheManager.migrate_legacy_phai_m1_bases()
 
-    # A variant is cached when any of its hubs has a complete cache.
-    # Keep Hugging Face first when the cache states are equal.
+    # Prefer a hub with managed artifacts for cache inventory. Keep Hugging
+    # Face first when the cache states are equal.
     for model_name, model_specs in new_builtin_video_models.items():
         variants = {}
         for model_spec in model_specs:

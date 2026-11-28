@@ -89,7 +89,7 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         return {
             "model_version": self.cache_name or self.model_name,
             "model_file_location": cache_manager.get_cache_dir(),
-            "cache_status": cache_manager.get_cache_status(),
+            "cache_status": cache_manager.has_managed_cache(),
         }
 
 
