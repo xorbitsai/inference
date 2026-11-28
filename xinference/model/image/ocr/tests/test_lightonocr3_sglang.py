@@ -4,10 +4,12 @@ import pickle
 import sys
 import threading
 from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from PIL import Image
 
+from .....core.exceptions import InvalidModelRequestError
 from ..sglang import SGLangLightOnOCR3Model
 
 
@@ -36,6 +38,10 @@ def test_sglang_offline_ocr(monkeypatch, tokenizer, variant):
     class Engine:
         def __init__(self, **kwargs):
             thread_ids.append(threading.get_ident())
+            self.server_args = SimpleNamespace(
+                enable_deterministic_inference=False,
+                resolved_dict=lambda: {"enable_deterministic_inference": True},
+            )
             assert kwargs["model_path"] == "/model"
             assert kwargs["context_length"] == 18000
             assert kwargs["mem_fraction_static"] == 0.65
@@ -95,6 +101,88 @@ def test_sglang_offline_ocr(monkeypatch, tokenizer, variant):
     assert len(thread_ids) == 5
     assert len(set(thread_ids)) == 1
     assert model._engine_executor is None
+
+
+@pytest.fixture
+def nondeterministic_model(tokenizer):
+    model = SGLangLightOnOCR3Model("lightonocr3", "/model")
+    model._processor = tokenizer
+    model._model = SimpleNamespace(
+        server_args=SimpleNamespace(
+            enable_deterministic_inference=True,
+            resolved_dict=Mock(return_value={"enable_deterministic_inference": False}),
+        ),
+        tokenizer_manager=SimpleNamespace(
+            preferred_sampling_params={},
+            sampling_params_class=Mock(
+                return_value=SimpleNamespace(top_k=2, max_new_tokens=2, beam_width=None)
+            ),
+        ),
+        generate=Mock(return_value={"text": "OCR"}),
+        shutdown=lambda: None,
+    )
+    try:
+        yield model
+    finally:
+        model.stop()
+
+
+@pytest.mark.parametrize(
+    "seed_kwargs, expected_seed",
+    [
+        ({"seed": 123}, 123),
+        ({"sampling_seed": 0}, 0),
+        ({"seed": 123, "sampling_seed": None}, 123),
+    ],
+)
+def test_sglang_rejects_seeded_sampling_when_disabled(
+    monkeypatch, nondeterministic_model, seed_kwargs, expected_seed
+):
+    monkeypatch.setenv("SGLANG_ENABLE_DETERMINISTIC_INFERENCE", "1")
+    engine = nondeterministic_model._model
+    with pytest.raises(
+        InvalidModelRequestError, match="enable_deterministic_inference=True"
+    ):
+        nondeterministic_model.ocr(
+            Image.new("RGB", (8, 8)), temperature=0.7, max_tokens=2, **seed_kwargs
+        )
+    engine.tokenizer_manager.sampling_params_class.assert_called_once_with(
+        temperature=0.7, max_new_tokens=2, sampling_seed=expected_seed
+    )
+    engine.generate.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "request_options, temperature",
+    [
+        ({"do_sample": False, "temperature": 0.7}, 0.0),
+        ({"temperature": 0.0}, 0.0),
+        ({"temperature": 0.7, "top_k": 1}, 0.7),
+    ],
+)
+def test_sglang_preserves_seeded_greedy(
+    nondeterministic_model, request_options, temperature
+):
+    engine = nondeterministic_model._model
+    sampling_params_class = engine.tokenizer_manager.sampling_params_class
+    sampling_params_class.return_value.top_k = 1
+    assert (
+        nondeterministic_model.ocr(
+            Image.new("RGB", (8, 8)), seed=123, max_tokens=2, **request_options
+        )
+        == "OCR"
+    )
+    params = engine.generate.call_args.kwargs["sampling_params"]
+    assert params["temperature"] == temperature
+    assert params["sampling_seed"] == 123
+
+
+def test_sglang_unseeded_sampling_skips_deterministic_check(nondeterministic_model):
+    engine = nondeterministic_model._model
+    assert nondeterministic_model.ocr(Image.new("RGB", (8, 8)), seed=None) == "OCR"
+    engine.server_args.resolved_dict.assert_not_called()
+    params = engine.generate.call_args.kwargs["sampling_params"]
+    assert params == {"temperature": 0.1, "max_new_tokens": 4096}
 
 
 def test_sglang_excludes_lightonocr3_1b():

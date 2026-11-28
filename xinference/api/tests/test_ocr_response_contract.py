@@ -33,6 +33,7 @@ import json
 import threading
 import time
 import weakref
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -88,6 +89,24 @@ def _make_lightonocr3_model():
         {"input_ids": torch.tensor([[1, 2]]), "attention_mask": torch.tensor([[1, 1]])}
     )
     model._processor.decode.side_effect = lambda tokens, **_: f"{tokens.numel()} tokens"
+    return model
+
+
+def _make_nondeterministic_sglang_ocr_model():
+    from ...model.image.ocr.sglang import SGLangLightOnOCR3Model
+
+    model = SGLangLightOnOCR3Model(MODEL_UID)
+    model._processor = SimpleNamespace(apply_chat_template=lambda *a, **kw: "prompt")
+    model._model = SimpleNamespace(
+        server_args=SimpleNamespace(enable_deterministic_inference=False),
+        tokenizer_manager=SimpleNamespace(
+            preferred_sampling_params={},
+            sampling_params_class=lambda **kw: SimpleNamespace(
+                top_k=2, max_new_tokens=kw["max_new_tokens"]
+            ),
+        ),
+        generate=lambda **kw: {"text": "OCR"},
+    )
     return model
 
 
@@ -199,6 +218,27 @@ def test_lightonocr3_seeded_ocr(endpoint, is_pdf, do_sample):
     else:
         assert response.status_code == 200, response.text
         assert response.json() == ("2 tokens\n\n2 tokens" if is_pdf else "2 tokens")
+
+
+@pytest.mark.parametrize(
+    "endpoint", [_make_nondeterministic_sglang_ocr_model], indirect=True
+)
+def test_lightonocr3_sglang_rejects_seeded_sampling_without_determinism(endpoint):
+    import requests
+
+    response = requests.post(
+        f"{endpoint}/v1/images/ocr",
+        data={
+            "model": MODEL_UID,
+            "kwargs": json.dumps(
+                {"do_sample": True, "temperature": 0.7, "seed": 123, "max_tokens": 2}
+            ),
+        },
+        files={"image": ("page.png", _png_bytes(), "image/png")},
+        timeout=30,
+    )
+    assert response.status_code == 400, response.text
+    assert "enable_deterministic_inference=True" in response.json()["detail"]
 
 
 def test_sync_client_plain_text(endpoint):

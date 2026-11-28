@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import PIL.Image
 
+from ....core.exceptions import InvalidModelRequestError
 from ...utils import allow_trust_remote_code
 from .lighton_ocr3 import ThreadedLightOnOCR3Model
 from .ovisocr3 import ThreadedOvisOCR3Model
@@ -59,18 +60,39 @@ class SGLangLightOnOCR3Model(ThreadedLightOnOCR3Model):
             self.stop()
             raise
 
+    def _validate_sampling_seed(self, sampling_params: dict) -> None:
+        server_args = self._model.server_args
+        resolved_dict = getattr(server_args, "resolved_dict", None)
+        deterministic = (
+            resolved_dict()["enable_deterministic_inference"]
+            if resolved_dict is not None
+            else server_args.enable_deterministic_inference
+        )
+        if deterministic:
+            return
+
+        # Match the scheduler's greedy decision after SGLang applies model
+        # defaults and normalizes near-zero temperatures to top_k=1.
+        manager = self._model.tokenizer_manager
+        defaults = manager.preferred_sampling_params or {}
+        effective = manager.sampling_params_class(**{**defaults, **sampling_params})
+        if (
+            effective.top_k > 1
+            and effective.max_new_tokens != 0
+            and (getattr(effective, "beam_width", None) or 1) <= 1
+        ):
+            raise InvalidModelRequestError(
+                "Seeded sampling requires deterministic inference in the SGLang engine. "
+                "Relaunch the model with enable_deterministic_inference=True, "
+                "omit the seed, or use greedy decoding."
+            )
+
     def ocr(
         self, image: PIL.Image.Image, prompt: Optional[str] = None, **kwargs: Any
     ) -> str:
         image = self._prepare_image(image)
         if self._model is None or self._processor is None:
             self.load()
-        text = self._processor.apply_chat_template(
-            self._messages(prompt),
-            tokenize=False,
-            add_generation_prompt=True,
-            **self._chat_template_kwargs,
-        )
         sampling_params = self._generation_kwargs(kwargs)
         sampling_params.pop("use_cache", None)
         if sampling_params.pop("do_sample", True):
@@ -78,8 +100,16 @@ class SGLangLightOnOCR3Model(ThreadedLightOnOCR3Model):
         else:
             sampling_params["temperature"] = 0.0
         seed = sampling_params.pop("seed", None)
-        if seed is not None:
-            sampling_params.setdefault("sampling_seed", seed)
+        if seed is not None and sampling_params.get("sampling_seed") is None:
+            sampling_params["sampling_seed"] = seed
+        if sampling_params.get("sampling_seed") is not None:
+            self._validate_sampling_seed(sampling_params)
+        text = self._processor.apply_chat_template(
+            self._messages(prompt),
+            tokenize=False,
+            add_generation_prompt=True,
+            **self._chat_template_kwargs,
+        )
         output = self._run_on_engine_thread(
             self._model.generate,
             prompt=text,

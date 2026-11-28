@@ -13,11 +13,15 @@
 # limitations under the License.
 
 import concurrent.futures
+import os
+import subprocess
 import threading
 from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 import PIL.Image
 import torch
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion
 
 from ....core.exceptions import InvalidModelRequestError
 from ....device_utils import get_available_device
@@ -33,6 +37,7 @@ _engine_executor_lock = threading.Lock()
 class LightOnOCR3Model(OCRModel):
     required_libs: Tuple[str, ...] = ("transformers",)
     MODEL_NAMES = ("LightOnOCR-3-0.8B", "LightOnOCR-3-1B", "LightOnOCR-3-4B")
+    _transformers_versions = ">=5.5.4,<6"
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
@@ -124,30 +129,92 @@ class LightOnOCR3Model(OCRModel):
         kwargs.setdefault("max_new_tokens", 4096 if max_tokens is None else max_tokens)
         return kwargs
 
+    @staticmethod
+    def _transformers_component_names(model_name: Optional[str]) -> Tuple[str, str]:
+        if model_name == "LightOnOCR-3-1B":
+            # The checkpoint declares mistral3, so the loader must be explicit.
+            return "LightOnOcrForConditionalGeneration", "LightOnOcrProcessor"
+        return "Qwen3_5ForConditionalGeneration", "AutoProcessor"
+
+    @classmethod
+    def _transformers_components(cls, model_name: Optional[str]) -> Tuple[Any, Any]:
+        import transformers
+
+        model_class, processor_class = cls._transformers_component_names(model_name)
+        return getattr(transformers, model_class), getattr(
+            transformers, processor_class
+        )
+
+    @classmethod
+    def preflight(
+        cls,
+        model_spec: "ImageModelFamilyV2",
+        model_engine: str,
+        *,
+        python_executable: Optional[str] = None,
+    ) -> None:
+        if model_engine.lower() != "transformers":
+            return
+
+        model_name = model_spec.model_name
+        component_names = cls._transformers_component_names(model_name)
+        requirement = (
+            f"{model_name} requires transformers{cls._transformers_versions} with "
+            f"{' and '.join(component_names)}. Upgrade Transformers or enable the model virtualenv."
+        )
+        try:
+            if python_executable is None:
+                from transformers import __version__ as installed_version
+
+                model_class, processor_class = cls._transformers_components(model_name)
+                # Access the loaders so Transformers dummy exports fail here too.
+                _ = model_class.from_pretrained, processor_class.from_pretrained
+            else:
+                from ....core.utils import build_subpool_envs_for_python
+
+                env = {
+                    **os.environ,
+                    **build_subpool_envs_for_python({}, python_executable),
+                }
+                result = subprocess.run(
+                    [
+                        python_executable,
+                        "-c",
+                        "import sys, transformers; "
+                        "[getattr(transformers, name).from_pretrained for name in sys.argv[1:]]; "
+                        "print(transformers.__version__)",
+                        *component_names,
+                    ],
+                    env=env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                installed_version = result.stdout.strip()
+            compatible = installed_version in SpecifierSet(cls._transformers_versions)
+        except (
+            AttributeError,
+            ImportError,
+            InvalidVersion,
+            OSError,
+            RuntimeError,
+            subprocess.SubprocessError,
+        ) as exc:
+            raise ImportError(requirement) from exc
+        if not compatible:
+            raise ImportError(f"{requirement} Found transformers=={installed_version}.")
+
     def load(self) -> None:
         model_kwargs = self._kwargs.copy()
+        model_name = (
+            self.model_family.model_name if self.model_family is not None else None
+        )
+        model_class, processor_class = self._transformers_components(model_name)
         if self._is_1b:
-            # The 1B checkpoint declares model_type=mistral3. AutoModel would
-            # select the Mistral3 class instead of the LightOnOCR implementation.
-            from transformers import (
-                LightOnOcrForConditionalGeneration,
-                LightOnOcrProcessor,
-            )
-
-            model_class, processor_class = (
-                LightOnOcrForConditionalGeneration,
-                LightOnOcrProcessor,
-            )
             # The original checkpoint nests the Qwen3 decoder under language_model.model.
             model_kwargs.setdefault(
                 "key_mapping", {r"^language_model\.model\.": "model.language_model."}
-            )
-        else:
-            from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
-
-            model_class, processor_class = (
-                Qwen3_5ForConditionalGeneration,
-                AutoProcessor,
             )
 
         model_kwargs.pop("cpu_offload", None)

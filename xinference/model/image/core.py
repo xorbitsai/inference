@@ -235,6 +235,8 @@ def create_ocr_model_instance(
     )
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    skip_preflight = kwargs.pop("_xinference_skip_runtime_preflight", False)
+    python_executable = kwargs.pop("_xinference_model_python_executable", None)
     if model_engine is None:
         from .ocr.ocr_family import OCR_ENGINES
 
@@ -271,6 +273,9 @@ def create_ocr_model_instance(
             model_format,
             quantization,
         )
+        preflight = getattr(ocr_cls, "preflight", None)
+        if callable(preflight) and not skip_preflight:
+            preflight(model_spec, model_engine, python_executable=python_executable)
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         if getattr(model_spec, "model_format", None) == "ggufv2":
@@ -351,6 +356,7 @@ def create_image_model_instance(
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     skip_preflight = kwargs.pop("_xinference_skip_runtime_preflight", False)
+    python_executable = kwargs.pop("_xinference_model_python_executable", None)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         ocr_gguf = _is_ocr_gguf(model_format, gguf_quantization, gguf_model_path)
@@ -367,6 +373,9 @@ def create_image_model_instance(
             model_spec=model_spec,
             model_engine=ocr_engine if ocr_gguf else model_engine,
             model_path=(gguf_model_path or model_path) if ocr_gguf else model_path,
+            enable_virtual_env=enable_virtual_env,
+            _xinference_skip_runtime_preflight=skip_preflight,
+            _xinference_model_python_executable=python_executable,
             **kwargs,
         )
 

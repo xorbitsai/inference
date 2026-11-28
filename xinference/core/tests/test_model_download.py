@@ -179,8 +179,15 @@ async def test_cache_only_operation_skips_runtime_allocation():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("completion_stage", ["loading", "completed"])
 @pytest.mark.parametrize("selected_python", [None, "/trusted/bin/python"])
-async def test_audio_download_uses_trusted_startup_context(
-    monkeypatch, completion_stage, selected_python
+@pytest.mark.parametrize(
+    "model_type, model_name, model_engine",
+    [
+        ("audio", "dots.tts.edit-v1.1", "PyTorch"),
+        ("image", "LightOnOCR-3-1B", "transformers"),
+    ],
+)
+async def test_download_uses_trusted_startup_context(
+    monkeypatch, completion_stage, selected_python, model_type, model_name, model_engine
 ):
     from xinference.core.worker import DownloadInfo, WorkerActor
 
@@ -191,13 +198,13 @@ async def test_audio_download_uses_trusted_startup_context(
     monkeypatch.setattr("xinference.core.worker.create_model_instance", factory)
     await WorkerActor._download_model_files(
         worker,
-        operation_uid="audio-1",
-        request_id="audio-request",
+        operation_uid="model-1",
+        request_id="model-request",
         download_info=DownloadInfo(),
         progressor=_ProgressorStub(),
-        model_type="audio",
-        model_name="dots.tts.edit-v1.1",
-        model_engine="PyTorch",
+        model_type=model_type,
+        model_name=model_name,
+        model_engine=model_engine,
         model_format="pytorch",
         model_size_in_billions=None,
         quantization=None,
@@ -212,9 +219,10 @@ async def test_audio_download_uses_trusted_startup_context(
         model_python_executable=selected_python,
     )
     factory.assert_called_once()
-    assert factory.call_args.kwargs["_xinference_cache_only"] is (
-        completion_stage == "completed"
-    )
+    if model_type == "audio":
+        assert factory.call_args.kwargs["_xinference_cache_only"] is (
+            completion_stage == "completed"
+        )
     assert (
         factory.call_args.kwargs["_xinference_model_python_executable"]
         == selected_python
