@@ -6,20 +6,32 @@ on:
       - main
   pull_request:
     types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
+  # A maintainer's approval starts the remaining Python versions; see the
+  # "Detect maintainer approval" step.
+  pull_request_review:
+    types: ['submitted']
   # Run this full cross-platform suite manually before releases.
   workflow_dispatch:
 
 concurrency:
   # Main pushes must not cancel manual full-suite checks.
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Maintainer approvals of a pull request share one group and cancel
+  # nothing: a later approval waits for the run an earlier one started.
+  # Every other review gets a group of its own, so its run, which does
+  # nothing, cancels nothing either.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request_review' && (github.event.review.state == 'approved' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association) && 'approval' || github.run_id) || '' }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'pull_request_review' }}
 
 jobs:
   lint:
+    # The suffix tells an approval run, which reads check names, that this
+    # run will test the older versions once lint passes.
+    name: lint (${{ matrix.os }}, ${{ matrix.python-version }})${{ (needs.changes.outputs.full_matrix == 'true' && needs.changes.outputs.docs_only != 'true') && ' + older Pythons' || '' }}
     needs: [changes]
     # A push event cannot tell whether its branch belongs to a draft PR, so
     # branch CI is driven by pull_request events and push is limited to main.
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # An approval adds Python versions to a commit this job already checked.
+    if: ${{ github.event_name != 'pull_request_review' && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -149,9 +161,22 @@ jobs:
 
 
   changes:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    # A review starts this workflow only when a maintainer approves.
+    if: >-
+      ${{
+        (github.event_name != 'pull_request' || github.event.pull_request.draft == false) &&
+        (github.event_name != 'pull_request_review' ||
+          (github.event.review.state == 'approved' &&
+            contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)))
+      }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      # Whether the older versions already ran on an approved head.
+      checks: read
     outputs:
+      full_matrix: ${{ steps.approval.outputs.full_matrix }}
       gpu: ${{ steps.gpu.outputs.gpu }}
       groups: ${{ steps.gpu.outputs.groups }}
       platform: ${{ steps.platform.outputs.platform }}
@@ -172,7 +197,8 @@ jobs:
         run: |
           set -uo pipefail
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ] \
+              || [ "${{ github.event_name }}" = "pull_request_review" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
             # Match GitHub's PR diff: exclude commits added to the base branch
@@ -375,6 +401,136 @@ jobs:
           echo "install=$install" >> "$GITHUB_OUTPUT"
           echo "Installer CI required: $install"
 
+      # The whole organization shares one pool of standard runners, and a
+      # Linux test job holds one for about 50 minutes. Until a maintainer
+      # approves, a pull request tests only the newest Python on each
+      # platform; after that, and on main and manual runs, every version.
+      #
+      # A pull request is approved when at least one maintainer's latest
+      # verdict is an approval and none is a change request. Each head gets
+      # the older versions once, from one of two runs:
+      # - a push (`pull_request`) gets them when the pull request is approved
+      #   and was already approved by reviews of earlier commits;
+      # - an approval (`pull_request_review`) adds them when the pull request
+      #   is approved and no other run on the current head has scheduled
+      #   them. A run that will test them says so in its lint check's name
+      #   as soon as its `changes` job finishes, so the approval run first
+      #   waits for other runs on the head to finish deciding. This also
+      #   covers an approval of an earlier commit that arrives after a newer
+      #   push.
+      # Reviews or checks that cannot be read, or a run that is still
+      # deciding when the wait ends, keep the reduced matrix.
+      - name: Detect maintainer approval
+        id: approval
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # The first older-version job, as GitHub names its check run.
+          OLDER_CHECK: build_test_job (ubuntu-latest, 3.10, xinference)
+          # The lint name suffix of a run that will test the older versions.
+          OLDER_MARKER: " + older Pythons"
+          # How long to wait for other runs on the head to decide: 10 minutes.
+          WAIT_ATTEMPTS: "40"
+          WAIT_SECONDS: "15"
+        run: |
+          set -uo pipefail
+          full_matrix=true
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "pull_request_review" ]; then
+            full_matrix=false
+            before=false; now=false
+            # Reviews arrive oldest first; each maintainer's latest verdict counts.
+            if gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" \
+                --jq '.[] | select(.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR") | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED") | [.user.login, .state, .commit_id] | @tsv' \
+                > reviews.tsv; then
+              read -r before now < <(awk -F '\t' -v head="$HEAD_SHA" '
+                function approved(verdict,   login, yes, no) {
+                  yes = 0; no = 0
+                  for (login in verdict) {
+                    if (verdict[login] == "APPROVED") yes = 1
+                    if (verdict[login] == "CHANGES_REQUESTED") no = 1
+                  }
+                  return yes && !no
+                }
+                { all[$1] = $2; if ($3 != head) earlier[$1] = $2 }
+                END {
+                  print (approved(earlier) ? "true" : "false"), (approved(all) ? "true" : "false")
+                }' reviews.tsv) || true
+              # Anything but an explicit "true" is not an approval.
+              [ "$before" = "true" ] || before=false
+              [ "$now" = "true" ] || now=false
+              echo "Approved before this head: $before; approved now: $now"
+            else
+              echo "::warning::could not read the reviews; testing only the newest Python"
+            fi
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              # A retained approval counts only while no maintainer is
+              # requesting changes on the current head.
+              if [ "$before" = "true" ] && [ "$now" = "true" ]; then
+                full_matrix=true
+              fi
+            elif [ "$now" = "true" ]; then
+              # The check runs of other workflow runs on this head decide:
+              # - ran: the older versions are queued, running or finished with
+              #   a verdict, or a lint check carrying the marker is still
+              #   pending, so its run will start them;
+              # - deciding: a `changes` job is still running, or a run has
+              #   finished `changes` or a marked lint but GitHub has not yet
+              #   created the job that follows it;
+              # - free: nothing else will test the older versions.
+              state=unreadable
+              attempt=1
+              while :; do
+                if ! gh api --paginate "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+                    --jq '.check_runs[]
+                          | select(.app.slug == "github-actions")
+                          | select((.details_url // "") | contains("/runs/" + env.GITHUB_RUN_ID + "/") | not)
+                          | [.name, .status, (.conclusion // ""),
+                             (((.details_url // "") | capture("/runs/(?<id>[0-9]+)/")? | .id) // "")]
+                          | @tsv' > checks.tsv; then
+                  state=unreadable
+                  break
+                fi
+                state=$(awk -F '\t' -v older="$OLDER_CHECK" -v marker="$OLDER_MARKER" '
+                  $1 == older {
+                    has_older[$4] = 1
+                    if ($2 != "completed" || $3 == "success" || $3 == "failure") ran = 1
+                  }
+                  # A skipped lint is named plain "lint".
+                  $1 ~ /^lint( |$)/ { has_lint[$4] = 1 }
+                  index($1, marker) {
+                    if ($2 != "completed") ran = 1
+                    else if ($3 == "success") marked[$4] = 1
+                  }
+                  $1 == "changes" {
+                    if ($2 != "completed") deciding = 1
+                    else if ($3 == "success") decided[$4] = 1
+                  }
+                  END {
+                    for (run in decided) if (!(run in has_lint)) deciding = 1
+                    for (run in marked) if (!(run in has_older)) deciding = 1
+                    print (ran ? "ran" : deciding ? "deciding" : "free")
+                  }' checks.tsv) || state=unreadable
+                if [ "$state" != "deciding" ] || [ "$attempt" -ge "$WAIT_ATTEMPTS" ]; then
+                  break
+                fi
+                attempt=$((attempt + 1))
+                sleep "$WAIT_SECONDS"
+              done
+              case "$state" in
+                free) full_matrix=true ;;
+                ran) echo "Another run on this head tests the older versions." ;;
+                deciding) echo "::warning::another run on this head is still deciding; testing only the newest Python" ;;
+                *) echo "::warning::could not read the checks; testing only the newest Python" ;;
+              esac
+            fi
+          fi
+          echo "full_matrix=$full_matrix" >> "$GITHUB_OUTPUT"
+          echo "Every Python version: $full_matrix"
+
   install_script:
     name: Install Script CI
     needs: [lint, changes]
@@ -398,10 +554,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ "ubuntu-latest" ]
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        # Every run tests the newest Python. The older versions are in
+        # full_matrix_linux_test_job below.
+        python-version: [ "3.14" ]
         module: [ "xinference" ]
 
-    # Share installation and test commands with the platform jobs below.
+    # Share installation and test commands with the jobs below.
     steps: &python-test-steps
       - name: Check out code
         uses: actions/checkout@v7
@@ -768,7 +926,57 @@ jobs:
       # Both Python endpoints always use the same trigger and test suite.
       matrix:
         os: [ "macos-latest", "windows-latest" ]
-        python-version: [ "3.10", "3.14" ]
+        python-version: [ "3.14" ]
+        module: [ "xinference" ]
+    steps: *python-test-steps
+
+  # The versions an unapproved pull request skips. An approval run has no
+  # lint job, so these accept a skipped lint but never a failed one.
+  full_matrix_linux_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.module }})
+    runs-on: ${{ matrix.os }}
+    needs: [lint, changes]
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.changes.result == 'success' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+        needs.changes.outputs.full_matrix == 'true' &&
+        needs.changes.outputs.docs_only != 'true'
+      }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: full
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        module: [ "xinference" ]
+    steps: *python-test-steps
+
+  full_matrix_platform_test_job:
+    name: build_test_job (${{ matrix.os }}, ${{ matrix.python-version }}, xinference)
+    needs: [lint, changes]
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.changes.result == 'success' &&
+        (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+        needs.changes.outputs.full_matrix == 'true' &&
+        needs.changes.outputs.platform == 'true'
+      }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CONDA_ENV: test
+      TEST_SUITE: ${{ needs.changes.outputs.platform_suite }}
+    defaults: *python-test-defaults
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "macos-latest", "windows-latest" ]
+        python-version: [ "3.10" ]
         module: [ "xinference" ]
     steps: *python-test-steps
 

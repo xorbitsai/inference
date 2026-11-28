@@ -3,6 +3,7 @@
 import ast
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,10 @@ DOCS_STEP = next(step for step in JOBS["changes"]["steps"] if step.get("id") == 
 INSTALL_STEP = next(
     step for step in JOBS["changes"]["steps"] if step.get("id") == "install"
 )
+APPROVAL_STEP = next(
+    step for step in JOBS["changes"]["steps"] if step.get("id") == "approval"
+)
+MAINTAINERS = ("OWNER", "MEMBER", "COLLABORATOR")
 TEST_STEP = next(
     step
     for step in JOBS["build_test_job"]["steps"]
@@ -114,7 +119,13 @@ class TestPythonWorkflow(unittest.TestCase):
             return dict(line.split("=", 1) for line in output.read_text().splitlines())
 
     def test_matrices_are_static_and_preserve_python_endpoints(self):
-        for name in ("build_test_job", "platform_test_job", "metal_test_job"):
+        for name in (
+            "build_test_job",
+            "platform_test_job",
+            "full_matrix_linux_test_job",
+            "full_matrix_platform_test_job",
+            "metal_test_job",
+        ):
             matrix = JOBS[name]["strategy"]["matrix"]
             self.assertIsInstance(matrix, dict)
             for values in matrix.values():
@@ -122,12 +133,485 @@ class TestPythonWorkflow(unittest.TestCase):
                 self.assertTrue(all("${{" not in value for value in values))
         linux = JOBS["build_test_job"]["strategy"]["matrix"]
         self.assertEqual(linux["os"], ["ubuntu-latest"])
-        self.assertEqual(
-            linux["python-version"], ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        )
+        self.assertEqual(linux["python-version"], ["3.14"])
         platform = JOBS["platform_test_job"]["strategy"]["matrix"]
         self.assertEqual(platform["os"], ["macos-latest", "windows-latest"])
-        self.assertEqual(platform["python-version"], ["3.10", "3.14"])
+        self.assertEqual(platform["python-version"], ["3.14"])
+
+    HEAD = "b" * 40
+    EARLIER = "a" * 40
+    OLDER = APPROVAL_STEP["env"]["OLDER_CHECK"]
+
+    def approval(
+        self,
+        event,
+        reviews=(),
+        *,
+        api_fails=False,
+        checks=(),
+        checks_fail=False,
+        snapshots=None,
+    ):
+        """Run the approval step against reviews listed oldest first.
+
+        A review is (login, state, role) on an earlier commit, or (login,
+        state, role, commit). `checks` are (app, status, conclusion, run id)
+        of the older-version check runs on the head, or (app, status,
+        conclusion, run id, name) of any check run; this run's id is 7.
+        `snapshots` lists what successive check-run reads return, the last
+        one repeating.
+        """
+        if snapshots is None:
+            snapshots = [checks]
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / "bin").mkdir()
+            listed = [
+                {
+                    "user": {"login": review[0]},
+                    "state": review[1],
+                    "author_association": review[2],
+                    "commit_id": review[3] if len(review) > 3 else self.EARLIER,
+                }
+                for review in reviews
+            ]
+            (work / "reviews.json").write_text(json.dumps(listed))
+            for index, snapshot in enumerate(snapshots):
+                runs = [
+                    {
+                        "name": check[4] if len(check) > 4 else self.OLDER,
+                        "app": {"slug": check[0]},
+                        "status": check[1],
+                        "conclusion": check[2],
+                        "details_url": "https://github.com/xorbitsai/inference"
+                        f"/actions/runs/{check[3]}/job/1",
+                    }
+                    for check in snapshot
+                ]
+                (work / f"checks{index}.json").write_text(
+                    json.dumps({"check_runs": runs})
+                )
+            # Stands in for `gh api --jq`: applies the step's own filter to
+            # the fixture of the endpoint it asks for.
+            fake_gh = work / "bin/gh"
+            fake_gh.write_text(
+                "#!/bin/bash\n"
+                'case "$*" in\n'
+                f"  *check-runs*) [ {int(checks_fail)} = 1 ] && exit 1;"
+                f' read -r n < "{work}/reads" 2>/dev/null || n=0;'
+                f' echo $((n + 1)) > "{work}/reads";'
+                f" [ $n -lt {len(snapshots)} ] || n={len(snapshots) - 1};"
+                f' fixture="{work}/checks$n.json" ;;\n'
+                f"  *reviews*) [ {int(api_fails)} = 1 ] && exit 1;"
+                f' fixture="{work}/reviews.json" ;;\n'
+                "  *) exit 1 ;;\n"
+                "esac\n"
+                'while [ "$1" != "--jq" ]; do shift; done\n'
+                'exec jq -r "$2" "$fixture"\n'
+            )
+            fake_gh.chmod(0o755)
+            output = work / "outputs"
+            subprocess.run(
+                ["bash", "-e", "-o", "pipefail", "-c", APPROVAL_STEP["run"]],
+                cwd=work,
+                env={
+                    **os.environ,
+                    "PATH": str(work / "bin") + os.pathsep + os.environ["PATH"],
+                    "GITHUB_OUTPUT": str(output),
+                    "EVENT_NAME": event,
+                    "REPO": "xorbitsai/inference",
+                    "PR_NUMBER": "1",
+                    "HEAD_SHA": self.HEAD,
+                    "GITHUB_RUN_ID": "7",
+                    "OLDER_CHECK": self.OLDER,
+                    "OLDER_MARKER": APPROVAL_STEP["env"]["OLDER_MARKER"],
+                    "WAIT_ATTEMPTS": "3",
+                    "WAIT_SECONDS": "0",
+                },
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            reads = work / "reads"
+            self.check_reads = int(reads.read_text()) if reads.exists() else 0
+            return output.read_text().strip()
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_unapproved_pull_requests_test_only_the_newest_python(self):
+        cases = {
+            "no reviews": [],
+            "comment only": [("alice", "COMMENTED", "MEMBER")],
+            "outside approval": [("mallory", "APPROVED", "CONTRIBUTOR")],
+            "first-time approval": [("mallory", "APPROVED", "FIRST_TIME_CONTRIBUTOR")],
+            "approval dismissed": [
+                ("alice", "APPROVED", "MEMBER"),
+                ("alice", "DISMISSED", "MEMBER"),
+            ],
+            "approval withdrawn": [
+                ("alice", "APPROVED", "OWNER"),
+                ("alice", "CHANGES_REQUESTED", "OWNER"),
+            ],
+            "another maintainer objects": [
+                ("alice", "APPROVED", "MEMBER"),
+                ("bob", "CHANGES_REQUESTED", "COLLABORATOR"),
+            ],
+        }
+        for name, reviews in cases.items():
+            for event in ("pull_request", "pull_request_review"):
+                with self.subTest(name, event=event):
+                    self.assertEqual(self.approval(event, reviews), "full_matrix=false")
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_a_push_after_an_approval_tests_every_python(self):
+        # Approval carries over to later commits: stale reviews are kept.
+        cases = {role: [("alice", "APPROVED", role)] for role in MAINTAINERS}
+        cases["objection resolved"] = [
+            ("alice", "CHANGES_REQUESTED", "MEMBER"),
+            ("alice", "APPROVED", "MEMBER"),
+        ]
+        cases["later comment keeps the approval"] = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("alice", "COMMENTED", "MEMBER"),
+        ]
+        cases["outside objection is not a veto"] = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("mallory", "CHANGES_REQUESTED", "CONTRIBUTOR"),
+        ]
+        for name, reviews in cases.items():
+            with self.subTest(name):
+                self.assertEqual(
+                    self.approval("pull_request", reviews), "full_matrix=true"
+                )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_each_head_gets_the_older_versions_from_one_run(self):
+        head = self.HEAD
+        first_approval = [("alice", "APPROVED", "MEMBER", head)]
+        # The push run of a head approved while it was queued leaves the older
+        # versions to the approval's own run.
+        self.assertEqual(
+            self.approval("pull_request", first_approval), "full_matrix=false"
+        )
+        self.assertEqual(
+            self.approval("pull_request_review", first_approval), "full_matrix=true"
+        )
+        # A head whose push run has them, finished or not, gets nothing from
+        # a later approval.
+        approved_earlier = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("carol", "APPROVED", "OWNER", head),
+        ]
+        self.assertEqual(
+            self.approval("pull_request", approved_earlier), "full_matrix=true"
+        )
+        for status, conclusion in (
+            ("queued", None),
+            ("in_progress", None),
+            ("completed", "success"),
+        ):
+            with self.subTest(status):
+                self.assertEqual(
+                    self.approval(
+                        "pull_request_review",
+                        approved_earlier,
+                        checks=[("github-actions", status, conclusion, 3)],
+                    ),
+                    "full_matrix=false",
+                )
+        # An approval of an earlier commit that arrives after a newer push
+        # still gives the new head the older versions.
+        late = [("alice", "APPROVED", "MEMBER", self.EARLIER)]
+        self.assertEqual(self.approval("pull_request_review", late), "full_matrix=true")
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_an_approval_with_an_outstanding_change_request_adds_nothing(self):
+        reviews = [
+            ("bob", "CHANGES_REQUESTED", "COLLABORATOR"),
+            ("alice", "APPROVED", "MEMBER", self.HEAD),
+        ]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(self.approval(event, reviews), "full_matrix=false")
+        # Once the objection is withdrawn on this head, the approval run
+        # that follows adds the older versions.
+        withdrawn = reviews + [("bob", "APPROVED", "COLLABORATOR", self.HEAD)]
+        self.assertEqual(
+            self.approval("pull_request_review", withdrawn), "full_matrix=true"
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_a_change_request_on_the_head_vetoes_a_retained_approval(self):
+        head = self.HEAD
+        vetoed = [
+            ("alice", "APPROVED", "OWNER"),
+            ("bob", "CHANGES_REQUESTED", "MEMBER", head),
+            ("carol", "APPROVED", "MEMBER", head),
+        ]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(self.approval(event, vetoed), "full_matrix=false")
+        # Without the objection, the approval retained from the earlier
+        # commit still counts on this head.
+        retained = [vetoed[0], vetoed[2]]
+        self.assertEqual(self.approval("pull_request", retained), "full_matrix=true")
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_an_approval_waits_for_another_run_on_the_head_to_decide(self):
+        # A retained approval on the earlier commit and a second one on the
+        # head: the push run of the head schedules the older versions too.
+        reviews = [
+            ("alice", "APPROVED", "MEMBER"),
+            ("carol", "APPROVED", "OWNER", self.HEAD),
+        ]
+        marker = APPROVAL_STEP["env"]["OLDER_MARKER"]
+        marked = "lint (ubuntu-latest, 3.10)" + marker
+        plain = "lint (ubuntu-latest, 3.10)"
+
+        def check(name, status, conclusion=None, run=3):
+            return ("github-actions", status, conclusion, run, name)
+
+        deciding = [check("changes", "in_progress")]
+        decided = [check("changes", "completed", "success")]
+        cases = {
+            # The push run is still in lint and its older versions do not
+            # exist yet: its lint name says they will.
+            "push run in lint": ([decided + [check(marked, "in_progress")]], False),
+            "push run still deciding": (
+                [deciding, decided + [check(marked, "queued")]],
+                False,
+            ),
+            "lint not created yet": (
+                [decided, decided + [check(marked, "queued")]],
+                False,
+            ),
+            "older versions not created yet": (
+                [
+                    decided + [check(marked, "completed", "success")],
+                    decided
+                    + [
+                        check(marked, "completed", "success"),
+                        check(self.OLDER, "queued"),
+                    ],
+                ],
+                False,
+            ),
+            "push run tests only the newest": (
+                [deciding, decided + [check(plain, "in_progress")]],
+                True,
+            ),
+            "push run failed lint": (
+                [decided + [check(marked, "completed", "failure")]],
+                True,
+            ),
+            "another approval run did nothing": (
+                [
+                    [
+                        check("changes", "completed", "success", 4),
+                        check("lint", "completed", "skipped", 4),
+                    ]
+                ],
+                True,
+            ),
+            # A skipped job may show its unexpanded name, marker text included.
+            "skipped lint with its raw name": (
+                [
+                    [
+                        check("changes", "completed", "success", 4),
+                        check(JOBS["lint"]["name"], "completed", "skipped", 4),
+                    ]
+                ],
+                True,
+            ),
+            "skipped review runs": (
+                [
+                    [
+                        check("changes", "completed", "skipped", 5),
+                        check("lint", "completed", "skipped", 5),
+                    ]
+                ],
+                True,
+            ),
+            # This run's own `changes` job is still running.
+            "own run": ([[check("changes", "in_progress", run=7)]], True),
+            "still deciding when the wait ends": ([deciding], False),
+        }
+        for name, (snapshots, full) in cases.items():
+            with self.subTest(name):
+                self.assertEqual(
+                    self.approval("pull_request_review", reviews, snapshots=snapshots),
+                    f"full_matrix={'true' if full else 'false'}",
+                )
+        self.assertEqual(self.check_reads, 3)
+
+    def test_a_run_that_tests_the_older_versions_marks_its_lint(self):
+        self.assertEqual(
+            JOBS["lint"]["name"],
+            "lint (${{ matrix.os }}, ${{ matrix.python-version }})${{"
+            " (needs.changes.outputs.full_matrix == 'true' &&"
+            " needs.changes.outputs.docs_only != 'true')"
+            f" && '{APPROVAL_STEP['env']['OLDER_MARKER']}' || '' }}}}",
+        )
+        # The marker is promised only where the first older version runs.
+        condition = " ".join(JOBS["full_matrix_linux_test_job"]["if"].split())
+        self.assertIn("needs.changes.outputs.full_matrix == 'true'", condition)
+        self.assertIn("needs.changes.outputs.docs_only != 'true'", condition)
+        self.assertEqual(
+            int(APPROVAL_STEP["env"]["WAIT_ATTEMPTS"])
+            * int(APPROVAL_STEP["env"]["WAIT_SECONDS"]),
+            600,
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_a_second_approval_does_not_repeat_the_older_versions(self):
+        reviews = [
+            ("alice", "APPROVED", "MEMBER", self.HEAD),
+            ("carol", "APPROVED", "OWNER", self.HEAD),
+        ]
+        for conclusion in ("success", "failure"):
+            with self.subTest(conclusion):
+                self.assertEqual(
+                    self.approval(
+                        "pull_request_review",
+                        reviews,
+                        checks=[("github-actions", "completed", conclusion, 3)],
+                    ),
+                    "full_matrix=false",
+                )
+        # Skipped, cancelled or foreign check runs, and this run's own, do
+        # not count.
+        not_run = [
+            ("github-actions", "completed", "skipped", 3),
+            ("github-actions", "completed", "cancelled", 3),
+            ("someone-else", "completed", "success", 3),
+            ("github-actions", "queued", None, 7),
+            ("github-actions", "completed", "success", 7),
+        ]
+        self.assertEqual(
+            self.approval("pull_request_review", reviews, checks=not_run),
+            "full_matrix=true",
+        )
+
+    @unittest.skipUnless(shutil.which("jq"), "the approval step needs jq")
+    def test_unverifiable_pull_requests_test_only_the_newest_python(self):
+        approved = [("alice", "APPROVED", "MEMBER", self.HEAD)]
+        for event in ("pull_request", "pull_request_review"):
+            with self.subTest(event):
+                self.assertEqual(
+                    self.approval(event, approved, api_fails=True),
+                    "full_matrix=false",
+                )
+        self.assertEqual(
+            self.approval("pull_request_review", approved, checks_fail=True),
+            "full_matrix=false",
+        )
+
+    def test_main_and_manual_runs_test_every_python(self):
+        for event in ("push", "workflow_dispatch"):
+            with self.subTest(event):
+                # These never ask for reviews or checks.
+                self.assertEqual(
+                    self.approval(event, api_fails=True, checks_fail=True),
+                    "full_matrix=true",
+                )
+
+    def test_the_older_version_marker_names_a_real_check(self):
+        linux = JOBS["full_matrix_linux_test_job"]
+        versions = linux["strategy"]["matrix"]["python-version"]
+        name = (
+            linux["name"]
+            .replace("${{ matrix.os }}", linux["strategy"]["matrix"]["os"][0])
+            .replace("${{ matrix.python-version }}", versions[0])
+            .replace("${{ matrix.module }}", linux["strategy"]["matrix"]["module"][0])
+        )
+        self.assertEqual(APPROVAL_STEP["env"]["OLDER_CHECK"], name)
+        self.assertEqual(JOBS["changes"]["permissions"]["checks"], "read")
+
+    def test_only_a_maintainer_approval_starts_a_review_run(self):
+        self.assertEqual(
+            WORKFLOW[True]["pull_request_review"], {"types": ["submitted"]}
+        )
+        condition = " ".join(JOBS["changes"]["if"].split())
+        self.assertIn(
+            "(github.event_name != 'pull_request_review' ||"
+            " (github.event.review.state == 'approved' &&"
+            ' contains(fromJSON(\'["OWNER", "MEMBER", "COLLABORATOR"]\'),'
+            " github.event.review.author_association)))",
+            condition,
+        )
+        # Maintainer approvals share a group and cancel nothing; any other
+        # review has a group of its own, so no review cancels a useful run.
+        self.assertEqual(
+            WORKFLOW["concurrency"]["group"],
+            "${{ github.workflow }}-${{ github.event_name }}-${{"
+            " github.event_name == 'pull_request_review' &&"
+            " (github.event.review.state == 'approved' &&"
+            ' contains(fromJSON(\'["OWNER", "MEMBER", "COLLABORATOR"]\'),'
+            " github.event.review.author_association) && 'approval'"
+            " || github.run_id) || '' }}-${{ github.ref }}",
+        )
+        self.assertEqual(
+            WORKFLOW["concurrency"]["cancel-in-progress"],
+            "${{ github.event_name != 'pull_request_review' }}",
+        )
+        self.assertEqual(
+            JOBS["changes"]["outputs"]["full_matrix"],
+            "${{ steps.approval.outputs.full_matrix }}",
+        )
+        # The approval run diffs the pull request, not an unknown range.
+        self.assertIn(
+            '|| [ "${{ github.event_name }}" = "pull_request_review" ]; then',
+            GPU_STEP["run"],
+        )
+        # It repeats nothing the commit's own run already did: every job that
+        # still requires lint is skipped along with it.
+        self.assertTrue(
+            JOBS["lint"]["if"].startswith(
+                "${{ github.event_name != 'pull_request_review' && "
+            )
+        )
+        full_matrix_jobs = {
+            "full_matrix_linux_test_job",
+            "full_matrix_platform_test_job",
+        }
+        for name, job in JOBS.items():
+            if name in ("lint", "changes"):
+                continue
+            with self.subTest(name):
+                self.assertIn("lint", job["needs"])
+                self.assertEqual("!cancelled()" in job["if"], name in full_matrix_jobs)
+
+    def test_full_matrix_jobs_add_the_older_pythons_to_the_same_jobs(self):
+        pairs = {
+            "full_matrix_linux_test_job": (
+                "build_test_job",
+                ["3.10", "3.11", "3.12", "3.13"],
+                "needs.changes.outputs.docs_only != 'true'",
+            ),
+            "full_matrix_platform_test_job": (
+                "platform_test_job",
+                ["3.10"],
+                "needs.changes.outputs.platform == 'true'",
+            ),
+        }
+        for name, (base_name, versions, scope) in pairs.items():
+            with self.subTest(name):
+                job, base = JOBS[name], JOBS[base_name]
+                matrix = job["strategy"]["matrix"]
+                self.assertEqual(matrix["python-version"], versions)
+                for key in ("name", "runs-on", "needs", "env", "defaults", "steps"):
+                    self.assertEqual(job[key], base[key], key)
+                for key in ("os", "module"):
+                    self.assertEqual(matrix[key], base["strategy"]["matrix"][key])
+                self.assertIs(job["strategy"]["fail-fast"], False)
+                self.assertEqual(
+                    " ".join(job["if"].split()),
+                    "${{ !cancelled() && needs.changes.result == 'success' &&"
+                    " (needs.lint.result == 'success' ||"
+                    " needs.lint.result == 'skipped') &&"
+                    " needs.changes.outputs.full_matrix == 'true' && " + scope + " }}",
+                )
+                # The base job's own scope is unchanged.
+                self.assertEqual(base["if"], "${{ " + scope + " }}")
 
     def test_documentation_content_uses_lightweight_ci(self):
         paths = [
