@@ -2247,8 +2247,30 @@ class VLLMModel(WeightCachedModel, LLM):
             default_block_size = 16
         # V4.1 has a different sparse-attention cache layout; let vLLM choose
         # its block size rather than inheriting the generic or V4 defaults.
-        if "DeepseekV41ForCausalLM" not in architectures:
+        # vLLM treats an explicit block size of 16 as a hard constraint, which
+        # rules out every sparse MLA backend (DeepSeek-V3.2, GLM-5) and the
+        # preferred dense MLA backends (DeepSeek-V3/R1), so leave it to vLLM.
+        is_mla = any(
+            arch in architectures
+            for arch in (
+                "DeepseekV3ForCausalLM",
+                "DeepseekV32ForCausalLM",
+                "GlmMoeDsaForCausalLM",
+            )
+        )
+        if not is_mla and "DeepseekV41ForCausalLM" not in architectures:
             model_config.setdefault("block_size", default_block_size)
+        elif is_mla and (
+            getattr(self, "_xavier_config", None) or getattr(self, "_nixl_config", None)
+        ):
+            # Replicas that exchange KV blocks (Xavier, P/D) need one common
+            # page size, but vLLM's own choice depends on the GPU: FlashAttention
+            # MLA keeps 16 on Hopper while FlashInfer MLA picks 32 on Blackwell.
+            # Every CUDA MLA backend except CUTLASS MLA accepts 64, dense or
+            # sparse; NPU keeps the previous default.
+            model_config.setdefault(
+                "block_size", default_block_size if is_npu_available() else 64
+            )
         if VLLM_VERSION < version.parse("0.18.0"):
             model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)

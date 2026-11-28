@@ -905,6 +905,77 @@ async def test_nixl_launch_skips_xavier_collectives(launch_runtime):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["xavier", "nixl"])
+@pytest.mark.parametrize("role_index", [0, 1])
+async def test_one_role_block_size_reaches_every_vllm_pd_replica(
+    launch_runtime, transport, role_index
+):
+    supervisor, workers, _, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][role_index].engine_config = {"block_size": 16}
+    await supervisor.launch_builtin_model(
+        **kwargs, vllm_transfer_backend_type=transport
+    )
+    # Each replica fills in its own engine default, so a size set on one role
+    # alone would leave the other role with a different KV page layout.
+    for worker in workers:
+        assert worker.launch_builtin_model.call_args.kwargs["block_size"] == 16
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["xavier", "nixl"])
+@pytest.mark.parametrize(
+    "launch_options,engine_configs,expected",
+    [
+        ({}, [{}, {}], None),
+        ({}, [{"block_size": 32}, {"block_size": 32}], 32),
+        ({"block_size": 32}, [{}, {}], 32),
+        ({"block_size": 32}, [{"block_size": 32}, {}], 32),
+    ],
+)
+async def test_vllm_pd_replicas_share_block_size(
+    launch_runtime, transport, launch_options, engine_configs, expected
+):
+    supervisor, workers, _, _ = launch_runtime
+    kwargs = launch_kwargs()
+    for cfg, engine_config in zip(kwargs["replica_config"], engine_configs):
+        cfg.engine_config = dict(engine_config)
+    await supervisor.launch_builtin_model(
+        **kwargs, **launch_options, vllm_transfer_backend_type=transport
+    )
+    for worker in workers:
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch.get("block_size") == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("transport", ["xavier", "nixl"])
+@pytest.mark.parametrize(
+    "launch_options,engine_configs",
+    [
+        ({}, [{"block_size": 16}, {"block_size": 32}]),
+        ({"block_size": 32}, [{"block_size": 16}, {}]),
+        ({"block_size": 32}, [{}, {"block_size": 16}]),
+    ],
+)
+async def test_conflicting_vllm_pd_block_sizes_fail_before_launch(
+    launch_runtime, transport, launch_options, engine_configs
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    for cfg, engine_config in zip(kwargs["replica_config"], engine_configs):
+        cfg.engine_config = dict(engine_config)
+    with pytest.raises(ValueError, match="must use the same block_size"):
+        await supervisor.launch_builtin_model(
+            **kwargs, **launch_options, vllm_transfer_backend_type=transport
+        )
+    assert not actors
+    assert not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_nixl_worker_recovery_refreshes_route_without_collectives():
     from ..worker import WorkerActor
 

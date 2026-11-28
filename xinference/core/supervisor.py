@@ -95,6 +95,7 @@ from .realtime.protocol import RealtimeError
 from .replica_config import (
     ReplicaConfig,
     normalize_replica_configs,
+    resolve_pd_block_size,
     validate_pd_replica_configs,
 )
 from .resource import GPUStatus, ResourceStatus
@@ -3896,6 +3897,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
             (cfg.model_engine or model_engine or "").lower()
             for cfg in replica_config or []
         ]
+        if pd_enabled and set(replica_engines) == {"vllm"}:
+            assert replica_config is not None
+            resolve_pd_block_size(replica_config, kwargs)
         heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
         heterogeneous_cache = not pd_enabled and len(set(replica_engines)) > 1
         if heterogeneous_cache and (n_worker != 1 or transport_backend != "xavier"):
