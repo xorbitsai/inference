@@ -16,6 +16,7 @@ import os
 import sys
 from abc import abstractmethod
 from importlib.metadata import PackageNotFoundError, requires, version
+from inspect import signature
 from io import BytesIO
 from traceback import walk_tb
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -58,6 +59,7 @@ _SENTENCE_TRANSFORMERS_PROCESSOR_OPTION_GROUPS = (
     "text",
     "video",
 )
+_IMAGE_NORMALIZATION_KEYS = ("do_normalize", "image_mean", "image_std")
 
 
 def _validate_processor_option_groups(
@@ -99,6 +101,113 @@ def _validate_transformers_processor_options(
     _validate_resample(options, path)
     for group in ("images_kwargs", "common_kwargs"):
         _validate_resample(options.get(group, {}), f"{path}.{group}")
+
+
+def _normalization_options(*groups: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        key: group[key]
+        for group in groups
+        for key in _IMAGE_NORMALIZATION_KEYS
+        if key in group
+    }
+
+
+def _transformers_image_options(
+    options: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
+    return _normalization_options(
+        defaults.get("common_kwargs", {}),
+        options.get("common_kwargs", {}),
+        defaults,
+        options,
+        defaults.get("images_kwargs", {}),
+        options.get("images_kwargs", {}),
+    )
+
+
+def _chat_template_image_options(
+    processor: Any, options: Dict[str, Any], processor_options: Dict[str, Any]
+) -> Dict[str, Any]:
+    explicit = _transformers_image_options(processor_options, {})
+    legacy = _transformers_image_options(options, {})
+    if not (explicit or legacy):
+        return {}
+    if processor is None:
+        return legacy or explicit
+    legacy_keys = (
+        options.keys() - signature(processor.apply_chat_template).parameters.keys()
+    )
+    if not legacy_keys:
+        return explicit
+
+    from transformers.utils.chat_template_utils import _get_template_variables
+
+    # apply_chat_template sends only non-template legacy kwargs to the processor,
+    # and replaces its explicit processor_kwargs when any are present.
+    template = options.get("chat_template")
+    configured_template = processor.chat_template
+    try:
+        if isinstance(configured_template, dict):
+            template = configured_template.get(
+                "default" if template is None else template, template
+            )
+        elif template is None:
+            template = configured_template
+        legacy_keys -= _get_template_variables(template)
+    except Exception:
+        # The existing preprocessing error handler will report invalid templates.
+        return {}
+    if legacy_keys:
+        return _transformers_image_options(
+            {key: options[key] for key in legacy_keys}, {}
+        )
+    return explicit
+
+
+def _validate_normalization_values(options: Dict[str, Any], enabled: bool) -> None:
+    if not options.get("do_normalize", enabled):
+        return
+    for key in ("image_mean", "image_std"):
+        if key not in options:
+            continue
+        value = options[key]
+        values = value if isinstance(value, (list, tuple)) else (value,)
+        try:
+            # All prepared images are RGB. Pixtral normalizes in float32.
+            if len(values) not in (1, 3) or any(
+                isinstance(item, bool) or not isinstance(item, (int, float))
+                for item in values
+            ):
+                raise ValueError
+            tensor = torch.tensor(values, dtype=torch.float32, device="cpu")
+            if not torch.isfinite(tensor).all() or (
+                key == "image_std" and (tensor <= 0).any()
+            ):
+                raise ValueError
+        except (OverflowError, RuntimeError, ValueError) as exc:
+            constraint = (
+                "finite positive numbers" if key == "image_std" else "finite numbers"
+            )
+            raise InvalidModelRequestError(
+                f"Nemotron 3.5 Embed {key} must contain one or three {constraint} for RGB images."
+            ) from exc
+
+
+def _validate_template_image_tokens(features: Any, config: Any) -> None:
+    image_sizes = features.get("image_sizes")
+    if features.get("pixel_values") is None or image_sizes is None:
+        raise InvalidModelRequestError(
+            "Nemotron 3.5 Embed chat_template must preserve the input image."
+        )
+    # Mistral3 projects one image feature per spatially merged vision patch.
+    stride = config.vision_config.patch_size * config.spatial_merge_size
+    expected = (torch.as_tensor(image_sizes) // stride).prod(dim=-1).sum().item()
+    actual = (features["input_ids"] == config.image_token_id).sum().item()
+    if expected <= 0 or actual != expected:
+        raise InvalidModelRequestError(
+            f"Nemotron 3.5 Embed chat_template produced {actual} image tokens "
+            f"for {expected} image features."
+        )
 
 
 def _request_processing_error(
@@ -417,6 +526,54 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
             )
         return dimensions
 
+    def _validate_image_normalization(
+        self, samples: List[Dict[str, Any]], options: Optional[Dict[str, Any]]
+    ) -> None:
+        if not options or not any("image" in sample for sample in samples):
+            return
+        processor = getattr(self, "_processor", None)
+        if self.engine == "sentence_transformers":
+            module = self._model[0]
+            processor = module.processor
+            defaults = module.processing_kwargs or {}
+            common = _normalization_options(
+                defaults.get("common", {}), options.get("common", {})
+            )
+            image = _normalization_options(
+                defaults.get("image", {}), options.get("image", {})
+            )
+            template_options = options.get("chat_template", {})
+            # Sentence Transformers consumes these options before forwarding the template kwargs.
+            template_options = {
+                key: value
+                for key, value in template_options.items()
+                if key
+                not in {
+                    "padding",
+                    "truncation",
+                    "max_length",
+                    "return_tensors",
+                    "restore_suffix",
+                }
+            }
+            image_options = _chat_template_image_options(
+                processor,
+                template_options,
+                {"common_kwargs": common, "images_kwargs": image},
+            )
+        elif self.engine == "vllm":
+            image_options = _transformers_image_options(
+                options, self._kwargs.get("mm_processor_kwargs") or {}
+            )
+        else:
+            image_options = _chat_template_image_options(
+                processor, options, options.get("processor_kwargs") or {}
+            )
+        enabled = getattr(
+            getattr(processor, "image_processor", None), "do_normalize", True
+        )
+        _validate_normalization_values(image_options, enabled)
+
     def _prepare_batch_inputs(self, sentences: List[Any], **kwargs: Any) -> List[Any]:
         # Validate before grouping: Python treats True and 1 as equal batch keys.
         self._validate_request_options(kwargs)
@@ -426,6 +583,7 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
         ):
             return sentences
         samples, _ = normalize_inputs(sentences, **kwargs)
+        self._validate_image_normalization(samples, kwargs.get("processing_kwargs"))
         _prepare_images(samples)
         return samples
 
@@ -433,6 +591,7 @@ class _NemotronEmbeddingMixin(EmbeddingModel):
         sentences = self._fix_langchain_openai_inputs(sentences)
         samples, prefix = normalize_inputs(sentences, **kwargs)
         dimensions = self._validate_request_options(kwargs)
+        self._validate_image_normalization(samples, kwargs.get("processing_kwargs"))
         _prepare_images(samples)
         vectors, counts = (
             self._encode_samples(samples, prefix, **kwargs) if samples else ([], [])
@@ -511,6 +670,8 @@ class TransformersNemotronEmbeddingModel(_NemotronEmbeddingMixin, BatchMixin):
                         raise error from exc
                 raise
             self._validate_context_length(features["input_ids"].shape[-1])
+            if processing_kwargs.get("chat_template") is not None and "image" in sample:
+                _validate_template_image_tokens(features, self._model.config)
             if features.get("attention_mask") is None:
                 raise InvalidModelRequestError(
                     "Nemotron 3.5 Embed requires return_attention_mask=True."
@@ -555,7 +716,8 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
     def _encode_samples(
         self, samples: List[Dict[str, Any]], prefix: str, **kwargs: Any
     ):
-        vectors, counts = [], []
+        vectors: List[torch.Tensor] = []
+        counts: List[int] = []
         processing_kwargs = kwargs.get("processing_kwargs")
         template_options = (processing_kwargs or {}).get("chat_template", {})
         forward_started = False
@@ -570,6 +732,8 @@ class SentenceTransformerNemotronEmbeddingModel(TransformersNemotronEmbeddingMod
                     "Use return_attention_mask=True and return_tensors='pt'."
                 )
             self._validate_context_length(mask.shape[-1])
+            if template_options.get("chat_template") is not None and "image" in sample:
+                _validate_template_image_tokens(args[0], self._model[0].model.config)
             counts.append(int(mask.sum().item()))
 
         hook = self._model.register_forward_pre_hook(count_tokens)

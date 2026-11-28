@@ -23,6 +23,7 @@ from base64 import b64encode
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
+from math import isfinite
 from threading import Thread
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -1000,7 +1001,9 @@ async def check_rest_processor_options(
     successful = [plain] if error else [special, plain]
     for response in successful:
         result = response.json()
-        assert len(result["data"][0]["embedding"]) == 32
+        embedding = result["data"][0]["embedding"]
+        assert len(embedding) == 32
+        assert all(isfinite(value) for value in embedding)
         assert result["usage"]["total_tokens"] > 0
 
 
@@ -1050,6 +1053,121 @@ def tiny_image_text_input():
         "text": "caption",
         "image": "data:image/png;base64," + b64encode(png.getvalue()).decode("ascii"),
     }
+
+
+@pytest.mark.parametrize(
+    "model_cls,options,error",
+    [
+        (CLASSES[0], {"image_mean": [0.5, 0.5]}, "image_mean"),
+        (
+            CLASSES[0],
+            {"processor_kwargs": {"images_kwargs": {"image_std": 0}}},
+            "image_std",
+        ),
+        (
+            CLASSES[0],
+            {"processor_kwargs": {"images_kwargs": {"image_std": 0}}, "padding": True},
+            None,
+        ),
+        (
+            CLASSES[0],
+            {
+                "common_kwargs": {"do_normalize": False},
+                "images_kwargs": {"image_std": 0},
+            },
+            None,
+        ),
+        (
+            CLASSES[0],
+            {
+                "common_kwargs": {"do_normalize": False, "image_mean": [0.5, 0.5]},
+                "images_kwargs": {"do_normalize": True},
+            },
+            "image_mean",
+        ),
+        (CLASSES[0], {"image_mean": float("nan")}, "image_mean"),
+        (CLASSES[1], {"common": {"image_std": float("inf")}}, "image_std"),
+        (
+            CLASSES[1],
+            {"chat_template": {"images_kwargs": {"image_std": 0}}},
+            "image_std",
+        ),
+        (
+            CLASSES[1],
+            {"chat_template": {"restore_suffix": False}, "image": {"image_std": 0}},
+            "image_std",
+        ),
+        (CLASSES[2], {"image_std": 0}, "image_std"),
+        (CLASSES[2], {"common_kwargs": {"image_std": -1}}, "image_std"),
+    ],
+)
+def test_image_normalization_routing_before_batching(
+    tiny_nemotron_checkpoint, model_cls, options, error
+):
+    from transformers import AutoProcessor
+
+    model = make_model(model_cls)
+    processor = AutoProcessor.from_pretrained(tiny_nemotron_checkpoint)
+    model._processor = processor
+    if model_cls is CLASSES[1]:
+        model._model = [SimpleNamespace(processor=processor, processing_kwargs={})]
+    inputs = [{"image": Image.new("RGB", (56, 56)), "text": "caption"}]
+    if error:
+        with pytest.raises(InvalidModelRequestError, match=error):
+            model._prepare_batch_inputs(inputs, processing_kwargs=options)
+    else:
+        assert model._prepare_batch_inputs(inputs, processing_kwargs=options) == inputs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reverse", [False, True], ids=["image-first", "text-first"])
+@pytest.mark.parametrize(
+    "model_cls", CLASSES, ids=["transformers", "sentence-transformers", "vllm"]
+)
+@pytest.mark.parametrize(
+    "options,error",
+    [
+        ({"image_mean": [0.5, 0.5]}, "image_mean"),
+        ({"image_std": [0.5, 0.5]}, "image_std"),
+        ({"image_std": [0.5, 0.0, 0.5]}, "image_std"),
+        ({"image_mean": [0.5, 0.5, 0.5]}, None),
+        ({"image_mean": 0.5, "image_std": 0.5}, None),
+        ({"image_mean": [0.5], "image_std": [0.5]}, None),
+        ({"do_normalize": False, "image_std": [0.5, 0.0]}, None),
+    ],
+    ids=[
+        "mean-length",
+        "std-length",
+        "zero-std",
+        "rgb",
+        "scalar",
+        "singleton",
+        "disabled",
+    ],
+)
+async def test_rest_image_normalization_is_request_local(
+    tiny_nemotron_checkpoint,
+    tiny_image_text_input,
+    monkeypatch,
+    model_cls,
+    options,
+    error,
+    reverse,
+):
+    if model_cls is CLASSES[1]:
+        pytest.importorskip("sentence_transformers", minversion="6.1.0")
+    elif model_cls is CLASSES[2]:
+        mock_vllm_pooling_with_pixtral(monkeypatch)
+    group = "image" if model_cls is CLASSES[1] else "images_kwargs"
+    await check_rest_processor_options(
+        tiny_nemotron_checkpoint,
+        monkeypatch,
+        model_cls,
+        {group: options},
+        error,
+        reverse,
+        special_input=tiny_image_text_input,
+    )
 
 
 @pytest.mark.asyncio
@@ -1181,14 +1299,25 @@ def test_vllm_processor_errors_preserve_server_failures(
     "model_cls", CLASSES[:2], ids=["transformers", "sentence-transformers"]
 )
 @pytest.mark.parametrize(
-    "template,error",
+    "template,error,image_input",
     [
-        ("{{", "chat_template"),
-        ("{{ raise_exception('template render failed') }}", "template render failed"),
-        ("{{ 1 / 0 }}", "division by zero"),
-        (None, None),
+        ("{{", "chat_template", False),
+        (
+            "{{ raise_exception('template render failed') }}",
+            "template render failed",
+            False,
+        ),
+        ("{{ 1 / 0 }}", "division by zero", False),
+        ("plain text", "image tokens", True),
+        (None, None, True),
     ],
-    ids=["syntax-error", "render-error", "python-error", "valid-template"],
+    ids=[
+        "syntax-error",
+        "render-error",
+        "python-error",
+        "missing-image-tokens",
+        "valid-template",
+    ],
 )
 async def test_rest_custom_chat_template_errors_are_request_local(
     tiny_nemotron_checkpoint,
@@ -1197,6 +1326,7 @@ async def test_rest_custom_chat_template_errors_are_request_local(
     model_cls,
     template,
     error,
+    image_input,
     reverse,
 ):
     if template is None:
@@ -1206,6 +1336,7 @@ async def test_rest_custom_chat_template_errors_are_request_local(
     if model_cls is CLASSES[1]:
         pytest.importorskip("sentence_transformers", minversion="6.1.0")
         processing_kwargs = {"chat_template": processing_kwargs}
+    if image_input or model_cls is CLASSES[1]:
         special_input = tiny_image_text_input
     await check_rest_processor_options(
         tiny_nemotron_checkpoint,
